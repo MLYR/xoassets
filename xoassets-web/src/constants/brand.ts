@@ -3,4 +3,4 @@ export const BRAND_NAME = '小〇财迹';
 
 export const BRAND_SHORT_NAME = 'XOAssets';
 
-export const BRAND_SYMBOL = '小';
+export const BRAND_SYMBOL = '〇';

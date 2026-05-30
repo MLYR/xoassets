@@ -1,6 +1,6 @@
 # 小〇财迹
 
-小〇财迹是面向个人用户的资产管理与财务复盘工具。当前仓库包含 Vue3 前端原型和 Spring Boot 后端 MVP。
+小〇财迹是面向个人用户的资产管理与财务复盘工具。当前仓库包含 Vue3 前端和 Spring Boot 后端 MVP。
 
 ## 项目结构
 
@@ -14,9 +14,17 @@
 
 ## 当前进度
 
-- 前端：已重建为 Vue3、Element Plus、ECharts、Pinia、Vue Router 项目，页面暂用 mock 数据。
+- 前端：已重建为 Vue3、Element Plus、ECharts、Pinia、Vue Router 项目；登录、注册、账户管理已接入后端接口，其余页面暂用 mock 数据。
 - 后端：已创建 Spring Boot MVP，覆盖登录注册、账户、分类、流水、首页统计和基础图表统计。
 - 暂不做：自动同步银行卡 / 支付宝 / 微信、投资行情自动同步、AI 报告真实调用、自动交易或投资建议。
+
+## 前后端联调状态
+
+- 认证：`POST /api/auth/register`、`POST /api/auth/login`、`GET /api/auth/me` 已在前端封装为 `authApi`。
+- 登录态：前端使用 Axios 请求封装，JWT 存入 `localStorage`，请求自动携带 `Authorization: Bearer <token>`。
+- 路由守卫：没有 token 访问业务页会跳转 `/login`，401 响应会清理 token 并回到登录页。
+- 账户管理：`GET /api/accounts`、`POST /api/accounts`、`PUT /api/accounts/{id}`、`DELETE /api/accounts/{id}` 已接入账户页。
+- 本地开发：前端 Vite 将 `/api` 代理到 `http://localhost:8080`。
 
 ## 前端命令
 

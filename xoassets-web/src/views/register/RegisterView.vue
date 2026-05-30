@@ -1,8 +1,8 @@
-<!-- 登录页：保留原型左侧品牌展示和右侧表单结构。 -->
+<!-- 注册页：沿用登录页左右分屏视觉，表单接入真实注册接口。 -->
 <template>
-  <div class="login-page">
-    <section class="login-brand">
-      <div class="login-logo">
+  <div class="register-page">
+    <section class="register-brand">
+      <div class="register-logo">
         <span>{{ BRAND_SYMBOL }}</span>
         <div>
           <strong>{{ BRAND_NAME }}</strong>
@@ -10,19 +10,19 @@
         </div>
       </div>
 
-      <div class="login-copy">
-        <h1>看清每一笔花费，<br />掌握你的财富全貌</h1>
-        <p>记录资产变化、复盘消费趋势，用清晰的数据管理每一次财务决策。</p>
+      <div class="register-copy">
+        <h1>从第一笔记录开始，<br />建立你的资产秩序</h1>
+        <p>创建账号后即可管理账户、分类和收支流水，逐步沉淀自己的财务数据。</p>
         <div class="preview-cards">
           <div class="preview-card">
-            <span>总资产</span>
-            <AmountText :value="254180" />
-            <small>较昨日 +¥128.50</small>
+            <span>账户资产</span>
+            <AmountText :value="128600" />
+            <small>多账户统一管理</small>
           </div>
           <div class="preview-card">
-            <span>本月结余</span>
-            <AmountText :value="8320" />
-            <small>较上月 +12.5%</small>
+            <span>本月支出</span>
+            <AmountText :value="5630" />
+            <small>分类趋势清晰可见</small>
           </div>
         </div>
       </div>
@@ -30,20 +30,23 @@
       <p class="copyright">© 2026 {{ BRAND_NAME }}. All rights reserved.</p>
     </section>
 
-    <section class="login-form-panel">
+    <section class="register-form-panel">
       <div class="mobile-logo">
         <span>{{ BRAND_SYMBOL }}</span>
         <strong>{{ BRAND_NAME }}</strong>
       </div>
       <div class="form-card">
-        <h2>欢迎回来</h2>
-        <p>登录您的账户，继续管理资产和流水</p>
-        <el-form label-position="top" @submit.prevent="handleLogin">
+        <h2>创建账号</h2>
+        <p>注册 XOAssets 小〇财迹，开始记录你的资产变化</p>
+        <el-form label-position="top" @submit.prevent="handleRegister">
           <el-form-item label="账号">
-            <el-input v-model="form.username" placeholder="请输入账号" />
+            <el-input v-model.trim="form.username" placeholder="请输入账号" />
+          </el-form-item>
+          <el-form-item label="昵称">
+            <el-input v-model.trim="form.nickname" placeholder="请输入昵称（可选）" />
           </el-form-item>
           <el-form-item label="密码">
-            <el-input v-model="form.password" placeholder="请输入密码" :type="showPassword ? 'text' : 'password'">
+            <el-input v-model="form.password" placeholder="至少 6 位密码" :type="showPassword ? 'text' : 'password'">
               <template #suffix>
                 <el-icon class="password-icon" @click="showPassword = !showPassword">
                   <component :is="showPassword ? Hide : View" />
@@ -51,15 +54,20 @@
               </template>
             </el-input>
           </el-form-item>
-          <div class="form-row">
-            <el-checkbox v-model="remember">记住密码</el-checkbox>
-            <el-button link type="primary">忘记密码？</el-button>
-          </div>
-          <el-button class="login-button" type="primary" native-type="submit" :loading="loading">登录</el-button>
+          <el-form-item label="确认密码">
+            <el-input v-model="form.confirmPassword" placeholder="请再次输入密码" :type="showConfirmPassword ? 'text' : 'password'">
+              <template #suffix>
+                <el-icon class="password-icon" @click="showConfirmPassword = !showConfirmPassword">
+                  <component :is="showConfirmPassword ? Hide : View" />
+                </el-icon>
+              </template>
+            </el-input>
+          </el-form-item>
+          <el-button class="register-button" type="primary" native-type="submit" :loading="loading">注册</el-button>
         </el-form>
         <div class="switch-entry">
-          <span>还没有账号？</span>
-          <el-button link type="primary" @click="router.push(ROUTES.register)">立即注册</el-button>
+          <span>已有账号？</span>
+          <el-button link type="primary" @click="router.push(ROUTES.login)">返回登录</el-button>
         </div>
       </div>
     </section>
@@ -67,48 +75,63 @@
 </template>
 
 <script setup lang="ts">
-// 登录页调用真实后端接口，成功后保存 token 并进入业务页面。
+// 注册页只负责创建账号，注册成功后回到登录页，由用户再完成登录闭环。
 import { reactive, ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRouter } from 'vue-router';
 import { Hide, View } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { BRAND_NAME, BRAND_SHORT_NAME, BRAND_SYMBOL } from '@/constants/brand';
 import { ROUTES } from '@/constants/routes';
 import AmountText from '@/components/finance/AmountText.vue';
 import { authApi } from '@/services/authApi';
-import { setToken } from '@/services/token';
 
-// 路由实例用于登录后跳转。
+// 路由实例用于注册成功后跳转登录页。
 const router = useRouter();
-const route = useRoute();
-// 记住密码和密码可见性为本地表单状态。
-const remember = ref(false);
+// 密码可见性和提交状态为本地 UI 状态。
 const showPassword = ref(false);
+const showConfirmPassword = ref(false);
 const loading = ref(false);
-// 登录表单模型，后续接入后端时直接作为登录请求体基础。
+// 注册表单模型，其中 confirmPassword 只做前端校验，不提交给后端。
 const form = reactive({
   username: '',
-  password: ''
+  nickname: '',
+  password: '',
+  confirmPassword: ''
 });
 
-// 登录成功后保存 JWT；redirect 存在时回到原目标页，否则进入首页。
-async function handleLogin() {
-  if (!form.username || !form.password) {
-    ElMessage.warning('请输入账号和密码');
+// 注册前做基础校验，避免明显无效请求进入后端。
+function validateForm() {
+  if (!form.username) {
+    ElMessage.warning('请输入账号');
+    return false;
+  }
+  if (form.password.length < 6) {
+    ElMessage.warning('密码至少 6 位');
+    return false;
+  }
+  if (form.password !== form.confirmPassword) {
+    ElMessage.warning('两次输入的密码不一致');
+    return false;
+  }
+  return true;
+}
+
+// 调用真实注册接口，成功后回登录页继续登录。
+async function handleRegister() {
+  if (!validateForm()) {
     return;
   }
   loading.value = true;
   try {
-    const result = await authApi.login({
+    await authApi.register({
       username: form.username,
+      nickname: form.nickname || undefined,
       password: form.password
     });
-    setToken(result.token);
-    ElMessage.success('登录成功');
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : ROUTES.dashboard;
-    router.push(redirect);
+    ElMessage.success('注册成功，请登录');
+    router.push(ROUTES.login);
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '登录失败');
+    ElMessage.error(error instanceof Error ? error.message : '注册失败');
   } finally {
     loading.value = false;
   }
@@ -116,14 +139,14 @@ async function handleLogin() {
 </script>
 
 <style scoped>
-/* 登录页采用左右分屏，移动端隐藏品牌展示区。 */
-.login-page {
+/* 注册页采用与登录页一致的左右分屏和品牌信息布局。 */
+.register-page {
   display: flex;
   min-height: 100vh;
   background: var(--xo-card);
 }
 
-.login-brand {
+.register-brand {
   position: relative;
   display: flex;
   flex: 1;
@@ -134,7 +157,7 @@ async function handleLogin() {
   background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
 }
 
-.login-brand::after {
+.register-brand::after {
   position: absolute;
   inset: auto 0 0;
   height: 48%;
@@ -142,14 +165,14 @@ async function handleLogin() {
   content: "";
 }
 
-.login-logo,
+.register-logo,
 .mobile-logo {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.login-logo span,
+.register-logo span,
 .mobile-logo span {
   display: grid;
   width: 40px;
@@ -161,38 +184,38 @@ async function handleLogin() {
   font-weight: 700;
 }
 
-.login-logo strong,
+.register-logo strong,
 .mobile-logo strong {
   display: block;
   color: var(--xo-text);
   font-size: 20px;
 }
 
-.login-logo small {
+.register-logo small {
   display: block;
   margin-top: 4px;
   color: var(--xo-muted);
 }
 
-.login-copy,
+.register-copy,
 .copyright,
-.login-logo {
+.register-logo {
   position: relative;
   z-index: 1;
 }
 
-.login-copy {
+.register-copy {
   max-width: 560px;
 }
 
-.login-copy h1 {
+.register-copy h1 {
   margin: 0 0 16px;
   color: var(--xo-text);
   font-size: 40px;
   line-height: 1.25;
 }
 
-.login-copy p {
+.register-copy p {
   margin: 0;
   color: var(--xo-muted);
   font-size: 18px;
@@ -232,7 +255,7 @@ async function handleLogin() {
   font-size: 12px;
 }
 
-.login-form-panel {
+.register-form-panel {
   display: flex;
   width: 480px;
   align-items: center;
@@ -257,19 +280,12 @@ async function handleLogin() {
   color: var(--xo-muted);
 }
 
-.form-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 20px;
-}
-
-.login-button {
+.register-button {
   width: 100%;
   height: 44px;
 }
 
-/* 登录页底部入口只负责切换到注册页，不影响原登录表单布局。 */
+/* 注册页底部入口只负责回到登录页，避免和提交按钮混淆。 */
 .switch-entry {
   display: flex;
   align-items: center;
@@ -291,11 +307,11 @@ async function handleLogin() {
 }
 
 @media (max-width: 960px) {
-  .login-brand {
+  .register-brand {
     display: none;
   }
 
-  .login-form-panel {
+  .register-form-panel {
     width: 100%;
   }
 

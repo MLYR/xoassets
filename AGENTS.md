@@ -32,6 +32,9 @@
 - Pinia
 - Axios
 - Vue Router
+- 前端真实接口统一放在 `xoassets-web/src/services/*Api.ts`，公共请求逻辑放在 `xoassets-web/src/services/http.ts`。
+- 登录 token 统一由 `xoassets-web/src/services/token.ts` 管理，请求通过 `Authorization: Bearer <token>` 传递。
+- 未联调页面可以继续使用 `financeService` 和 `src/mock`，但已接后端页面不要回退到 mock。
 
 ## 4. 模块边界
 
