@@ -1,0 +1,4 @@
+/* 样式入口：先加载变量，再加载全局规则和页面辅助类。 */
+@import './variables.css';
+@import './global.css';
+@import './layout.css';

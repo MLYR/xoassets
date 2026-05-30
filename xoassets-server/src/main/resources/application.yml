@@ -1,0 +1,37 @@
+# 应用配置：数据库账号和 JWT 密钥可通过环境变量覆盖，避免把敏感信息写进源码。
+server:
+  port: 8080
+
+spring:
+  application:
+    name: xoassets-server
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: localhost:jdbc:mysql://localhost:3306/xoassets?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: assign_id
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+
+xoassets:
+  jwt:
+    # 本地开发默认密钥只用于启动，生产环境必须用环境变量覆盖。
+    secret: ${XOASSETS_JWT_SECRET:xoassets-local-development-secret-key-must-be-replaced}
+    expire-minutes: ${XOASSETS_JWT_EXPIRE_MINUTES:10080}

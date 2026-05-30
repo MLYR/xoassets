@@ -1,0 +1,46 @@
+/* 全局基础样式：统一盒模型、字体和页面背景。 */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--xo-bg);
+  color: var(--xo-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  letter-spacing: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Element Plus 主题覆盖：让组件与原型卡片和按钮半径保持一致。 */
+.el-button,
+.el-input__wrapper,
+.el-select__wrapper,
+.el-card,
+.el-dialog {
+  border-radius: var(--xo-radius);
+}
+
+.el-button--primary {
+  --el-button-bg-color: var(--xo-primary);
+  --el-button-border-color: var(--xo-primary);
+  --el-button-hover-bg-color: var(--xo-primary-dark);
+  --el-button-hover-border-color: var(--xo-primary-dark);
+}
+
+.el-table {
+  --el-table-header-bg-color: #f8fafc;
+  --el-table-row-hover-bg-color: #f8fafc;
+}

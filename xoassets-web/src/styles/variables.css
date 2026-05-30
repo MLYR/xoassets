@@ -1,0 +1,17 @@
+/* 主题变量：贴近原型的蓝色主色、深色侧边栏和浅灰工作区。 */
+:root {
+  --xo-bg: #f5f7fa;
+  --xo-card: #ffffff;
+  --xo-text: #1e293b;
+  --xo-muted: #64748b;
+  --xo-border: #e2e8f0;
+  --xo-primary: #3b82f6;
+  --xo-primary-dark: #2563eb;
+  --xo-success: #10b981;
+  --xo-warning: #f59e0b;
+  --xo-danger: #ef4444;
+  --xo-sidebar: #1e293b;
+  --xo-sidebar-soft: #334155;
+  --xo-radius: 8px;
+  --xo-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}

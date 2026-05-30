@@ -1,0 +1,77 @@
+/* 页面通用布局类：降低各 view 的重复结构代码。 */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 24px;
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--xo-text);
+}
+
+.page-subtitle {
+  margin: 6px 0 0;
+  color: var(--xo-muted);
+  font-size: 14px;
+}
+
+.panel {
+  background: var(--xo-card);
+  border: 1px solid var(--xo-border);
+  border-radius: var(--xo-radius);
+  box-shadow: var(--xo-shadow);
+}
+
+.panel-padding {
+  padding: 24px;
+}
+
+.grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+@media (max-width: 1180px) {
+  .grid-4,
+  .grid-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .page {
+    padding: 16px;
+  }
+
+  .page-header,
+  .grid-4,
+  .grid-3,
+  .grid-2 {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+}

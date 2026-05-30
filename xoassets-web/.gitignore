@@ -1,0 +1,11 @@
+# 依赖目录由 npm install 生成，不纳入源码管理。
+node_modules/
+
+# Vite 构建产物只用于本地验证和部署输出。
+dist/
+
+# TypeScript 增量构建缓存不属于源码。
+*.tsbuildinfo
+
+# macOS 本地文件不进入项目。
+.DS_Store

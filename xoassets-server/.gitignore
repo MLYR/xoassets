@@ -1,0 +1,9 @@
+# Maven 构建产物不提交。
+target/
+
+# IDE 和系统本地文件不提交。
+.idea/
+.DS_Store
+
+# 本地环境变量文件不提交。
+.env
