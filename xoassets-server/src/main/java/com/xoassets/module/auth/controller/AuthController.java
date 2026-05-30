@@ -1,13 +1,16 @@
 package com.xoassets.module.auth.controller;
 
 import com.xoassets.common.api.Result;
+import com.xoassets.module.auth.dto.ChangePasswordRequest;
 import com.xoassets.module.auth.dto.LoginRequest;
 import com.xoassets.module.auth.dto.RegisterRequest;
+import com.xoassets.module.auth.dto.UpdateProfileRequest;
 import com.xoassets.module.auth.service.AuthService;
 import com.xoassets.module.auth.vo.LoginVO;
 import com.xoassets.module.auth.vo.UserVO;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -48,5 +51,22 @@ public class AuthController {
     @GetMapping("/me")
     public Result<UserVO> me() {
         return Result.success(authService.me());
+    }
+
+    /**
+     * 修改当前登录用户昵称。
+     */
+    @PutMapping("/profile")
+    public Result<UserVO> updateProfile(@Valid @RequestBody UpdateProfileRequest request) {
+        return Result.success(authService.updateProfile(request));
+    }
+
+    /**
+     * 修改当前登录用户密码。
+     */
+    @PutMapping("/password")
+    public Result<Void> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+        authService.changePassword(request);
+        return Result.success(null);
     }
 }

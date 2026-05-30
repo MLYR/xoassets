@@ -15,24 +15,27 @@
       <MetricCard title="信用负债" :value="creditDebt" :trend="-3.2" description="较上月" tone="danger" />
     </section>
 
-    <section v-loading="loading" class="panel panel-padding account-grid">
-      <article v-for="account in accounts" :key="account.id" class="account-card">
-        <div class="account-top">
-          <div>
-            <h3>{{ account.name }}</h3>
-            <p>{{ account.type }}</p>
+    <section v-loading="loading" class="panel panel-padding">
+      <el-empty v-if="!loading && accounts.length === 0" description="还没有账户，创建第一个账户后即可开始记账" />
+      <div v-else class="account-grid">
+        <article v-for="account in accounts" :key="account.id" class="account-card">
+          <div class="account-top">
+            <div>
+              <h3>{{ account.name }}</h3>
+              <p>{{ account.type }}</p>
+            </div>
+            <StatusBadge :label="formatStatus(account.status)" />
           </div>
-          <StatusBadge :label="formatStatus(account.status)" />
-        </div>
-        <AmountText class="account-amount" :value="account.balance" />
-        <div class="account-foot">
-          <span>{{ account.currency }} · {{ account.remark || '暂无备注' }}</span>
-          <div class="account-actions">
-            <el-button link type="primary" @click="openEditDialog(account)">编辑</el-button>
-            <el-button link type="danger" @click="handleDelete(account)">删除</el-button>
+          <AmountText class="account-amount" :value="account.balance" />
+          <div class="account-foot">
+            <span>{{ account.currency }} · {{ account.remark || '暂无备注' }}</span>
+            <div class="account-actions">
+              <el-button link type="primary" @click="openEditDialog(account)">编辑</el-button>
+              <el-button link type="danger" @click="handleDelete(account)">删除</el-button>
+            </div>
           </div>
-        </div>
-      </article>
+        </article>
+      </div>
     </section>
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="420px">

@@ -1,49 +1,77 @@
-<!-- 新增流水弹窗：使用 Element Plus 表单，提交后将数据回传给父页面。 -->
+<!-- 流水弹窗：账户和分类全部来自后端，支持收入、支出和转账。 -->
 <template>
-  <el-dialog v-model="visible" title="新增流水" width="460px">
+  <el-dialog v-model="visible" :title="dialogTitle" width="500px" @open="resetForm">
     <el-form :model="form" label-position="top" @submit.prevent>
+      <el-form-item label="类型">
+        <el-segmented v-model="form.type" :options="typeOptions" />
+      </el-form-item>
       <el-form-item label="金额">
         <el-input-number v-model="form.amount" :min="0" :precision="2" :step="10" class="full-input" />
       </el-form-item>
-      <el-form-item label="类型">
-        <el-segmented v-model="form.type" :options="['支出', '收入']" />
-      </el-form-item>
-      <el-form-item label="分类">
-        <el-select v-model="form.category" placeholder="请选择分类" class="full-input">
-          <el-option v-for="item in categories" :key="item" :label="item" :value="item" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="账户">
-        <el-select v-model="form.account" placeholder="请选择账户" class="full-input">
-          <el-option v-for="item in accounts" :key="item" :label="item" :value="item" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="日期">
-        <el-date-picker v-model="form.date" type="date" class="full-input" />
+
+      <template v-if="form.type === 'TRANSFER'">
+        <el-form-item label="转出账户">
+          <el-select v-model="form.accountId" placeholder="请选择转出账户" class="full-input" :loading="loading">
+            <el-option v-for="item in accounts" :key="item.id" :label="item.name" :value="item.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="转入账户">
+          <el-select v-model="form.targetAccountId" placeholder="请选择转入账户" class="full-input" :loading="loading">
+            <el-option v-for="item in targetAccountOptions" :key="item.id" :label="item.name" :value="item.id" />
+          </el-select>
+        </el-form-item>
+      </template>
+
+      <template v-else>
+        <el-form-item label="账户">
+          <el-select v-model="form.accountId" placeholder="请选择账户" class="full-input" :loading="loading">
+            <el-option v-for="item in accounts" :key="item.id" :label="item.name" :value="item.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="分类">
+          <el-select v-model="form.categoryId" placeholder="请选择分类" class="full-input" :loading="loading">
+            <el-option v-for="item in availableCategories" :key="item.id" :label="item.name" :value="item.id" />
+          </el-select>
+          <el-alert v-if="!loading && availableCategories.length === 0" class="form-tip" type="info" :closable="false" show-icon>
+            <template #title>暂无可用分类，新用户注册后会自动初始化默认分类</template>
+          </el-alert>
+        </el-form-item>
+      </template>
+
+      <el-form-item label="日期时间">
+        <el-date-picker v-model="form.transactionTime" type="datetime" class="full-input" />
       </el-form-item>
       <el-form-item label="备注">
-        <el-input v-model="form.note" type="textarea" :rows="3" placeholder="记录这笔流水的说明" />
+        <el-input v-model.trim="form.note" type="textarea" :rows="3" placeholder="记录这笔流水的说明" />
       </el-form-item>
     </el-form>
     <template #footer>
       <el-button @click="visible = false">取消</el-button>
-      <el-button type="primary" @click="submitForm">保存</el-button>
+      <el-button type="primary" :loading="submitting" @click="submitForm">保存</el-button>
     </template>
   </el-dialog>
 </template>
 
 <script setup lang="ts">
-// 弹窗内部只管理临时表单状态，真正列表数据由父组件决定。
-import { computed, reactive } from 'vue';
-import type { TransactionType } from '@/types/finance';
+// 弹窗只负责表单交互和基础校验，真实保存由父页面调用接口。
+import { computed, reactive, watch } from 'vue';
+import { ElMessage } from 'element-plus';
+import type { AccountItem } from '@/services/accountApi';
+import type { CategoryItem } from '@/services/categoryApi';
+import type { TransactionApiType, TransactionItem, TransactionRequest } from '@/services/transactionApi';
 
 const props = defineProps<{
   modelValue: boolean;
+  accounts: AccountItem[];
+  categories: CategoryItem[];
+  transaction: TransactionItem | null;
+  loading: boolean;
+  submitting: boolean;
 }>();
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean];
-  submit: [payload: { amount: number; type: TransactionType; category: string; account: string; date: Date; note: string }];
+  submit: [payload: TransactionRequest];
 }>();
 
 // 将父组件的 v-model 映射为弹窗内部可读写状态。
@@ -52,23 +80,104 @@ const visible = computed({
   set: (value: boolean) => emit('update:modelValue', value)
 });
 
-// 第一版先内置常用分类和账户，后续接入接口替换。
-const categories = ['餐饮', '购物', '交通', '娱乐', '工资', '理财收益'];
-const accounts = ['招商银行信用卡', '工商银行储蓄卡', '支付宝', '微信'];
-// 弹窗临时表单数据。
+// 后端流水类型和中文标签保持一处映射。
+const typeOptions = [
+  { label: '支出', value: 'EXPENSE' },
+  { label: '收入', value: 'INCOME' },
+  { label: '转账', value: 'TRANSFER' },
+  { label: '退款', value: 'REFUND' }
+];
+
+// 表单模型直接对应后端 TransactionRequest 字段。
 const form = reactive({
   amount: 0,
-  type: '支出' as TransactionType,
-  category: '',
-  account: '',
-  date: new Date(),
+  type: 'EXPENSE' as TransactionApiType,
+  accountId: undefined as number | undefined,
+  targetAccountId: undefined as number | undefined,
+  categoryId: undefined as number | undefined,
+  transactionTime: new Date(),
   note: ''
 });
 
-// 提交表单并关闭弹窗，父组件负责后续保存动作。
+// 弹窗标题区分新增和编辑，减少用户误操作。
+const dialogTitle = computed(() => (props.transaction ? '编辑流水' : '新增流水'));
+// 收入和退款展示收入分类，支出展示支出分类；转账不需要分类。
+const availableCategories = computed(() => {
+  const categoryType = form.type === 'EXPENSE' ? 'EXPENSE' : 'INCOME';
+  return props.categories.filter((item) => item.type === categoryType);
+});
+// 转入账户排除当前转出账户，防止同账户转账。
+const targetAccountOptions = computed(() => props.accounts.filter((item) => item.id !== form.accountId));
+
+// 切换类型时清理不适用字段，避免提交旧分类或旧转入账户。
+watch(
+  () => form.type,
+  () => {
+    form.categoryId = undefined;
+    form.targetAccountId = undefined;
+  }
+);
+
+// 打开弹窗或切换编辑对象时重置表单。
+function resetForm() {
+  const transaction = props.transaction;
+  form.amount = Number(transaction?.amount ?? 0);
+  form.type = transaction?.type ?? 'EXPENSE';
+  form.accountId = transaction?.accountId;
+  form.targetAccountId = transaction?.targetAccountId ?? undefined;
+  form.categoryId = transaction?.categoryId ?? undefined;
+  form.transactionTime = transaction?.transactionTime ? new Date(transaction.transactionTime) : new Date();
+  form.note = transaction?.note ?? '';
+}
+
+// 金额和必选项在前端先拦截，后端仍保留权威校验。
+function validateForm() {
+  if (!form.amount || form.amount <= 0) {
+    ElMessage.warning('请输入大于 0 的金额');
+    return false;
+  }
+  if (!form.accountId) {
+    ElMessage.warning(form.type === 'TRANSFER' ? '请选择转出账户' : '请选择账户');
+    return false;
+  }
+  if (form.type === 'TRANSFER') {
+    if (!form.targetAccountId) {
+      ElMessage.warning('请选择转入账户');
+      return false;
+    }
+    if (form.accountId === form.targetAccountId) {
+      ElMessage.warning('转入账户不能和转出账户相同');
+      return false;
+    }
+    return true;
+  }
+  if (!form.categoryId) {
+    ElMessage.warning('请选择分类');
+    return false;
+  }
+  return true;
+}
+
+// 转成后端 LocalDateTime 可接收的无时区字符串。
+function formatDateTime(date: Date) {
+  const pad = (value: number) => `${value}`.padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+// 提交表单给父页面，成功关闭由父页面控制。
 function submitForm() {
-  emit('submit', { ...form });
-  visible.value = false;
+  if (!validateForm()) {
+    return;
+  }
+  emit('submit', {
+    type: form.type,
+    amount: form.amount,
+    accountId: form.accountId!,
+    targetAccountId: form.type === 'TRANSFER' ? form.targetAccountId : null,
+    categoryId: form.type === 'TRANSFER' ? null : form.categoryId,
+    transactionTime: formatDateTime(form.transactionTime),
+    note: form.note
+  });
 }
 </script>
 
@@ -76,5 +185,9 @@ function submitForm() {
 /* 表单控件保持通栏宽度，避免弹窗内容左右错位。 */
 .full-input {
   width: 100%;
+}
+
+.form-tip {
+  margin-top: 8px;
 }
 </style>

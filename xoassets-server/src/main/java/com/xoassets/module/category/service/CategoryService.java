@@ -34,4 +34,9 @@ public interface CategoryService {
      * 查询指定用户拥有的分类。
      */
     Category findOwnedCategory(Long id, Long userId);
+
+    /**
+     * 为新用户初始化默认收支分类，必须由注册事务调用。
+     */
+    void initializeDefaultCategories(Long userId);
 }

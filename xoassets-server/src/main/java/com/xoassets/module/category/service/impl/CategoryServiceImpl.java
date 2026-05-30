@@ -18,10 +18,15 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 /**
- * 分类服务：第一期分类完全归属用户，不做系统默认分类复制。
+ * 分类服务：第一期分类完全归属用户，新用户注册时复制一组默认分类。
  */
 @Service
 public class CategoryServiceImpl implements CategoryService {
+
+    private static final String TYPE_INCOME = "INCOME";
+    private static final String TYPE_EXPENSE = "EXPENSE";
+    private static final List<String> DEFAULT_EXPENSE_CATEGORIES = List.of("餐饮", "交通", "购物", "居住", "娱乐", "医疗", "学习", "生活缴费", "其他");
+    private static final List<String> DEFAULT_INCOME_CATEGORIES = List.of("工资", "奖金", "副业", "理财收益", "红包", "退款", "其他");
 
     private final CategoryMapper categoryMapper;
     private final TransactionRecordMapper transactionRecordMapper;
@@ -121,10 +126,35 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     /**
+     * 为注册成功的新用户创建默认分类；注册事务回滚时这些分类一起回滚。
+     */
+    @Override
+    public void initializeDefaultCategories(Long userId) {
+        insertDefaultCategories(userId, TYPE_EXPENSE, DEFAULT_EXPENSE_CATEGORIES);
+        insertDefaultCategories(userId, TYPE_INCOME, DEFAULT_INCOME_CATEGORIES);
+    }
+
+    /**
+     * 批量写入默认分类，排序按默认数组顺序稳定展示。
+     */
+    private void insertDefaultCategories(Long userId, String type, List<String> names) {
+        for (int index = 0; index < names.size(); index++) {
+            Category category = new Category();
+            category.setUserId(userId);
+            category.setName(names.get(index));
+            category.setType(type);
+            category.setStatus(1);
+            category.setSortOrder(index + 1);
+            category.setDeleted(0);
+            categoryMapper.insert(category);
+        }
+    }
+
+    /**
      * 第一版分类类型只支持收入和支出。
      */
     private void ensureType(String type) {
-        if (!"INCOME".equals(type) && !"EXPENSE".equals(type)) {
+        if (!TYPE_INCOME.equals(type) && !TYPE_EXPENSE.equals(type)) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "分类类型只支持 INCOME 或 EXPENSE");
         }
     }

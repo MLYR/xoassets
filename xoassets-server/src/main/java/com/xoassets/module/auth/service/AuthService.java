@@ -2,6 +2,8 @@ package com.xoassets.module.auth.service;
 
 import com.xoassets.module.auth.dto.LoginRequest;
 import com.xoassets.module.auth.dto.RegisterRequest;
+import com.xoassets.module.auth.dto.ChangePasswordRequest;
+import com.xoassets.module.auth.dto.UpdateProfileRequest;
 import com.xoassets.module.auth.vo.LoginVO;
 import com.xoassets.module.auth.vo.UserVO;
 
@@ -24,4 +26,14 @@ public interface AuthService {
      * 查询当前用户信息。
      */
     UserVO me();
+
+    /**
+     * 修改当前用户资料。
+     */
+    UserVO updateProfile(UpdateProfileRequest request);
+
+    /**
+     * 修改当前用户密码。
+     */
+    void changePassword(ChangePasswordRequest request);
 }

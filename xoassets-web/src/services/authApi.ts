@@ -17,6 +17,15 @@ export interface RegisterRequest extends LoginRequest {
   nickname?: string;
 }
 
+export interface UpdateProfileRequest {
+  nickname: string;
+}
+
+export interface ChangePasswordRequest {
+  oldPassword: string;
+  newPassword: string;
+}
+
 export interface LoginResponse {
   token: string;
   user: AuthUser;
@@ -41,6 +50,20 @@ export const authApi = {
     return request<AuthUser>({
       url: '/auth/me',
       method: 'GET'
+    });
+  },
+  updateProfile(data: UpdateProfileRequest) {
+    return request<AuthUser>({
+      url: '/auth/profile',
+      method: 'PUT',
+      data
+    });
+  },
+  changePassword(data: ChangePasswordRequest) {
+    return request<void>({
+      url: '/auth/password',
+      method: 'PUT',
+      data
     });
   }
 };

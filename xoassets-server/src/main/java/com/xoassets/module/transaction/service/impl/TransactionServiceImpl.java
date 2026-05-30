@@ -26,7 +26,6 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -264,11 +263,12 @@ public class TransactionServiceImpl implements TransactionService {
         if (page.getRecords().isEmpty()) {
             return new PageResult<>(Collections.emptyList(), page.getTotal(), page.getCurrent(), page.getSize());
         }
-        Map<Long, Account> accountMap = loadAccountMap(page.getRecords().stream()
+        Long userId = page.getRecords().get(0).getUserId();
+        Map<Long, Account> accountMap = loadAccountMap(userId, page.getRecords().stream()
                 .flatMap(record -> java.util.stream.Stream.of(record.getAccountId(), record.getTargetAccountId()))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet()));
-        Map<Long, Category> categoryMap = loadCategoryMap(page.getRecords().stream()
+        Map<Long, Category> categoryMap = loadCategoryMap(userId, page.getRecords().stream()
                 .map(TransactionRecord::getCategoryId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet()));
@@ -281,10 +281,10 @@ public class TransactionServiceImpl implements TransactionService {
      * 转换单条流水展示对象。
      */
     private TransactionVO toVO(TransactionRecord record) {
-        Map<Long, Account> accountMap = loadAccountMap(java.util.stream.Stream.of(record.getAccountId(), record.getTargetAccountId())
+        Map<Long, Account> accountMap = loadAccountMap(record.getUserId(), java.util.stream.Stream.of(record.getAccountId(), record.getTargetAccountId())
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet()));
-        Map<Long, Category> categoryMap = loadCategoryMap(record.getCategoryId() == null ? Collections.emptySet() : Set.of(record.getCategoryId()));
+        Map<Long, Category> categoryMap = loadCategoryMap(record.getUserId(), record.getCategoryId() == null ? Collections.emptySet() : Set.of(record.getCategoryId()));
         return toVO(record, accountMap, categoryMap);
     }
 
@@ -313,23 +313,31 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     /**
-     * 批量加载账户映射，空集合直接返回空 Map。
+     * 批量加载当前用户账户映射，避免异常数据引用其他用户账户时泄露名称。
      */
-    private Map<Long, Account> loadAccountMap(Set<Long> ids) {
+    private Map<Long, Account> loadAccountMap(Long userId, Set<Long> ids) {
         if (ids.isEmpty()) {
             return Collections.emptyMap();
         }
-        return accountMapper.selectBatchIds(ids).stream().collect(Collectors.toMap(Account::getId, Function.identity()));
+        return accountMapper.selectList(new LambdaQueryWrapper<Account>()
+                        .eq(Account::getUserId, userId)
+                        .in(Account::getId, ids))
+                .stream()
+                .collect(Collectors.toMap(Account::getId, account -> account));
     }
 
     /**
-     * 批量加载分类映射，空集合直接返回空 Map。
+     * 批量加载当前用户分类映射，避免异常数据引用其他用户分类时泄露名称。
      */
-    private Map<Long, Category> loadCategoryMap(Set<Long> ids) {
+    private Map<Long, Category> loadCategoryMap(Long userId, Set<Long> ids) {
         if (ids.isEmpty()) {
             return Collections.emptyMap();
         }
-        return categoryMapper.selectBatchIds(ids).stream().collect(Collectors.toMap(Category::getId, Function.identity()));
+        return categoryMapper.selectList(new LambdaQueryWrapper<Category>()
+                        .eq(Category::getUserId, userId)
+                        .in(Category::getId, ids))
+                .stream()
+                .collect(Collectors.toMap(Category::getId, category -> category));
     }
 
     /**
