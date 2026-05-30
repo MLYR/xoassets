@@ -60,6 +60,8 @@ public class CategoryServiceImpl implements CategoryService {
     public CategoryVO create(CategoryRequest request) {
         Long userId = LoginUserContext.getUserId();
         ensureType(request.getType());
+        ensureStatus(request.getStatus());
+        ensureNameUnique(userId, request.getType(), request.getName(), null);
         Category category = new Category();
         category.setUserId(userId);
         category.setName(request.getName());
@@ -81,7 +83,9 @@ public class CategoryServiceImpl implements CategoryService {
     public CategoryVO update(Long id, CategoryRequest request) {
         Long userId = LoginUserContext.getUserId();
         ensureType(request.getType());
+        ensureStatus(request.getStatus());
         Category category = findOwnedCategory(id, userId);
+        ensureNameUnique(userId, request.getType(), request.getName(), id);
         category.setName(request.getName());
         category.setType(request.getType());
         category.setIcon(request.getIcon());
@@ -106,9 +110,25 @@ public class CategoryServiceImpl implements CategoryService {
                 .eq(TransactionRecord::getUserId, userId)
                 .eq(TransactionRecord::getCategoryId, id));
         if (transactionCount > 0) {
-            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "分类已有流水，第一版不允许删除");
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "分类已有流水，不能删除，可停用");
         }
         categoryMapper.delete(new LambdaQueryWrapper<Category>().eq(Category::getId, id).eq(Category::getUserId, userId));
+    }
+
+    /**
+     * 启用或停用当前用户自己的分类，停用后不会出现在新增流水分类下拉中。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public CategoryVO updateStatus(Long id, Integer status) {
+        Long userId = LoginUserContext.getUserId();
+        ensureStatus(status);
+        Category category = findOwnedCategory(id, userId);
+        category.setStatus(status);
+        categoryMapper.update(category, new LambdaUpdateWrapper<Category>()
+                .eq(Category::getId, id)
+                .eq(Category::getUserId, userId));
+        return toVO(category);
     }
 
     /**
@@ -156,6 +176,32 @@ public class CategoryServiceImpl implements CategoryService {
     private void ensureType(String type) {
         if (!TYPE_INCOME.equals(type) && !TYPE_EXPENSE.equals(type)) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "分类类型只支持 INCOME 或 EXPENSE");
+        }
+    }
+
+    /**
+     * 分类状态只允许启用和停用两个值。
+     */
+    private void ensureStatus(Integer status) {
+        if (status == null || (status != 0 && status != 1)) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "分类状态只支持 0 或 1");
+        }
+    }
+
+    /**
+     * 同一用户、同一类型、未删除分类下名称不能重复。
+     */
+    private void ensureNameUnique(Long userId, String type, String name, Long excludeId) {
+        LambdaQueryWrapper<Category> wrapper = new LambdaQueryWrapper<Category>()
+                .eq(Category::getUserId, userId)
+                .eq(Category::getType, type)
+                .eq(Category::getName, name);
+        if (excludeId != null) {
+            wrapper.ne(Category::getId, excludeId);
+        }
+        Long count = categoryMapper.selectCount(wrapper);
+        if (count > 0) {
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "同类型分类名称已存在");
         }
     }
 

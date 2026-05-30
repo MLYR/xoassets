@@ -106,6 +106,7 @@ com.xoassets
 - 持仓接口预留使用 `/api/holdings/**`。
 - AI 报告接口使用 `/api/reports/**`。
 - 接口新增或调整时，同步考虑 Swagger / Knife4j 文档。
+- 后端返回给前端的 Long ID 必须按字符串处理，前端不得用 `number` 保存业务 ID，避免 JavaScript 精度丢失。
 
 ## 8. 前端设计约定
 - 整体风格：简洁、专业、清晰、数据感、轻量、安全感。

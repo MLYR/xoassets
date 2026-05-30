@@ -58,6 +58,8 @@ http://localhost:8080/doc.html
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - `GET /api/auth/me`
+- `PUT /api/auth/profile`
+- `PUT /api/auth/password`
 - `GET /api/accounts`
 - `POST /api/accounts`
 - `PUT /api/accounts/{id}`
@@ -66,6 +68,7 @@ http://localhost:8080/doc.html
 - `POST /api/categories`
 - `PUT /api/categories/{id}`
 - `DELETE /api/categories/{id}`
+- `PUT /api/categories/{id}/status`
 - `GET /api/transactions`
 - `POST /api/transactions`
 - `PUT /api/transactions/{id}`
@@ -80,6 +83,10 @@ http://localhost:8080/doc.html
 
 - 金额字段使用 `BigDecimal`，数据库使用 `DECIMAL(18,4)`。
 - 业务表均包含 `user_id`，查询、修改、删除按当前登录用户隔离。
+- Long ID 统一序列化为字符串返回，避免前端 JavaScript number 精度丢失。
+- 注册用户时会在同一事务内把默认收入 / 支出分类写入 `xo_category`，之后分类以表数据为准。
+- 分类方向只由 `type` 表示，支持 `INCOME` 和 `EXPENSE`；分类名称、图标、颜色、排序和状态均为用户自定义数据。
+- 分类被流水使用后不允许删除，只允许通过 `status = 0` 停用。
 - 流水类型支持 `INCOME`、`EXPENSE`、`TRANSFER`、`REFUND`。
 - 转账只影响账户余额，不计入收入支出统计。
 - 删除或修改流水会在同一事务中反向修正账户余额。

@@ -92,9 +92,9 @@ const typeOptions = [
 const form = reactive({
   amount: 0,
   type: 'EXPENSE' as TransactionApiType,
-  accountId: undefined as number | undefined,
-  targetAccountId: undefined as number | undefined,
-  categoryId: undefined as number | undefined,
+  accountId: undefined as string | undefined,
+  targetAccountId: undefined as string | undefined,
+  categoryId: undefined as string | undefined,
   transactionTime: new Date(),
   note: ''
 });
@@ -104,7 +104,7 @@ const dialogTitle = computed(() => (props.transaction ? '编辑流水' : '新增
 // 收入和退款展示收入分类，支出展示支出分类；转账不需要分类。
 const availableCategories = computed(() => {
   const categoryType = form.type === 'EXPENSE' ? 'EXPENSE' : 'INCOME';
-  return props.categories.filter((item) => item.type === categoryType);
+  return props.categories.filter((item) => item.type === categoryType && item.status === 1);
 });
 // 转入账户排除当前转出账户，防止同账户转账。
 const targetAccountOptions = computed(() => props.accounts.filter((item) => item.id !== form.accountId));

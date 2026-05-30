@@ -4,16 +4,16 @@ import { request } from './http';
 export type TransactionApiType = 'INCOME' | 'EXPENSE' | 'TRANSFER' | 'REFUND';
 
 export interface TransactionItem {
-  id: number;
+  id: string;
   type: TransactionApiType;
   amount: number;
-  accountId: number;
+  accountId: string;
   accountName: string | null;
-  targetAccountId?: number | null;
+  targetAccountId?: string | null;
   targetAccountName?: string | null;
-  categoryId?: number | null;
+  categoryId?: string | null;
   categoryName?: string | null;
-  originalTransactionId?: number | null;
+  originalTransactionId?: string | null;
   transactionTime: string;
   note?: string | null;
   status: number;
@@ -22,10 +22,10 @@ export interface TransactionItem {
 export interface TransactionRequest {
   type: TransactionApiType;
   amount: number;
-  accountId: number;
-  targetAccountId?: number | null;
-  categoryId?: number | null;
-  originalTransactionId?: number | null;
+  accountId: string;
+  targetAccountId?: string | null;
+  categoryId?: string | null;
+  originalTransactionId?: string | null;
   transactionTime: string;
   note?: string;
 }
@@ -34,8 +34,8 @@ export interface TransactionQuery {
   pageNo?: number;
   pageSize?: number;
   type?: TransactionApiType;
-  accountId?: number;
-  categoryId?: number;
+  accountId?: string;
+  categoryId?: string;
   keyword?: string;
 }
 
@@ -64,7 +64,7 @@ export const transactionApi = {
     });
   },
   // 编辑流水，后端会先反向恢复旧余额影响再应用新流水。
-  update(id: number, data: TransactionRequest) {
+  update(id: string, data: TransactionRequest) {
     return request<TransactionItem>({
       url: `/transactions/${id}`,
       method: 'PUT',
@@ -72,7 +72,7 @@ export const transactionApi = {
     });
   },
   // 删除流水，后端会反向恢复账户余额。
-  remove(id: number) {
+  remove(id: string) {
     return request<void>({
       url: `/transactions/${id}`,
       method: 'DELETE'

@@ -2,7 +2,7 @@
 import { request } from './http';
 
 export interface AuthUser {
-  id: number;
+  id: string;
   username: string;
   nickname: string;
   avatarUrl: string | null;

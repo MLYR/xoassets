@@ -31,6 +31,11 @@ public interface CategoryService {
     void delete(Long id);
 
     /**
+     * 启用或停用分类。
+     */
+    CategoryVO updateStatus(Long id, Integer status);
+
+    /**
      * 查询指定用户拥有的分类。
      */
     Category findOwnedCategory(Long id, Long userId);

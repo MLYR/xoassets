@@ -2,7 +2,7 @@
 import { request } from './http';
 
 export interface AccountItem {
-  id: number;
+  id: string;
   name: string;
   type: string;
   balance: number;
@@ -40,7 +40,7 @@ export const accountApi = {
     });
   },
   // 编辑账户基础信息，当前余额仍由流水负责修正。
-  update(id: number, data: AccountRequest) {
+  update(id: string, data: AccountRequest) {
     return request<AccountItem>({
       url: `/accounts/${id}`,
       method: 'PUT',
@@ -48,7 +48,7 @@ export const accountApi = {
     });
   },
   // 删除账户；如果后端拒绝删除，错误会透传给页面提示。
-  remove(id: number) {
+  remove(id: string) {
     return request<void>({
       url: `/accounts/${id}`,
       method: 'DELETE'

@@ -102,7 +102,7 @@ const editingTransaction = ref<TransactionItem | null>(null);
 // 筛选条件直接映射后端查询参数。
 const keyword = ref('');
 const typeFilter = ref<TransactionApiType | ''>('');
-const accountFilter = ref<number | ''>('');
+const accountFilter = ref<string | ''>('');
 const pageNo = ref(1);
 const pageSize = 8;
 

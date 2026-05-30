@@ -2,6 +2,7 @@ package com.xoassets.module.category.controller;
 
 import com.xoassets.common.api.Result;
 import com.xoassets.module.category.dto.CategoryRequest;
+import com.xoassets.module.category.dto.CategoryStatusRequest;
 import com.xoassets.module.category.service.CategoryService;
 import com.xoassets.module.category.vo.CategoryVO;
 import jakarta.validation.Valid;
@@ -60,5 +61,13 @@ public class CategoryController {
     public Result<Void> delete(@PathVariable Long id) {
         categoryService.delete(id);
         return Result.success(null);
+    }
+
+    /**
+     * 启用或停用分类，已被流水使用的分类可通过停用隐藏在新增流水表单中。
+     */
+    @PutMapping("/{id}/status")
+    public Result<CategoryVO> updateStatus(@PathVariable Long id, @Valid @RequestBody CategoryStatusRequest request) {
+        return Result.success(categoryService.updateStatus(id, request.getStatus()));
     }
 }
