@@ -10,6 +10,11 @@ spring:
     url: jdbc:mysql://localhost:3306/xoassets?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: root
     password: root
+    hikari:
+      # 本地开发需要数据库连不上时尽快失败并打印原因，避免应用假启动。
+      initialization-fail-timeout: 1
+      connection-timeout: 5000
+      validation-timeout: 3000
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: Asia/Shanghai
@@ -28,11 +33,16 @@ mybatis-plus:
       logic-not-delete-value: 0
 
 logging:
+  pattern:
+    # 控制台日志包含时间、级别、线程、logger 和堆栈，便于直接在 IDE 里排查启动和接口异常。
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n%wEx"
   level:
     root: info
     com.xoassets: debug
     com.xoassets.persistence.mapper: debug
+    com.zaxxer.hikari: info
     org.mybatis: debug
+    org.springframework.jdbc: debug
 
 knife4j:
   enable: true

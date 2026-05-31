@@ -43,7 +43,7 @@ public class QuoteRefreshScheduler {
                 refreshOne(assetId);
             }
         } catch (Exception exception) {
-            log.warn("持仓行情定时刷新任务执行失败: {}", exception.getMessage());
+            log.warn("持仓行情定时刷新任务执行失败", exception);
         }
     }
 
@@ -54,7 +54,7 @@ public class QuoteRefreshScheduler {
         try {
             quoteService.refreshQuoteIfStale(assetId);
         } catch (Exception exception) {
-            log.warn("资产行情刷新失败 assetId={}, message={}", assetId, exception.getMessage());
+            log.warn("资产行情刷新失败 assetId={}", assetId, exception);
         }
     }
 }
