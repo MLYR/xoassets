@@ -15,6 +15,8 @@ public class InvestmentTransactionVO {
     private Long id;
     private Long holdingId;
     private Long assetId;
+    private Long accountId;
+    private String accountName;
     private String assetName;
     private String symbol;
     private String type;
@@ -22,6 +24,7 @@ public class InvestmentTransactionVO {
     private BigDecimal price;
     private BigDecimal amount;
     private BigDecimal fee;
+    private BigDecimal realizedProfit;
     private LocalDateTime transactionTime;
     private String note;
 }

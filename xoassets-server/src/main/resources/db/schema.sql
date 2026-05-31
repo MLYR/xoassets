@@ -114,11 +114,13 @@ CREATE TABLE IF NOT EXISTS xo_investment_transaction (
   user_id BIGINT NOT NULL COMMENT '用户ID',
   holding_id BIGINT NOT NULL COMMENT '持仓ID',
   asset_id BIGINT NOT NULL COMMENT '资产ID',
+  account_id BIGINT NOT NULL COMMENT '资金账户ID',
   type VARCHAR(20) NOT NULL COMMENT '交易类型：BUY SELL',
   quantity DECIMAL(18,4) NOT NULL COMMENT '交易数量，投资计算统一四位小数',
   price DECIMAL(18,4) NOT NULL COMMENT '成交单价',
   amount DECIMAL(18,4) NOT NULL COMMENT '成交金额',
   fee DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '手续费',
+  realized_profit DECIMAL(18,4) DEFAULT NULL COMMENT '已实现盈亏',
   transaction_time DATETIME NOT NULL COMMENT '交易时间',
   note VARCHAR(255) DEFAULT NULL COMMENT '备注',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -126,7 +128,8 @@ CREATE TABLE IF NOT EXISTS xo_investment_transaction (
   deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除：0否 1是',
   KEY idx_user_time (user_id, transaction_time),
   KEY idx_user_holding_time (user_id, holding_id, transaction_time),
-  KEY idx_user_asset_time (user_id, asset_id, transaction_time)
+  KEY idx_user_asset_time (user_id, asset_id, transaction_time),
+  KEY idx_user_account_time (user_id, account_id, transaction_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='投资交易流水表';
 
 CREATE TABLE IF NOT EXISTS xo_asset_price (

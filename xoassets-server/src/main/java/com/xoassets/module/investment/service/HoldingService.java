@@ -1,6 +1,7 @@
 package com.xoassets.module.investment.service;
 
 import com.xoassets.module.investment.dto.HoldingRequest;
+import com.xoassets.module.investment.vo.HoldingSummaryVO;
 import com.xoassets.module.investment.vo.HoldingVO;
 import com.xoassets.persistence.entity.Holding;
 import java.math.BigDecimal;
@@ -15,6 +16,11 @@ public interface HoldingService {
      * 查询当前用户持仓列表。
      */
     List<HoldingVO> list();
+
+    /**
+     * 查询当前用户持仓汇总。
+     */
+    HoldingSummaryVO summary();
 
     /**
      * 新增持仓。
@@ -39,10 +45,10 @@ public interface HoldingService {
     /**
      * 买入时按移动平均成本法增加持仓。
      */
-    Holding applyBuy(Long userId, Long holdingId, Long assetId, BigDecimal quantity, BigDecimal price, BigDecimal fee);
+    HoldingTradeResult applyBuy(Long userId, Long holdingId, Long assetId, BigDecimal quantity, BigDecimal price, BigDecimal fee);
 
     /**
      * 卖出时校验数量并扣减持仓。
      */
-    Holding applySell(Long userId, Long holdingId, Long assetId, BigDecimal quantity);
+    HoldingTradeResult applySell(Long userId, Long holdingId, Long assetId, BigDecimal quantity, BigDecimal price, BigDecimal fee);
 }

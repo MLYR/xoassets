@@ -88,6 +88,7 @@ http://localhost:8080/doc.html
 - `GET /api/assets/search`
 - `POST /api/assets`
 - `GET /api/holdings`
+- `GET /api/holdings/summary`
 - `POST /api/holdings`
 - `PUT /api/holdings/{id}`
 - `DELETE /api/holdings/{id}`
@@ -125,8 +126,10 @@ http://localhost:8080/doc.html
 - 流水可保存 `image_url`，第一版允许前端传图片 Data URL，数据库使用 `MEDIUMTEXT`，后续可替换为对象存储 URL。
 - 公共资产表 `xo_asset` 和价格表 `xo_asset_price` 不带 `user_id`；前端不再暴露资产管理入口，`xo_asset` 仅作为持仓行情和价格快照的内部基础数据。
 - 投资买入会创建或更新持仓并按移动平均成本重算；投资卖出必须校验持仓数量，数量不足时拒绝。
-- 投资交易和持仓联动在同一事务中完成，避免交易记录与持仓数量、成本不一致。
+- 投资买入必须选择扣款账户并扣减账户余额；投资卖出必须选择到账账户并增加账户余额，已实现盈亏写入投资交易记录。
+- 投资交易、资金账户和持仓联动在同一事务中完成，避免交易记录与账户余额、持仓数量、成本不一致。
 - 投资数量、手续费、持仓成本、市值、盈亏和收益率统一按 4 位小数归一化后计算，避免不同调用入口产生精度口径差异。
+- 持仓接口返回最新价、昨价、前日价、今日收益、昨日收益、浮动盈亏、收益率、回本涨幅和报价时间；缺少历史价格时收益分析字段允许为空。
 - 行情价格快照使用 `DECIMAL(28,8)`，CoinGecko 和手动报价入库前统一保留 8 位；持仓返回 `priceScale`，CRYPTO 当前价至少展示 6 位，FUND / STOCK 展示 4 位。
 - 持仓估值使用与资产币种一致的最近价格；没有价格或价格币种不一致时使用平均成本兜底，避免当前价和市值口径不一致。
 - 行情刷新通过 `QuoteProvider` 抽象扩展；阶段二支持 `ManualQuoteProvider` 和 `CoinGeckoQuoteProvider`。
@@ -147,4 +150,21 @@ http://localhost:8080/doc.html
 - 导入开发数据：`mysql -uroot -p xoassets < src/main/resources/db/dev-data.sql`。
 - 测试账号：`demo / xoassets123`。
 - Docker 一键启动从仓库根目录执行 `docker compose up -d`，MySQL 首次启动会自动执行 `schema.sql` 和 `dev-data.sql`。
-- 核心测试在 `src/test/java/com/xoassets/module/MvpCoreServiceTest.java`，覆盖流水余额联动、预算退款抵扣、投资移动平均成本、首页总资产和数据隔离基础路径。
+- 核心测试在 `src/test/java/com/xoassets/module/MvpCoreServiceTest.java`，覆盖流水余额联动、预算退款抵扣、投资账户联动、移动平均成本、收益分析、首页总资产和数据隔离基础路径。
+
+已有库升级到投资账户联动版本时，先为历史投资交易补齐当前用户的资金账户，再把字段改为非空：
+
+```sql
+ALTER TABLE xo_investment_transaction
+  ADD COLUMN account_id BIGINT NULL COMMENT '资金账户ID' AFTER asset_id,
+  ADD COLUMN realized_profit DECIMAL(18,4) DEFAULT NULL COMMENT '已实现盈亏' AFTER fee,
+  ADD KEY idx_user_account_time (user_id, account_id, transaction_time);
+
+UPDATE xo_investment_transaction t
+JOIN xo_account a ON a.user_id = t.user_id AND a.deleted = 0
+SET t.account_id = a.id
+WHERE t.account_id IS NULL;
+
+ALTER TABLE xo_investment_transaction
+  MODIFY account_id BIGINT NOT NULL COMMENT '资金账户ID';
+```

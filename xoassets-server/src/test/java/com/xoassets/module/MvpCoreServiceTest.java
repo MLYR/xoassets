@@ -18,8 +18,11 @@ import com.xoassets.module.investment.service.AssetService;
 import com.xoassets.module.investment.service.HoldingService;
 import com.xoassets.module.investment.service.InvestmentTransactionService;
 import com.xoassets.module.investment.service.QuoteService;
+import com.xoassets.module.investment.dto.InvestmentTransactionRequest;
 import com.xoassets.module.investment.service.impl.HoldingServiceImpl;
+import com.xoassets.module.investment.service.impl.InvestmentTransactionServiceImpl;
 import com.xoassets.module.investment.vo.HoldingVO;
+import com.xoassets.module.investment.vo.InvestmentTransactionVO;
 import com.xoassets.module.statistics.service.impl.StatisticsServiceImpl;
 import com.xoassets.module.statistics.vo.AssetDistributionVO;
 import com.xoassets.module.transaction.dto.TransactionQuery;
@@ -35,6 +38,7 @@ import com.xoassets.persistence.entity.Holding;
 import com.xoassets.persistence.entity.TransactionRecord;
 import com.xoassets.persistence.mapper.AccountMapper;
 import com.xoassets.persistence.mapper.AssetMapper;
+import com.xoassets.persistence.mapper.AssetPriceMapper;
 import com.xoassets.persistence.mapper.BudgetMapper;
 import com.xoassets.persistence.mapper.CategoryMapper;
 import com.xoassets.persistence.mapper.HoldingMapper;
@@ -111,10 +115,11 @@ class MvpCoreServiceTest {
         Holding holding = holding(1L, USER_ID, 10L, "10.0000", "10.0000", "100.0000");
         HoldingMapper holdingMapper = mock(HoldingMapper.class);
         AssetMapper assetMapper = mock(AssetMapper.class);
+        AssetPriceMapper assetPriceMapper = mock(AssetPriceMapper.class);
         QuoteService quoteService = mock(QuoteService.class);
         AssetService assetService = mock(AssetService.class);
         HoldingServiceImpl service = new HoldingServiceImpl(
-                holdingMapper, assetMapper, mock(InvestmentTransactionMapper.class), assetService, quoteService);
+                holdingMapper, assetMapper, assetPriceMapper, mock(InvestmentTransactionMapper.class), assetService, quoteService);
 
         when(holdingMapper.selectOne(any())).thenReturn(holding);
         service.applyBuy(USER_ID, 1L, 10L, bd("10.0000"), bd("20.0000"), bd("0.0000"));
@@ -122,23 +127,96 @@ class MvpCoreServiceTest {
         assertEquals(bd("300.0000"), holding.getTotalCost());
         assertEquals(bd("15.0000"), holding.getAvgCost());
 
-        service.applySell(USER_ID, 1L, 10L, bd("5.0000"));
+        service.applySell(USER_ID, 1L, 10L, bd("5.0000"), bd("18.0000"), bd("0.0000"));
         assertEquals(bd("15.0000"), holding.getQuantity());
         assertEquals(bd("225.0000"), holding.getTotalCost());
 
-        assertThrows(BusinessException.class, () -> service.applySell(USER_ID, 1L, 10L, bd("20.0000")));
+        assertThrows(BusinessException.class, () -> service.applySell(USER_ID, 1L, 10L, bd("20.0000"), bd("18.0000"), bd("0.0000")));
 
         Asset asset = asset(10L, "DOGE", "Dogecoin", "CRYPTO", "USD");
         AssetPrice price = price(10L, "16.00000000", "USD");
         when(holdingMapper.selectList(any())).thenReturn(List.of(holding));
         when(assetMapper.selectBatchIds(Set.of(10L))).thenReturn(List.of(asset));
-        when(quoteService.latestPriceMap(Set.of(10L))).thenReturn(Map.of(10L, price));
+        when(assetPriceMapper.selectList(any())).thenReturn(List.of(price));
 
         HoldingVO vo = service.list().get(0);
         assertEquals(bd("240.0000"), vo.getMarketValue());
         assertEquals(bd("15.0000"), vo.getFloatingProfit());
         assertEquals(bd("6.6667"), vo.getFloatingProfitRate());
         assertEquals(6, vo.getPriceScale());
+    }
+
+    @Test
+    void investmentBuyAndSellShouldLinkFundingAccount() {
+        Account bank = account(1L, USER_ID, "银行卡", "BANK", "10000.0000");
+        Holding holding = holding(1L, USER_ID, 10L, "0.0000", "0.0000", "0.0000");
+        AccountMapper accountMapper = mock(AccountMapper.class);
+        AssetMapper assetMapper = mock(AssetMapper.class);
+        HoldingMapper holdingMapper = mock(HoldingMapper.class);
+        AssetPriceMapper assetPriceMapper = mock(AssetPriceMapper.class);
+        InvestmentTransactionMapper transactionMapper = mock(InvestmentTransactionMapper.class);
+        AssetService assetService = mock(AssetService.class);
+        AccountServiceImpl accountService = new AccountServiceImpl(accountMapper, mock(TransactionRecordMapper.class));
+        HoldingServiceImpl holdingService = new HoldingServiceImpl(
+                holdingMapper, assetMapper, assetPriceMapper, transactionMapper, assetService, mock(QuoteService.class));
+        InvestmentTransactionServiceImpl transactionService = new InvestmentTransactionServiceImpl(
+                transactionMapper, assetMapper, accountMapper, assetService, holdingService, accountService);
+
+        when(accountMapper.selectOne(any())).thenReturn(bank);
+        when(assetService.findAsset(10L)).thenReturn(asset(10L, "FUND-A", "基金 A", "FUND", "CNY"));
+        when(holdingMapper.selectOne(any())).thenReturn(holding);
+        when(assetMapper.selectById(10L)).thenReturn(asset(10L, "FUND-A", "基金 A", "FUND", "CNY"));
+
+        transactionService.create(investmentTransaction("BUY", 1L, 10L, 1L, "100.0000", "10.0000", "2.0000"));
+        assertEquals(bd("8998.0000"), bank.getBalance());
+        assertEquals(bd("100.0000"), holding.getQuantity());
+        assertEquals(bd("1002.0000"), holding.getTotalCost());
+        assertEquals(bd("10.0200"), holding.getAvgCost());
+
+        transactionService.create(investmentTransaction("BUY", 1L, 10L, 1L, "100.0000", "8.0000", "2.0000"));
+        assertEquals(bd("8196.0000"), bank.getBalance());
+        assertEquals(bd("200.0000"), holding.getQuantity());
+        assertEquals(bd("1804.0000"), holding.getTotalCost());
+        assertEquals(bd("9.0200"), holding.getAvgCost());
+
+        InvestmentTransactionVO sell = transactionService.create(investmentTransaction("SELL", 1L, 10L, 1L, "50.0000", "12.0000", "2.0000"));
+        assertEquals(bd("8794.0000"), bank.getBalance());
+        assertEquals(bd("150.0000"), holding.getQuantity());
+        assertEquals(bd("1353.0000"), holding.getTotalCost());
+        assertEquals(bd("9.0200"), holding.getAvgCost());
+        assertEquals(bd("147.0000"), sell.getRealizedProfit());
+    }
+
+    @Test
+    void holdingProfitAnalysisShouldUseLatestAndHistoricalPrices() {
+        Holding holding = holding(1L, USER_ID, 10L, "100.0000", "10.0000", "1000.0000");
+        HoldingMapper holdingMapper = mock(HoldingMapper.class);
+        AssetMapper assetMapper = mock(AssetMapper.class);
+        AssetPriceMapper assetPriceMapper = mock(AssetPriceMapper.class);
+        HoldingServiceImpl service = new HoldingServiceImpl(
+                holdingMapper, assetMapper, assetPriceMapper, mock(InvestmentTransactionMapper.class), mock(AssetService.class), mock(QuoteService.class));
+        Asset asset = asset(10L, "FUND-A", "基金 A", "FUND", "CNY");
+        AssetPrice latest = price(10L, "11.00000000", "CNY", LocalDateTime.now());
+        AssetPrice previous = price(10L, "9.00000000", "CNY", LocalDateTime.now().minusDays(1));
+        AssetPrice beforePrevious = price(10L, "8.00000000", "CNY", LocalDateTime.now().minusDays(2));
+
+        when(holdingMapper.selectList(any())).thenReturn(List.of(holding));
+        when(assetMapper.selectBatchIds(Set.of(10L))).thenReturn(List.of(asset));
+        when(assetPriceMapper.selectList(any())).thenReturn(List.of(latest, previous, beforePrevious));
+
+        HoldingVO vo = service.list().get(0);
+        assertEquals(bd("1100.0000"), vo.getMarketValue());
+        assertEquals(bd("100.0000"), vo.getFloatingProfit());
+        assertEquals(bd("10.0000"), vo.getFloatingProfitRate());
+        assertEquals(bd("200.0000"), vo.getTodayProfit());
+        assertEquals(bd("22.2222"), vo.getTodayChangeRate());
+        assertEquals(bd("100.0000"), vo.getYesterdayProfit());
+        assertEquals(bd("12.5000"), vo.getYesterdayChangeRate());
+        assertEquals(bd("0"), vo.getBreakEvenRate());
+
+        when(assetPriceMapper.selectList(any())).thenReturn(List.of(price(10L, "8.00000000", "CNY", LocalDateTime.now())));
+        HoldingVO loss = service.list().get(0);
+        assertEquals(bd("25.0000"), loss.getBreakEvenRate());
     }
 
     @Test
@@ -215,6 +293,19 @@ class MvpCoreServiceTest {
         return request;
     }
 
+    private static InvestmentTransactionRequest investmentTransaction(String type, Long holdingId, Long assetId, Long accountId, String quantity, String price, String fee) {
+        InvestmentTransactionRequest request = new InvestmentTransactionRequest();
+        request.setType(type);
+        request.setHoldingId(holdingId);
+        request.setAssetId(assetId);
+        request.setAccountId(accountId);
+        request.setQuantity(bd(quantity));
+        request.setPrice(bd(price));
+        request.setFee(bd(fee));
+        request.setTransactionTime(LocalDateTime.of(2026, 5, 1, 10, 0));
+        return request;
+    }
+
     private static TransactionRecord record(String type, String amount, Long accountId, Long targetAccountId, Long categoryId) {
         TransactionRecord record = new TransactionRecord();
         record.setUserId(USER_ID);
@@ -273,12 +364,16 @@ class MvpCoreServiceTest {
     }
 
     private static AssetPrice price(Long assetId, String price, String currency) {
+        return price(assetId, price, currency, LocalDateTime.of(2026, 5, 31, 9, 0));
+    }
+
+    private static AssetPrice price(Long assetId, String price, String currency, LocalDateTime quoteTime) {
         AssetPrice assetPrice = new AssetPrice();
         assetPrice.setAssetId(assetId);
         assetPrice.setPrice(bd(price));
         assetPrice.setCurrency(currency);
         assetPrice.setSource("MANUAL");
-        assetPrice.setQuoteTime(LocalDateTime.of(2026, 5, 31, 9, 0));
+        assetPrice.setQuoteTime(quoteTime);
         return assetPrice;
     }
 

@@ -8,18 +8,23 @@ import com.xoassets.common.security.LoginUserContext;
 import com.xoassets.module.investment.dto.HoldingRequest;
 import com.xoassets.module.investment.service.AssetService;
 import com.xoassets.module.investment.service.HoldingService;
+import com.xoassets.module.investment.service.HoldingTradeResult;
 import com.xoassets.module.investment.service.QuoteService;
+import com.xoassets.module.investment.vo.HoldingSummaryVO;
 import com.xoassets.module.investment.vo.HoldingVO;
 import com.xoassets.persistence.entity.Asset;
 import com.xoassets.persistence.entity.AssetPrice;
 import com.xoassets.persistence.entity.Holding;
 import com.xoassets.persistence.entity.InvestmentTransaction;
 import com.xoassets.persistence.mapper.AssetMapper;
+import com.xoassets.persistence.mapper.AssetPriceMapper;
 import com.xoassets.persistence.mapper.HoldingMapper;
 import com.xoassets.persistence.mapper.InvestmentTransactionMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -40,6 +45,7 @@ public class HoldingServiceImpl implements HoldingService {
 
     private final HoldingMapper holdingMapper;
     private final AssetMapper assetMapper;
+    private final AssetPriceMapper assetPriceMapper;
     private final InvestmentTransactionMapper investmentTransactionMapper;
     private final AssetService assetService;
     private final QuoteService quoteService;
@@ -47,11 +53,13 @@ public class HoldingServiceImpl implements HoldingService {
     public HoldingServiceImpl(
             HoldingMapper holdingMapper,
             AssetMapper assetMapper,
+            AssetPriceMapper assetPriceMapper,
             InvestmentTransactionMapper investmentTransactionMapper,
             AssetService assetService,
             QuoteService quoteService) {
         this.holdingMapper = holdingMapper;
         this.assetMapper = assetMapper;
+        this.assetPriceMapper = assetPriceMapper;
         this.investmentTransactionMapper = investmentTransactionMapper;
         this.assetService = assetService;
         this.quoteService = quoteService;
@@ -67,6 +75,31 @@ public class HoldingServiceImpl implements HoldingService {
                 .eq(Holding::getUserId, userId)
                 .orderByDesc(Holding::getCreatedAt));
         return toVOList(holdings);
+    }
+
+    /**
+     * 汇总当前用户持仓市值、收益和持仓数量。
+     */
+    @Override
+    public HoldingSummaryVO summary() {
+        List<HoldingVO> holdings = list();
+        BigDecimal totalMarketValue = holdings.stream().map(HoldingVO::getMarketValue).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalCost = holdings.stream().map(HoldingVO::getTotalCost).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal todayProfit = holdings.stream().map(item -> nullToZero(item.getTodayProfit())).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal yesterdayProfit = holdings.stream().map(item -> nullToZero(item.getYesterdayProfit())).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal floatingProfit = holdings.stream().map(HoldingVO::getFloatingProfit).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal floatingProfitRate = totalCost.compareTo(BigDecimal.ZERO) == 0
+                ? BigDecimal.ZERO
+                : floatingProfit.multiply(BigDecimal.valueOf(100)).divide(totalCost, 4, RoundingMode.HALF_UP);
+        return HoldingSummaryVO.builder()
+                .totalMarketValue(totalMarketValue.setScale(4, RoundingMode.HALF_UP))
+                .totalCost(totalCost.setScale(4, RoundingMode.HALF_UP))
+                .todayProfit(todayProfit.setScale(4, RoundingMode.HALF_UP))
+                .yesterdayProfit(yesterdayProfit.setScale(4, RoundingMode.HALF_UP))
+                .floatingProfit(floatingProfit.setScale(4, RoundingMode.HALF_UP))
+                .floatingProfitRate(floatingProfitRate)
+                .holdingCount(holdings.size())
+                .build();
     }
 
     /**
@@ -152,7 +185,7 @@ public class HoldingServiceImpl implements HoldingService {
      */
     @Transactional(rollbackFor = Exception.class)
     @Override
-    public Holding applyBuy(Long userId, Long holdingId, Long assetId, BigDecimal quantity, BigDecimal price, BigDecimal fee) {
+    public HoldingTradeResult applyBuy(Long userId, Long holdingId, Long assetId, BigDecimal quantity, BigDecimal price, BigDecimal fee) {
         quantity = scale4(quantity);
         price = scale4(price);
         fee = scale4(fee);
@@ -167,7 +200,7 @@ public class HoldingServiceImpl implements HoldingService {
         holding.setTotalCost(newTotalCost);
         holding.setAvgCost(newQuantity.compareTo(BigDecimal.ZERO) == 0 ? BigDecimal.ZERO : newTotalCost.divide(newQuantity, 4, RoundingMode.HALF_UP));
         updateHoldingBalance(holding);
-        return holding;
+        return new HoldingTradeResult(holding, null, null);
     }
 
     /**
@@ -175,8 +208,10 @@ public class HoldingServiceImpl implements HoldingService {
      */
     @Transactional(rollbackFor = Exception.class)
     @Override
-    public Holding applySell(Long userId, Long holdingId, Long assetId, BigDecimal quantity) {
+    public HoldingTradeResult applySell(Long userId, Long holdingId, Long assetId, BigDecimal quantity, BigDecimal price, BigDecimal fee) {
         quantity = scale4(quantity);
+        price = scale4(price);
+        fee = scale4(fee);
         Holding holding = holdingId == null ? findHoldingByAsset(userId, assetId) : findOwnedHolding(holdingId, userId);
         if (!Objects.equals(holding.getAssetId(), assetId)) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "交易资产与持仓资产不一致");
@@ -184,13 +219,15 @@ public class HoldingServiceImpl implements HoldingService {
         if (holding.getQuantity().compareTo(quantity) < 0) {
             throw new BusinessException(ErrorCode.BUSINESS_ERROR, "持仓数量不足");
         }
+        BigDecimal sellCost = holding.getAvgCost().multiply(quantity).setScale(4, RoundingMode.HALF_UP);
+        BigDecimal realizedProfit = quantity.multiply(price).subtract(fee).subtract(sellCost).setScale(4, RoundingMode.HALF_UP);
         BigDecimal newQuantity = holding.getQuantity().subtract(quantity);
-        BigDecimal newTotalCost = holding.getAvgCost().multiply(newQuantity).setScale(4, RoundingMode.HALF_UP);
+        BigDecimal newTotalCost = holding.getTotalCost().subtract(sellCost).max(BigDecimal.ZERO).setScale(4, RoundingMode.HALF_UP);
         holding.setQuantity(newQuantity);
-        holding.setTotalCost(newTotalCost);
-        holding.setAvgCost(newQuantity.compareTo(BigDecimal.ZERO) == 0 ? BigDecimal.ZERO : holding.getAvgCost());
+        holding.setTotalCost(newQuantity.compareTo(BigDecimal.ZERO) == 0 ? BigDecimal.ZERO : newTotalCost);
+        holding.setAvgCost(newQuantity.compareTo(BigDecimal.ZERO) == 0 ? BigDecimal.ZERO : holding.getTotalCost().divide(newQuantity, 4, RoundingMode.HALF_UP));
         updateHoldingBalance(holding);
-        return holding;
+        return new HoldingTradeResult(holding, sellCost, realizedProfit);
     }
 
     /**
@@ -269,8 +306,8 @@ public class HoldingServiceImpl implements HoldingService {
         }
         Set<Long> assetIds = holdings.stream().map(Holding::getAssetId).collect(Collectors.toSet());
         Map<Long, Asset> assetMap = assetMapper.selectBatchIds(assetIds).stream().collect(Collectors.toMap(Asset::getId, asset -> asset));
-        Map<Long, AssetPrice> priceMap = quoteService.latestPriceMap(assetIds);
-        return holdings.stream().map(holding -> toVO(holding, assetMap.get(holding.getAssetId()), priceMap.get(holding.getAssetId()))).toList();
+        Map<Long, List<AssetPrice>> priceMap = priceHistoryMap(assetIds);
+        return holdings.stream().map(holding -> toVO(holding, assetMap.get(holding.getAssetId()), priceMap.getOrDefault(holding.getAssetId(), List.of()))).toList();
     }
 
     /**
@@ -278,22 +315,35 @@ public class HoldingServiceImpl implements HoldingService {
      */
     private HoldingVO toVO(Holding holding) {
         Asset asset = assetMapper.selectById(holding.getAssetId());
-        AssetPrice price = quoteService.latestPriceMap(Set.of(holding.getAssetId())).get(holding.getAssetId());
-        return toVO(holding, asset, price);
+        List<AssetPrice> prices = priceHistoryMap(Set.of(holding.getAssetId())).getOrDefault(holding.getAssetId(), List.of());
+        return toVO(holding, asset, prices);
     }
 
     /**
      * 计算市值、浮动盈亏和收益率；没有价格时用 avgCost 兜底。
      */
-    private HoldingVO toVO(Holding holding, Asset asset, AssetPrice price) {
-        // 只使用与资产币种一致的价格快照，避免当前价展示币种和市值计算币种不一致。
-        AssetPrice matchedPrice = priceMatchesAssetCurrency(asset, price) ? price : null;
+    private HoldingVO toVO(Holding holding, Asset asset, List<AssetPrice> prices) {
+        // 最新价、市值和收益指标都从同一组同币种价格快照计算，避免展示和估值口径不一致。
+        List<AssetPrice> matchedPrices = prices.stream()
+                .filter(price -> priceMatchesAssetCurrency(asset, price))
+                .sorted(Comparator.comparing(AssetPrice::getQuoteTime).reversed().thenComparing(AssetPrice::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                .toList();
+        AssetPrice matchedPrice = matchedPrices.isEmpty() ? null : matchedPrices.get(0);
+        AssetPrice previousPrice = previousPrice(matchedPrices, matchedPrice);
+        AssetPrice beforePreviousPrice = beforePreviousPrice(matchedPrices);
         BigDecimal latestPrice = matchedPrice == null ? holding.getAvgCost() : matchedPrice.getPrice();
+        BigDecimal previous = previousPrice == null ? null : previousPrice.getPrice();
+        BigDecimal beforePrevious = beforePreviousPrice == null ? null : beforePreviousPrice.getPrice();
         BigDecimal marketValue = holding.getQuantity().multiply(latestPrice).setScale(4, RoundingMode.HALF_UP);
         BigDecimal profit = marketValue.subtract(holding.getTotalCost());
         BigDecimal profitRate = holding.getTotalCost().compareTo(BigDecimal.ZERO) == 0
                 ? BigDecimal.ZERO
                 : profit.multiply(BigDecimal.valueOf(100)).divide(holding.getTotalCost(), 4, RoundingMode.HALF_UP);
+        BigDecimal todayProfit = priceDiffProfit(holding.getQuantity(), latestPrice, previous);
+        BigDecimal todayChangeRate = changeRate(latestPrice, previous);
+        BigDecimal yesterdayProfit = priceDiffProfit(holding.getQuantity(), previous, beforePrevious);
+        BigDecimal yesterdayChangeRate = changeRate(previous, beforePrevious);
+        BigDecimal breakEvenRate = matchedPrice == null ? null : breakEvenRate(holding.getAvgCost(), latestPrice);
         return HoldingVO.builder()
                 .id(holding.getId())
                 .assetId(holding.getAssetId())
@@ -306,14 +356,113 @@ public class HoldingServiceImpl implements HoldingService {
                 .avgCost(holding.getAvgCost())
                 .totalCost(holding.getTotalCost())
                 .latestPrice(latestPrice)
+                .previousPrice(previous)
+                .beforePreviousPrice(beforePrevious)
                 .priceScale(priceScale(asset))
                 .latestPriceTime(matchedPrice == null ? null : matchedPrice.getQuoteTime())
+                .previousPriceTime(previousPrice == null ? null : previousPrice.getQuoteTime())
                 .marketValue(marketValue)
+                .todayProfit(todayProfit)
+                .todayChangeRate(todayChangeRate)
+                .yesterdayProfit(yesterdayProfit)
+                .yesterdayChangeRate(yesterdayChangeRate)
                 .floatingProfit(profit)
                 .floatingProfitRate(profitRate)
+                .breakEvenRate(breakEvenRate)
                 .remark(holding.getRemark())
                 .status(holding.getStatus())
                 .build();
+    }
+
+    /**
+     * 批量读取价格快照，后续在内存中按币种和日期挑选最新、昨日、前日价格。
+     */
+    private Map<Long, List<AssetPrice>> priceHistoryMap(Set<Long> assetIds) {
+        if (assetIds.isEmpty()) {
+            return Map.of();
+        }
+        return assetPriceMapper.selectList(new LambdaQueryWrapper<AssetPrice>()
+                        .in(AssetPrice::getAssetId, assetIds)
+                        .orderByDesc(AssetPrice::getQuoteTime)
+                        .orderByDesc(AssetPrice::getCreatedAt))
+                .stream()
+                .collect(Collectors.groupingBy(AssetPrice::getAssetId));
+    }
+
+    /**
+     * 昨日价格优先取昨天最后一条；缺失时取最新价格之前最近的不同日期价格。
+     */
+    private AssetPrice previousPrice(List<AssetPrice> prices, AssetPrice latestPrice) {
+        if (latestPrice == null) {
+            return null;
+        }
+        LocalDate yesterday = LocalDate.now().minusDays(1);
+        AssetPrice exactYesterday = lastPriceOnDate(prices, yesterday);
+        if (exactYesterday != null) {
+            return exactYesterday;
+        }
+        LocalDate latestDate = latestPrice.getQuoteTime().toLocalDate();
+        return prices.stream()
+                .filter(price -> price.getQuoteTime().toLocalDate().isBefore(latestDate))
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * 前日价格只取前天最后一条；没有则返回 null，让前端展示暂无。
+     */
+    private AssetPrice beforePreviousPrice(List<AssetPrice> prices) {
+        return lastPriceOnDate(prices, LocalDate.now().minusDays(2));
+    }
+
+    /**
+     * 获取指定日期最后一条价格。
+     */
+    private AssetPrice lastPriceOnDate(List<AssetPrice> prices, LocalDate date) {
+        return prices.stream()
+                .filter(price -> price.getQuoteTime().toLocalDate().equals(date))
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * 价格差收益，缺少历史价格时返回 null，前端展示暂无。
+     */
+    private BigDecimal priceDiffProfit(BigDecimal quantity, BigDecimal current, BigDecimal previous) {
+        if (current == null || previous == null) {
+            return null;
+        }
+        return quantity.multiply(current.subtract(previous)).setScale(4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 涨跌幅百分比，历史价格缺失或非正时返回 null。
+     */
+    private BigDecimal changeRate(BigDecimal current, BigDecimal previous) {
+        if (current == null || previous == null || previous.compareTo(BigDecimal.ZERO) <= 0) {
+            return null;
+        }
+        return current.subtract(previous).multiply(BigDecimal.valueOf(100)).divide(previous, 4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 亏损时计算回本所需涨幅，盈利或打平时返回 0。
+     */
+    private BigDecimal breakEvenRate(BigDecimal avgCost, BigDecimal latestPrice) {
+        if (latestPrice == null || latestPrice.compareTo(BigDecimal.ZERO) <= 0) {
+            return null;
+        }
+        if (latestPrice.compareTo(avgCost) >= 0) {
+            return BigDecimal.ZERO;
+        }
+        return avgCost.subtract(latestPrice).multiply(BigDecimal.valueOf(100)).divide(latestPrice, 4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 汇总收益时缺少历史价格的收益按 0 处理。
+     */
+    private BigDecimal nullToZero(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 
     /**

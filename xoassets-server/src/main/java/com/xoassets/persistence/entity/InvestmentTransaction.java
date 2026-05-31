@@ -19,11 +19,13 @@ public class InvestmentTransaction {
     private Long userId;
     private Long holdingId;
     private Long assetId;
+    private Long accountId;
     private String type;
     private BigDecimal quantity;
     private BigDecimal price;
     private BigDecimal amount;
     private BigDecimal fee;
+    private BigDecimal realizedProfit;
     private LocalDateTime transactionTime;
     private String note;
     @TableField(fill = FieldFill.INSERT)

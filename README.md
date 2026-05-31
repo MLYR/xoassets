@@ -27,8 +27,9 @@
 - 账户管理：`GET /api/accounts`、`POST /api/accounts`、`PUT /api/accounts/{id}`、`DELETE /api/accounts/{id}` 已接入账户页，编辑账户时可手动校准当前余额。
 - 分类管理：`GET /api/categories`、`POST /api/categories`、`PUT /api/categories/{id}`、`DELETE /api/categories/{id}`、`PUT /api/categories/{id}/status` 已接入分类页。
 - 记账流水：`GET /api/transactions`、`POST /api/transactions`、`PUT /api/transactions/{id}`、`DELETE /api/transactions/{id}` 已接入记账页，支持分页和流水图片。
-- 投资持仓：`GET /api/holdings`、`POST /api/holdings`、`PUT /api/holdings/{id}`、`DELETE /api/holdings/{id}`、`POST /api/investment-transactions`、`GET /api/investment-transactions`、`POST /api/quotes/manual`、`POST /api/quotes/refresh` 已接入投资页；前端只暴露持仓概念，`xo_asset` 作为后端内部行情基础表。
-- 投资展示：投资主页只展示总投资 / 基金 / 股票 / 虚拟货币统计和图表，持仓表格、买入卖出、编辑删除、价格刷新等操作集中在 `/investments/details`。
+- 投资持仓：`GET /api/holdings`、`GET /api/holdings/summary`、`POST /api/holdings`、`PUT /api/holdings/{id}`、`DELETE /api/holdings/{id}`、`POST /api/investment-transactions`、`GET /api/investment-transactions`、`POST /api/quotes/manual`、`POST /api/quotes/refresh` 已接入投资页；前端只暴露持仓概念，`xo_asset` 作为后端内部行情基础表。
+- 投资展示：投资主页只展示总投资 / 基金 / 股票 / 虚拟货币统计和图表，持仓表格、买入卖出、编辑删除、价格刷新、收益分析等操作集中在 `/investments/details`。
+- 投资交易：买入必须选择扣款账户并扣减余额，卖出必须选择到账账户并增加余额；买入 / 卖出不写入普通流水，不计入生活收支统计。
 - 投资精度：投资数量、手续费、成本、市值、盈亏和收益率统一按 4 位小数计算；行情价格快照保留 8 位，CRYPTO 当前价至少展示 6 位，FUND / STOCK 当前价展示 4 位。持仓列表的 `marketValue` 始终由后端使用同一个 `latestPrice` 计算，前端不使用格式化价格反算市值。
 - 行情缓存：持仓列表优先使用 `xo_asset_price` 最近快照；CRYPTO 5 分钟内、STOCK 15 分钟内、FUND 1 天内不重复刷新，MANUAL 价格不过期。
 - 预算管理：`GET /api/budgets`、`POST /api/budgets`、`PUT /api/budgets/{id}`、`DELETE /api/budgets/{id}`、`GET /api/budgets/summary` 已接入预算页。
@@ -134,6 +135,7 @@ docker compose up -d
 关键验收口径：
 
 - DOGE：`quantity = 881.3220`，`latestPrice = 0.72432000`，`marketValue = 638.3592`。
+- 投资收益分析：持仓接口返回最新价、昨价、前日价、今日收益、昨日收益、总收益、收益率和回本涨幅；缺少历史价格时页面展示“暂无”。
 - 预算：5 月餐饮支出 `86.5000 - 20.0000 = 66.5000`，转账不进入预算。
 - 账户：银行卡 `21500.0000`，支付宝 `1933.5000`，与初始化余额和流水变更一致。
 
@@ -145,6 +147,7 @@ docker compose up -d
 - 删除流水后账户余额按原流水影响反向恢复。
 - 预算统计只计算支出和退款，转账不计入预算。
 - 投资持仓市值使用后端返回的 `latestPrice` 计算，DOGE 当前价至少显示 6 位小数。
+- 投资买入扣减资金账户余额，卖出增加资金账户余额，已实现盈亏只进入投资交易记录。
 - 数据分析页收支趋势排除转账，投资盈亏使用最新价格快照。
 - 用户 A 不能查看或修改用户 B 的账户、分类、流水、持仓、预算、目标。
 

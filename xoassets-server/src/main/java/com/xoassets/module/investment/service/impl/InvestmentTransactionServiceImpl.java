@@ -4,14 +4,18 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.xoassets.common.api.ErrorCode;
 import com.xoassets.common.exception.BusinessException;
 import com.xoassets.common.security.LoginUserContext;
+import com.xoassets.module.account.service.AccountService;
 import com.xoassets.module.investment.dto.InvestmentTransactionRequest;
 import com.xoassets.module.investment.service.AssetService;
 import com.xoassets.module.investment.service.HoldingService;
+import com.xoassets.module.investment.service.HoldingTradeResult;
 import com.xoassets.module.investment.service.InvestmentTransactionService;
 import com.xoassets.module.investment.vo.InvestmentTransactionVO;
+import com.xoassets.persistence.entity.Account;
 import com.xoassets.persistence.entity.Asset;
 import com.xoassets.persistence.entity.Holding;
 import com.xoassets.persistence.entity.InvestmentTransaction;
+import com.xoassets.persistence.mapper.AccountMapper;
 import com.xoassets.persistence.mapper.AssetMapper;
 import com.xoassets.persistence.mapper.InvestmentTransactionMapper;
 import java.math.BigDecimal;
@@ -33,18 +37,24 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
 
     private final InvestmentTransactionMapper transactionMapper;
     private final AssetMapper assetMapper;
+    private final AccountMapper accountMapper;
     private final AssetService assetService;
     private final HoldingService holdingService;
+    private final AccountService accountService;
 
     public InvestmentTransactionServiceImpl(
             InvestmentTransactionMapper transactionMapper,
             AssetMapper assetMapper,
+            AccountMapper accountMapper,
             AssetService assetService,
-            HoldingService holdingService) {
+            HoldingService holdingService,
+            AccountService accountService) {
         this.transactionMapper = transactionMapper;
         this.assetMapper = assetMapper;
+        this.accountMapper = accountMapper;
         this.assetService = assetService;
         this.holdingService = holdingService;
+        this.accountService = accountService;
     }
 
     /**
@@ -56,28 +66,46 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
         Long userId = LoginUserContext.getUserId();
         ensureType(request.getType());
         assetService.findAsset(request.getAssetId());
+        Account account = accountService.findOwnedAccount(request.getAccountId(), userId);
         BigDecimal quantity = scale4(request.getQuantity());
         BigDecimal price = scale4(request.getPrice());
         BigDecimal fee = scale4(request.getFee());
-        // 先联动持仓再保存交易记录，任一环节失败都回滚，避免交易和持仓数量不一致。
-        Holding holding = TYPE_BUY.equals(request.getType())
-                ? holdingService.applyBuy(userId, request.getHoldingId(), request.getAssetId(), quantity, price, fee)
-                : holdingService.applySell(userId, request.getHoldingId(), request.getAssetId(), quantity);
+        BigDecimal amount = quantity.multiply(price).setScale(4, RoundingMode.HALF_UP);
+        // 账户余额、持仓和交易记录在同一事务中完成，任一失败都会回滚。
+        HoldingTradeResult tradeResult;
+        if (TYPE_BUY.equals(request.getType())) {
+            BigDecimal actualPay = amount.add(fee).setScale(4, RoundingMode.HALF_UP);
+            if (account.getBalance().compareTo(actualPay) < 0) {
+                throw new BusinessException(ErrorCode.BUSINESS_ERROR, "账户余额不足");
+            }
+            accountService.adjustBalance(userId, account.getId(), actualPay.negate());
+            tradeResult = holdingService.applyBuy(userId, request.getHoldingId(), request.getAssetId(), quantity, price, fee);
+        } else {
+            if (request.getHoldingId() == null) {
+                throw new BusinessException(ErrorCode.PARAM_ERROR, "卖出必须选择持仓");
+            }
+            BigDecimal actualIncome = amount.subtract(fee).setScale(4, RoundingMode.HALF_UP);
+            tradeResult = holdingService.applySell(userId, request.getHoldingId(), request.getAssetId(), quantity, price, fee);
+            accountService.adjustBalance(userId, account.getId(), actualIncome);
+        }
+        Holding holding = tradeResult.holding();
 
         InvestmentTransaction transaction = new InvestmentTransaction();
         transaction.setUserId(userId);
         transaction.setHoldingId(holding.getId());
         transaction.setAssetId(request.getAssetId());
+        transaction.setAccountId(account.getId());
         transaction.setType(request.getType());
         transaction.setQuantity(quantity);
         transaction.setPrice(price);
-        transaction.setAmount(quantity.multiply(price).setScale(4, RoundingMode.HALF_UP));
+        transaction.setAmount(amount);
         transaction.setFee(fee);
+        transaction.setRealizedProfit(tradeResult.realizedProfit());
         transaction.setTransactionTime(request.getTransactionTime());
         transaction.setNote(request.getNote());
         transaction.setDeleted(0);
         transactionMapper.insert(transaction);
-        return toVO(transaction, assetMapper.selectById(transaction.getAssetId()));
+        return toVO(transaction, assetMapper.selectById(transaction.getAssetId()), account);
     }
 
     /**
@@ -100,7 +128,12 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
                 : assetMapper.selectBatchIds(transactions.stream().map(InvestmentTransaction::getAssetId).collect(Collectors.toSet()))
                         .stream()
                         .collect(Collectors.toMap(Asset::getId, asset -> asset));
-        return transactions.stream().map(transaction -> toVO(transaction, assetMap.get(transaction.getAssetId()))).toList();
+        Map<Long, Account> accountMap = transactions.isEmpty()
+                ? Map.of()
+                : accountMapper.selectBatchIds(transactions.stream().map(InvestmentTransaction::getAccountId).collect(Collectors.toSet()))
+                        .stream()
+                        .collect(Collectors.toMap(Account::getId, account -> account));
+        return transactions.stream().map(transaction -> toVO(transaction, assetMap.get(transaction.getAssetId()), accountMap.get(transaction.getAccountId()))).toList();
     }
 
     /**
@@ -122,11 +155,13 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
     /**
      * 转换投资交易展示对象。
      */
-    private InvestmentTransactionVO toVO(InvestmentTransaction transaction, Asset asset) {
+    private InvestmentTransactionVO toVO(InvestmentTransaction transaction, Asset asset, Account account) {
         return InvestmentTransactionVO.builder()
                 .id(transaction.getId())
                 .holdingId(transaction.getHoldingId())
                 .assetId(transaction.getAssetId())
+                .accountId(transaction.getAccountId())
+                .accountName(account == null ? null : account.getName())
                 .assetName(asset == null ? null : asset.getName())
                 .symbol(asset == null ? null : asset.getSymbol())
                 .type(transaction.getType())
@@ -134,6 +169,7 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
                 .price(transaction.getPrice())
                 .amount(transaction.getAmount())
                 .fee(transaction.getFee())
+                .realizedProfit(transaction.getRealizedProfit())
                 .transactionTime(transaction.getTransactionTime())
                 .note(transaction.getNote())
                 .build();

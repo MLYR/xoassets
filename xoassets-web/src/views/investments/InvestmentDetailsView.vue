@@ -19,10 +19,18 @@
       <el-input v-model="keyword" placeholder="搜索名称或代码" clearable @change="resetPage" />
     </section>
 
+    <section class="summary-grid">
+      <MetricCard title="投资总市值" :value="displayedSummary.totalMarketValue" :trend="0" description="持仓最新市值合计" :precision="4" :currency-symbol="currencySymbol" />
+      <MetricCard title="今日收益" :value="displayedSummary.todayProfit" :trend="displayedSummary.todayProfit" description="按最新价与昨价计算" :precision="4" :currency-symbol="currencySymbol" :tone="profitTone(displayedSummary.todayProfit)" />
+      <MetricCard title="昨日收益" :value="displayedSummary.yesterdayProfit" :trend="displayedSummary.yesterdayProfit" description="按昨价与前日价计算" :precision="4" :currency-symbol="currencySymbol" :tone="profitTone(displayedSummary.yesterdayProfit)" />
+      <MetricCard title="总收益" :value="displayedSummary.floatingProfit" :trend="summary.floatingProfitRate" description="浮动盈亏 / 总成本" :precision="4" :currency-symbol="currencySymbol" :tone="profitTone(displayedSummary.floatingProfit)" />
+      <MetricCard title="持仓数量" :value="summary.holdingCount" :trend="summary.floatingProfitRate" description="当前持仓项目数" :precision="0" currency-symbol="" />
+    </section>
+
     <section v-loading="loading" class="panel">
       <el-empty v-if="!loading && pagedHoldings.length === 0" description="暂无符合条件的投资明细" />
       <template v-else>
-        <el-table :data="pagedHoldings" stripe height="520">
+        <el-table :data="pagedHoldings" stripe height="560">
           <el-table-column label="持仓" min-width="190" fixed="left">
             <template #default="{ row }">
               <strong>{{ row.assetName || '-' }}</strong>
@@ -35,8 +43,17 @@
           <el-table-column label="数量" min-width="130" align="right" header-align="right">
             <template #default="{ row }"><span class="numeric-cell">{{ formatQuantity(row.quantity) }}</span></template>
           </el-table-column>
+          <el-table-column label="成本价" min-width="130" align="right" header-align="right">
+            <template #default="{ row }"><AmountText class="numeric-cell" :value="displayValue(row.avgCost, row.currency, 4)" :precision="4" :currency-symbol="currencySymbol" /></template>
+          </el-table-column>
           <el-table-column label="当前价" min-width="150" align="right" header-align="right">
             <template #default="{ row }"><AmountText class="numeric-cell" :value="displayValue(row.latestPrice, row.currency, pricePrecision(row))" :precision="pricePrecision(row)" :currency-symbol="currencySymbol" /></template>
+          </el-table-column>
+          <el-table-column label="昨价" min-width="140" align="right" header-align="right">
+            <template #default="{ row }"><span class="numeric-cell">{{ formatOptionalPrice(row.previousPrice, row) }}</span></template>
+          </el-table-column>
+          <el-table-column label="今日涨跌" min-width="140" align="right" header-align="right">
+            <template #default="{ row }"><TrendValue v-if="row.todayChangeRate !== null && row.todayChangeRate !== undefined" class="numeric-cell" :value="round4(row.todayChangeRate)" :precision="4" /><span v-else class="numeric-cell muted-text">暂无</span></template>
           </el-table-column>
           <el-table-column label="市值" min-width="150" align="right" header-align="right">
             <template #default="{ row }"><AmountText class="numeric-cell" :value="displayValue(row.marketValue, row.currency, 4)" :precision="4" :currency-symbol="currencySymbol" /></template>
@@ -44,11 +61,20 @@
           <el-table-column label="总成本" min-width="150" align="right" header-align="right">
             <template #default="{ row }"><AmountText class="numeric-cell" :value="displayValue(row.totalCost, row.currency, 4)" :precision="4" :currency-symbol="currencySymbol" /></template>
           </el-table-column>
-          <el-table-column label="浮动盈亏" min-width="150" align="right" header-align="right">
+          <el-table-column label="今日收益" min-width="150" align="right" header-align="right">
+            <template #default="{ row }"><AmountText v-if="row.todayProfit !== null && row.todayProfit !== undefined" class="numeric-cell" :value="displayValue(row.todayProfit, row.currency, 4)" with-sign :precision="4" :currency-symbol="currencySymbol" /><span v-else class="numeric-cell muted-text">暂无</span></template>
+          </el-table-column>
+          <el-table-column label="昨日收益" min-width="150" align="right" header-align="right">
+            <template #default="{ row }"><AmountText v-if="row.yesterdayProfit !== null && row.yesterdayProfit !== undefined" class="numeric-cell" :value="displayValue(row.yesterdayProfit, row.currency, 4)" with-sign :precision="4" :currency-symbol="currencySymbol" /><span v-else class="numeric-cell muted-text">暂无</span></template>
+          </el-table-column>
+          <el-table-column label="总收益" min-width="150" align="right" header-align="right">
             <template #default="{ row }"><AmountText class="numeric-cell" :value="displayValue(row.floatingProfit, row.currency, 4)" with-sign :precision="4" :currency-symbol="currencySymbol" /></template>
           </el-table-column>
           <el-table-column label="收益率" min-width="120" align="right" header-align="right">
             <template #default="{ row }"><TrendValue class="numeric-cell" :value="round4(row.floatingProfitRate)" :precision="4" /></template>
+          </el-table-column>
+          <el-table-column label="回本涨幅" min-width="150" align="right" header-align="right">
+            <template #default="{ row }"><span :class="['numeric-cell', breakEvenClass(row.breakEvenRate)]">{{ formatBreakEven(row.breakEvenRate) }}</span></template>
           </el-table-column>
           <el-table-column label="操作" width="260" align="center" fixed="right">
             <template #default="{ row }">
@@ -121,6 +147,11 @@
     <el-dialog v-model="tradeDialogVisible" :title="tradeForm.type === 'BUY' ? '买入' : '卖出'" width="440px">
       <el-form label-position="top" @submit.prevent="handleCreateTrade">
         <el-form-item label="持仓"><el-input :model-value="activeHolding?.assetName || '-'" disabled /></el-form-item>
+        <el-form-item :label="tradeForm.type === 'BUY' ? '扣款账户' : '到账账户'">
+          <el-select v-model="tradeForm.accountId" class="full-width" placeholder="请选择资金账户">
+            <el-option v-for="account in accounts" :key="account.id" :label="`${account.name} · ${account.balance.toFixed(2)} ${account.currency}`" :value="account.id" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="数量"><el-input-number v-model="tradeForm.quantity" class="full-width" :min="0.0001" :precision="4" /></el-form-item>
         <el-form-item label="价格"><el-input-number v-model="tradeForm.price" class="full-width" :min="0.000001" :precision="activePricePrecision" /></el-form-item>
         <el-form-item label="手续费"><el-input-number v-model="tradeForm.fee" class="full-width" :min="0" :precision="4" /></el-form-item>
@@ -144,6 +175,32 @@
         <el-button type="primary" :loading="submitting" @click="handleManualQuote">保存</el-button>
       </template>
     </el-dialog>
+
+    <section v-loading="loading" class="panel transactions-panel">
+      <div class="section-head">
+        <h2>交易记录</h2>
+        <span class="muted-text">买入/卖出只影响资金账户和持仓，不进入普通收支</span>
+      </div>
+      <el-table :data="transactions" stripe height="280">
+        <el-table-column label="时间" prop="transactionTime" min-width="170" />
+        <el-table-column label="资产" min-width="150">
+          <template #default="{ row }">{{ row.assetName || row.symbol || '-' }}</template>
+        </el-table-column>
+        <el-table-column label="类型" width="90">
+          <template #default="{ row }"><StatusBadge :label="row.type === 'BUY' ? '买入' : '卖出'" /></template>
+        </el-table-column>
+        <el-table-column label="资金账户" prop="accountName" min-width="140" />
+        <el-table-column label="数量" min-width="120" align="right" header-align="right">
+          <template #default="{ row }"><span class="numeric-cell">{{ formatQuantity(row.quantity) }}</span></template>
+        </el-table-column>
+        <el-table-column label="成交金额" min-width="130" align="right" header-align="right">
+          <template #default="{ row }"><AmountText class="numeric-cell" :value="row.amount" :precision="4" /></template>
+        </el-table-column>
+        <el-table-column label="已实现盈亏" min-width="140" align="right" header-align="right">
+          <template #default="{ row }"><AmountText v-if="row.realizedProfit !== null && row.realizedProfit !== undefined" class="numeric-cell" :value="row.realizedProfit" with-sign :precision="4" /><span v-else class="numeric-cell muted-text">暂无</span></template>
+        </el-table-column>
+      </el-table>
+    </section>
   </div>
 </template>
 
@@ -153,14 +210,19 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import AmountText from '@/components/finance/AmountText.vue';
+import MetricCard from '@/components/finance/MetricCard.vue';
 import StatusBadge from '@/components/finance/StatusBadge.vue';
 import TrendValue from '@/components/finance/TrendValue.vue';
 import { ROUTES } from '@/constants/routes';
-import { investmentApi, type AssetType, type HoldingItem, type HoldingRequest, type InvestmentTransactionType } from '@/services/investmentApi';
+import { accountApi, type AccountItem } from '@/services/accountApi';
+import { investmentApi, type AssetType, type HoldingItem, type HoldingRequest, type HoldingSummary, type InvestmentTransactionItem, type InvestmentTransactionType } from '@/services/investmentApi';
 
 type DisplayCurrency = 'CNY' | 'USD';
 
 const holdings = ref<HoldingItem[]>([]);
+const summary = ref<HoldingSummary>({ totalMarketValue: 0, totalCost: 0, todayProfit: 0, yesterdayProfit: 0, floatingProfit: 0, floatingProfitRate: 0, holdingCount: 0 });
+const accounts = ref<AccountItem[]>([]);
+const transactions = ref<InvestmentTransactionItem[]>([]);
 const loading = ref(false);
 const submitting = ref(false);
 const activeType = ref<AssetType | 'ALL'>('ALL');
@@ -195,11 +257,11 @@ const holdingForm = reactive<Required<Omit<HoldingRequest, 'assetId'>>>({
   avgCost: 0,
   remark: ''
 });
-const tradeForm = reactive({ type: 'BUY' as InvestmentTransactionType, quantity: 0, price: 0, fee: 0, transactionTime: new Date(), note: '' });
+const tradeForm = reactive({ type: 'BUY' as InvestmentTransactionType, accountId: '', quantity: 0, price: 0, fee: 0, transactionTime: new Date(), note: '' });
 const quoteForm = reactive({ price: 0, currency: 'CNY' });
 
 onMounted(() => {
-  loadHoldings();
+  loadPageData();
 });
 
 watch(
@@ -224,11 +286,43 @@ const pagedHoldings = computed(() => {
   return filteredHoldings.value.slice(start, start + pageSize.value);
 });
 const activePricePrecision = computed(() => activeHolding.value ? pricePrecision(activeHolding.value) : 4);
+const displayedSummary = computed(() => {
+  // 后端负责权威汇总口径；前端仅在用户切换币种时按当前展示汇率换算金额字段。
+  return {
+    totalMarketValue: sumDisplayed('marketValue'),
+    todayProfit: sumDisplayed('todayProfit'),
+    yesterdayProfit: sumDisplayed('yesterdayProfit'),
+    floatingProfit: sumDisplayed('floatingProfit')
+  };
+});
 
 async function loadHoldings() {
   loading.value = true;
   try {
     holdings.value = await investmentApi.listHoldings();
+    summary.value = await investmentApi.summaryHoldings();
+    transactions.value = await investmentApi.listTransactions();
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '投资明细加载失败');
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function loadPageData() {
+  loading.value = true;
+  try {
+    // 交易弹窗需要展示当前用户资金账户，后端仍会再次校验 accountId 归属。
+    const [holdingList, holdingSummary, accountList, transactionList] = await Promise.all([
+      investmentApi.listHoldings(),
+      investmentApi.summaryHoldings(),
+      accountApi.list(),
+      investmentApi.listTransactions()
+    ]);
+    holdings.value = holdingList;
+    summary.value = holdingSummary;
+    accounts.value = accountList;
+    transactions.value = transactionList;
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '投资明细加载失败');
   } finally {
@@ -276,6 +370,7 @@ async function handleSaveHolding() {
 function openTradeDialog(holding: HoldingItem, type: InvestmentTransactionType) {
   activeHolding.value = holding;
   tradeForm.type = type;
+  tradeForm.accountId = accounts.value[0]?.id || '';
   tradeForm.quantity = 0;
   tradeForm.price = roundTo(Number(holding.latestPrice || holding.avgCost || 0), pricePrecision(holding));
   tradeForm.fee = 0;
@@ -292,8 +387,8 @@ function openQuoteDialog(holding: HoldingItem) {
 }
 
 async function handleCreateTrade() {
-  if (!activeHolding.value || tradeForm.quantity <= 0 || tradeForm.price <= 0) {
-    ElMessage.warning('请输入有效的数量和价格');
+  if (!activeHolding.value || !tradeForm.accountId || tradeForm.quantity <= 0 || tradeForm.price <= 0) {
+    ElMessage.warning('请选择资金账户并输入有效的数量和价格');
     return;
   }
   submitting.value = true;
@@ -301,6 +396,7 @@ async function handleCreateTrade() {
     await investmentApi.createTransaction({
       holdingId: activeHolding.value.id,
       assetId: activeHolding.value.assetId,
+      accountId: tradeForm.accountId,
       type: tradeForm.type,
       quantity: round4(tradeForm.quantity),
       price: roundTo(tradeForm.price, activePricePrecision.value),
@@ -310,7 +406,7 @@ async function handleCreateTrade() {
     });
     tradeDialogVisible.value = false;
     ElMessage.success(tradeForm.type === 'BUY' ? '买入已记录' : '卖出已记录');
-    await loadHoldings();
+    await loadPageData();
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '交易保存失败');
   } finally {
@@ -328,7 +424,7 @@ async function handleManualQuote() {
     await investmentApi.manualQuote({ assetId: activeHolding.value.assetId, price: roundTo(quoteForm.price, activePricePrecision.value), currency: quoteForm.currency });
     quoteDialogVisible.value = false;
     ElMessage.success('价格已更新');
-    await loadHoldings();
+    await loadPageData();
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '价格更新失败');
   } finally {
@@ -341,7 +437,7 @@ async function handleRefreshQuote(holding: HoldingItem) {
   try {
     await investmentApi.refreshQuote({ assetId: holding.assetId });
     ElMessage.success('行情已刷新');
-    await loadHoldings();
+    await loadPageData();
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '行情刷新失败');
   } finally {
@@ -354,7 +450,7 @@ async function handleDeleteHolding(holding: HoldingItem) {
     await ElMessageBox.confirm(`确认删除持仓「${holding.assetName || holding.symbol}」吗？`, '删除持仓', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' });
     await investmentApi.removeHolding(holding.id);
     ElMessage.success('持仓已删除');
-    await loadHoldings();
+    await loadPageData();
   } catch (error) {
     if (error !== 'cancel' && error !== 'close') {
       ElMessage.error(error instanceof Error ? error.message : '持仓删除失败');
@@ -397,6 +493,42 @@ function formatQuantity(value: number) {
   return round4(Number(value)).toLocaleString('zh-CN', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 }
 
+function formatOptionalPrice(value: number | null | undefined, row: HoldingItem) {
+  if (value === null || value === undefined) {
+    return '暂无';
+  }
+  return `${currencySymbol.value}${displayValue(value, row.currency, pricePrecision(row)).toLocaleString('zh-CN', { minimumFractionDigits: pricePrecision(row), maximumFractionDigits: pricePrecision(row) })}`;
+}
+
+function formatBreakEven(value: number | null | undefined) {
+  // 回本涨幅只在亏损时提示还需上涨比例，盈利或打平直接展示已盈利。
+  if (value === null || value === undefined) {
+    return '暂无';
+  }
+  return Number(value) > 0 ? `还需 +${round4(value).toFixed(4)}%` : '已盈利';
+}
+
+function breakEvenClass(value: number | null | undefined) {
+  if (value === null || value === undefined) {
+    return 'muted-text';
+  }
+  return Number(value) > 0 ? 'warning-text' : 'success-text';
+}
+
+function profitTone(value: number): 'success' | 'danger' | 'primary' {
+  if (value > 0) {
+    return 'success';
+  }
+  if (value < 0) {
+    return 'danger';
+  }
+  return 'primary';
+}
+
+function sumDisplayed(field: 'marketValue' | 'todayProfit' | 'yesterdayProfit' | 'floatingProfit') {
+  return round4(holdings.value.reduce((total, item) => total + displayValue(Number(item[field] || 0), item.currency, 4), 0));
+}
+
 function pricePrecision(row: HoldingItem) {
   // 后端返回 priceScale 作为权威精度；老数据没有该字段时按资产类型兜底。
   return row.priceScale || (row.assetType === 'CRYPTO' ? 6 : 4);
@@ -426,6 +558,28 @@ function roundTo(value: number, precision: number) {
   padding: 16px;
 }
 
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.transactions-panel {
+  margin-top: 18px;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 18px 8px;
+}
+
+.section-head h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -446,6 +600,18 @@ function roundTo(value: number, precision: number) {
   display: inline-block;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+}
+
+.muted-text {
+  color: var(--xo-muted);
+}
+
+.success-text {
+  color: var(--xo-success);
+}
+
+.warning-text {
+  color: var(--xo-warning);
 }
 
 .table-actions {
@@ -473,7 +639,8 @@ function roundTo(value: number, precision: number) {
 
 @media (max-width: 760px) {
   .filter-panel,
-  .form-grid {
+  .form-grid,
+  .summary-grid {
     grid-template-columns: 1fr;
   }
 

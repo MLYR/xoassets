@@ -18,6 +18,9 @@ public class InvestmentTransactionRequest {
     @NotNull(message = "资产不能为空")
     private Long assetId;
 
+    @NotNull(message = "资金账户不能为空")
+    private Long accountId;
+
     @NotBlank(message = "交易类型不能为空")
     private String type;
 

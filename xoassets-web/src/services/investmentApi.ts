@@ -36,13 +36,31 @@ export interface HoldingItem {
   avgCost: number;
   totalCost: number;
   latestPrice: number;
+  previousPrice?: number | null;
+  beforePreviousPrice?: number | null;
   priceScale?: number | null;
   latestPriceTime?: string | null;
+  previousPriceTime?: string | null;
   marketValue: number;
+  todayProfit?: number | null;
+  todayChangeRate?: number | null;
+  yesterdayProfit?: number | null;
+  yesterdayChangeRate?: number | null;
   floatingProfit: number;
   floatingProfitRate: number;
+  breakEvenRate?: number | null;
   remark?: string | null;
   status: number;
+}
+
+export interface HoldingSummary {
+  totalMarketValue: number;
+  totalCost: number;
+  todayProfit: number;
+  yesterdayProfit: number;
+  floatingProfit: number;
+  floatingProfitRate: number;
+  holdingCount: number;
 }
 
 export interface HoldingRequest {
@@ -62,6 +80,8 @@ export interface InvestmentTransactionItem {
   id: string;
   holdingId: string;
   assetId: string;
+  accountId: string;
+  accountName: string | null;
   assetName: string | null;
   symbol: string | null;
   type: InvestmentTransactionType;
@@ -69,6 +89,7 @@ export interface InvestmentTransactionItem {
   price: number;
   amount: number;
   fee: number;
+  realizedProfit?: number | null;
   transactionTime: string;
   note?: string | null;
 }
@@ -76,6 +97,7 @@ export interface InvestmentTransactionItem {
 export interface InvestmentTransactionRequest {
   holdingId?: string | null;
   assetId: string;
+  accountId: string;
   type: InvestmentTransactionType;
   quantity: number;
   price: number;
@@ -113,6 +135,12 @@ export const investmentApi = {
   listHoldings() {
     return request<HoldingItem[]>({
       url: '/holdings',
+      method: 'GET'
+    });
+  },
+  summaryHoldings() {
+    return request<HoldingSummary>({
+      url: '/holdings/summary',
       method: 'GET'
     });
   },
