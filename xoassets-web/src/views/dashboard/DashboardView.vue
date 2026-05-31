@@ -21,7 +21,8 @@
           </div>
           <el-segmented v-model="range" :options="['7天', '30天', '90天']" />
         </div>
-        <BaseChart :option="assetOption" />
+        <el-empty v-if="!loading && assetTrend.length === 0" description="暂无净资产趋势数据" />
+        <BaseChart v-else :option="assetOption" />
       </div>
       <div class="panel panel-padding">
         <div class="panel-head">
@@ -30,7 +31,8 @@
             <p>本月分类占比</p>
           </div>
         </div>
-        <BaseChart :option="expenseOption" height="210px" />
+        <el-empty v-if="!loading && expenseCategories.length === 0" description="暂无支出分类数据" />
+        <BaseChart v-else :option="expenseOption" height="210px" />
         <div class="legend-list">
           <div v-for="item in expenseBreakdown" :key="item.name" class="legend-row">
             <span><i />{{ item.name }}</span>

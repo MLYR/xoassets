@@ -45,7 +45,7 @@
     <el-dialog v-model="dialogVisible" :title="editingGoal ? '编辑目标' : '新增目标'" width="440px">
       <el-form label-position="top" @submit.prevent="handleSubmit">
         <el-form-item label="目标名称"><el-input v-model.trim="form.name" placeholder="例如：年底净资产目标" /></el-form-item>
-        <el-form-item label="目标金额"><el-input-number v-model="form.targetAmount" class="full-width" :min="0" :precision="2" /></el-form-item>
+        <el-form-item label="目标金额"><el-input-number v-model="form.targetAmount" class="full-width" :min="0.01" :precision="2" /></el-form-item>
         <el-form-item label="当前金额">
           <el-input-number v-model="form.currentAmount" class="full-width" :min="0" :precision="2" :disabled="form.useCurrentNetAssets" />
         </el-form-item>

@@ -16,6 +16,9 @@
       </el-tabs>
 
       <el-table v-loading="loading" :data="categories" stripe>
+        <template #empty>
+          <el-empty description="暂无分类，新用户注册后会自动初始化默认分类，也可以手动新增" />
+        </template>
         <el-table-column prop="name" label="分类名称" min-width="160" />
         <el-table-column prop="icon" label="图标" width="110">
           <template #default="{ row }">{{ row.icon || '-' }}</template>

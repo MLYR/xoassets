@@ -57,6 +57,7 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
         ensureType(request.getType());
         assetService.findAsset(request.getAssetId());
         BigDecimal fee = request.getFee() == null ? BigDecimal.ZERO : request.getFee();
+        // 先联动持仓再保存交易记录，任一环节失败都回滚，避免交易和持仓数量不一致。
         Holding holding = TYPE_BUY.equals(request.getType())
                 ? holdingService.applyBuy(userId, request.getHoldingId(), request.getAssetId(), request.getQuantity(), request.getPrice(), fee)
                 : holdingService.applySell(userId, request.getHoldingId(), request.getAssetId(), request.getQuantity());

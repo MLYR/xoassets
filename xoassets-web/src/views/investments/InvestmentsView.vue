@@ -24,13 +24,15 @@
         <div class="panel-head">
           <h3>资产配置</h3>
         </div>
-        <BaseChart :option="allocationOption" />
+        <el-empty v-if="!loading && holdings.length === 0" description="暂无资产配置数据" />
+        <BaseChart v-else :option="allocationOption" />
       </div>
       <div class="panel panel-padding">
         <div class="panel-head">
           <h3>收益贡献</h3>
         </div>
-        <BaseChart :option="profitOption" />
+        <el-empty v-if="!loading && holdings.length === 0" description="暂无收益贡献数据" />
+        <BaseChart v-else :option="profitOption" />
       </div>
     </section>
 
@@ -111,7 +113,7 @@
             <el-option v-for="asset in assets" :key="asset.id" :label="`${asset.name} (${asset.symbol})`" :value="asset.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="数量"><el-input-number v-model="holdingForm.quantity" class="full-width" :min="0" :precision="10" /></el-form-item>
+        <el-form-item label="数量"><el-input-number v-model="holdingForm.quantity" class="full-width" :min="0.0000000001" :precision="10" /></el-form-item>
         <el-form-item label="平均成本"><el-input-number v-model="holdingForm.avgCost" class="full-width" :min="0" :precision="4" /></el-form-item>
         <el-form-item label="备注"><el-input v-model.trim="holdingForm.remark" type="textarea" :rows="3" /></el-form-item>
       </el-form>
@@ -124,8 +126,8 @@
     <el-dialog v-model="tradeDialogVisible" :title="tradeForm.type === 'BUY' ? '买入' : '卖出'" width="440px">
       <el-form label-position="top" @submit.prevent="handleCreateTrade">
         <el-form-item label="资产"><el-input :model-value="activeHolding?.assetName || '-'" disabled /></el-form-item>
-        <el-form-item label="数量"><el-input-number v-model="tradeForm.quantity" class="full-width" :min="0" :precision="10" /></el-form-item>
-        <el-form-item label="价格"><el-input-number v-model="tradeForm.price" class="full-width" :min="0" :precision="4" /></el-form-item>
+        <el-form-item label="数量"><el-input-number v-model="tradeForm.quantity" class="full-width" :min="0.0000000001" :precision="10" /></el-form-item>
+        <el-form-item label="价格"><el-input-number v-model="tradeForm.price" class="full-width" :min="0.0001" :precision="4" /></el-form-item>
         <el-form-item label="手续费"><el-input-number v-model="tradeForm.fee" class="full-width" :min="0" :precision="4" /></el-form-item>
         <el-form-item label="交易时间"><el-date-picker v-model="tradeForm.transactionTime" type="datetime" class="full-width" /></el-form-item>
         <el-form-item label="备注"><el-input v-model.trim="tradeForm.note" type="textarea" :rows="3" /></el-form-item>
@@ -139,7 +141,7 @@
     <el-dialog v-model="quoteDialogVisible" title="手动更新价格" width="420px">
       <el-form label-position="top" @submit.prevent="handleManualQuote">
         <el-form-item label="资产"><el-input :model-value="activeHolding?.assetName || '-'" disabled /></el-form-item>
-        <el-form-item label="价格"><el-input-number v-model="quoteForm.price" class="full-width" :min="0" :precision="4" /></el-form-item>
+        <el-form-item label="价格"><el-input-number v-model="quoteForm.price" class="full-width" :min="0.0001" :precision="4" /></el-form-item>
         <el-form-item label="币种"><el-input v-model.trim="quoteForm.currency" /></el-form-item>
       </el-form>
       <template #footer>
@@ -271,6 +273,11 @@ async function handleCreateAsset() {
 async function handleCreateHolding() {
   if (!holdingForm.assetId) {
     ElMessage.warning('请选择资产');
+    return;
+  }
+  // 手动建仓必须有实际持仓数量，成本可以为 0 以支持暂无成本价的资产。
+  if (holdingForm.quantity <= 0 || holdingForm.avgCost < 0) {
+    ElMessage.warning('请输入有效的持仓数量和平均成本');
     return;
   }
   submitting.value = true;

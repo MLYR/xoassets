@@ -6,7 +6,7 @@
         <el-segmented v-model="form.type" :options="typeOptions" />
       </el-form-item>
       <el-form-item label="金额">
-        <el-input-number v-model="form.amount" :min="0" :precision="2" :step="10" class="full-input" />
+        <el-input-number v-model="form.amount" :min="0.01" :precision="2" :step="10" class="full-input" />
       </el-form-item>
 
       <template v-if="form.type === 'TRANSFER'">

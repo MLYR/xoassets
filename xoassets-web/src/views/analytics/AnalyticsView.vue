@@ -18,23 +18,28 @@
     <section class="grid-2">
       <div class="panel panel-padding">
         <h3>净资产趋势</h3>
-        <BaseChart :option="assetOption" />
+        <el-empty v-if="!loading && netAssetsTrend.length === 0" description="暂无净资产趋势数据" />
+        <BaseChart v-else :option="assetOption" />
       </div>
       <div class="panel panel-padding">
         <h3>支出分类</h3>
-        <BaseChart :option="expenseOption" />
+        <el-empty v-if="!loading && expenseCategories.length === 0" description="暂无支出分类数据" />
+        <BaseChart v-else :option="expenseOption" />
       </div>
       <div class="panel panel-padding">
         <h3>资产分布</h3>
-        <BaseChart :option="assetDistributionOption" />
+        <el-empty v-if="!loading && assetDistribution.length === 0" description="暂无资产分布数据" />
+        <BaseChart v-else :option="assetDistributionOption" />
       </div>
       <div class="panel panel-padding">
         <h3>投资盈亏</h3>
-        <BaseChart :option="investmentOption" />
+        <el-empty v-if="!loading && investmentTrend.length === 0" description="暂无投资盈亏数据" />
+        <BaseChart v-else :option="investmentOption" />
       </div>
       <div class="panel panel-padding wide">
         <h3>收支趋势与预算</h3>
-        <BaseChart :option="incomeExpenseOption" />
+        <el-empty v-if="!loading && incomeExpenseTrend.length === 0" description="暂无收支趋势数据" />
+        <BaseChart v-else :option="incomeExpenseOption" />
       </div>
     </section>
   </div>

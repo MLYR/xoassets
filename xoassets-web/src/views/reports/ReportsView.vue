@@ -18,7 +18,7 @@
 
     <section v-loading="loading" class="reports-layout">
       <div class="panel report-list">
-        <el-empty v-if="reports.length === 0" description="暂无报告，点击生成报告创建第一份复盘" />
+        <el-empty v-if="!loading && reports.length === 0" description="暂无报告，点击生成报告创建第一份复盘" />
         <button v-for="report in reports" v-else :key="report.id" :class="{ active: report.id === activeId }" @click="activeId = report.id">
           <strong>{{ report.title }}</strong>
           <span>{{ formatDateTime(report.createdAt) }}</span>

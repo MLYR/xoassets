@@ -50,7 +50,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="预算金额">
-          <el-input-number v-model="form.amount" class="full-width" :min="0" :precision="2" />
+          <el-input-number v-model="form.amount" class="full-width" :min="0.01" :precision="2" />
         </el-form-item>
       </el-form>
       <template #footer>

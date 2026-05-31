@@ -113,6 +113,7 @@ http://localhost:8080/doc.html
 
 - 金额字段使用 `BigDecimal`，数据库使用 `DECIMAL(18,4)`。
 - 业务表均包含 `user_id`，查询、修改、删除按当前登录用户隔离。
+- 所有金额、价格、数量等关键输入由 Bean Validation 和业务校验兜底，金额和价格必须大于 0。
 - Long ID 统一序列化为字符串返回，避免前端 JavaScript number 精度丢失。
 - 注册用户时会在同一事务内把默认收入 / 支出分类写入 `xo_category`，之后分类以表数据为准。
 - 分类方向只由 `type` 表示，支持 `INCOME` 和 `EXPENSE`；分类名称、图标、颜色、排序和状态均为用户自定义数据。
@@ -122,6 +123,7 @@ http://localhost:8080/doc.html
 - 删除或修改流水会在同一事务中反向修正账户余额。
 - 公共资产表 `xo_asset` 和价格表 `xo_asset_price` 不带 `user_id`；用户持仓 `xo_holding` 和投资交易 `xo_investment_transaction` 必须按当前登录用户隔离。
 - 投资买入会创建或更新持仓并按移动平均成本重算；投资卖出必须校验持仓数量，数量不足时拒绝。
+- 投资交易和持仓联动在同一事务中完成，避免交易记录与持仓数量、成本不一致。
 - 持仓估值使用最新手动价格；没有价格时使用平均成本兜底，避免页面无法展示。
 - 行情刷新通过 `QuoteProvider` 抽象扩展；阶段二支持 `ManualQuoteProvider` 和 `CoinGeckoQuoteProvider`。
 - CoinGecko 第一版只支持 CRYPTO 资产的 BTC、ETH、SOL、BNB、DOGE，刷新失败只返回错误提示，不删除旧价格。
