@@ -142,3 +142,18 @@ CREATE TABLE IF NOT EXISTS xo_asset_price (
   KEY idx_asset_time (asset_id, quote_time),
   KEY idx_source_time (source, quote_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='资产价格快照表';
+
+CREATE TABLE IF NOT EXISTS xo_budget (
+  id BIGINT PRIMARY KEY COMMENT '预算ID',
+  user_id BIGINT NOT NULL COMMENT '用户ID',
+  month VARCHAR(7) NOT NULL COMMENT '预算月份，格式 yyyy-MM',
+  category_id BIGINT DEFAULT NULL COMMENT '分类ID，总预算为空',
+  budget_type VARCHAR(20) NOT NULL COMMENT '预算类型：TOTAL CATEGORY',
+  amount DECIMAL(18,4) NOT NULL COMMENT '预算金额',
+  status TINYINT NOT NULL DEFAULT 1 COMMENT '状态：1启用 0停用',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除：0否 1是',
+  KEY idx_user_month (user_id, month),
+  KEY idx_user_category_month (user_id, category_id, month)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='预算表';

@@ -49,6 +49,7 @@ com.xoassets
 │   ├── category
 │   ├── transaction
 │   ├── investment
+│   ├── budget
 │   ├── dashboard
 │   └── statistics
 └── persistence
@@ -108,12 +109,14 @@ com.xoassets
 - 持仓接口使用 `/api/holdings/**`。
 - 投资交易接口使用 `/api/investment-transactions/**`。
 - 手动行情接口使用 `/api/quotes/**`。
+- 预算接口使用 `/api/budgets/**`。
 - AI 报告接口使用 `/api/reports/**`。
 - 接口新增或调整时，同步考虑 Swagger / Knife4j 文档。
 - 后端返回给前端的 Long ID 必须按字符串处理，前端不得用 `number` 保存业务 ID，避免 JavaScript 精度丢失。
 - 投资模块中 `xo_asset`、`xo_asset_price` 为公共数据不带 `user_id`；`xo_holding`、`xo_investment_transaction` 必须通过当前登录用户隔离。
 - 行情刷新通过 `QuoteProvider` 扩展；CoinGecko 第一版只支持 CRYPTO 资产的 BTC、ETH、SOL、BNB、DOGE。
 - 行情缓存 TTL：CRYPTO 5 分钟、STOCK 15 分钟、FUND 1 天、MANUAL 不过期；定时刷新失败不能影响应用启动。
+- 预算使用额从 `xo_transaction` 汇总，转账不计入，退款抵扣支出；预算接口必须按当前 user_id 隔离。
 
 ## 8. 前端设计约定
 - 整体风格：简洁、专业、清晰、数据感、轻量、安全感。

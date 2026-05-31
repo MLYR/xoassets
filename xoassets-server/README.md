@@ -11,6 +11,7 @@
 - 首页统计
 - 基础图表统计
 - 投资资产、投资持仓、投资交易、手动价格维护和 CoinGecko 虚拟货币行情刷新
+- 预算管理和预算汇总
 
 暂不包含 AI 报告真实调用、银行卡 / 支付宝 / 微信自动同步、股票基金自动交易或投资建议；股票 / 基金自动行情暂不接入。
 
@@ -89,6 +90,11 @@ http://localhost:8080/doc.html
 - `GET /api/investment-transactions`
 - `POST /api/quotes/manual`
 - `POST /api/quotes/refresh`
+- `GET /api/budgets`
+- `POST /api/budgets`
+- `PUT /api/budgets/{id}`
+- `DELETE /api/budgets/{id}`
+- `GET /api/budgets/summary`
 
 ## 业务约束
 
@@ -108,4 +114,6 @@ http://localhost:8080/doc.html
 - CoinGecko 第一版只支持 CRYPTO 资产的 BTC、ETH、SOL、BNB、DOGE，刷新失败只返回错误提示，不删除旧价格。
 - 行情缓存按资产类型控制刷新频率：CRYPTO 5 分钟、STOCK 15 分钟、FUND 1 天；MANUAL 价格不过期。
 - 后端启用 `QuoteRefreshScheduler` 定时刷新持仓涉及资产，任务或单个资产失败只记录日志，不影响主应用启动。
+- 预算表 `xo_budget` 按当前用户隔离；每个用户每月只能有一个总预算，每个支出分类每月只能有一个分类预算。
+- 预算使用额从 `xo_transaction` 汇总，转账不计入预算，退款抵扣支出。
 - 业务层采用 `service` 接口 + `service/impl` 实现类结构，Controller 依赖接口。

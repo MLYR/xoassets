@@ -13,11 +13,12 @@
 
 ## 接口联调状态
 
-- 已接入真实接口：登录、注册、用户中心、账户管理、分类管理、记账流水、投资持仓、虚拟货币行情刷新。
-- 暂用 mock 数据：首页仪表盘、数据分析、AI 报告、预算管理、资产目标。
+- 已接入真实接口：登录、注册、用户中心、账户管理、分类管理、记账流水、投资持仓、虚拟货币行情刷新、预算管理。
+- 暂用 mock 数据：首页仪表盘、数据分析、AI 报告、资产目标。
 - 请求封装：`src/services/http.ts` 统一处理 `/api` baseURL、JWT Header、业务响应和 401 跳转。
-- API 模块：`src/services/authApi.ts`、`src/services/accountApi.ts`、`src/services/categoryApi.ts`、`src/services/transactionApi.ts`、`src/services/investmentApi.ts`。
+- API 模块：`src/services/authApi.ts`、`src/services/accountApi.ts`、`src/services/categoryApi.ts`、`src/services/transactionApi.ts`、`src/services/investmentApi.ts`、`src/services/budgetApi.ts`。
 - 投资页：支持新增资产、新增持仓、买入、卖出、手动录价和 CoinGecko 刷新行情；刷新失败时保留旧价格并展示后端提示。
+- 预算页：支持月度总预算、分类预算、进度条、正常 / 预警 / 超支状态和删除确认。
 - ID 约定：后端 Long ID 以字符串返回，前端接口类型统一用 `string` 接收和回传业务 ID。
 - 本地代理：`vite.config.ts` 将 `/api` 转发到 `http://localhost:8080`。
 

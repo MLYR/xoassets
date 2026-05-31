@@ -19,7 +19,7 @@ const tagType = computed(() => {
   if (['支出', '已超支'].includes(props.label)) {
     return 'danger';
   }
-  if (['进行中', '待确认', '关注'].includes(props.label)) {
+  if (['进行中', '待确认', '关注', '预警'].includes(props.label)) {
     return 'warning';
   }
   return 'info';
