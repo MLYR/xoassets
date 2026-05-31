@@ -40,6 +40,10 @@ npm run build
 npm run preview
 ```
 
+## Docker 访问
+
+从仓库根目录执行 `docker compose up -d` 后，前端由 Nginx 提供静态资源，访问 `http://localhost:8088`；`/api` 会代理到后端 `xoassets-server:8080`。
+
 ## 目录说明
 
 - `src/layouts`：应用级布局、侧边栏和顶部栏。

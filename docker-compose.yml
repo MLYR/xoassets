@@ -1,0 +1,48 @@
+services:
+  xoassets-mysql:
+    image: mysql:8.4
+    container_name: xoassets-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: xoassets
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - xoassets-mysql-data:/var/lib/mysql
+      - ./xoassets-server/src/main/resources/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./xoassets-server/src/main/resources/db/dev-data.sql:/docker-entrypoint-initdb.d/02-dev-data.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -uroot -proot --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  xoassets-server:
+    build:
+      context: ./xoassets-server
+    container_name: xoassets-server
+    environment:
+      XOASSETS_DATASOURCE_URL: jdbc:mysql://xoassets-mysql:3306/xoassets?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      XOASSETS_DB_USERNAME: root
+      XOASSETS_DB_PASSWORD: root
+      XOASSETS_JWT_SECRET: xoassets-docker-local-secret-key-change-before-production
+      XOASSETS_JWT_EXPIRE_MINUTES: 10080
+      TZ: Asia/Shanghai
+    depends_on:
+      xoassets-mysql:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+
+  xoassets-web:
+    build:
+      context: ./xoassets-web
+    container_name: xoassets-web
+    depends_on:
+      - xoassets-server
+    ports:
+      - "8088:80"
+
+volumes:
+  xoassets-mysql-data:

@@ -129,6 +129,8 @@ com.xoassets
 - 资产目标当前金额可手动填写，也可按当前净资产口径写入；目标接口必须按当前 user_id 隔离。
 - AI 报告当前为模板化财务复盘，基于真实统计数据生成并保存到 `xo_ai_report`，不调用真实 AI，不提供投资买卖建议。
 - 核心业务页需要保留空状态、删除二次确认、统一 loading、后端 message 展示和金额大于 0 的前端拦截。
+- MVP 验收数据位于 `xoassets-server/src/main/resources/db/dev-data.sql`，应与 `schema.sql` 直接配套执行，测试账号为 `demo / xoassets123`。
+- 本地 Docker 一键启动使用仓库根目录 `docker compose up -d`，前端 Nginx 访问 `http://localhost:8088`，后端和 Knife4j 访问 `http://localhost:8080`。
 
 ## 8. 前端设计约定
 - 整体风格：简洁、专业、清晰、数据感、轻量、安全感。

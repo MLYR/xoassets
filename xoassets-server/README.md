@@ -140,3 +140,11 @@ http://localhost:8080/doc.html
 - 资产目标表 `xo_goal` 按当前用户隔离；当前金额可手动填写，也可按当前净资产口径写入。
 - AI 报告表 `xo_ai_report` 按当前用户隔离；阶段七只基于首页、预算、投资等真实数据生成模板化复盘，不调用真实 AI，不提供投资买卖建议。
 - 业务层采用 `service` 接口 + `service/impl` 实现类结构，Controller 依赖接口。
+
+## 开发验收
+
+- 初始化表结构：`mysql -uroot -p < src/main/resources/db/schema.sql`。
+- 导入开发数据：`mysql -uroot -p xoassets < src/main/resources/db/dev-data.sql`。
+- 测试账号：`demo / xoassets123`。
+- Docker 一键启动从仓库根目录执行 `docker compose up -d`，MySQL 首次启动会自动执行 `schema.sql` 和 `dev-data.sql`。
+- 核心测试在 `src/test/java/com/xoassets/module/MvpCoreServiceTest.java`，覆盖流水余额联动、预算退款抵扣、投资移动平均成本、首页总资产和数据隔离基础路径。

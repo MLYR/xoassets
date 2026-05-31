@@ -68,6 +68,104 @@ JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn -DskipTests compile
 http://localhost:8080/doc.html
 ```
 
+## 本地开发启动
+
+1. 初始化数据库：
+
+```bash
+cd xoassets-server
+mysql -uroot -p < src/main/resources/db/schema.sql
+mysql -uroot -p xoassets < src/main/resources/db/dev-data.sql
+```
+
+2. 启动后端：
+
+```bash
+cd xoassets-server
+JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn spring-boot:run
+```
+
+3. 启动前端：
+
+```bash
+cd xoassets-web
+npm install
+npm run dev
+```
+
+访问地址：
+
+- 前端开发地址：`http://localhost:5173`
+- 后端接口文档：`http://localhost:8080/doc.html`
+- 开发测试账号：`demo / xoassets123`
+
+## Docker 启动
+
+Docker Compose 会启动 MySQL 8、Spring Boot 后端和 Nginx 前端，并在 MySQL 首次初始化时自动执行 `schema.sql` 和 `dev-data.sql`。
+
+```bash
+docker compose up -d
+```
+
+访问地址：
+
+- 前端：`http://localhost:8088`
+- 后端：`http://localhost:8080`
+- Knife4j：`http://localhost:8080/doc.html`
+- MySQL：`localhost:3306`，账号密码 `root / root`
+- 开发测试账号：`demo / xoassets123`
+
+如果需要重新导入初始化数据，先删除数据卷再启动：
+
+```bash
+docker compose down -v
+docker compose up -d
+```
+
+## 开发测试数据
+
+`xoassets-server/src/main/resources/db/dev-data.sql` 包含：
+
+- 测试用户、默认账户、收入 / 支出分类。
+- 收入、支出、转账、退款流水，账户余额与流水影响自洽。
+- DOGE 和基金 A 投资资产、持仓、买入 / 卖出记录、行情价格快照。
+- 月度总预算、餐饮分类预算、资产目标、AI 模板报告。
+
+关键验收口径：
+
+- DOGE：`quantity = 881.3220`，`latestPrice = 0.72432000`，`marketValue = 638.3592`。
+- 预算：5 月餐饮支出 `86.5000 - 20.0000 = 66.5000`，转账不进入预算。
+- 账户：银行卡 `21500.0000`，支付宝 `1933.5000`，与初始化余额和流水变更一致。
+
+## MVP 验收清单
+
+- 登录 `demo / xoassets123` 后能进入首页。
+- 首页总资产 = 账户余额 + 投资市值，净资产当前等于总资产。
+- 记账新增收入后账户余额增加，新增支出后账户余额减少，转账只改变账户分布。
+- 删除流水后账户余额按原流水影响反向恢复。
+- 预算统计只计算支出和退款，转账不计入预算。
+- 投资持仓市值使用后端返回的 `latestPrice` 计算，DOGE 当前价至少显示 6 位小数。
+- 数据分析页收支趋势排除转账，投资盈亏使用最新价格快照。
+- 用户 A 不能查看或修改用户 B 的账户、分类、流水、持仓、预算、目标。
+
+## 当前暂不支持
+
+- 银行卡 / 支付宝 / 微信自动同步。
+- 股票 / 基金自动行情。
+- 真实 AI 调用。
+- 投资建议。
+- 自动交易。
+
+## 测试命令
+
+```bash
+cd xoassets-server
+JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn test
+
+cd ../xoassets-web
+npm run build
+```
+
 ## 后端结构约定
 
 - 业务层使用 `service` 接口 + `service/impl` 实现类结构。
