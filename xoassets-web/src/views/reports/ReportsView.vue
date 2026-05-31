@@ -1,71 +1,135 @@
-<!-- AI报告页：展示报告列表、摘要和行动建议。 -->
+<!-- AI报告页：展示模板化报告列表、摘要和数据复盘。 -->
 <template>
   <div class="page">
     <div class="page-header">
       <div>
         <h1 class="page-title">AI报告</h1>
-        <p class="page-subtitle">基于 mock 数据生成财务复盘和预算建议</p>
+        <p class="page-subtitle">基于真实数据生成财务复盘，不提供投资买卖建议</p>
       </div>
-      <el-button type="primary" :icon="DocumentAdd">生成报告</el-button>
+      <div class="header-actions">
+        <el-select v-model="reportType" class="type-select">
+          <el-option label="日报" value="DAILY" />
+          <el-option label="周报" value="WEEKLY" />
+          <el-option label="月报" value="MONTHLY" />
+        </el-select>
+        <el-button type="primary" :icon="DocumentAdd" :loading="generating" @click="handleGenerate">生成报告</el-button>
+      </div>
     </div>
 
-    <section class="reports-layout">
+    <section v-loading="loading" class="reports-layout">
       <div class="panel report-list">
-        <button v-for="report in reports" :key="report.id" :class="{ active: report.id === activeReport.id }" @click="activeId = report.id">
+        <el-empty v-if="reports.length === 0" description="暂无报告，点击生成报告创建第一份复盘" />
+        <button v-for="report in reports" v-else :key="report.id" :class="{ active: report.id === activeId }" @click="activeId = report.id">
           <strong>{{ report.title }}</strong>
-          <span>{{ report.createdAt }}</span>
-          <StatusBadge :label="report.status" />
+          <span>{{ formatDateTime(report.createdAt) }}</span>
+          <StatusBadge :label="report.statusLabel" />
         </button>
       </div>
 
-      <article class="panel panel-padding report-detail">
+      <article v-if="activeReport" class="panel panel-padding report-detail">
         <div class="report-head">
           <div>
             <h2>{{ activeReport.title }}</h2>
-            <p>{{ activeReport.createdAt }}</p>
+            <p>{{ formatDateTime(activeReport.createdAt) }}</p>
           </div>
-          <StatusBadge :label="activeReport.status" />
+          <StatusBadge :label="activeReport.statusLabel" />
         </div>
-        <p class="summary">{{ activeReport.summary }}</p>
+        <p class="summary">{{ activeReport.content }}</p>
         <div class="insight-grid">
-          <div>
-            <span>消费提醒</span>
-            <strong>购物预算接近上限</strong>
-            <p>建议本周减少非必要购买，优先处理固定支出。</p>
-          </div>
-          <div>
-            <span>资产观察</span>
-            <strong>资产趋势稳定向上</strong>
-            <p>现金流保持健康，可以继续维持当前储蓄节奏。</p>
-          </div>
-          <div>
-            <span>下步行动</span>
-            <strong>复核信用卡账单</strong>
-            <p>信用账户需要重点关注还款日和单月额度使用率。</p>
+          <div v-for="item in summaryItems" :key="item.label">
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+            <p>{{ item.description }}</p>
           </div>
         </div>
+      </article>
+      <article v-else class="panel panel-padding report-detail">
+        <el-empty description="选择或生成一份报告查看详情" />
       </article>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
-// 报告页通过 activeId 控制列表和详情联动。
-import { computed, ref } from 'vue';
+// 报告页使用模板化报告接口；后续接真实 AI 时保持同一展示结构。
+import { computed, onMounted, ref } from 'vue';
 import { DocumentAdd } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
 import StatusBadge from '@/components/finance/StatusBadge.vue';
-import { financeService } from '@/services/financeService';
+import { reportApi, type AiReportItem, type ReportType } from '@/services/reportApi';
 
-// 报告列表来自 mock 服务。
-const reports = financeService.getReports();
-// 当前选中的报告 ID，默认选择第一份报告。
-const activeId = ref(reports[0]?.id ?? 0);
-// 根据 activeId 派生详情数据，异常时回退第一份报告。
-const activeReport = computed(() => reports.find((item) => item.id === activeId.value) ?? reports[0]);
+const reports = ref<AiReportItem[]>([]);
+const activeId = ref<string>('');
+const reportType = ref<ReportType>('DAILY');
+const loading = ref(false);
+const generating = ref(false);
+
+onMounted(() => {
+  loadReports();
+});
+
+const activeReport = computed(() => reports.value.find((item) => item.id === activeId.value) || reports.value[0] || null);
+const summaryItems = computed(() => parseSummary(activeReport.value?.summaryJson));
+
+async function loadReports() {
+  loading.value = true;
+  try {
+    reports.value = await reportApi.list();
+    activeId.value = activeId.value || reports.value[0]?.id || '';
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '报告加载失败');
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function handleGenerate() {
+  generating.value = true;
+  try {
+    const report = await reportApi.generatePreview({ reportType: reportType.value });
+    ElMessage.success('报告已生成');
+    await loadReports();
+    activeId.value = report.id;
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '报告生成失败');
+  } finally {
+    generating.value = false;
+  }
+}
+
+function parseSummary(summaryJson?: string | null) {
+  if (!summaryJson) {
+    return [];
+  }
+  try {
+    const summary = JSON.parse(summaryJson) as Record<string, number | string>;
+    return [
+      { label: '净资产', value: `${summary.netAssets ?? 0}`, description: '当前没有负债模型时，净资产按总资产展示。' },
+      { label: '预算使用率', value: `${summary.budgetUsageRate ?? 0}%`, description: `预算状态：${summary.budgetStatus ?? '-'}` },
+      { label: '投资浮动盈亏', value: `${summary.investmentFloatingProfit ?? 0}`, description: '仅做数据观察，不构成买入或卖出建议。' }
+    ];
+  } catch {
+    return [];
+  }
+}
+
+function formatDateTime(value: string) {
+  return value ? value.replace('T', ' ').slice(0, 16) : '-';
+}
 </script>
 
 <style scoped>
 /* 报告页采用左列表右详情，适合后续扩展报告历史。 */
+.header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.type-select {
+  width: 120px;
+}
+
 .reports-layout {
   display: grid;
   grid-template-columns: 320px minmax(0, 1fr);
@@ -113,6 +177,7 @@ const activeReport = computed(() => reports.find((item) => item.id === activeId.
 }
 
 .summary {
+  white-space: pre-line;
   margin: 0 0 24px;
   line-height: 1.8;
 }

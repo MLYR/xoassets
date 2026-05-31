@@ -12,6 +12,7 @@
 - 投资资产、投资持仓、投资交易、手动价格维护和 CoinGecko 虚拟货币行情刷新
 - 预算管理和预算汇总
 - 资产目标管理和目标汇总
+- AI 报告模板生成和报告列表
 
 暂不包含 AI 报告真实调用、银行卡 / 支付宝 / 微信自动同步、股票基金自动交易或投资建议；股票 / 基金自动行情暂不接入。
 
@@ -104,6 +105,9 @@ http://localhost:8080/doc.html
 - `PUT /api/goals/{id}`
 - `DELETE /api/goals/{id}`
 - `GET /api/goals/summary`
+- `GET /api/reports`
+- `GET /api/reports/{id}`
+- `POST /api/reports/generate-preview`
 
 ## 业务约束
 
@@ -128,4 +132,5 @@ http://localhost:8080/doc.html
 - 首页总资产 = 当前用户账户余额 + 投资持仓市值；当前没有负债模型时净资产暂等于总资产。
 - 统计接口全部按当前 `user_id` 隔离，支出统计排除转账，退款抵扣支出。
 - 资产目标表 `xo_goal` 按当前用户隔离；当前金额可手动填写，也可按当前净资产口径写入。
+- AI 报告表 `xo_ai_report` 按当前用户隔离；阶段七只基于首页、预算、投资等真实数据生成模板化复盘，不调用真实 AI，不提供投资买卖建议。
 - 业务层采用 `service` 接口 + `service/impl` 实现类结构，Controller 依赖接口。

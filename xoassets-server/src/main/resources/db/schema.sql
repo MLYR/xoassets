@@ -172,3 +172,19 @@ CREATE TABLE IF NOT EXISTS xo_goal (
   KEY idx_user_status (user_id, status),
   KEY idx_user_target_date (user_id, target_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='资产目标表';
+
+CREATE TABLE IF NOT EXISTS xo_ai_report (
+  id BIGINT PRIMARY KEY COMMENT '报告ID',
+  user_id BIGINT NOT NULL COMMENT '用户ID',
+  report_type VARCHAR(20) NOT NULL COMMENT '报告类型：DAILY WEEKLY MONTHLY',
+  report_date DATE NOT NULL COMMENT '报告日期',
+  title VARCHAR(120) NOT NULL COMMENT '报告标题',
+  content TEXT NOT NULL COMMENT '报告内容',
+  summary_json TEXT DEFAULT NULL COMMENT '结构化摘要',
+  status VARCHAR(20) NOT NULL DEFAULT 'SUCCESS' COMMENT '状态：SUCCESS FAILED',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除：0否 1是',
+  KEY idx_user_date (user_id, report_date),
+  KEY idx_user_type_date (user_id, report_type, report_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI财务报告表';

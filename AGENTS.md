@@ -51,6 +51,7 @@ com.xoassets
 │   ├── investment
 │   ├── budget
 │   ├── goal
+│   ├── report
 │   ├── dashboard
 │   └── statistics
 └── persistence
@@ -121,6 +122,7 @@ com.xoassets
 - 预算使用额从 `xo_transaction` 汇总，转账不计入，退款抵扣支出；预算接口必须按当前 user_id 隔离。
 - 首页和统计总资产口径为账户余额 + 投资市值；没有负债模型时净资产暂等于总资产。
 - 资产目标当前金额可手动填写，也可按当前净资产口径写入；目标接口必须按当前 user_id 隔离。
+- AI 报告当前为模板化财务复盘，基于真实统计数据生成并保存到 `xo_ai_report`，不调用真实 AI，不提供投资买卖建议。
 
 ## 8. 前端设计约定
 - 整体风格：简洁、专业、清晰、数据感、轻量、安全感。
