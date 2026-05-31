@@ -77,13 +77,15 @@ public class HoldingServiceImpl implements HoldingService {
     public HoldingVO create(HoldingRequest request) {
         Long userId = LoginUserContext.getUserId();
         Asset asset = resolveAsset(request);
+        BigDecimal quantity = scale4(request.getQuantity());
+        BigDecimal avgCost = scale4(request.getAvgCost());
         ensureNoDuplicatedHolding(userId, asset.getId(), null);
         Holding holding = new Holding();
         holding.setUserId(userId);
         holding.setAssetId(asset.getId());
-        holding.setQuantity(request.getQuantity());
-        holding.setAvgCost(request.getAvgCost());
-        holding.setTotalCost(request.getQuantity().multiply(request.getAvgCost()).setScale(4, RoundingMode.HALF_UP));
+        holding.setQuantity(quantity);
+        holding.setAvgCost(avgCost);
+        holding.setTotalCost(quantity.multiply(avgCost).setScale(4, RoundingMode.HALF_UP));
         holding.setRemark(request.getRemark());
         holding.setStatus(1);
         holding.setDeleted(0);
@@ -100,11 +102,13 @@ public class HoldingServiceImpl implements HoldingService {
         Long userId = LoginUserContext.getUserId();
         Asset asset = resolveAsset(request);
         Holding holding = findOwnedHolding(id, userId);
+        BigDecimal quantity = scale4(request.getQuantity());
+        BigDecimal avgCost = scale4(request.getAvgCost());
         ensureNoDuplicatedHolding(userId, asset.getId(), id);
         holding.setAssetId(asset.getId());
-        holding.setQuantity(request.getQuantity());
-        holding.setAvgCost(request.getAvgCost());
-        holding.setTotalCost(request.getQuantity().multiply(request.getAvgCost()).setScale(4, RoundingMode.HALF_UP));
+        holding.setQuantity(quantity);
+        holding.setAvgCost(avgCost);
+        holding.setTotalCost(quantity.multiply(avgCost).setScale(4, RoundingMode.HALF_UP));
         holding.setRemark(request.getRemark());
         holdingMapper.update(holding, new LambdaUpdateWrapper<Holding>()
                 .eq(Holding::getId, id)
@@ -149,11 +153,14 @@ public class HoldingServiceImpl implements HoldingService {
     @Transactional(rollbackFor = Exception.class)
     @Override
     public Holding applyBuy(Long userId, Long holdingId, Long assetId, BigDecimal quantity, BigDecimal price, BigDecimal fee) {
+        quantity = scale4(quantity);
+        price = scale4(price);
+        fee = scale4(fee);
         Holding holding = holdingId == null ? findOrCreateHolding(userId, assetId) : findOwnedHolding(holdingId, userId);
         if (!Objects.equals(holding.getAssetId(), assetId)) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "交易资产与持仓资产不一致");
         }
-        BigDecimal buyCost = quantity.multiply(price).add(fee == null ? BigDecimal.ZERO : fee).setScale(4, RoundingMode.HALF_UP);
+        BigDecimal buyCost = quantity.multiply(price).add(fee).setScale(4, RoundingMode.HALF_UP);
         BigDecimal newQuantity = holding.getQuantity().add(quantity);
         BigDecimal newTotalCost = holding.getTotalCost().add(buyCost);
         holding.setQuantity(newQuantity);
@@ -169,6 +176,7 @@ public class HoldingServiceImpl implements HoldingService {
     @Transactional(rollbackFor = Exception.class)
     @Override
     public Holding applySell(Long userId, Long holdingId, Long assetId, BigDecimal quantity) {
+        quantity = scale4(quantity);
         Holding holding = holdingId == null ? findHoldingByAsset(userId, assetId) : findOwnedHolding(holdingId, userId);
         if (!Objects.equals(holding.getAssetId(), assetId)) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "交易资产与持仓资产不一致");
@@ -228,6 +236,13 @@ public class HoldingServiceImpl implements HoldingService {
         holdingMapper.update(holding, new LambdaUpdateWrapper<Holding>()
                 .eq(Holding::getId, holding.getId())
                 .eq(Holding::getUserId, holding.getUserId()));
+    }
+
+    /**
+     * 投资模块统一按四位小数参与持仓和成本计算，避免不同入口传入精度不一致。
+     */
+    private BigDecimal scale4(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value.setScale(4, RoundingMode.HALF_UP);
     }
 
     /**

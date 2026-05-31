@@ -16,10 +16,11 @@ import { formatPercent } from '@/utils/format';
 const props = defineProps<{
   value: number;
   description?: string;
+  precision?: number;
 }>();
 
 // 百分比展示统一保留一位小数。
-const displayValue = computed(() => formatPercent(props.value));
+const displayValue = computed(() => formatPercent(props.value, props.precision ?? 1));
 
 // 正数和零按上涨样式展示，负数按下跌样式展示。
 const trendClass = computed(() => (props.value >= 0 ? 'is-up' : 'is-down'));

@@ -13,15 +13,19 @@ const props = withDefaults(
     value: number;
     withSign?: boolean;
     muted?: boolean;
+    precision?: number;
+    currencySymbol?: string;
   }>(),
   {
     withSign: false,
-    muted: false
+    muted: false,
+    precision: 2,
+    currencySymbol: '¥'
   }
 );
 
 // 统一格式化金额，保证各页面小数位和货币符号一致。
-const displayValue = computed(() => formatAmount(props.value, props.withSign));
+const displayValue = computed(() => formatAmount(props.value, props.withSign, props.precision, props.currencySymbol));
 
 // 根据金额正负和 muted 状态选择展示色。
 const toneClass = computed(() => {

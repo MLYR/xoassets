@@ -22,7 +22,7 @@ public class InvestmentTransactionRequest {
     private String type;
 
     @NotNull(message = "数量不能为空")
-    @DecimalMin(value = "0.0000000001", message = "数量必须大于0")
+    @DecimalMin(value = "0.0001", message = "数量必须大于0")
     private BigDecimal quantity;
 
     @NotNull(message = "价格不能为空")

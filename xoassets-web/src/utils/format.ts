@@ -2,20 +2,20 @@
 import { CURRENCY_SYMBOL } from '@/constants/finance';
 
 // 格式化金额，withSign 为 true 时正数也显示加号。
-export function formatAmount(value: number, withSign = false): string {
+export function formatAmount(value: number, withSign = false, precision = 2, currencySymbol = CURRENCY_SYMBOL): string {
   const sign = withSign && value > 0 ? '+' : value < 0 ? '-' : '';
   const amount = Math.abs(value).toLocaleString('zh-CN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
+    minimumFractionDigits: precision,
+    maximumFractionDigits: precision
   });
 
-  return `${sign}${CURRENCY_SYMBOL} ${amount}`;
+  return `${sign}${currencySymbol} ${amount}`;
 }
 
 // 格式化百分比，正数显示加号，负数保留自身符号。
-export function formatPercent(value: number): string {
+export function formatPercent(value: number, precision = 1): string {
   const sign = value > 0 ? '+' : '';
-  return `${sign}${value.toFixed(1)}%`;
+  return `${sign}${value.toFixed(precision)}%`;
 }
 
 // 计算进度百分比，超过目标时最高显示 100。

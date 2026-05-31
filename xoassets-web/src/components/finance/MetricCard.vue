@@ -7,7 +7,7 @@
         <component :is="iconComponent" />
       </el-icon>
     </div>
-    <AmountText class="metric-value" :value="value" />
+    <AmountText class="metric-value" :value="value" :precision="precision" :currency-symbol="currencySymbol" />
     <TrendValue :value="trend" :description="description" />
   </div>
 </template>
@@ -26,9 +26,13 @@ const props = withDefaults(
     trend: number;
     description: string;
     tone?: 'success' | 'danger' | 'warning' | 'primary';
+    precision?: number;
+    currencySymbol?: string;
   }>(),
   {
-    tone: 'primary'
+    tone: 'primary',
+    precision: 2,
+    currencySymbol: '¥'
   }
 );
 

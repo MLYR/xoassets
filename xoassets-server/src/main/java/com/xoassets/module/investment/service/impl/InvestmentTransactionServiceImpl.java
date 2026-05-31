@@ -56,20 +56,22 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
         Long userId = LoginUserContext.getUserId();
         ensureType(request.getType());
         assetService.findAsset(request.getAssetId());
-        BigDecimal fee = request.getFee() == null ? BigDecimal.ZERO : request.getFee();
+        BigDecimal quantity = scale4(request.getQuantity());
+        BigDecimal price = scale4(request.getPrice());
+        BigDecimal fee = scale4(request.getFee());
         // 先联动持仓再保存交易记录，任一环节失败都回滚，避免交易和持仓数量不一致。
         Holding holding = TYPE_BUY.equals(request.getType())
-                ? holdingService.applyBuy(userId, request.getHoldingId(), request.getAssetId(), request.getQuantity(), request.getPrice(), fee)
-                : holdingService.applySell(userId, request.getHoldingId(), request.getAssetId(), request.getQuantity());
+                ? holdingService.applyBuy(userId, request.getHoldingId(), request.getAssetId(), quantity, price, fee)
+                : holdingService.applySell(userId, request.getHoldingId(), request.getAssetId(), quantity);
 
         InvestmentTransaction transaction = new InvestmentTransaction();
         transaction.setUserId(userId);
         transaction.setHoldingId(holding.getId());
         transaction.setAssetId(request.getAssetId());
         transaction.setType(request.getType());
-        transaction.setQuantity(request.getQuantity());
-        transaction.setPrice(request.getPrice());
-        transaction.setAmount(request.getQuantity().multiply(request.getPrice()).setScale(4, RoundingMode.HALF_UP));
+        transaction.setQuantity(quantity);
+        transaction.setPrice(price);
+        transaction.setAmount(quantity.multiply(price).setScale(4, RoundingMode.HALF_UP));
         transaction.setFee(fee);
         transaction.setTransactionTime(request.getTransactionTime());
         transaction.setNote(request.getNote());
@@ -108,6 +110,13 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
         if (!TYPE_BUY.equals(type) && !TYPE_SELL.equals(type)) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "投资交易类型只支持 BUY 或 SELL");
         }
+    }
+
+    /**
+     * 投资交易入库前统一四位小数，确保持仓联动和交易记录金额口径一致。
+     */
+    private BigDecimal scale4(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value.setScale(4, RoundingMode.HALF_UP);
     }
 
     /**
