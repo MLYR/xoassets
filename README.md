@@ -14,8 +14,8 @@
 
 ## 当前进度
 
-- 前端：已重建为 Vue3、Element Plus、ECharts、Pinia、Vue Router 项目；登录、注册、用户中心、账户管理、分类管理、记账流水、投资持仓、预算管理已接入后端接口，其余页面暂用 mock 数据。
-- 后端：已创建 Spring Boot MVP，覆盖登录注册、账户、分类、流水、首页统计、基础图表统计、投资持仓手动维护和预算管理。
+- 前端：已重建为 Vue3、Element Plus、ECharts、Pinia、Vue Router 项目；登录、注册、用户中心、账户管理、分类管理、记账流水、投资持仓、预算管理、首页和数据分析已接入后端接口，其余页面暂用 mock 数据。
+- 后端：已创建 Spring Boot MVP，覆盖登录注册、账户、分类、流水、首页统计、基础图表统计、投资持仓手动维护、行情刷新和预算管理。
 - 暂不做：自动同步银行卡 / 支付宝 / 微信、AI 报告真实调用、自动交易或投资建议；虚拟货币行情已支持 CoinGecko 手动刷新和定时刷新，股票 / 基金自动行情暂不接入。
 
 ## 前后端联调状态
@@ -29,6 +29,7 @@
 - 投资持仓：`GET /api/assets/search`、`POST /api/assets`、`GET /api/holdings`、`POST /api/holdings`、`PUT /api/holdings/{id}`、`DELETE /api/holdings/{id}`、`POST /api/investment-transactions`、`GET /api/investment-transactions`、`POST /api/quotes/manual`、`POST /api/quotes/refresh` 已接入投资页。
 - 行情缓存：持仓列表优先使用 `xo_asset_price` 最近快照；CRYPTO 5 分钟内、STOCK 15 分钟内、FUND 1 天内不重复刷新，MANUAL 价格不过期。
 - 预算管理：`GET /api/budgets`、`POST /api/budgets`、`PUT /api/budgets/{id}`、`DELETE /api/budgets/{id}`、`GET /api/budgets/summary` 已接入预算页。
+- 首页和统计：`GET /api/dashboard/overview` 返回账户、流水、投资和预算聚合指标；`/api/statistics/*` 返回净资产趋势、收支趋势、分类支出、资产分布、投资盈亏和预算进度。
 - ID 处理：后端 Long ID 以字符串返回，前端接口类型使用 `string` 保存和回传 ID，避免 JavaScript 数字精度丢失。
 - 本地开发：前端 Vite 将 `/api` 代理到 `http://localhost:8080`。
 

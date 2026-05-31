@@ -2,8 +2,13 @@ package com.xoassets.module.dashboard.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.xoassets.common.security.LoginUserContext;
+import com.xoassets.module.budget.service.BudgetService;
+import com.xoassets.module.budget.vo.BudgetSummaryVO;
 import com.xoassets.module.dashboard.service.DashboardService;
 import com.xoassets.module.dashboard.vo.DashboardOverviewVO;
+import com.xoassets.module.investment.service.HoldingService;
+import com.xoassets.module.investment.service.InvestmentTransactionService;
+import com.xoassets.module.investment.vo.HoldingVO;
 import com.xoassets.module.transaction.dto.TransactionQuery;
 import com.xoassets.module.transaction.service.TransactionService;
 import com.xoassets.module.transaction.vo.TransactionVO;
@@ -29,11 +34,23 @@ public class DashboardServiceImpl implements DashboardService {
     private final AccountMapper accountMapper;
     private final TransactionRecordMapper transactionRecordMapper;
     private final TransactionService transactionService;
+    private final HoldingService holdingService;
+    private final InvestmentTransactionService investmentTransactionService;
+    private final BudgetService budgetService;
 
-    public DashboardServiceImpl(AccountMapper accountMapper, TransactionRecordMapper transactionRecordMapper, TransactionService transactionService) {
+    public DashboardServiceImpl(
+            AccountMapper accountMapper,
+            TransactionRecordMapper transactionRecordMapper,
+            TransactionService transactionService,
+            HoldingService holdingService,
+            InvestmentTransactionService investmentTransactionService,
+            BudgetService budgetService) {
         this.accountMapper = accountMapper;
         this.transactionRecordMapper = transactionRecordMapper;
         this.transactionService = transactionService;
+        this.holdingService = holdingService;
+        this.investmentTransactionService = investmentTransactionService;
+        this.budgetService = budgetService;
     }
 
     /**
@@ -45,15 +62,21 @@ public class DashboardServiceImpl implements DashboardService {
         YearMonth targetMonth = month == null ? YearMonth.now() : month;
         YearMonth previousMonth = targetMonth.minusMonths(1);
 
-        BigDecimal totalAssets = accountMapper.selectList(new LambdaQueryWrapper<Account>()
+        BigDecimal accountAssets = accountMapper.selectList(new LambdaQueryWrapper<Account>()
                         .eq(Account::getUserId, userId)
                         .eq(Account::getStatus, 1))
                 .stream()
                 .map(Account::getBalance)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+        List<HoldingVO> holdings = holdingService.list();
+        BigDecimal investmentMarketValue = holdings.stream().map(HoldingVO::getMarketValue).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal investmentFloatingProfit = holdings.stream().map(HoldingVO::getFloatingProfit).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalAssets = accountAssets.add(investmentMarketValue);
+        BigDecimal budgetUsageRate = safeBudgetUsageRate(targetMonth);
 
         BigDecimal monthlyIncome = sumIncome(userId, targetMonth);
         BigDecimal monthlyExpense = sumExpense(userId, targetMonth);
+        BigDecimal todayExpense = sumExpense(userId, LocalDate.now());
         BigDecimal monthlyBalance = monthlyIncome.subtract(monthlyExpense);
 
         BigDecimal previousIncome = sumIncome(userId, previousMonth);
@@ -62,13 +85,20 @@ public class DashboardServiceImpl implements DashboardService {
 
         return DashboardOverviewVO.builder()
                 .totalAssets(totalAssets)
+                .netAssets(totalAssets)
+                .todayExpense(todayExpense)
                 .monthlyIncome(monthlyIncome)
                 .monthlyExpense(monthlyExpense)
                 .monthlyBalance(monthlyBalance)
+                .investmentMarketValue(investmentMarketValue)
+                .investmentFloatingProfit(investmentFloatingProfit)
+                .budgetUsageRate(budgetUsageRate)
                 .assetTrendRate(BigDecimal.ZERO)
                 .incomeTrendRate(rate(monthlyIncome, previousIncome))
                 .expenseTrendRate(rate(monthlyExpense, previousExpense))
                 .balanceTrendRate(rate(monthlyBalance, previousBalance))
+                .recentTransactions(recentTransactions(5))
+                .recentInvestmentTransactions(investmentTransactionService.list(null).stream().limit(5).toList())
                 .build();
     }
 
@@ -114,6 +144,31 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     /**
+     * 统计指定用户某日支出，退款按同日抵扣支出。
+     */
+    private BigDecimal sumExpense(Long userId, LocalDate date) {
+        BigDecimal expense = transactionRecordMapper.selectList(dayWrapper(userId, date)
+                        .eq(TransactionRecord::getType, "EXPENSE"))
+                .stream()
+                .map(TransactionRecord::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal refund = transactionRecordMapper.selectList(dayWrapper(userId, date)
+                        .eq(TransactionRecord::getType, "REFUND"))
+                .stream()
+                .map(TransactionRecord::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return expense.subtract(refund).max(BigDecimal.ZERO);
+    }
+
+    /**
+     * 读取预算使用率；预算尚未创建时返回 0，避免首页展示中断。
+     */
+    private BigDecimal safeBudgetUsageRate(YearMonth month) {
+        BudgetSummaryVO summary = budgetService.summary(month.toString());
+        return summary.getUsageRate() == null ? BigDecimal.ZERO : summary.getUsageRate();
+    }
+
+    /**
      * 构造月份时间范围查询条件，包含整月首日到末日。
      */
     private LambdaQueryWrapper<TransactionRecord> monthWrapper(Long userId, YearMonth month) {
@@ -122,6 +177,15 @@ public class DashboardServiceImpl implements DashboardService {
         return new LambdaQueryWrapper<TransactionRecord>()
                 .eq(TransactionRecord::getUserId, userId)
                 .between(TransactionRecord::getTransactionTime, LocalDateTime.of(startDate, LocalTime.MIN), LocalDateTime.of(endDate, LocalTime.MAX));
+    }
+
+    /**
+     * 构造指定日期的流水查询条件。
+     */
+    private LambdaQueryWrapper<TransactionRecord> dayWrapper(Long userId, LocalDate date) {
+        return new LambdaQueryWrapper<TransactionRecord>()
+                .eq(TransactionRecord::getUserId, userId)
+                .between(TransactionRecord::getTransactionTime, LocalDateTime.of(date, LocalTime.MIN), LocalDateTime.of(date, LocalTime.MAX));
     }
 
     /**

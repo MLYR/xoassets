@@ -8,8 +8,7 @@
 - 账户管理
 - 分类管理
 - 收支流水
-- 首页统计
-- 基础图表统计
+- 首页统计和数据分析
 - 投资资产、投资持仓、投资交易、手动价格维护和 CoinGecko 虚拟货币行情刷新
 - 预算管理和预算汇总
 
@@ -78,8 +77,12 @@ http://localhost:8080/doc.html
 - `GET /api/dashboard/overview`
 - `GET /api/dashboard/recent-transactions`
 - `GET /api/statistics/asset-trend`
+- `GET /api/statistics/net-assets-trend`
 - `GET /api/statistics/expense-category`
 - `GET /api/statistics/income-expense-trend`
+- `GET /api/statistics/asset-distribution`
+- `GET /api/statistics/investment-profit-trend`
+- `GET /api/statistics/budget-progress`
 - `GET /api/assets/search`
 - `POST /api/assets`
 - `GET /api/holdings`
@@ -116,4 +119,6 @@ http://localhost:8080/doc.html
 - 后端启用 `QuoteRefreshScheduler` 定时刷新持仓涉及资产，任务或单个资产失败只记录日志，不影响主应用启动。
 - 预算表 `xo_budget` 按当前用户隔离；每个用户每月只能有一个总预算，每个支出分类每月只能有一个分类预算。
 - 预算使用额从 `xo_transaction` 汇总，转账不计入预算，退款抵扣支出。
+- 首页总资产 = 当前用户账户余额 + 投资持仓市值；当前没有负债模型时净资产暂等于总资产。
+- 统计接口全部按当前 `user_id` 隔离，支出统计排除转账，退款抵扣支出。
 - 业务层采用 `service` 接口 + `service/impl` 实现类结构，Controller 依赖接口。

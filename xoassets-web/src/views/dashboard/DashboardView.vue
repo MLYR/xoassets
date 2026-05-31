@@ -1,4 +1,4 @@
-<!-- 首页仪表盘：资产指标、趋势图、支出结构和最近流水。 -->
+<!-- 首页仪表盘：展示真实资产指标、趋势图、支出结构和最近交易。 -->
 <template>
   <div class="page">
     <div class="page-header">
@@ -8,15 +8,15 @@
       </div>
     </div>
 
-    <section class="grid-4">
-      <MetricCard v-for="metric in data.dashboardMetrics" :key="metric.title" v-bind="metric" />
+    <section class="grid-4" v-loading="loading">
+      <MetricCard v-for="metric in dashboardMetrics" :key="metric.title" v-bind="metric" />
     </section>
 
     <section class="dashboard-grid">
       <div class="panel panel-padding chart-panel">
         <div class="panel-head">
           <div>
-            <h3>资产趋势</h3>
+            <h3>净资产趋势</h3>
             <p>近 30 天资产变化</p>
           </div>
           <el-segmented v-model="range" :options="['7天', '30天', '90天']" />
@@ -32,7 +32,7 @@
         </div>
         <BaseChart :option="expenseOption" height="210px" />
         <div class="legend-list">
-          <div v-for="item in data.expenseBreakdown" :key="item.name" class="legend-row">
+          <div v-for="item in expenseBreakdown" :key="item.name" class="legend-row">
             <span><i />{{ item.name }}</span>
             <AmountText :value="item.value" muted />
           </div>
@@ -40,60 +40,169 @@
       </div>
     </section>
 
-    <section class="panel panel-padding">
-      <div class="panel-head">
-        <h3>最近交易</h3>
-        <el-button link type="primary" @click="$router.push(ROUTES.transactions)">查看全部</el-button>
+    <section class="recent-grid">
+      <div class="panel panel-padding">
+        <div class="panel-head">
+          <h3>最近交易</h3>
+          <el-button link type="primary" @click="$router.push(ROUTES.transactions)">查看全部</el-button>
+        </div>
+        <el-empty v-if="overview.recentTransactions.length === 0" description="暂无最近交易" />
+        <el-table v-else :data="overview.recentTransactions" stripe>
+          <el-table-column label="日期" min-width="150">
+            <template #default="{ row }">{{ formatDateTime(row.transactionTime) }}</template>
+          </el-table-column>
+          <el-table-column label="类型" width="90">
+            <template #default="{ row }"><StatusBadge :label="transactionTypeLabel(row.type)" /></template>
+          </el-table-column>
+          <el-table-column label="分类">
+            <template #default="{ row }">{{ row.categoryName || '-' }}</template>
+          </el-table-column>
+          <el-table-column label="账户" min-width="150">
+            <template #default="{ row }">{{ row.accountName || '-' }}</template>
+          </el-table-column>
+          <el-table-column label="金额" align="right">
+            <template #default="{ row }"><AmountText :value="signedTransactionAmount(row)" with-sign /></template>
+          </el-table-column>
+        </el-table>
       </div>
-      <el-table :data="data.transactions" stripe>
-        <el-table-column prop="date" label="日期" min-width="150" />
-        <el-table-column label="类型" width="90">
-          <template #default="{ row }"><StatusBadge :label="row.type" /></template>
-        </el-table-column>
-        <el-table-column prop="category" label="分类" />
-        <el-table-column prop="account" label="账户" min-width="150" />
-        <el-table-column label="金额" align="right">
-          <template #default="{ row }"><AmountText :value="row.amount" with-sign /></template>
-        </el-table-column>
-        <el-table-column label="余额" align="right">
-          <template #default="{ row }"><AmountText :value="row.balance ?? 0" /></template>
-        </el-table-column>
-      </el-table>
+
+      <div class="panel panel-padding">
+        <div class="panel-head">
+          <h3>最近投资交易</h3>
+          <el-button link type="primary" @click="$router.push(ROUTES.investments)">查看持仓</el-button>
+        </div>
+        <el-empty v-if="overview.recentInvestmentTransactions.length === 0" description="暂无投资交易" />
+        <el-table v-else :data="overview.recentInvestmentTransactions" stripe>
+          <el-table-column label="时间" min-width="150">
+            <template #default="{ row }">{{ formatDateTime(row.transactionTime) }}</template>
+          </el-table-column>
+          <el-table-column label="类型" width="90">
+            <template #default="{ row }"><StatusBadge :label="row.type === 'BUY' ? '买入' : '卖出'" /></template>
+          </el-table-column>
+          <el-table-column label="资产">
+            <template #default="{ row }">{{ row.assetName || row.symbol || '-' }}</template>
+          </el-table-column>
+          <el-table-column label="金额" align="right">
+            <template #default="{ row }"><AmountText :value="row.amount" /></template>
+          </el-table-column>
+        </el-table>
+      </div>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
-// 仪表盘图表配置使用 computed，后续数据变化时自动更新。
-import { computed, ref } from 'vue';
+// 首页从真实 dashboard/statistics 接口取数，避免继续依赖 mock。
+import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { ElMessage } from 'element-plus';
 import type { EChartsOption } from 'echarts';
 import BaseChart from '@/components/charts/BaseChart.vue';
 import AmountText from '@/components/finance/AmountText.vue';
 import MetricCard from '@/components/finance/MetricCard.vue';
 import StatusBadge from '@/components/finance/StatusBadge.vue';
-import { financeService } from '@/services/financeService';
 import { ROUTES } from '@/constants/routes';
+import { dashboardApi, type DashboardOverview } from '@/services/dashboardApi';
+import { statisticsApi, type ExpenseCategoryStat, type TrendPoint } from '@/services/statisticsApi';
+import type { TransactionItem } from '@/services/transactionApi';
 
-// 趋势周期目前仅用于 UI 展示。
 const range = ref('30天');
-// 首页聚合数据来自 financeService。
-const data = financeService.getDashboard();
+const loading = ref(false);
+const overview = reactive<DashboardOverview>({
+  totalAssets: 0,
+  netAssets: 0,
+  todayExpense: 0,
+  monthlyIncome: 0,
+  monthlyExpense: 0,
+  monthlyBalance: 0,
+  investmentMarketValue: 0,
+  investmentFloatingProfit: 0,
+  budgetUsageRate: 0,
+  assetTrendRate: 0,
+  incomeTrendRate: 0,
+  expenseTrendRate: 0,
+  balanceTrendRate: 0,
+  recentTransactions: [],
+  recentInvestmentTransactions: []
+});
+const assetTrend = ref<TrendPoint[]>([]);
+const expenseCategories = ref<ExpenseCategoryStat[]>([]);
 
-// 资产趋势折线图配置。
+onMounted(() => {
+  loadDashboard();
+});
+
+watch(range, () => {
+  loadTrend();
+});
+
+const dashboardMetrics = computed(() => [
+  { title: '总资产', value: overview.totalAssets, trend: overview.assetTrendRate, description: '含投资市值', tone: 'primary' as const },
+  { title: '净资产', value: overview.netAssets, trend: overview.balanceTrendRate, description: '当前估算', tone: 'success' as const },
+  { title: '今日支出', value: overview.todayExpense, trend: overview.expenseTrendRate, description: '不含转账', tone: 'warning' as const },
+  { title: '投资盈亏', value: overview.investmentFloatingProfit, trend: 0, description: '浮动盈亏', tone: overview.investmentFloatingProfit >= 0 ? 'success' as const : 'danger' as const }
+]);
+
+const expenseBreakdown = computed(() => expenseCategories.value.map((item) => ({ name: item.categoryName || '未分类', value: item.amount })));
+
 const assetOption = computed<EChartsOption>(() => ({
   grid: { left: 44, right: 16, top: 24, bottom: 32 },
   tooltip: { trigger: 'axis' },
-  xAxis: { type: 'category', data: data.assetTrend.map((item) => item.name), axisLine: { lineStyle: { color: '#e2e8f0' } } },
+  xAxis: { type: 'category', data: assetTrend.value.map((item) => item.date), axisLine: { lineStyle: { color: '#e2e8f0' } } },
   yAxis: { type: 'value', axisLabel: { formatter: (value: number) => `${Math.round(value / 1000)}k` }, splitLine: { lineStyle: { color: '#e2e8f0' } } },
-  series: [{ type: 'line', smooth: true, data: data.assetTrend.map((item) => item.value), symbolSize: 7, lineStyle: { color: '#3b82f6', width: 3 }, itemStyle: { color: '#3b82f6' }, areaStyle: { color: 'rgba(59, 130, 246, 0.1)' } }]
+  series: [{ type: 'line', smooth: true, data: assetTrend.value.map((item) => item.value), symbolSize: 7, lineStyle: { color: '#3b82f6', width: 3 }, itemStyle: { color: '#3b82f6' }, areaStyle: { color: 'rgba(59, 130, 246, 0.1)' } }]
 }));
 
-// 支出分类饼图配置。
 const expenseOption = computed<EChartsOption>(() => ({
   color: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'],
   tooltip: { trigger: 'item' },
-  series: [{ type: 'pie', radius: ['56%', '78%'], avoidLabelOverlap: true, label: { show: false }, data: data.expenseBreakdown }]
+  series: [{ type: 'pie', radius: ['56%', '78%'], avoidLabelOverlap: true, label: { show: false }, data: expenseBreakdown.value }]
 }));
+
+async function loadDashboard() {
+  loading.value = true;
+  try {
+    const [overviewData, expenseData] = await Promise.all([dashboardApi.overview(), statisticsApi.expenseCategory(currentMonth())]);
+    Object.assign(overview, overviewData);
+    expenseCategories.value = expenseData;
+    await loadTrend();
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '首页数据加载失败');
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function loadTrend() {
+  try {
+    const days = range.value === '7天' ? 7 : range.value === '90天' ? 90 : 30;
+    assetTrend.value = await statisticsApi.netAssetsTrend({ startDate: dateBefore(days - 1), endDate: dateBefore(0) });
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '资产趋势加载失败');
+  }
+}
+
+function transactionTypeLabel(type: TransactionItem['type']) {
+  return ({ INCOME: '收入', EXPENSE: '支出', TRANSFER: '转账', REFUND: '退款' } as Record<TransactionItem['type'], string>)[type];
+}
+
+function signedTransactionAmount(row: TransactionItem) {
+  return row.type === 'EXPENSE' || row.type === 'TRANSFER' ? -Number(row.amount) : Number(row.amount);
+}
+
+function formatDateTime(value: string) {
+  return value ? value.replace('T', ' ').slice(0, 16) : '-';
+}
+
+function currentMonth() {
+  const date = new Date();
+  return `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, '0')}`;
+}
+
+function dateBefore(days: number) {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, '0')}-${`${date.getDate()}`.padStart(2, '0')}`;
+}
 </script>
 
 <style scoped>
@@ -101,6 +210,12 @@ const expenseOption = computed<EChartsOption>(() => ({
 .dashboard-grid {
   display: grid;
   grid-template-columns: 2fr 1fr;
+  gap: 24px;
+}
+
+.recent-grid {
+  display: grid;
+  grid-template-columns: 1fr;
   gap: 24px;
 }
 

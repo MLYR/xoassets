@@ -117,6 +117,7 @@ com.xoassets
 - 行情刷新通过 `QuoteProvider` 扩展；CoinGecko 第一版只支持 CRYPTO 资产的 BTC、ETH、SOL、BNB、DOGE。
 - 行情缓存 TTL：CRYPTO 5 分钟、STOCK 15 分钟、FUND 1 天、MANUAL 不过期；定时刷新失败不能影响应用启动。
 - 预算使用额从 `xo_transaction` 汇总，转账不计入，退款抵扣支出；预算接口必须按当前 user_id 隔离。
+- 首页和统计总资产口径为账户余额 + 投资市值；没有负债模型时净资产暂等于总资产。
 
 ## 8. 前端设计约定
 - 整体风格：简洁、专业、清晰、数据感、轻量、安全感。
