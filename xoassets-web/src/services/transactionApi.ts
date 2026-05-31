@@ -16,6 +16,7 @@ export interface TransactionItem {
   originalTransactionId?: string | null;
   transactionTime: string;
   note?: string | null;
+  imageUrl?: string | null;
   status: number;
 }
 
@@ -28,6 +29,7 @@ export interface TransactionRequest {
   originalTransactionId?: string | null;
   transactionTime: string;
   note?: string;
+  imageUrl?: string | null;
 }
 
 export interface TransactionQuery {

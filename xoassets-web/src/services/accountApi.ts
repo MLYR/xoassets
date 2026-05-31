@@ -17,6 +17,7 @@ export interface AccountRequest {
   name: string;
   type: string;
   initialBalance: number;
+  balance?: number;
   currency: string;
   status: number;
   sortOrder: number;
@@ -39,7 +40,7 @@ export const accountApi = {
       data
     });
   },
-  // 编辑账户基础信息，当前余额仍由流水负责修正。
+  // 编辑账户基础信息和当前余额，余额可用于利息、漏记流水等现实差异校准。
   update(id: string, data: AccountRequest) {
     return request<AccountItem>({
       url: `/accounts/${id}`,

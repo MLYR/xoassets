@@ -7,6 +7,7 @@ export const ROUTES = {
   accounts: '/accounts',
   categories: '/categories',
   investments: '/investments',
+  investmentDetails: '/investments/details',
   analytics: '/analytics',
   reports: '/reports',
   budgets: '/budgets',

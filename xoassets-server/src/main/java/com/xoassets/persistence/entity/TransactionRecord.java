@@ -25,6 +25,7 @@ public class TransactionRecord {
     private Long originalTransactionId;
     private LocalDateTime transactionTime;
     private String note;
+    private String imageUrl;
     private Integer status;
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;

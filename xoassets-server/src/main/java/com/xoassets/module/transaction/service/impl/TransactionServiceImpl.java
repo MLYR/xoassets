@@ -251,6 +251,7 @@ public class TransactionServiceImpl implements TransactionService {
         record.setOriginalTransactionId(request.getOriginalTransactionId());
         record.setTransactionTime(request.getTransactionTime());
         record.setNote(request.getNote());
+        record.setImageUrl(request.getImageUrl());
         record.setStatus(1);
         record.setDeleted(0);
         return record;
@@ -308,6 +309,7 @@ public class TransactionServiceImpl implements TransactionService {
                 .originalTransactionId(record.getOriginalTransactionId())
                 .transactionTime(record.getTransactionTime())
                 .note(record.getNote())
+                .imageUrl(record.getImageUrl())
                 .status(record.getStatus())
                 .build();
     }

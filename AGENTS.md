@@ -117,6 +117,8 @@ com.xoassets
 - 接口新增或调整时，同步考虑 Swagger / Knife4j 文档。
 - 后端返回给前端的 Long ID 必须按字符串处理，前端不得用 `number` 保存业务 ID，避免 JavaScript 精度丢失。
 - 投资模块中 `xo_asset`、`xo_asset_price` 为公共数据不带 `user_id`；`xo_holding`、`xo_investment_transaction` 必须通过当前登录用户隔离。
+- 前端投资模块只暴露“持仓”概念，资产代码、类型、币种和行情源在持仓表单内维护；后端 `xo_asset` 只作为内部行情基础数据。
+- 账户编辑允许手动校准当前余额；流水支持备注和图片，图片字段使用 `image_url`。
 - 行情刷新通过 `QuoteProvider` 扩展；CoinGecko 第一版只支持 CRYPTO 资产的 BTC、ETH、SOL、BNB、DOGE。
 - 行情缓存 TTL：CRYPTO 5 分钟、STOCK 15 分钟、FUND 1 天、MANUAL 不过期；定时刷新失败不能影响应用启动。
 - 预算使用额从 `xo_transaction` 汇总，转账不计入，退款抵扣支出；预算接口必须按当前 user_id 隔离。

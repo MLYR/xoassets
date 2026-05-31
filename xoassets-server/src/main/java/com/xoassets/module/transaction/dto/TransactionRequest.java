@@ -31,4 +31,5 @@ public class TransactionRequest {
     private LocalDateTime transactionTime;
 
     private String note;
+    private String imageUrl;
 }

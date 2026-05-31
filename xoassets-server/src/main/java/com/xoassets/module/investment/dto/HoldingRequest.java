@@ -11,8 +11,14 @@ import lombok.Data;
 @Data
 public class HoldingRequest {
 
-    @NotNull(message = "资产不能为空")
     private Long assetId;
+
+    private String assetName;
+    private String symbol;
+    private String assetType;
+    private String currency = "CNY";
+    private String quoteSource = "MANUAL";
+    private String quoteKey;
 
     @NotNull(message = "持仓数量不能为空")
     @DecimalMin(value = "0.0000000001", message = "持仓数量必须大于0")

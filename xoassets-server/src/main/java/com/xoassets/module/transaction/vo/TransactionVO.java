@@ -24,5 +24,6 @@ public class TransactionVO {
     private Long originalTransactionId;
     private LocalDateTime transactionTime;
     private String note;
+    private String imageUrl;
     private Integer status;
 }

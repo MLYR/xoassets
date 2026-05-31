@@ -46,6 +46,12 @@
           <el-table-column label="备注">
             <template #default="{ row }">{{ row.note || '-' }}</template>
           </el-table-column>
+          <el-table-column label="图片" width="90" align="center">
+            <template #default="{ row }">
+              <el-image v-if="row.imageUrl" class="transaction-image" :src="row.imageUrl" :preview-src-list="[row.imageUrl]" preview-teleported fit="cover" />
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
           <el-table-column label="状态">
             <template #default="{ row }"><StatusBadge :label="row.status === 1 ? '已完成' : '待确认'" /></template>
           </el-table-column>
@@ -58,7 +64,15 @@
         </el-table>
         <div class="table-footer">
           <span>共 {{ total }} 条记录</span>
-          <el-pagination v-model:current-page="pageNo" layout="prev, pager, next" :total="total" :page-size="pageSize" @current-change="loadTransactions" />
+          <el-pagination
+            v-model:current-page="pageNo"
+            v-model:page-size="pageSize"
+            layout="total, sizes, prev, pager, next"
+            :page-sizes="[8, 15, 30, 50]"
+            :total="total"
+            @size-change="reloadFromFirstPage"
+            @current-change="loadTransactions"
+          />
         </div>
       </template>
     </section>
@@ -104,7 +118,7 @@ const keyword = ref('');
 const typeFilter = ref<TransactionApiType | ''>('');
 const accountFilter = ref<string | ''>('');
 const pageNo = ref(1);
-const pageSize = 8;
+const pageSize = ref(8);
 
 // 页面进入时并行加载账户、分类和流水。
 onMounted(() => {
@@ -132,7 +146,7 @@ async function loadTransactions() {
   try {
     const result = await transactionApi.page({
       pageNo: pageNo.value,
-      pageSize,
+      pageSize: pageSize.value,
       keyword: keyword.value || undefined,
       type: typeFilter.value || undefined,
       accountId: accountFilter.value || undefined
@@ -262,6 +276,12 @@ function formatDateTime(value: string) {
   border-top: 1px solid var(--xo-border);
   color: var(--xo-muted);
   font-size: 14px;
+}
+
+.transaction-image {
+  width: 42px;
+  height: 42px;
+  border-radius: 6px;
 }
 
 @media (max-width: 980px) {

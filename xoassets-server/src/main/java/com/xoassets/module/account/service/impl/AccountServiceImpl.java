@@ -69,7 +69,7 @@ public class AccountServiceImpl implements AccountService {
     }
 
     /**
-     * 更新账户基础信息，不直接改当前余额，避免绕过流水口径。
+     * 更新账户基础信息和当前余额；余额允许手动校准，用于利息、漏记流水等现实差异修正。
      */
     @Transactional(rollbackFor = Exception.class)
     @Override
@@ -78,6 +78,8 @@ public class AccountServiceImpl implements AccountService {
         Account account = findOwnedAccount(id, userId);
         account.setName(request.getName());
         account.setType(request.getType());
+        account.setInitialBalance(request.getInitialBalance());
+        account.setBalance(request.getBalance() == null ? account.getBalance() : request.getBalance());
         account.setCurrency(request.getCurrency());
         account.setStatus(request.getStatus());
         account.setSortOrder(request.getSortOrder());

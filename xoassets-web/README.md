@@ -17,7 +17,9 @@
 - 暂用 mock 数据：暂无。
 - 请求封装：`src/services/http.ts` 统一处理 `/api` baseURL、JWT Header、业务响应和 401 跳转。
 - API 模块：`src/services/authApi.ts`、`src/services/accountApi.ts`、`src/services/categoryApi.ts`、`src/services/transactionApi.ts`、`src/services/investmentApi.ts`、`src/services/budgetApi.ts`、`src/services/dashboardApi.ts`、`src/services/statisticsApi.ts`、`src/services/goalApi.ts`、`src/services/reportApi.ts`。
-- 投资页：支持新增资产、新增持仓、买入、卖出、手动录价和 CoinGecko 刷新行情；刷新失败时保留旧价格并展示后端提示。
+- 账户页：支持编辑账户当前余额，用于利息、漏记流水等现实余额校准。
+- 记账页：支持分页、备注和图片上传，图片第一版以 Data URL 随流水保存。
+- 投资页：前端只保留“持仓”概念，支持在持仓中维护资产名称、代码、类型、币种、行情源，主页展示总投资 / 基金 / 股票 / 虚拟货币统计，明细页支持按类型分页查看。
 - 预算页：支持月度总预算、分类预算、进度条、正常 / 预警 / 超支状态和删除确认。
 - 首页和统计页：从真实接口读取账户、流水、投资、预算聚合指标和图表数据。
 - 资产目标页：支持新增、编辑、删除、完成状态展示，以及使用当前净资产作为当前金额。

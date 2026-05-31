@@ -20,18 +20,23 @@ import com.xoassets.persistence.mapper.InvestmentTransactionMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 /**
  * 用户持仓服务实现。
  */
 @Service
 public class HoldingServiceImpl implements HoldingService {
+
+    private static final List<String> ASSET_TYPES = List.of("STOCK", "FUND", "CRYPTO", "OTHER");
+    private static final List<String> QUOTE_SOURCES = List.of("MANUAL", "COINGECKO", "ALPHA_VANTAGE", "TUSHARE", "AKSHARE");
 
     private final HoldingMapper holdingMapper;
     private final AssetMapper assetMapper;
@@ -71,11 +76,11 @@ public class HoldingServiceImpl implements HoldingService {
     @Override
     public HoldingVO create(HoldingRequest request) {
         Long userId = LoginUserContext.getUserId();
-        assetService.findAsset(request.getAssetId());
-        ensureNoDuplicatedHolding(userId, request.getAssetId(), null);
+        Asset asset = resolveAsset(request);
+        ensureNoDuplicatedHolding(userId, asset.getId(), null);
         Holding holding = new Holding();
         holding.setUserId(userId);
-        holding.setAssetId(request.getAssetId());
+        holding.setAssetId(asset.getId());
         holding.setQuantity(request.getQuantity());
         holding.setAvgCost(request.getAvgCost());
         holding.setTotalCost(request.getQuantity().multiply(request.getAvgCost()).setScale(4, RoundingMode.HALF_UP));
@@ -93,10 +98,10 @@ public class HoldingServiceImpl implements HoldingService {
     @Override
     public HoldingVO update(Long id, HoldingRequest request) {
         Long userId = LoginUserContext.getUserId();
-        assetService.findAsset(request.getAssetId());
+        Asset asset = resolveAsset(request);
         Holding holding = findOwnedHolding(id, userId);
-        ensureNoDuplicatedHolding(userId, request.getAssetId(), id);
-        holding.setAssetId(request.getAssetId());
+        ensureNoDuplicatedHolding(userId, asset.getId(), id);
+        holding.setAssetId(asset.getId());
         holding.setQuantity(request.getQuantity());
         holding.setAvgCost(request.getAvgCost());
         holding.setTotalCost(request.getQuantity().multiply(request.getAvgCost()).setScale(4, RoundingMode.HALF_UP));
@@ -291,5 +296,53 @@ public class HoldingServiceImpl implements HoldingService {
                 .remark(holding.getRemark())
                 .status(holding.getStatus())
                 .build();
+    }
+
+    /**
+     * 前端只暴露“持仓”表单；这里把资产信息解析为内部公共资产，兼容原 assetId 调用。
+     */
+    private Asset resolveAsset(HoldingRequest request) {
+        if (request.getAssetId() != null) {
+            return assetService.findAsset(request.getAssetId());
+        }
+        ensureAssetFields(request);
+        String symbol = request.getSymbol().trim().toUpperCase();
+        String type = request.getAssetType();
+        Asset exists = assetMapper.selectOne(new LambdaQueryWrapper<Asset>()
+                .eq(Asset::getType, type)
+                .eq(Asset::getSymbol, symbol)
+                .last("LIMIT 1"));
+        if (exists != null) {
+            return exists;
+        }
+        Asset asset = new Asset();
+        asset.setSymbol(symbol);
+        asset.setName(request.getAssetName().trim());
+        asset.setType(type);
+        asset.setCurrency(request.getCurrency());
+        asset.setQuoteSource(request.getQuoteSource());
+        asset.setQuoteKey(StringUtils.hasText(request.getQuoteKey()) ? request.getQuoteKey().trim() : symbol);
+        asset.setStatus(1);
+        asset.setDeleted(0);
+        assetMapper.insert(asset);
+        return asset;
+    }
+
+    /**
+     * 校验持仓内联资产字段，资产表仍作为行情和价格快照的内部基础数据。
+     */
+    private void ensureAssetFields(HoldingRequest request) {
+        if (!StringUtils.hasText(request.getAssetName()) || !StringUtils.hasText(request.getSymbol())) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "请输入持仓名称和资产代码");
+        }
+        if (!ASSET_TYPES.contains(request.getAssetType())) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "资产类型只支持 STOCK、FUND、CRYPTO、OTHER");
+        }
+        if (!QUOTE_SOURCES.contains(request.getQuoteSource())) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "行情来源不支持");
+        }
+        if (!StringUtils.hasText(request.getCurrency())) {
+            request.setCurrency("CNY");
+        }
     }
 }

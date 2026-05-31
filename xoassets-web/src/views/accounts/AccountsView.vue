@@ -48,8 +48,11 @@
             <el-option v-for="item in accountTypes" :key="item" :label="item" :value="item" />
           </el-select>
         </el-form-item>
-        <el-form-item label="初始余额">
+        <el-form-item :label="editingAccount ? '初始余额' : '初始余额 / 当前余额'">
           <el-input-number v-model="form.initialBalance" class="full-width" :precision="2" :step="100" :disabled="Boolean(editingAccount)" />
+        </el-form-item>
+        <el-form-item v-if="editingAccount" label="当前余额">
+          <el-input-number v-model="form.balance" class="full-width" :precision="2" :step="100" />
         </el-form-item>
         <el-form-item label="币种">
           <el-input v-model.trim="form.currency" placeholder="CNY" />
@@ -96,6 +99,7 @@ const form = reactive<AccountRequest>({
   name: '',
   type: '',
   initialBalance: 0,
+  balance: 0,
   currency: 'CNY',
   status: 1,
   sortOrder: 0,
@@ -137,6 +141,7 @@ function resetForm(account?: AccountItem) {
   form.name = account?.name ?? '';
   form.type = account?.type ?? '';
   form.initialBalance = Number(account?.initialBalance ?? 0);
+  form.balance = Number(account?.balance ?? account?.initialBalance ?? 0);
   form.currency = account?.currency ?? 'CNY';
   form.status = account?.status ?? 1;
   form.sortOrder = account?.sortOrder ?? 0;

@@ -21,6 +21,7 @@ public class AccountRequest {
     @NotNull(message = "初始余额不能为空")
     private BigDecimal initialBalance;
 
+    private BigDecimal balance;
     private String currency = "CNY";
     private Integer status = 1;
     private Integer sortOrder = 0;

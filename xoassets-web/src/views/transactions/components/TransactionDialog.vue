@@ -44,6 +44,13 @@
       <el-form-item label="备注">
         <el-input v-model.trim="form.note" type="textarea" :rows="3" placeholder="记录这笔流水的说明" />
       </el-form-item>
+      <el-form-item label="图片">
+        <div class="image-upload">
+          <input type="file" accept="image/*" @change="handleImageChange" />
+          <el-button v-if="form.imageUrl" link type="danger" @click="form.imageUrl = null">移除图片</el-button>
+        </div>
+        <img v-if="form.imageUrl" class="preview-image" :src="form.imageUrl" alt="流水图片预览" />
+      </el-form-item>
     </el-form>
     <template #footer>
       <el-button @click="visible = false">取消</el-button>
@@ -96,7 +103,8 @@ const form = reactive({
   targetAccountId: undefined as string | undefined,
   categoryId: undefined as string | undefined,
   transactionTime: new Date(),
-  note: ''
+  note: '',
+  imageUrl: null as string | null
 });
 
 // 弹窗标题区分新增和编辑，减少用户误操作。
@@ -128,6 +136,7 @@ function resetForm() {
   form.categoryId = transaction?.categoryId ?? undefined;
   form.transactionTime = transaction?.transactionTime ? new Date(transaction.transactionTime) : new Date();
   form.note = transaction?.note ?? '';
+  form.imageUrl = transaction?.imageUrl ?? null;
 }
 
 // 金额和必选项在前端先拦截，后端仍保留权威校验。
@@ -176,8 +185,30 @@ function submitForm() {
     targetAccountId: form.type === 'TRANSFER' ? form.targetAccountId : null,
     categoryId: form.type === 'TRANSFER' ? null : form.categoryId,
     transactionTime: formatDateTime(form.transactionTime),
-    note: form.note
+    note: form.note,
+    imageUrl: form.imageUrl
   });
+}
+
+// 第一版把图片转成 Data URL 随流水保存，后续可替换为对象存储上传后的 URL。
+function handleImageChange(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0];
+  if (!file) {
+    return;
+  }
+  if (!file.type.startsWith('image/')) {
+    ElMessage.warning('只能上传图片文件');
+    return;
+  }
+  if (file.size > 1024 * 1024) {
+    ElMessage.warning('图片不能超过 1MB');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    form.imageUrl = typeof reader.result === 'string' ? reader.result : null;
+  };
+  reader.readAsDataURL(file);
 }
 </script>
 
@@ -189,5 +220,21 @@ function submitForm() {
 
 .form-tip {
   margin-top: 8px;
+}
+
+.image-upload {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.preview-image {
+  display: block;
+  max-width: 160px;
+  max-height: 120px;
+  margin-top: 10px;
+  border: 1px solid var(--xo-border);
+  border-radius: var(--xo-radius);
+  object-fit: cover;
 }
 </style>

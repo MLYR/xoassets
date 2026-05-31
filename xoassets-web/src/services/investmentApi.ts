@@ -45,7 +45,13 @@ export interface HoldingItem {
 }
 
 export interface HoldingRequest {
-  assetId: string;
+  assetId?: string | null;
+  assetName?: string;
+  symbol?: string;
+  assetType?: AssetType;
+  currency?: string;
+  quoteSource?: QuoteSource;
+  quoteKey?: string;
   quantity: number;
   avgCost: number;
   remark?: string;
