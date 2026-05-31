@@ -157,3 +157,18 @@ CREATE TABLE IF NOT EXISTS xo_budget (
   KEY idx_user_month (user_id, month),
   KEY idx_user_category_month (user_id, category_id, month)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='预算表';
+
+CREATE TABLE IF NOT EXISTS xo_goal (
+  id BIGINT PRIMARY KEY COMMENT '目标ID',
+  user_id BIGINT NOT NULL COMMENT '用户ID',
+  name VARCHAR(100) NOT NULL COMMENT '目标名称',
+  target_amount DECIMAL(18,4) NOT NULL COMMENT '目标金额',
+  current_amount DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '当前金额',
+  target_date DATE DEFAULT NULL COMMENT '目标日期',
+  status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' COMMENT '状态：ACTIVE DONE',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除：0否 1是',
+  KEY idx_user_status (user_id, status),
+  KEY idx_user_target_date (user_id, target_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='资产目标表';

@@ -50,6 +50,7 @@ com.xoassets
 │   ├── transaction
 │   ├── investment
 │   ├── budget
+│   ├── goal
 │   ├── dashboard
 │   └── statistics
 └── persistence
@@ -110,6 +111,7 @@ com.xoassets
 - 投资交易接口使用 `/api/investment-transactions/**`。
 - 手动行情接口使用 `/api/quotes/**`。
 - 预算接口使用 `/api/budgets/**`。
+- 资产目标接口使用 `/api/goals/**`。
 - AI 报告接口使用 `/api/reports/**`。
 - 接口新增或调整时，同步考虑 Swagger / Knife4j 文档。
 - 后端返回给前端的 Long ID 必须按字符串处理，前端不得用 `number` 保存业务 ID，避免 JavaScript 精度丢失。
@@ -118,6 +120,7 @@ com.xoassets
 - 行情缓存 TTL：CRYPTO 5 分钟、STOCK 15 分钟、FUND 1 天、MANUAL 不过期；定时刷新失败不能影响应用启动。
 - 预算使用额从 `xo_transaction` 汇总，转账不计入，退款抵扣支出；预算接口必须按当前 user_id 隔离。
 - 首页和统计总资产口径为账户余额 + 投资市值；没有负债模型时净资产暂等于总资产。
+- 资产目标当前金额可手动填写，也可按当前净资产口径写入；目标接口必须按当前 user_id 隔离。
 
 ## 8. 前端设计约定
 - 整体风格：简洁、专业、清晰、数据感、轻量、安全感。
