@@ -23,6 +23,7 @@ public class HoldingVO {
     private BigDecimal avgCost;
     private BigDecimal totalCost;
     private BigDecimal latestPrice;
+    private Integer priceScale;
     private LocalDateTime latestPriceTime;
     private BigDecimal marketValue;
     private BigDecimal floatingProfit;

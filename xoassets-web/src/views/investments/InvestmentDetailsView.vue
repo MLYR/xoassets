@@ -22,8 +22,8 @@
     <section v-loading="loading" class="panel">
       <el-empty v-if="!loading && pagedHoldings.length === 0" description="暂无符合条件的投资明细" />
       <template v-else>
-        <el-table :data="pagedHoldings" stripe>
-          <el-table-column label="持仓" min-width="180">
+        <el-table :data="pagedHoldings" stripe height="520">
+          <el-table-column label="持仓" min-width="190" fixed="left">
             <template #default="{ row }">
               <strong>{{ row.assetName || '-' }}</strong>
               <small class="muted-line">{{ row.symbol || '-' }} · {{ row.currency || '-' }}</small>
@@ -32,32 +32,34 @@
           <el-table-column label="类型" width="110">
             <template #default="{ row }"><StatusBadge :label="typeLabel(row.assetType)" /></template>
           </el-table-column>
-          <el-table-column label="数量" align="right">
-            <template #default="{ row }">{{ formatQuantity(row.quantity) }}</template>
+          <el-table-column label="数量" min-width="130" align="right" header-align="right">
+            <template #default="{ row }"><span class="numeric-cell">{{ formatQuantity(row.quantity) }}</span></template>
           </el-table-column>
-          <el-table-column label="当前价" align="right">
-            <template #default="{ row }"><AmountText :value="displayValue(row.latestPrice, row.currency)" :precision="4" :currency-symbol="currencySymbol" /></template>
+          <el-table-column label="当前价" min-width="150" align="right" header-align="right">
+            <template #default="{ row }"><AmountText class="numeric-cell" :value="displayValue(row.latestPrice, row.currency, pricePrecision(row))" :precision="pricePrecision(row)" :currency-symbol="currencySymbol" /></template>
           </el-table-column>
-          <el-table-column label="市值" align="right">
-            <template #default="{ row }"><AmountText :value="displayValue(row.marketValue, row.currency)" :precision="4" :currency-symbol="currencySymbol" /></template>
+          <el-table-column label="市值" min-width="150" align="right" header-align="right">
+            <template #default="{ row }"><AmountText class="numeric-cell" :value="displayValue(row.marketValue, row.currency, 4)" :precision="4" :currency-symbol="currencySymbol" /></template>
           </el-table-column>
-          <el-table-column label="总成本" align="right">
-            <template #default="{ row }"><AmountText :value="displayValue(row.totalCost, row.currency)" :precision="4" :currency-symbol="currencySymbol" /></template>
+          <el-table-column label="总成本" min-width="150" align="right" header-align="right">
+            <template #default="{ row }"><AmountText class="numeric-cell" :value="displayValue(row.totalCost, row.currency, 4)" :precision="4" :currency-symbol="currencySymbol" /></template>
           </el-table-column>
-          <el-table-column label="浮动盈亏" align="right">
-            <template #default="{ row }"><AmountText :value="displayValue(row.floatingProfit, row.currency)" with-sign :precision="4" :currency-symbol="currencySymbol" /></template>
+          <el-table-column label="浮动盈亏" min-width="150" align="right" header-align="right">
+            <template #default="{ row }"><AmountText class="numeric-cell" :value="displayValue(row.floatingProfit, row.currency, 4)" with-sign :precision="4" :currency-symbol="currencySymbol" /></template>
           </el-table-column>
-          <el-table-column label="收益率">
-            <template #default="{ row }"><TrendValue :value="round4(row.floatingProfitRate)" :precision="4" /></template>
+          <el-table-column label="收益率" min-width="120" align="right" header-align="right">
+            <template #default="{ row }"><TrendValue class="numeric-cell" :value="round4(row.floatingProfitRate)" :precision="4" /></template>
           </el-table-column>
-          <el-table-column label="操作" width="320" align="center">
+          <el-table-column label="操作" width="260" align="center" fixed="right">
             <template #default="{ row }">
-              <el-button link type="primary" @click="openTradeDialog(row, 'BUY')">买入</el-button>
-              <el-button link type="primary" @click="openTradeDialog(row, 'SELL')">卖出</el-button>
-              <el-button link type="primary" @click="openHoldingDialog(row)">编辑</el-button>
-              <el-button link @click="handleRefreshQuote(row)">刷新</el-button>
-              <el-button link @click="openQuoteDialog(row)">价格</el-button>
-              <el-button link type="danger" @click="handleDeleteHolding(row)">删除</el-button>
+              <div class="table-actions">
+                <el-button link type="primary" @click="openTradeDialog(row, 'BUY')">买入</el-button>
+                <el-button link type="primary" @click="openTradeDialog(row, 'SELL')">卖出</el-button>
+                <el-button link type="primary" @click="openHoldingDialog(row)">编辑</el-button>
+                <el-button link @click="handleRefreshQuote(row)">刷新</el-button>
+                <el-button link @click="openQuoteDialog(row)">价格</el-button>
+                <el-button link type="danger" @click="handleDeleteHolding(row)">删除</el-button>
+              </div>
             </template>
           </el-table-column>
         </el-table>
@@ -120,7 +122,7 @@
       <el-form label-position="top" @submit.prevent="handleCreateTrade">
         <el-form-item label="持仓"><el-input :model-value="activeHolding?.assetName || '-'" disabled /></el-form-item>
         <el-form-item label="数量"><el-input-number v-model="tradeForm.quantity" class="full-width" :min="0.0001" :precision="4" /></el-form-item>
-        <el-form-item label="价格"><el-input-number v-model="tradeForm.price" class="full-width" :min="0.0001" :precision="4" /></el-form-item>
+        <el-form-item label="价格"><el-input-number v-model="tradeForm.price" class="full-width" :min="0.000001" :precision="activePricePrecision" /></el-form-item>
         <el-form-item label="手续费"><el-input-number v-model="tradeForm.fee" class="full-width" :min="0" :precision="4" /></el-form-item>
         <el-form-item label="交易时间"><el-date-picker v-model="tradeForm.transactionTime" type="datetime" class="full-width" /></el-form-item>
         <el-form-item label="备注"><el-input v-model.trim="tradeForm.note" type="textarea" :rows="3" /></el-form-item>
@@ -134,7 +136,7 @@
     <el-dialog v-model="quoteDialogVisible" title="手动更新价格" width="420px">
       <el-form label-position="top" @submit.prevent="handleManualQuote">
         <el-form-item label="持仓"><el-input :model-value="activeHolding?.assetName || '-'" disabled /></el-form-item>
-        <el-form-item label="价格"><el-input-number v-model="quoteForm.price" class="full-width" :min="0.0001" :precision="4" /></el-form-item>
+        <el-form-item label="价格"><el-input-number v-model="quoteForm.price" class="full-width" :min="0.000001" :precision="activePricePrecision" /></el-form-item>
         <el-form-item label="币种"><el-input v-model.trim="quoteForm.currency" /></el-form-item>
       </el-form>
       <template #footer>
@@ -221,6 +223,7 @@ const pagedHoldings = computed(() => {
   const start = (pageNo.value - 1) * pageSize.value;
   return filteredHoldings.value.slice(start, start + pageSize.value);
 });
+const activePricePrecision = computed(() => activeHolding.value ? pricePrecision(activeHolding.value) : 4);
 
 async function loadHoldings() {
   loading.value = true;
@@ -274,7 +277,7 @@ function openTradeDialog(holding: HoldingItem, type: InvestmentTransactionType) 
   activeHolding.value = holding;
   tradeForm.type = type;
   tradeForm.quantity = 0;
-  tradeForm.price = round4(Number(holding.latestPrice || holding.avgCost || 0));
+  tradeForm.price = roundTo(Number(holding.latestPrice || holding.avgCost || 0), pricePrecision(holding));
   tradeForm.fee = 0;
   tradeForm.transactionTime = new Date();
   tradeForm.note = '';
@@ -283,7 +286,7 @@ function openTradeDialog(holding: HoldingItem, type: InvestmentTransactionType) 
 
 function openQuoteDialog(holding: HoldingItem) {
   activeHolding.value = holding;
-  quoteForm.price = round4(Number(holding.latestPrice || holding.avgCost || 0));
+  quoteForm.price = roundTo(Number(holding.latestPrice || holding.avgCost || 0), pricePrecision(holding));
   quoteForm.currency = holding.currency || 'CNY';
   quoteDialogVisible.value = true;
 }
@@ -300,7 +303,7 @@ async function handleCreateTrade() {
       assetId: activeHolding.value.assetId,
       type: tradeForm.type,
       quantity: round4(tradeForm.quantity),
-      price: round4(tradeForm.price),
+      price: roundTo(tradeForm.price, activePricePrecision.value),
       fee: round4(tradeForm.fee),
       transactionTime: formatDateTime(tradeForm.transactionTime),
       note: tradeForm.note
@@ -322,7 +325,7 @@ async function handleManualQuote() {
   }
   submitting.value = true;
   try {
-    await investmentApi.manualQuote({ assetId: activeHolding.value.assetId, price: round4(quoteForm.price), currency: quoteForm.currency });
+    await investmentApi.manualQuote({ assetId: activeHolding.value.assetId, price: roundTo(quoteForm.price, activePricePrecision.value), currency: quoteForm.currency });
     quoteDialogVisible.value = false;
     ElMessage.success('价格已更新');
     await loadHoldings();
@@ -359,22 +362,22 @@ async function handleDeleteHolding(holding: HoldingItem) {
   }
 }
 
-function displayValue(value: number, sourceCurrency?: string | null) {
-  return convertAmount(value, sourceCurrency);
+function displayValue(value: number, sourceCurrency?: string | null, precision = 4) {
+  return convertAmount(value, sourceCurrency, precision);
 }
 
-function convertAmount(value: number, sourceCurrency?: string | null) {
+function convertAmount(value: number, sourceCurrency?: string | null, precision = 4) {
   const source = sourceCurrency || 'CNY';
   if (source === displayCurrency.value) {
-    return round4(Number(value));
+    return roundTo(Number(value), precision);
   }
   if (source === 'USD' && displayCurrency.value === 'CNY') {
-    return round4(Number(value) * usdCnyRate.value);
+    return roundTo(Number(value) * usdCnyRate.value, precision);
   }
   if (source === 'CNY' && displayCurrency.value === 'USD') {
-    return round4(Number(value) / usdCnyRate.value);
+    return roundTo(Number(value) / usdCnyRate.value, precision);
   }
-  return round4(Number(value));
+  return roundTo(Number(value), precision);
 }
 
 function resetPage() {
@@ -394,8 +397,17 @@ function formatQuantity(value: number) {
   return round4(Number(value)).toLocaleString('zh-CN', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 }
 
+function pricePrecision(row: HoldingItem) {
+  // 后端返回 priceScale 作为权威精度；老数据没有该字段时按资产类型兜底。
+  return row.priceScale || (row.assetType === 'CRYPTO' ? 6 : 4);
+}
+
 function round4(value: number) {
-  return Number(Number(value || 0).toFixed(4));
+  return roundTo(value, 4);
+}
+
+function roundTo(value: number, precision: number) {
+  return Number(Number(value || 0).toFixed(precision));
 }
 </script>
 
@@ -428,6 +440,24 @@ function round4(value: number) {
   display: block;
   margin-top: 4px;
   color: var(--xo-muted);
+}
+
+.numeric-cell {
+  display: inline-block;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 8px;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.table-actions :deep(.el-button) {
+  margin-left: 0;
 }
 
 .full-width {

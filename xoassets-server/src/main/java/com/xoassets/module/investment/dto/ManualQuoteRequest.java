@@ -16,9 +16,9 @@ public class ManualQuoteRequest {
     private Long assetId;
 
     @NotNull(message = "价格不能为空")
-    @DecimalMin(value = "0.0001", message = "价格必须大于0")
+    @DecimalMin(value = "0.000001", message = "价格必须大于0")
     private BigDecimal price;
 
-    private String currency = "CNY";
+    private String currency;
     private LocalDateTime quoteTime;
 }

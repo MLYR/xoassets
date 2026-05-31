@@ -12,6 +12,7 @@ import com.xoassets.module.investment.vo.AssetPriceVO;
 import com.xoassets.persistence.entity.Asset;
 import com.xoassets.persistence.entity.AssetPrice;
 import com.xoassets.persistence.mapper.AssetPriceMapper;
+import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Collection;
@@ -21,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 /**
  * 行情价格服务实现，阶段一只支持手动报价。
@@ -47,8 +49,9 @@ public class QuoteServiceImpl implements QuoteService {
         Asset asset = assetService.findAsset(request.getAssetId());
         AssetPrice price = new AssetPrice();
         price.setAssetId(asset.getId());
-        price.setPrice(request.getPrice());
-        price.setCurrency(request.getCurrency() == null ? asset.getCurrency() : request.getCurrency());
+        // 行情价格按 8 位入库；持仓市值再按业务金额口径收敛到 4 位。
+        price.setPrice(request.getPrice().setScale(8, RoundingMode.HALF_UP));
+        price.setCurrency(StringUtils.hasText(request.getCurrency()) ? request.getCurrency() : asset.getCurrency());
         price.setSource("MANUAL");
         price.setQuoteTime(request.getQuoteTime() == null ? LocalDateTime.now() : request.getQuoteTime());
         price.setRawJson(null);

@@ -286,7 +286,9 @@ public class HoldingServiceImpl implements HoldingService {
      * 计算市值、浮动盈亏和收益率；没有价格时用 avgCost 兜底。
      */
     private HoldingVO toVO(Holding holding, Asset asset, AssetPrice price) {
-        BigDecimal latestPrice = price == null ? holding.getAvgCost() : price.getPrice();
+        // 只使用与资产币种一致的价格快照，避免当前价展示币种和市值计算币种不一致。
+        AssetPrice matchedPrice = priceMatchesAssetCurrency(asset, price) ? price : null;
+        BigDecimal latestPrice = matchedPrice == null ? holding.getAvgCost() : matchedPrice.getPrice();
         BigDecimal marketValue = holding.getQuantity().multiply(latestPrice).setScale(4, RoundingMode.HALF_UP);
         BigDecimal profit = marketValue.subtract(holding.getTotalCost());
         BigDecimal profitRate = holding.getTotalCost().compareTo(BigDecimal.ZERO) == 0
@@ -304,7 +306,8 @@ public class HoldingServiceImpl implements HoldingService {
                 .avgCost(holding.getAvgCost())
                 .totalCost(holding.getTotalCost())
                 .latestPrice(latestPrice)
-                .latestPriceTime(price == null ? null : price.getQuoteTime())
+                .priceScale(priceScale(asset))
+                .latestPriceTime(matchedPrice == null ? null : matchedPrice.getQuoteTime())
                 .marketValue(marketValue)
                 .floatingProfit(profit)
                 .floatingProfitRate(profitRate)
@@ -341,6 +344,23 @@ public class HoldingServiceImpl implements HoldingService {
         asset.setDeleted(0);
         assetMapper.insert(asset);
         return asset;
+    }
+
+    /**
+     * 虚拟货币当前价至少展示六位小数，股票和基金保留四位小数。
+     */
+    private Integer priceScale(Asset asset) {
+        return asset != null && "CRYPTO".equals(asset.getType()) ? 6 : 4;
+    }
+
+    /**
+     * 价格快照币种必须与资产币种一致，否则第一版不做跨币种估值换算。
+     */
+    private boolean priceMatchesAssetCurrency(Asset asset, AssetPrice price) {
+        if (asset == null || price == null) {
+            return false;
+        }
+        return Objects.equals(asset.getCurrency(), price.getCurrency());
     }
 
     /**

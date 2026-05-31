@@ -119,7 +119,8 @@ com.xoassets
 - 投资模块中 `xo_asset`、`xo_asset_price` 为公共数据不带 `user_id`；`xo_holding`、`xo_investment_transaction` 必须通过当前登录用户隔离。
 - 前端投资模块只暴露“持仓”概念，资产代码、类型、币种和行情源在持仓表单内维护；后端 `xo_asset` 只作为内部行情基础数据。
 - 投资主页只展示聚合统计和图表；持仓明细、买入卖出、编辑删除、价格刷新等操作集中在 `/investments/details`。
-- 投资数量、价格、手续费、成本、市值、盈亏和收益率统一按 4 位小数计算和展示；虚拟货币新增默认 USD，前端默认人民币展示并可切换 USD。
+- 投资数量、手续费、成本、市值、盈亏和收益率统一按 4 位小数计算；行情价格快照保留 8 位，持仓接口返回 `priceScale`，CRYPTO 当前价至少展示 6 位，FUND / STOCK 展示 4 位。
+- 持仓估值只能使用与资产币种一致的最新价格快照；前端展示市值、成本和盈亏必须使用后端返回字段，不得用格式化后的当前价反算。
 - 账户编辑允许手动校准当前余额；流水支持备注和图片，图片字段使用 `image_url`。
 - 行情刷新通过 `QuoteProvider` 扩展；CoinGecko 第一版只支持 CRYPTO 资产的 BTC、ETH、SOL、BNB、DOGE。
 - 行情缓存 TTL：CRYPTO 5 分钟、STOCK 15 分钟、FUND 1 天、MANUAL 不过期；定时刷新失败不能影响应用启动。

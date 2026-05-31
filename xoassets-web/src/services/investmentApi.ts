@@ -36,6 +36,7 @@ export interface HoldingItem {
   avgCost: number;
   totalCost: number;
   latestPrice: number;
+  priceScale?: number | null;
   latestPriceTime?: string | null;
   marketValue: number;
   floatingProfit: number;

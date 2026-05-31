@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xoassets.common.api.ErrorCode;
 import com.xoassets.common.exception.BusinessException;
 import com.xoassets.persistence.entity.Asset;
-import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.Locale;
 import java.util.Map;
@@ -60,7 +59,8 @@ public class CoinGeckoQuoteProvider implements QuoteProvider {
                 throw new BusinessException(ErrorCode.BUSINESS_ERROR, "CoinGecko 未返回有效价格");
             }
             return new QuoteFetchResult(
-                    priceNode.decimalValue().setScale(4, RoundingMode.HALF_UP),
+                    // 行情价格保留 8 位，避免 DOGE 等低单价币种展示价和市值计算口径不一致。
+                    priceNode.decimalValue().setScale(8, java.math.RoundingMode.HALF_UP),
                     vsCurrency.toUpperCase(Locale.ROOT),
                     SOURCE_COINGECKO,
                     LocalDateTime.now(),
