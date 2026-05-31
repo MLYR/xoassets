@@ -1,0 +1,39 @@
+package com.xoassets.module.investment.dto;
+
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import lombok.Data;
+
+/**
+ * 投资买入和卖出请求参数。
+ */
+@Data
+public class InvestmentTransactionRequest {
+
+    private Long holdingId;
+
+    @NotNull(message = "资产不能为空")
+    private Long assetId;
+
+    @NotBlank(message = "交易类型不能为空")
+    private String type;
+
+    @NotNull(message = "数量不能为空")
+    @DecimalMin(value = "0.0000000001", message = "数量必须大于0")
+    private BigDecimal quantity;
+
+    @NotNull(message = "价格不能为空")
+    @DecimalMin(value = "0.0001", message = "价格必须大于0")
+    private BigDecimal price;
+
+    @DecimalMin(value = "0.0000", message = "手续费不能小于0")
+    private BigDecimal fee = BigDecimal.ZERO;
+
+    @NotNull(message = "交易时间不能为空")
+    private LocalDateTime transactionTime;
+
+    private String note;
+}

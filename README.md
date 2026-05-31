@@ -14,9 +14,9 @@
 
 ## 当前进度
 
-- 前端：已重建为 Vue3、Element Plus、ECharts、Pinia、Vue Router 项目；登录、注册、用户中心、账户管理、分类管理、记账流水已接入后端接口，其余页面暂用 mock 数据。
-- 后端：已创建 Spring Boot MVP，覆盖登录注册、账户、分类、流水、首页统计和基础图表统计。
-- 暂不做：自动同步银行卡 / 支付宝 / 微信、投资行情自动同步、AI 报告真实调用、自动交易或投资建议。
+- 前端：已重建为 Vue3、Element Plus、ECharts、Pinia、Vue Router 项目；登录、注册、用户中心、账户管理、分类管理、记账流水、投资持仓已接入后端接口，其余页面暂用 mock 数据。
+- 后端：已创建 Spring Boot MVP，覆盖登录注册、账户、分类、流水、首页统计、基础图表统计和投资持仓手动维护。
+- 暂不做：自动同步银行卡 / 支付宝 / 微信、投资行情自动同步、AI 报告真实调用、自动交易或投资建议；投资价格第一版只支持手动维护。
 
 ## 前后端联调状态
 
@@ -26,6 +26,7 @@
 - 账户管理：`GET /api/accounts`、`POST /api/accounts`、`PUT /api/accounts/{id}`、`DELETE /api/accounts/{id}` 已接入账户页。
 - 分类管理：`GET /api/categories`、`POST /api/categories`、`PUT /api/categories/{id}`、`DELETE /api/categories/{id}`、`PUT /api/categories/{id}/status` 已接入分类页。
 - 记账流水：`GET /api/transactions`、`POST /api/transactions`、`PUT /api/transactions/{id}`、`DELETE /api/transactions/{id}` 已接入记账页。
+- 投资持仓：`GET /api/assets/search`、`POST /api/assets`、`GET /api/holdings`、`POST /api/holdings`、`PUT /api/holdings/{id}`、`DELETE /api/holdings/{id}`、`POST /api/investment-transactions`、`GET /api/investment-transactions`、`POST /api/quotes/manual` 已接入投资页。
 - ID 处理：后端 Long ID 以字符串返回，前端接口类型使用 `string` 保存和回传 ID，避免 JavaScript 数字精度丢失。
 - 本地开发：前端 Vite 将 `/api` 代理到 `http://localhost:8080`。
 

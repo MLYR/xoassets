@@ -10,8 +10,9 @@
 - 收支流水
 - 首页统计
 - 基础图表统计
+- 投资资产、投资持仓、投资交易和手动价格维护
 
-暂不包含投资行情自动同步、AI 报告真实调用、银行卡 / 支付宝 / 微信自动同步、股票基金自动交易或投资建议。
+暂不包含投资行情自动同步、AI 报告真实调用、银行卡 / 支付宝 / 微信自动同步、股票基金自动交易或投资建议；投资价格第一版只支持手动录入。
 
 ## 启动前准备
 
@@ -78,6 +79,15 @@ http://localhost:8080/doc.html
 - `GET /api/statistics/asset-trend`
 - `GET /api/statistics/expense-category`
 - `GET /api/statistics/income-expense-trend`
+- `GET /api/assets/search`
+- `POST /api/assets`
+- `GET /api/holdings`
+- `POST /api/holdings`
+- `PUT /api/holdings/{id}`
+- `DELETE /api/holdings/{id}`
+- `POST /api/investment-transactions`
+- `GET /api/investment-transactions`
+- `POST /api/quotes/manual`
 
 ## 业务约束
 
@@ -90,4 +100,7 @@ http://localhost:8080/doc.html
 - 流水类型支持 `INCOME`、`EXPENSE`、`TRANSFER`、`REFUND`。
 - 转账只影响账户余额，不计入收入支出统计。
 - 删除或修改流水会在同一事务中反向修正账户余额。
+- 公共资产表 `xo_asset` 和价格表 `xo_asset_price` 不带 `user_id`；用户持仓 `xo_holding` 和投资交易 `xo_investment_transaction` 必须按当前登录用户隔离。
+- 投资买入会创建或更新持仓并按移动平均成本重算；投资卖出必须校验持仓数量，数量不足时拒绝。
+- 持仓估值使用最新手动价格；没有价格时使用平均成本兜底，避免页面无法展示。
 - 业务层采用 `service` 接口 + `service/impl` 实现类结构，Controller 依赖接口。

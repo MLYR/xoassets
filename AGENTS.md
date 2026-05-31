@@ -48,6 +48,7 @@ com.xoassets
 │   ├── account
 │   ├── category
 │   ├── transaction
+│   ├── investment
 │   ├── dashboard
 │   └── statistics
 └── persistence
@@ -103,10 +104,14 @@ com.xoassets
 - 账户接口使用 `/api/accounts/**`。
 - 分类接口使用 `/api/categories/**`。
 - 图表接口使用 `/api/statistics/**`。
-- 持仓接口预留使用 `/api/holdings/**`。
+- 公共投资资产接口使用 `/api/assets/**`。
+- 持仓接口使用 `/api/holdings/**`。
+- 投资交易接口使用 `/api/investment-transactions/**`。
+- 手动行情接口使用 `/api/quotes/**`。
 - AI 报告接口使用 `/api/reports/**`。
 - 接口新增或调整时，同步考虑 Swagger / Knife4j 文档。
 - 后端返回给前端的 Long ID 必须按字符串处理，前端不得用 `number` 保存业务 ID，避免 JavaScript 精度丢失。
+- 投资模块中 `xo_asset`、`xo_asset_price` 为公共数据不带 `user_id`；`xo_holding`、`xo_investment_transaction` 必须通过当前登录用户隔离。
 
 ## 8. 前端设计约定
 - 整体风格：简洁、专业、清晰、数据感、轻量、安全感。
@@ -166,6 +171,7 @@ com.xoassets
 - 写完代码后只汇报改动内容、验证结果、剩余风险，等待用户确认是否提交。
 - 用户要求提交到 Git 时，默认使用中文提交描述。
 - Commit 简单说明本次修改内容即可，推荐格式：`type(scope): summary`。
+- 阶段性功能完成后，必须同步 agent 记忆、更新相关文档，并提交到 Git。
 
 ## 15. 沟通风格
 - 简洁直接，先给结论，再解释原因。

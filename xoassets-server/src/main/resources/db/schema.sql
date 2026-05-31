@@ -74,3 +74,71 @@ CREATE TABLE IF NOT EXISTS xo_transaction (
   KEY idx_user_category_time (user_id, category_id, transaction_time),
   KEY idx_original_transaction (user_id, original_transaction_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='收支流水表';
+
+CREATE TABLE IF NOT EXISTS xo_asset (
+  id BIGINT PRIMARY KEY COMMENT '资产ID',
+  symbol VARCHAR(80) NOT NULL COMMENT '资产代码',
+  name VARCHAR(120) NOT NULL COMMENT '资产名称',
+  type VARCHAR(20) NOT NULL COMMENT '资产类型：STOCK FUND CRYPTO OTHER',
+  currency VARCHAR(10) NOT NULL DEFAULT 'CNY' COMMENT '计价币种',
+  quote_source VARCHAR(30) NOT NULL DEFAULT 'MANUAL' COMMENT '行情来源：MANUAL COINGECKO ALPHA_VANTAGE TUSHARE AKSHARE',
+  quote_key VARCHAR(120) DEFAULT NULL COMMENT '外部行情查询键',
+  status TINYINT NOT NULL DEFAULT 1 COMMENT '状态：1启用 0停用',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除：0否 1是',
+  KEY idx_type_symbol (type, symbol),
+  KEY idx_name (name),
+  UNIQUE KEY uk_type_symbol_deleted (type, symbol, deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='公共资产基础表';
+
+CREATE TABLE IF NOT EXISTS xo_holding (
+  id BIGINT PRIMARY KEY COMMENT '持仓ID',
+  user_id BIGINT NOT NULL COMMENT '用户ID',
+  asset_id BIGINT NOT NULL COMMENT '资产ID',
+  quantity DECIMAL(28,10) NOT NULL DEFAULT 0 COMMENT '持仓数量',
+  avg_cost DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '移动平均成本单价',
+  total_cost DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '持仓总成本',
+  remark VARCHAR(255) DEFAULT NULL COMMENT '备注',
+  status TINYINT NOT NULL DEFAULT 1 COMMENT '状态：1正常 0停用',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除：0否 1是',
+  KEY idx_user_asset (user_id, asset_id),
+  KEY idx_user_status (user_id, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户投资持仓表';
+
+CREATE TABLE IF NOT EXISTS xo_investment_transaction (
+  id BIGINT PRIMARY KEY COMMENT '投资交易ID',
+  user_id BIGINT NOT NULL COMMENT '用户ID',
+  holding_id BIGINT NOT NULL COMMENT '持仓ID',
+  asset_id BIGINT NOT NULL COMMENT '资产ID',
+  type VARCHAR(20) NOT NULL COMMENT '交易类型：BUY SELL',
+  quantity DECIMAL(28,10) NOT NULL COMMENT '交易数量',
+  price DECIMAL(18,4) NOT NULL COMMENT '成交单价',
+  amount DECIMAL(18,4) NOT NULL COMMENT '成交金额',
+  fee DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '手续费',
+  transaction_time DATETIME NOT NULL COMMENT '交易时间',
+  note VARCHAR(255) DEFAULT NULL COMMENT '备注',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除：0否 1是',
+  KEY idx_user_time (user_id, transaction_time),
+  KEY idx_user_holding_time (user_id, holding_id, transaction_time),
+  KEY idx_user_asset_time (user_id, asset_id, transaction_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='投资交易流水表';
+
+CREATE TABLE IF NOT EXISTS xo_asset_price (
+  id BIGINT PRIMARY KEY COMMENT '价格ID',
+  asset_id BIGINT NOT NULL COMMENT '资产ID',
+  price DECIMAL(18,4) NOT NULL COMMENT '价格',
+  currency VARCHAR(10) NOT NULL DEFAULT 'CNY' COMMENT '币种',
+  source VARCHAR(30) NOT NULL COMMENT '行情来源：MANUAL COINGECKO ALPHA_VANTAGE TUSHARE AKSHARE',
+  quote_time DATETIME NOT NULL COMMENT '报价时间',
+  raw_json TEXT DEFAULT NULL COMMENT '行情原文',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除：0否 1是',
+  KEY idx_asset_time (asset_id, quote_time),
+  KEY idx_source_time (source, quote_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='资产价格快照表';
