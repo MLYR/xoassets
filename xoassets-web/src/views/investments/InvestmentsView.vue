@@ -62,10 +62,11 @@
         <el-table-column label="收益率">
           <template #default="{ row }"><TrendValue :value="row.floatingProfitRate" /></template>
         </el-table-column>
-        <el-table-column label="操作" width="230" align="center">
+        <el-table-column label="操作" width="280" align="center">
           <template #default="{ row }">
             <el-button link type="primary" @click="openTradeDialog(row, 'BUY')">买入</el-button>
             <el-button link type="primary" @click="openTradeDialog(row, 'SELL')">卖出</el-button>
+            <el-button link @click="handleRefreshQuote(row)">刷新</el-button>
             <el-button link @click="openQuoteDialog(row)">价格</el-button>
             <el-button link type="danger" @click="handleDeleteHolding(row)">删除</el-button>
           </template>
@@ -325,6 +326,20 @@ async function handleManualQuote() {
     await loadHoldings();
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '价格更新失败');
+  } finally {
+    submitting.value = false;
+  }
+}
+
+async function handleRefreshQuote(holding: HoldingItem) {
+  submitting.value = true;
+  try {
+    await investmentApi.refreshQuote({ assetId: holding.assetId });
+    ElMessage.success('行情已刷新');
+    await loadHoldings();
+  } catch (error) {
+    // 刷新失败只提示错误，列表继续使用最近一次价格快照展示。
+    ElMessage.error(error instanceof Error ? error.message : '行情刷新失败');
   } finally {
     submitting.value = false;
   }

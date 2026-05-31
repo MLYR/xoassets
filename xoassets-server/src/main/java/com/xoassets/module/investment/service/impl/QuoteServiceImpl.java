@@ -1,7 +1,11 @@
 package com.xoassets.module.investment.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.xoassets.common.api.ErrorCode;
+import com.xoassets.common.exception.BusinessException;
 import com.xoassets.module.investment.dto.ManualQuoteRequest;
+import com.xoassets.module.investment.provider.QuoteFetchResult;
+import com.xoassets.module.investment.provider.QuoteProvider;
 import com.xoassets.module.investment.service.AssetService;
 import com.xoassets.module.investment.service.QuoteService;
 import com.xoassets.module.investment.vo.AssetPriceVO;
@@ -12,6 +16,7 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,10 +29,12 @@ public class QuoteServiceImpl implements QuoteService {
 
     private final AssetPriceMapper assetPriceMapper;
     private final AssetService assetService;
+    private final List<QuoteProvider> quoteProviders;
 
-    public QuoteServiceImpl(AssetPriceMapper assetPriceMapper, AssetService assetService) {
+    public QuoteServiceImpl(AssetPriceMapper assetPriceMapper, AssetService assetService, List<QuoteProvider> quoteProviders) {
         this.assetPriceMapper = assetPriceMapper;
         this.assetService = assetService;
+        this.quoteProviders = quoteProviders;
     }
 
     /**
@@ -44,6 +51,30 @@ public class QuoteServiceImpl implements QuoteService {
         price.setSource("MANUAL");
         price.setQuoteTime(request.getQuoteTime() == null ? LocalDateTime.now() : request.getQuoteTime());
         price.setRawJson(null);
+        price.setDeleted(0);
+        assetPriceMapper.insert(price);
+        return toVO(price);
+    }
+
+    /**
+     * 按资产选择行情 provider，刷新失败时不删除旧价格。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public AssetPriceVO refreshQuote(Long assetId) {
+        Asset asset = assetService.findAsset(assetId);
+        QuoteProvider provider = quoteProviders.stream()
+                .filter(item -> item.supports(asset))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(ErrorCode.BUSINESS_ERROR, "当前资产暂不支持自动刷新行情"));
+        QuoteFetchResult result = provider.fetch(asset);
+        AssetPrice price = new AssetPrice();
+        price.setAssetId(asset.getId());
+        price.setPrice(result.price());
+        price.setCurrency(result.currency());
+        price.setSource(result.source());
+        price.setQuoteTime(result.quoteTime());
+        price.setRawJson(result.rawJson());
         price.setDeleted(0);
         assetPriceMapper.insert(price);
         return toVO(price);

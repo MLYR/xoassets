@@ -278,6 +278,7 @@ public class HoldingServiceImpl implements HoldingService {
                 .assetName(asset == null ? null : asset.getName())
                 .symbol(asset == null ? null : asset.getSymbol())
                 .assetType(asset == null ? null : asset.getType())
+                .quoteSource(asset == null ? null : asset.getQuoteSource())
                 .currency(asset == null ? null : asset.getCurrency())
                 .quantity(holding.getQuantity())
                 .avgCost(holding.getAvgCost())

@@ -2,6 +2,7 @@ package com.xoassets.module.investment.controller;
 
 import com.xoassets.common.api.Result;
 import com.xoassets.module.investment.dto.ManualQuoteRequest;
+import com.xoassets.module.investment.dto.RefreshQuoteRequest;
 import com.xoassets.module.investment.service.QuoteService;
 import com.xoassets.module.investment.vo.AssetPriceVO;
 import jakarta.validation.Valid;
@@ -29,5 +30,13 @@ public class QuoteController {
     @PostMapping("/manual")
     public Result<AssetPriceVO> manualQuote(@Valid @RequestBody ManualQuoteRequest request) {
         return Result.success(quoteService.manualQuote(request));
+    }
+
+    /**
+     * 根据资产配置刷新行情。
+     */
+    @PostMapping("/refresh")
+    public Result<AssetPriceVO> refreshQuote(@Valid @RequestBody RefreshQuoteRequest request) {
+        return Result.success(quoteService.refreshQuote(request.getAssetId()));
     }
 }

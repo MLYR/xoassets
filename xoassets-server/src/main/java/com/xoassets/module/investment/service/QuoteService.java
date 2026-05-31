@@ -17,6 +17,11 @@ public interface QuoteService {
     AssetPriceVO manualQuote(ManualQuoteRequest request);
 
     /**
+     * 根据资产行情来源刷新价格。
+     */
+    AssetPriceVO refreshQuote(Long assetId);
+
+    /**
      * 批量查询每个资产的最近价格。
      */
     Map<Long, AssetPrice> latestPriceMap(Collection<Long> assetIds);

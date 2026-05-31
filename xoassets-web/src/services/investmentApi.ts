@@ -30,6 +30,7 @@ export interface HoldingItem {
   assetName: string | null;
   symbol: string | null;
   assetType: AssetType | null;
+  quoteSource: QuoteSource | null;
   currency: string | null;
   quantity: number;
   avgCost: number;
@@ -81,6 +82,10 @@ export interface ManualQuoteRequest {
   price: number;
   currency: string;
   quoteTime?: string;
+}
+
+export interface RefreshQuoteRequest {
+  assetId: string;
 }
 
 export const investmentApi = {
@@ -141,6 +146,13 @@ export const investmentApi = {
   manualQuote(data: ManualQuoteRequest) {
     return request({
       url: '/quotes/manual',
+      method: 'POST',
+      data
+    });
+  },
+  refreshQuote(data: RefreshQuoteRequest) {
+    return request({
+      url: '/quotes/refresh',
       method: 'POST',
       data
     });

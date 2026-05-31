@@ -10,9 +10,9 @@
 - 收支流水
 - 首页统计
 - 基础图表统计
-- 投资资产、投资持仓、投资交易和手动价格维护
+- 投资资产、投资持仓、投资交易、手动价格维护和 CoinGecko 虚拟货币行情刷新
 
-暂不包含投资行情自动同步、AI 报告真实调用、银行卡 / 支付宝 / 微信自动同步、股票基金自动交易或投资建议；投资价格第一版只支持手动录入。
+暂不包含 AI 报告真实调用、银行卡 / 支付宝 / 微信自动同步、股票基金自动交易或投资建议；股票 / 基金自动行情暂不接入。
 
 ## 启动前准备
 
@@ -88,6 +88,7 @@ http://localhost:8080/doc.html
 - `POST /api/investment-transactions`
 - `GET /api/investment-transactions`
 - `POST /api/quotes/manual`
+- `POST /api/quotes/refresh`
 
 ## 业务约束
 
@@ -103,4 +104,6 @@ http://localhost:8080/doc.html
 - 公共资产表 `xo_asset` 和价格表 `xo_asset_price` 不带 `user_id`；用户持仓 `xo_holding` 和投资交易 `xo_investment_transaction` 必须按当前登录用户隔离。
 - 投资买入会创建或更新持仓并按移动平均成本重算；投资卖出必须校验持仓数量，数量不足时拒绝。
 - 持仓估值使用最新手动价格；没有价格时使用平均成本兜底，避免页面无法展示。
+- 行情刷新通过 `QuoteProvider` 抽象扩展；阶段二支持 `ManualQuoteProvider` 和 `CoinGeckoQuoteProvider`。
+- CoinGecko 第一版只支持 CRYPTO 资产的 BTC、ETH、SOL、BNB、DOGE，刷新失败只返回错误提示，不删除旧价格。
 - 业务层采用 `service` 接口 + `service/impl` 实现类结构，Controller 依赖接口。
