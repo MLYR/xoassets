@@ -106,4 +106,6 @@ http://localhost:8080/doc.html
 - 持仓估值使用最新手动价格；没有价格时使用平均成本兜底，避免页面无法展示。
 - 行情刷新通过 `QuoteProvider` 抽象扩展；阶段二支持 `ManualQuoteProvider` 和 `CoinGeckoQuoteProvider`。
 - CoinGecko 第一版只支持 CRYPTO 资产的 BTC、ETH、SOL、BNB、DOGE，刷新失败只返回错误提示，不删除旧价格。
+- 行情缓存按资产类型控制刷新频率：CRYPTO 5 分钟、STOCK 15 分钟、FUND 1 天；MANUAL 价格不过期。
+- 后端启用 `QuoteRefreshScheduler` 定时刷新持仓涉及资产，任务或单个资产失败只记录日志，不影响主应用启动。
 - 业务层采用 `service` 接口 + `service/impl` 实现类结构，Controller 依赖接口。

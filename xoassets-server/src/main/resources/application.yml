@@ -44,3 +44,7 @@ xoassets:
     # 本地开发默认密钥只用于启动，生产环境必须用环境变量覆盖。
     secret: ${XOASSETS_JWT_SECRET:xoassets-local-development-secret-key-must-be-replaced}
     expire-minutes: ${XOASSETS_JWT_EXPIRE_MINUTES:10080}
+  quotes:
+    # 行情定时刷新只处理已过期价格，任务失败不会影响主应用启动。
+    refresh-fixed-delay-ms: ${XOASSETS_QUOTES_REFRESH_FIXED_DELAY_MS:300000}
+    refresh-initial-delay-ms: ${XOASSETS_QUOTES_REFRESH_INITIAL_DELAY_MS:60000}

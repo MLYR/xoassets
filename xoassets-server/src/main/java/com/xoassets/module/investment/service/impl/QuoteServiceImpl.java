@@ -12,6 +12,7 @@ import com.xoassets.module.investment.vo.AssetPriceVO;
 import com.xoassets.persistence.entity.Asset;
 import com.xoassets.persistence.entity.AssetPrice;
 import com.xoassets.persistence.mapper.AssetPriceMapper;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Comparator;
@@ -57,12 +58,25 @@ public class QuoteServiceImpl implements QuoteService {
     }
 
     /**
-     * 按资产选择行情 provider，刷新失败时不删除旧价格。
+     * 按资产选择行情 provider；最近价格仍新鲜时直接复用，避免频繁请求第三方。
      */
     @Transactional(rollbackFor = Exception.class)
     @Override
     public AssetPriceVO refreshQuote(Long assetId) {
+        return refreshQuoteIfStale(assetId);
+    }
+
+    /**
+     * 刷新过期行情；手动价格永不过期，失败时不删除旧价格。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public AssetPriceVO refreshQuoteIfStale(Long assetId) {
         Asset asset = assetService.findAsset(assetId);
+        AssetPrice latestPrice = latestPrice(assetId);
+        if (isFresh(asset, latestPrice)) {
+            return toVO(latestPrice);
+        }
         QuoteProvider provider = quoteProviders.stream()
                 .filter(item -> item.supports(asset))
                 .findFirst()
@@ -97,6 +111,36 @@ public class QuoteServiceImpl implements QuoteService {
                 .sorted(Comparator.comparing(AssetPrice::getQuoteTime).reversed())
                 .forEach(price -> result.putIfAbsent(price.getAssetId(), price));
         return result;
+    }
+
+    /**
+     * 查询单个资产最近价格，供缓存判断和手动资产兜底使用。
+     */
+    private AssetPrice latestPrice(Long assetId) {
+        return assetPriceMapper.selectOne(new LambdaQueryWrapper<AssetPrice>()
+                .eq(AssetPrice::getAssetId, assetId)
+                .orderByDesc(AssetPrice::getQuoteTime)
+                .orderByDesc(AssetPrice::getCreatedAt)
+                .last("LIMIT 1"));
+    }
+
+    /**
+     * 按资产类型判断最近价格是否仍可复用。
+     */
+    private boolean isFresh(Asset asset, AssetPrice price) {
+        if (price == null) {
+            return false;
+        }
+        if ("MANUAL".equals(asset.getQuoteSource()) || "MANUAL".equals(price.getSource())) {
+            return true;
+        }
+        Duration ttl = switch (asset.getType()) {
+            case "CRYPTO" -> Duration.ofMinutes(5);
+            case "STOCK" -> Duration.ofMinutes(15);
+            case "FUND" -> Duration.ofDays(1);
+            default -> Duration.ZERO;
+        };
+        return ttl.isZero() || !price.getQuoteTime().isBefore(LocalDateTime.now().minus(ttl));
     }
 
     /**

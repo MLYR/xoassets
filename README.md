@@ -16,7 +16,7 @@
 
 - 前端：已重建为 Vue3、Element Plus、ECharts、Pinia、Vue Router 项目；登录、注册、用户中心、账户管理、分类管理、记账流水、投资持仓已接入后端接口，其余页面暂用 mock 数据。
 - 后端：已创建 Spring Boot MVP，覆盖登录注册、账户、分类、流水、首页统计、基础图表统计和投资持仓手动维护。
-- 暂不做：自动同步银行卡 / 支付宝 / 微信、AI 报告真实调用、自动交易或投资建议；虚拟货币行情已支持 CoinGecko 手动刷新，股票 / 基金自动行情暂不接入。
+- 暂不做：自动同步银行卡 / 支付宝 / 微信、AI 报告真实调用、自动交易或投资建议；虚拟货币行情已支持 CoinGecko 手动刷新和定时刷新，股票 / 基金自动行情暂不接入。
 
 ## 前后端联调状态
 
@@ -27,6 +27,7 @@
 - 分类管理：`GET /api/categories`、`POST /api/categories`、`PUT /api/categories/{id}`、`DELETE /api/categories/{id}`、`PUT /api/categories/{id}/status` 已接入分类页。
 - 记账流水：`GET /api/transactions`、`POST /api/transactions`、`PUT /api/transactions/{id}`、`DELETE /api/transactions/{id}` 已接入记账页。
 - 投资持仓：`GET /api/assets/search`、`POST /api/assets`、`GET /api/holdings`、`POST /api/holdings`、`PUT /api/holdings/{id}`、`DELETE /api/holdings/{id}`、`POST /api/investment-transactions`、`GET /api/investment-transactions`、`POST /api/quotes/manual`、`POST /api/quotes/refresh` 已接入投资页。
+- 行情缓存：持仓列表优先使用 `xo_asset_price` 最近快照；CRYPTO 5 分钟内、STOCK 15 分钟内、FUND 1 天内不重复刷新，MANUAL 价格不过期。
 - ID 处理：后端 Long ID 以字符串返回，前端接口类型使用 `string` 保存和回传 ID，避免 JavaScript 数字精度丢失。
 - 本地开发：前端 Vite 将 `/api` 代理到 `http://localhost:8080`。
 

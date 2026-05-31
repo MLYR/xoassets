@@ -113,6 +113,7 @@ com.xoassets
 - 后端返回给前端的 Long ID 必须按字符串处理，前端不得用 `number` 保存业务 ID，避免 JavaScript 精度丢失。
 - 投资模块中 `xo_asset`、`xo_asset_price` 为公共数据不带 `user_id`；`xo_holding`、`xo_investment_transaction` 必须通过当前登录用户隔离。
 - 行情刷新通过 `QuoteProvider` 扩展；CoinGecko 第一版只支持 CRYPTO 资产的 BTC、ETH、SOL、BNB、DOGE。
+- 行情缓存 TTL：CRYPTO 5 分钟、STOCK 15 分钟、FUND 1 天、MANUAL 不过期；定时刷新失败不能影响应用启动。
 
 ## 8. 前端设计约定
 - 整体风格：简洁、专业、清晰、数据感、轻量、安全感。
