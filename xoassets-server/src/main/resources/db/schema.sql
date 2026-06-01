@@ -170,6 +170,31 @@ CREATE TABLE IF NOT EXISTS xo_budget (
   KEY idx_user_category_month (user_id, category_id, month)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='预算表';
 
+CREATE TABLE IF NOT EXISTS xo_asset_snapshot (
+  id BIGINT PRIMARY KEY COMMENT '资产快照ID',
+  user_id BIGINT NOT NULL COMMENT '用户ID',
+  snapshot_date DATE NOT NULL COMMENT '快照日期',
+  cash_asset DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '现金资产，正数账户余额合计',
+  investment_asset DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '投资资产市值',
+  total_asset DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '总资产：现金资产 + 投资资产',
+  liability DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '负债，负数账户余额绝对值合计',
+  net_asset DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '净资产：总资产 - 负债',
+  investment_cost DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '投资持仓成本',
+  investment_profit DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '投资浮动盈亏',
+  investment_profit_rate DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '投资收益率百分比',
+  monthly_income DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '当月普通收入',
+  monthly_expense DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '当月普通支出',
+  monthly_balance DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '当月结余',
+  budget_used_amount DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '预算已使用金额',
+  budget_total_amount DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '预算总金额',
+  budget_usage_rate DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '预算使用率百分比',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除：0否 1是',
+  UNIQUE KEY uk_user_snapshot_date (user_id, snapshot_date, deleted),
+  KEY idx_user_date (user_id, snapshot_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户资产快照表';
+
 CREATE TABLE IF NOT EXISTS xo_goal (
   id BIGINT PRIMARY KEY COMMENT '目标ID',
   user_id BIGINT NOT NULL COMMENT '用户ID',

@@ -22,6 +22,16 @@
         <BaseChart v-else :option="assetOption" />
       </div>
       <div class="panel panel-padding">
+        <h3>总资产趋势</h3>
+        <el-empty v-if="!loading && netAssetsTrend.length === 0" description="暂无总资产趋势数据" />
+        <BaseChart v-else :option="totalAssetOption" />
+      </div>
+      <div class="panel panel-padding wide">
+        <h3>现金 / 投资资产变化</h3>
+        <el-empty v-if="!loading && netAssetsTrend.length === 0" description="暂无资产结构变化数据" />
+        <BaseChart v-else :option="assetStructureOption" />
+      </div>
+      <div class="panel panel-padding">
         <h3>支出分类</h3>
         <el-empty v-if="!loading && expenseCategories.length === 0" description="暂无支出分类数据" />
         <BaseChart v-else :option="expenseOption" />
@@ -52,12 +62,13 @@ import { ElMessage } from 'element-plus';
 import type { EChartsOption } from 'echarts';
 import BaseChart from '@/components/charts/BaseChart.vue';
 import MetricCard from '@/components/finance/MetricCard.vue';
-import { statisticsApi, type AssetDistributionItem, type ExpenseCategoryStat, type IncomeExpenseTrendPoint, type InvestmentProfitTrendPoint, type TrendPoint } from '@/services/statisticsApi';
+import { snapshotApi, type AssetSnapshotItem } from '@/services/snapshotApi';
+import { statisticsApi, type AssetDistributionItem, type ExpenseCategoryStat, type IncomeExpenseTrendPoint, type InvestmentProfitTrendPoint } from '@/services/statisticsApi';
 import type { BudgetSummary } from '@/services/budgetApi';
 
 const period = ref('本月');
 const loading = ref(false);
-const netAssetsTrend = ref<TrendPoint[]>([]);
+const netAssetsTrend = ref<AssetSnapshotItem[]>([]);
 const expenseCategories = ref<ExpenseCategoryStat[]>([]);
 const incomeExpenseTrend = ref<IncomeExpenseTrendPoint[]>([]);
 const assetDistribution = ref<AssetDistributionItem[]>([]);
@@ -80,9 +91,29 @@ const budgetRemaining = computed(() => budgetSummary.value.totalRemaining);
 const assetOption = computed<EChartsOption>(() => ({
   tooltip: { trigger: 'axis' },
   grid: { left: 44, right: 18, top: 24, bottom: 36 },
-  xAxis: { type: 'category', data: netAssetsTrend.value.map((item) => item.date) },
+  xAxis: { type: 'category', data: netAssetsTrend.value.map((item) => item.snapshotDate) },
   yAxis: { type: 'value' },
-  series: [{ type: 'line', smooth: true, data: netAssetsTrend.value.map((item) => item.value), lineStyle: { color: '#3b82f6', width: 3 }, itemStyle: { color: '#3b82f6' } }]
+  series: [{ type: 'line', smooth: true, data: netAssetsTrend.value.map((item) => item.netAsset), lineStyle: { color: '#3b82f6', width: 3 }, itemStyle: { color: '#3b82f6' } }]
+}));
+
+const totalAssetOption = computed<EChartsOption>(() => ({
+  tooltip: { trigger: 'axis' },
+  grid: { left: 44, right: 18, top: 24, bottom: 36 },
+  xAxis: { type: 'category', data: netAssetsTrend.value.map((item) => item.snapshotDate) },
+  yAxis: { type: 'value' },
+  series: [{ type: 'line', smooth: true, data: netAssetsTrend.value.map((item) => item.totalAsset), lineStyle: { color: '#14b8a6', width: 3 }, itemStyle: { color: '#14b8a6' } }]
+}));
+
+const assetStructureOption = computed<EChartsOption>(() => ({
+  tooltip: { trigger: 'axis' },
+  legend: { top: 0 },
+  grid: { left: 44, right: 18, top: 36, bottom: 36 },
+  xAxis: { type: 'category', data: netAssetsTrend.value.map((item) => item.snapshotDate) },
+  yAxis: { type: 'value' },
+  series: [
+    { name: '现金资产', type: 'line', smooth: true, data: netAssetsTrend.value.map((item) => item.cashAsset), lineStyle: { color: '#3b82f6', width: 3 }, itemStyle: { color: '#3b82f6' } },
+    { name: '投资资产', type: 'line', smooth: true, data: netAssetsTrend.value.map((item) => item.investmentAsset), lineStyle: { color: '#10b981', width: 3 }, itemStyle: { color: '#10b981' } }
+  ]
 }));
 
 const expenseOption = computed<EChartsOption>(() => ({
@@ -123,7 +154,7 @@ async function loadAnalytics() {
   try {
     const range = selectedRange();
     const [netAssets, expenses, incomeExpense, distribution, investment, budget] = await Promise.all([
-      statisticsApi.netAssetsTrend({ startDate: range.startDate, endDate: range.endDate }),
+      snapshotApi.trend({ startDate: range.startDate, endDate: range.endDate }),
       statisticsApi.expenseCategory(currentMonth()),
       statisticsApi.incomeExpenseTrend({ startMonth: range.startMonth, endMonth: range.endMonth }),
       statisticsApi.assetDistribution(),

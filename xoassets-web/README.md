@@ -16,7 +16,7 @@
 - 已接入真实接口：登录、注册、用户中心、账户管理、分类管理、记账流水、投资持仓、虚拟货币 / 基金 / 股票行情刷新、预算管理、首页仪表盘、数据分析、资产目标、AI 报告模板。
 - 暂用 mock 数据：暂无。
 - 请求封装：`src/services/http.ts` 统一处理 `/api` baseURL、JWT Header、业务响应和 401 跳转。
-- API 模块：`src/services/authApi.ts`、`src/services/accountApi.ts`、`src/services/categoryApi.ts`、`src/services/transactionApi.ts`、`src/services/investmentApi.ts`、`src/services/budgetApi.ts`、`src/services/dashboardApi.ts`、`src/services/statisticsApi.ts`、`src/services/goalApi.ts`、`src/services/reportApi.ts`。
+- API 模块：`src/services/authApi.ts`、`src/services/accountApi.ts`、`src/services/categoryApi.ts`、`src/services/transactionApi.ts`、`src/services/investmentApi.ts`、`src/services/budgetApi.ts`、`src/services/dashboardApi.ts`、`src/services/statisticsApi.ts`、`src/services/snapshotApi.ts`、`src/services/goalApi.ts`、`src/services/reportApi.ts`。
 - 账户页：支持编辑账户当前余额，用于利息、漏记流水等现实余额校准；账户卡片可进入 `/accounts/:id` 查看资金明细、流向统计和导出账户明细。
 - 记账页：支持分页、备注、图片上传和普通流水 CSV 导出，图片第一版以 Data URL 随流水保存。
 - 投资页：前端只保留“持仓”概念，支持通过资产类型 + 代码 / 名称搜索自动带出资产名称、代码、市场、币种、行情源、行情键和当前价格，也保留手动录入；主页只展示总投资 / 基金 / 股票 / 虚拟货币统计和图表，明细页支持按类型分页查看并完成新增、编辑、买入、卖出、单个刷新、批量刷新、手动价格、删除等操作，点击持仓行可进入 `/investments/holdings/:id` 查看单个持仓详情。
@@ -29,7 +29,7 @@
 - 投资表格：明细页表格固定 560px 高度，持仓列固定左侧，操作列固定右侧，数量、价格、金额和收益率列右对齐且不换行。
 - 导出：账户详情、记账流水和投资明细页支持按当前筛选条件导出 CSV。
 - 预算页：支持月度总预算、分类预算、进度条、正常 / 预警 / 超支状态和删除确认。
-- 首页和统计页：从真实接口读取账户、流水、投资、预算聚合指标和图表数据。
+- 首页和统计页：从真实接口读取账户、流水、投资、预算聚合指标和图表数据；首页展示最新净资产、较昨日变化、较本月初变化，数据分析页展示净资产、总资产、现金 / 投资资产快照趋势。
 - 资产目标页：支持新增、编辑、删除、完成状态展示，以及使用当前净资产作为当前金额。
 - AI 报告页：支持报告列表、报告详情和模板化报告生成，当前不调用真实 AI，不展示投资买卖建议。
 - 稳定性：业务列表和图表补充空状态，删除操作均有二次确认，金额 / 价格 / 数量输入先在前端拦截无效值，接口错误统一展示后端 message。

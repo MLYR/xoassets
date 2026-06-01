@@ -15,7 +15,7 @@
 ## 当前进度
 
 - 前端：已重建为 Vue3、Element Plus、ECharts、Pinia、Vue Router 项目；登录、注册、用户中心、账户管理、分类管理、记账流水、投资持仓、预算管理、首页、数据分析、资产目标和 AI 报告模板页已接入后端接口。
-- 后端：已创建 Spring Boot MVP，覆盖登录注册、账户、分类、流水、首页统计、基础图表统计、投资持仓维护、行情刷新、预算管理、资产目标和 AI 报告模板生成。
+- 后端：已创建 Spring Boot MVP，覆盖登录注册、账户、分类、流水、首页统计、基础图表统计、资产快照、投资持仓维护、行情刷新、预算管理、资产目标和 AI 报告模板生成。
 - 体验稳定性：核心业务页已补齐空状态、删除二次确认、金额输入大于 0 校验、后端错误 message 展示和统一 loading 状态。
 - 暂不做：自动同步银行卡 / 支付宝 / 微信、AI 报告真实调用、自动交易或投资建议；行情只在后端接入，前端不直连第三方。
 
@@ -36,7 +36,8 @@
 - 资产识别：新增持仓时可按资产类型输入代码或名称查询，后端返回名称、代码、市场、币种、行情源、行情键和当前价格；保存持仓时自动创建 / 复用 `xo_asset` 并写入价格快照，查询失败仍可手动录入。
 - 行情缓存：持仓列表优先使用 `xo_asset_price` 最近快照；CRYPTO 5 分钟内、STOCK 15 分钟内、FUND 1 天内不重复刷新，MANUAL 价格不过期。行情失败时保留最近价格，页面可用手动价格兜底。
 - 预算管理：`GET /api/budgets`、`POST /api/budgets`、`PUT /api/budgets/{id}`、`DELETE /api/budgets/{id}`、`GET /api/budgets/summary` 已接入预算页。
-- 首页和统计：`GET /api/dashboard/overview` 返回账户、流水、投资和预算聚合指标；`/api/statistics/*` 返回净资产趋势、收支趋势、分类支出、资产分布、投资盈亏和预算进度。
+- 资产快照：`GET /api/snapshots/latest`、`GET /api/snapshots/trend`、`POST /api/snapshots/generate-today` 已接入首页和数据分析页；同一用户同一天重复生成会更新当天快照。
+- 首页和统计：`GET /api/dashboard/overview` 返回账户、流水、投资和预算聚合指标；`/api/statistics/*` 返回收支趋势、分类支出、资产分布、投资盈亏和预算进度，净资产 / 总资产趋势优先使用资产快照。
 - 资产目标：`GET /api/goals`、`POST /api/goals`、`PUT /api/goals/{id}`、`DELETE /api/goals/{id}`、`GET /api/goals/summary` 已接入目标页。
 - AI 报告：`GET /api/reports`、`GET /api/reports/{id}`、`POST /api/reports/generate-preview` 已接入报告页，当前只生成模板化财务复盘，不调用真实 AI，不提供投资买卖建议。
 - CSV 导出：`GET /api/export/account-ledger`、`/transactions`、`/investment-transactions` 已接入账户详情、流水页和投资明细页，导出文件带 UTF-8 BOM。
@@ -146,7 +147,8 @@ docker compose up -d
 ## MVP 验收清单
 
 - 登录 `demo / xoassets123` 后能进入首页。
-- 首页总资产 = 账户余额 + 投资市值，净资产当前等于总资产。
+- 首页总资产和净资产优先读取最新资产快照；现金资产只统计正余额账户，负余额账户计入负债。
+- 手动调用 `POST /api/snapshots/generate-today` 可生成 / 更新今天快照，数据分析页展示净资产、总资产、现金 / 投资资产趋势。
 - 记账新增收入后账户余额增加，新增支出后账户余额减少，转账只改变账户分布。
 - 账户详情能展示普通收支、转账、退款、投资买入和投资卖出的资金明细，并按当前账户方向计算累计流入、流出和净流入。
 - 删除流水后账户余额按原流水影响反向恢复。

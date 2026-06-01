@@ -9,6 +9,7 @@
 - 分类管理
 - 收支流水
 - 首页统计和数据分析
+- 资产快照、净资产趋势和每日快照任务
 - 投资资产识别、投资持仓、投资交易、手动价格维护、虚拟货币 / 基金 / 股票行情刷新
 - 预算管理和预算汇总
 - 资产目标管理和目标汇总
@@ -87,6 +88,9 @@ http://localhost:8080/doc.html
 - `GET /api/statistics/asset-distribution`
 - `GET /api/statistics/investment-profit-trend`
 - `GET /api/statistics/budget-progress`
+- `GET /api/snapshots/latest`
+- `GET /api/snapshots/trend`
+- `POST /api/snapshots/generate-today`
 - `GET /api/assets/search`
 - `POST /api/assets`
 - `GET /api/holdings`
@@ -151,7 +155,10 @@ http://localhost:8080/doc.html
 - 后端启用 `QuoteRefreshScheduler` 定时刷新持仓涉及资产，任务或单个资产失败只记录日志，不影响主应用启动。
 - 预算表 `xo_budget` 按当前用户隔离；每个用户每月只能有一个总预算，每个支出分类每月只能有一个分类预算。
 - 预算使用额从 `xo_transaction` 汇总，转账不计入预算，退款抵扣支出。
-- 首页总资产 = 当前用户账户余额 + 投资持仓市值；当前没有负债模型时净资产暂等于总资产。
+- 资产快照表 `xo_asset_snapshot` 每天记录现金资产、投资资产、负债、净资产、月度收支和预算使用率；同一用户同一天只保留一条，重复生成会更新。
+- 资产快照中现金资产只统计正余额账户，负余额账户按绝对值计入负债；投资资产使用持仓数量和同币种最新价格快照计算。
+- 首页总资产 = 快照现金资产 + 投资持仓市值；净资产 = 总资产 - 负债。
+- 后端启用 `AssetSnapshotScheduler`，默认每天 23:55 为所有启用用户生成资产快照，单个用户失败只记录日志。
 - 统计接口全部按当前 `user_id` 隔离，支出统计排除转账，退款抵扣支出。
 - 资产目标表 `xo_goal` 按当前用户隔离；当前金额可手动填写，也可按当前净资产口径写入。
 - AI 报告表 `xo_ai_report` 按当前用户隔离；阶段七只基于首页、预算、投资等真实数据生成模板化复盘，不调用真实 AI，不提供投资买卖建议。

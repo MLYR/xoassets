@@ -104,7 +104,8 @@ import MetricCard from '@/components/finance/MetricCard.vue';
 import StatusBadge from '@/components/finance/StatusBadge.vue';
 import { ROUTES } from '@/constants/routes';
 import { dashboardApi, type DashboardOverview } from '@/services/dashboardApi';
-import { statisticsApi, type ExpenseCategoryStat, type TrendPoint } from '@/services/statisticsApi';
+import { snapshotApi, type AssetSnapshotItem, type AssetSnapshotLatest } from '@/services/snapshotApi';
+import { statisticsApi, type ExpenseCategoryStat } from '@/services/statisticsApi';
 import type { TransactionItem } from '@/services/transactionApi';
 
 const range = ref('30天');
@@ -126,7 +127,8 @@ const overview = reactive<DashboardOverview>({
   recentTransactions: [],
   recentInvestmentTransactions: []
 });
-const assetTrend = ref<TrendPoint[]>([]);
+const snapshotLatest = ref<AssetSnapshotLatest | null>(null);
+const assetTrend = ref<AssetSnapshotItem[]>([]);
 const expenseCategories = ref<ExpenseCategoryStat[]>([]);
 
 onMounted(() => {
@@ -139,7 +141,9 @@ watch(range, () => {
 
 const dashboardMetrics = computed(() => [
   { title: '总资产', value: overview.totalAssets, trend: overview.assetTrendRate, description: '含投资市值', tone: 'primary' as const },
-  { title: '净资产', value: overview.netAssets, trend: overview.balanceTrendRate, description: '当前估算', tone: 'success' as const },
+  { title: '最新净资产', value: latestNetAsset(), trend: overview.balanceTrendRate, description: latestSnapshotDate(), tone: 'success' as const },
+  { title: '较昨日变化', value: snapshotLatest.value?.netAssetChangeFromYesterday || 0, trend: 0, description: '基于资产快照', tone: changeTone(snapshotLatest.value?.netAssetChangeFromYesterday || 0) },
+  { title: '较本月初变化', value: snapshotLatest.value?.netAssetChangeFromMonthStart || 0, trend: 0, description: '基于资产快照', tone: changeTone(snapshotLatest.value?.netAssetChangeFromMonthStart || 0) },
   { title: '今日支出', value: overview.todayExpense, trend: overview.expenseTrendRate, description: '不含转账', tone: 'warning' as const },
   { title: '投资盈亏', value: overview.investmentFloatingProfit, trend: 0, description: '浮动盈亏', tone: overview.investmentFloatingProfit >= 0 ? 'success' as const : 'danger' as const }
 ]);
@@ -149,9 +153,9 @@ const expenseBreakdown = computed(() => expenseCategories.value.map((item) => ({
 const assetOption = computed<EChartsOption>(() => ({
   grid: { left: 44, right: 16, top: 24, bottom: 32 },
   tooltip: { trigger: 'axis' },
-  xAxis: { type: 'category', data: assetTrend.value.map((item) => item.date), axisLine: { lineStyle: { color: '#e2e8f0' } } },
+  xAxis: { type: 'category', data: assetTrend.value.map((item) => item.snapshotDate), axisLine: { lineStyle: { color: '#e2e8f0' } } },
   yAxis: { type: 'value', axisLabel: { formatter: (value: number) => `${Math.round(value / 1000)}k` }, splitLine: { lineStyle: { color: '#e2e8f0' } } },
-  series: [{ type: 'line', smooth: true, data: assetTrend.value.map((item) => item.value), symbolSize: 7, lineStyle: { color: '#3b82f6', width: 3 }, itemStyle: { color: '#3b82f6' }, areaStyle: { color: 'rgba(59, 130, 246, 0.1)' } }]
+  series: [{ type: 'line', smooth: true, data: assetTrend.value.map((item) => item.netAsset), symbolSize: 7, lineStyle: { color: '#3b82f6', width: 3 }, itemStyle: { color: '#3b82f6' }, areaStyle: { color: 'rgba(59, 130, 246, 0.1)' } }]
 }));
 
 const expenseOption = computed<EChartsOption>(() => ({
@@ -163,9 +167,10 @@ const expenseOption = computed<EChartsOption>(() => ({
 async function loadDashboard() {
   loading.value = true;
   try {
-    const [overviewData, expenseData] = await Promise.all([dashboardApi.overview(), statisticsApi.expenseCategory(currentMonth())]);
+    const [overviewData, expenseData, snapshotData] = await Promise.all([dashboardApi.overview(), statisticsApi.expenseCategory(currentMonth()), snapshotApi.latest()]);
     Object.assign(overview, overviewData);
     expenseCategories.value = expenseData;
+    snapshotLatest.value = snapshotData;
     await loadTrend();
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '首页数据加载失败');
@@ -177,7 +182,7 @@ async function loadDashboard() {
 async function loadTrend() {
   try {
     const days = range.value === '7天' ? 7 : range.value === '90天' ? 90 : 30;
-    assetTrend.value = await statisticsApi.netAssetsTrend({ startDate: dateBefore(days - 1), endDate: dateBefore(0) });
+    assetTrend.value = await snapshotApi.trend({ startDate: dateBefore(days - 1), endDate: dateBefore(0) });
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '资产趋势加载失败');
   }
@@ -193,6 +198,18 @@ function signedTransactionAmount(row: TransactionItem) {
 
 function formatDateTime(value: string) {
   return value ? value.replace('T', ' ').slice(0, 16) : '-';
+}
+
+function latestNetAsset() {
+  return snapshotLatest.value?.latest?.netAsset ?? overview.netAssets;
+}
+
+function latestSnapshotDate() {
+  return snapshotLatest.value?.latest?.snapshotDate ? `快照 ${snapshotLatest.value.latest.snapshotDate}` : '当前估算';
+}
+
+function changeTone(value: number) {
+  return value >= 0 ? 'success' as const : 'danger' as const;
 }
 
 function currentMonth() {
