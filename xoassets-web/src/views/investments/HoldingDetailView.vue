@@ -38,8 +38,11 @@
 
     <section class="panel chart-panel">
       <div class="section-head">
-        <h2>价格走势</h2>
-        <span class="muted-text">最近 30 条价格快照</span>
+        <div>
+          <h2>持仓走势</h2>
+          <span class="muted-text">最近 30 条价格快照</span>
+        </div>
+        <el-segmented v-model="trendMode" :options="trendModeOptions" />
       </div>
       <el-empty v-if="!loading && priceSnapshots.length === 0" description="暂无价格记录" />
       <BaseChart v-else :option="priceChartOption" height="300px" />
@@ -147,10 +150,15 @@ const accounts = ref<AccountItem[]>([]);
 const loading = ref(false);
 const submitting = ref(false);
 const refreshingQuote = ref(false);
+const trendMode = ref<'MARKET_VALUE' | 'PRICE'>('MARKET_VALUE');
 const tradeDialogVisible = ref(false);
 const quoteDialogVisible = ref(false);
 const tradeForm = reactive({ type: 'BUY' as InvestmentTransactionType, accountId: '', quantity: 0, price: 0, fee: 0, transactionTime: new Date(), note: '' });
 const quoteForm = reactive({ price: 0, currency: 'CNY' });
+const trendModeOptions = [
+  { label: '总市值', value: 'MARKET_VALUE' },
+  { label: '价格', value: 'PRICE' }
+];
 
 const holdingId = computed(() => String(route.params.id || ''));
 const currencySymbol = computed(() => (holding.value?.currency === 'USD' ? '$' : '¥'));
@@ -159,19 +167,22 @@ const quantityPrecision = computed(() => holding.value?.assetType === 'CRYPTO' ?
 const quantityMin = computed(() => holding.value?.assetType === 'CRYPTO' ? 0.0000000001 : 0.0001);
 const priceChartOption = computed<EChartsOption>(() => {
   const points = [...priceSnapshots.value].reverse();
+  const quantity = Number(holding.value?.quantity || 0);
+  const isMarketValue = trendMode.value === 'MARKET_VALUE';
   return {
-    tooltip: { trigger: 'axis' },
+    tooltip: { trigger: 'axis', valueFormatter: (value) => formatChartValue(Number(value), isMarketValue ? 4 : pricePrecision.value) },
     grid: { left: 48, right: 24, top: 28, bottom: 42 },
     xAxis: { type: 'category', data: points.map((item) => formatTableTime(item.quoteTime)), axisLabel: { color: '#6b7280' } },
-    yAxis: { type: 'value', scale: true, axisLabel: { color: '#6b7280' } },
+    yAxis: { type: 'value', scale: true, axisLabel: { color: '#6b7280', formatter: (value: number) => formatChartAxis(value) } },
     series: [
       {
-        name: '价格',
+        name: isMarketValue ? '总市值' : '价格',
         type: 'line',
         smooth: true,
         symbol: 'circle',
         symbolSize: 6,
-        data: points.map((item) => item.price),
+        // 当前没有历史持仓数量快照，市值走势使用当前持仓数量乘以历史价格快照。
+        data: points.map((item) => roundTo(isMarketValue ? Number(item.price) * quantity : item.price, isMarketValue ? 4 : pricePrecision.value)),
         lineStyle: { width: 3, color: '#2563eb' },
         itemStyle: { color: '#2563eb' },
         areaStyle: { color: 'rgba(37, 99, 235, 0.08)' }
@@ -362,6 +373,18 @@ function formatPercent(value: number) {
   return `${round4(value).toFixed(4)}%`;
 }
 
+function formatChartAxis(value: number) {
+  const abs = Math.abs(value);
+  if (abs >= 10000) {
+    return `${currencySymbol.value}${round4(value / 10000)}万`;
+  }
+  return `${currencySymbol.value}${round4(value)}`;
+}
+
+function formatChartValue(value: number, precision: number) {
+  return `${currencySymbol.value}${roundTo(value, precision).toLocaleString('zh-CN', { minimumFractionDigits: precision > 4 ? 4 : 2, maximumFractionDigits: precision })}`;
+}
+
 function round4(value: number) {
   return roundTo(value, 4);
 }
@@ -440,6 +463,7 @@ function roundTo(value: number, precision: number) {
   align-items: center;
   justify-content: space-between;
   padding: 18px 18px 8px;
+  gap: 16px;
 }
 
 .section-head h2 {

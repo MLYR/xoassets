@@ -29,7 +29,7 @@
 - 分类管理：`GET /api/categories`、`POST /api/categories`、`PUT /api/categories/{id}`、`DELETE /api/categories/{id}`、`PUT /api/categories/{id}/status` 已接入分类页。
 - 记账流水：`GET /api/transactions`、`POST /api/transactions`、`PUT /api/transactions/{id}`、`DELETE /api/transactions/{id}` 已接入记账页，支持分页和流水图片。
 - 投资持仓：`GET /api/assets/lookup`、`GET /api/holdings`、`GET /api/holdings/summary`、`GET /api/holdings/{id}/detail`、`POST /api/holdings`、`PUT /api/holdings/{id}`、`DELETE /api/holdings/{id}`、`POST /api/investment-transactions`、`GET /api/investment-transactions`、`POST /api/quotes/manual`、`POST /api/quotes/refresh`、`POST /api/quotes/refresh-batch` 已接入投资页；前端只暴露持仓概念，`xo_asset` 作为后端内部行情基础表。
-- 投资展示：投资主页只展示总投资 / 基金 / 股票 / 虚拟货币统计和图表，投资分布按具体投资产品展示，并基于资产快照展示总投资资产曲线；收益贡献独占整行，支持总 / 当日 / 当月 / 当年切换且优先显示资产名称；持仓表格、买入卖出、编辑删除、价格刷新、收益分析等操作集中在 `/investments/details`；单个持仓的收益汇总、交易记录和价格快照在 `/investments/holdings/:id` 查看。
+- 投资展示：投资主页只展示总投资 / 基金 / 股票 / 虚拟货币统计和图表，投资分布按具体投资产品展示，并基于资产快照展示总投资资产曲线；收益贡献独占整行，支持总 / 当日 / 当月 / 当年切换且优先显示资产名称；持仓表格、买入卖出、编辑删除、价格刷新、收益分析等操作集中在 `/investments/details`；单个持仓的收益汇总、交易记录和总市值 / 价格走势在 `/investments/holdings/:id` 查看。
 - 投资明细：类型筛选会同步影响顶部统计块；持仓表格支持选择显示字段，默认展示类型、总市值、总收益、总收益率、今日收益和昨日收益，数值列支持排序。
 - 投资交易：买入必须选择扣款账户并扣减余额，卖出必须选择到账账户并增加余额；买入 / 卖出不写入普通流水，不计入生活收支统计。
 - 投资撤销：`PUT /api/investment-transactions/{id}/revoke` 会反向恢复资金账户和持仓，撤销记录仍保留在投资交易中。
@@ -40,7 +40,7 @@
 - 资产市场：`xo_asset.market` 用于区分 SH / SZ / BJ / US / CN_FUND / CRYPTO，资产唯一性按 `type + market + symbol + deleted` 判断。
 - 行情缓存：持仓列表优先使用 `xo_asset_price` 最近快照；CRYPTO 5 分钟内、STOCK 15 分钟内、FUND 1 天内不重复刷新，MANUAL 价格不过期。USD/CNY 展示汇率由 `/api/exchange-rates/usd-cny` 返回后端日缓存，后续可替换为 Redis 缓存。行情失败时保留最近价格，页面可用手动价格兜底。
 - 预算管理：`GET /api/budgets`、`POST /api/budgets`、`PUT /api/budgets/{id}`、`DELETE /api/budgets/{id}`、`GET /api/budgets/summary` 已接入预算页。
-- 资产快照：`GET /api/snapshots/latest`、`GET /api/snapshots/trend`、`POST /api/snapshots/generate-today` 已接入首页和数据分析页；同一用户同一天重复生成会更新当天快照。
+- 资产快照：`GET /api/snapshots/latest`、`GET /api/snapshots/trend`、`POST /api/snapshots/generate-today` 已接入首页和数据分析页；首页右上角可手动生成今日快照，同一用户同一天重复生成会更新当天快照。
 - 首页和统计：`GET /api/dashboard/overview` 返回账户、流水、投资和预算聚合指标；`/api/statistics/*` 返回收支趋势、分类支出、资产分布、投资盈亏和预算进度，净资产 / 总资产趋势优先使用资产快照。
 - 资产目标：`GET /api/goals`、`POST /api/goals`、`PUT /api/goals/{id}`、`DELETE /api/goals/{id}`、`GET /api/goals/summary` 已接入目标页。
 - AI 报告：`GET /api/reports`、`GET /api/reports/{id}`、`POST /api/reports/generate-preview` 已接入报告页，当前只生成模板化财务复盘，不调用真实 AI，不提供投资买卖建议。

@@ -85,12 +85,16 @@
           <el-table-column label="操作" width="260" align="center" fixed="right">
             <template #default="{ row }">
               <div class="table-actions">
-                <el-button link type="primary" @click.stop="openTradeDialog(row, 'BUY')">买入</el-button>
-                <el-button link type="primary" @click.stop="openTradeDialog(row, 'SELL')">卖出</el-button>
-                <el-button link type="primary" @click.stop="openHoldingDialog(row)">编辑</el-button>
-                <el-button link :loading="refreshingAssetId === row.assetId" @click.stop="handleRefreshQuote(row)">刷新</el-button>
-                <el-button link @click.stop="openQuoteDialog(row)">价格</el-button>
-                <el-button link type="danger" @click.stop="handleDeleteHolding(row)">删除</el-button>
+                <div class="action-row">
+                  <el-button link type="primary" @click.stop="openTradeDialog(row, 'BUY')">买入</el-button>
+                  <el-button link type="primary" @click.stop="openTradeDialog(row, 'SELL')">卖出</el-button>
+                  <el-button link type="primary" @click.stop="openHoldingDialog(row)">编辑</el-button>
+                </div>
+                <div class="action-row">
+                  <el-button link :loading="refreshingAssetId === row.assetId" @click.stop="handleRefreshQuote(row)">刷新</el-button>
+                  <el-button link @click.stop="openQuoteDialog(row)">价格</el-button>
+                  <el-button link type="danger" @click.stop="handleDeleteHolding(row)">删除</el-button>
+                </div>
               </div>
             </template>
           </el-table-column>
@@ -960,14 +964,20 @@ function roundTo(value: number, precision: number) {
 
 .table-actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0 8px;
+  flex-direction: column;
+  gap: 4px;
   justify-content: center;
   white-space: nowrap;
 }
 
 .table-actions :deep(.el-button) {
   margin-left: 0;
+}
+
+.action-row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
 }
 
 :deep(.clickable-holding-row) {

@@ -6,6 +6,7 @@
         <h1 class="page-title">首页</h1>
         <p class="page-subtitle">欢迎回来，这是您的财务概览</p>
       </div>
+      <el-button type="primary" :loading="snapshotGenerating" @click="handleGenerateSnapshot">生成今日快照</el-button>
     </div>
 
     <section class="dashboard-metrics" v-loading="loading">
@@ -110,6 +111,7 @@ import type { TransactionItem } from '@/services/transactionApi';
 
 const range = ref('30天');
 const loading = ref(false);
+const snapshotGenerating = ref(false);
 const overview = reactive<DashboardOverview>({
   totalAssets: 0,
   netAssets: 0,
@@ -185,6 +187,20 @@ async function loadTrend() {
     assetTrend.value = await snapshotApi.trend({ startDate: dateBefore(days - 1), endDate: dateBefore(0) });
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '资产趋势加载失败');
+  }
+}
+
+async function handleGenerateSnapshot() {
+  snapshotGenerating.value = true;
+  try {
+    // 后端按 userId + snapshotDate 做当天快照覆盖更新，避免一天生成多份快照。
+    await snapshotApi.generateToday();
+    ElMessage.success('今日资产快照已生成');
+    await loadDashboard();
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '资产快照生成失败');
+  } finally {
+    snapshotGenerating.value = false;
   }
 }
 
