@@ -2,6 +2,7 @@ package com.xoassets.module;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -224,6 +225,12 @@ class MvpCoreServiceTest {
 
         sell.setStatus("REVOKED");
         assertThrows(BusinessException.class, () -> transactionService.revoke(99L, request));
+
+        InvestmentTransaction insufficientSell = investmentRecord(100L, "SELL", "50.0000", "12.0000", "600.0000", "2.0000", "451.0000");
+        bank.setBalance(bd("100.0000"));
+        when(transactionMapper.selectOne(any())).thenReturn(insufficientSell);
+        BusinessException error = assertThrows(BusinessException.class, () -> transactionService.revoke(100L, request));
+        assertEquals("账户余额不足，无法撤销该卖出交易", error.getMessage());
     }
 
     @Test
@@ -266,6 +273,33 @@ class MvpCoreServiceTest {
         assertEquals(bd("1198.0000"), flow.getInvestmentSellAmount());
         assertEquals(1, flow.getCategoryExpenseStats().size());
         assertEquals(2, flow.getInvestmentFlowStats().size());
+    }
+
+    @Test
+    void accountLedgerShouldDisplayRevokedInvestmentButExcludeItFromSummary() {
+        Account bank = account(1L, USER_ID, "银行卡", "BANK", "10000.0000");
+        AccountMapper accountMapper = mock(AccountMapper.class);
+        TransactionRecordMapper transactionMapper = mock(TransactionRecordMapper.class);
+        InvestmentTransactionMapper investmentMapper = mock(InvestmentTransactionMapper.class);
+        AssetMapper assetMapper = mock(AssetMapper.class);
+        AccountLedgerServiceImpl service = new AccountLedgerServiceImpl(
+                new AccountServiceImpl(accountMapper, transactionMapper), accountMapper, transactionMapper, investmentMapper, mock(CategoryMapper.class), assetMapper);
+        InvestmentTransaction buy = investmentRecord(1L, "BUY", "100.0000", "10.0000", "1000.0000", "2.0000", "1002.0000");
+        InvestmentTransaction revokedSell = investmentRecord(2L, "SELL", "100.0000", "12.0000", "1200.0000", "2.0000", "1002.0000");
+        revokedSell.setStatus("REVOKED");
+
+        when(accountMapper.selectOne(any())).thenReturn(bank);
+        when(accountMapper.selectList(any())).thenReturn(List.of(bank));
+        when(transactionMapper.selectList(any())).thenReturn(List.of());
+        when(investmentMapper.selectList(any())).thenReturn(List.of(buy, revokedSell));
+        when(assetMapper.selectBatchIds(Set.of(10L))).thenReturn(List.of(asset(10L, "FUND-A", "基金 A", "FUND", "CNY")));
+
+        AccountLedgerPageVO ledger = service.ledger(1L, new com.xoassets.module.account.dto.AccountLedgerQuery());
+        assertEquals(2, ledger.getPage().getTotal());
+        assertTrue(ledger.getPage().getRecords().stream().anyMatch(row -> "REVOKED".equals(row.getStatus())));
+        assertEquals(bd("0"), ledger.getSummary().getTotalInflow());
+        assertEquals(bd("1002.0000"), ledger.getSummary().getTotalOutflow());
+        assertEquals(bd("-1002.0000"), ledger.getSummary().getNetInflow());
     }
 
     @Test
@@ -331,6 +365,28 @@ class MvpCoreServiceTest {
         assertEquals(bd("39.0000"), detail.getSummary().getRealizedProfit());
         assertEquals(bd("100.0000"), detail.getSummary().getFloatingProfit());
         assertEquals(bd("139.0000"), detail.getSummary().getTotalProfit());
+    }
+
+    @Test
+    void holdingDetailShouldHandleMissingPriceSnapshots() {
+        Holding holding = holding(1L, USER_ID, 10L, "100.0000", "10.0000", "1000.0000");
+        HoldingMapper holdingMapper = mock(HoldingMapper.class);
+        AssetMapper assetMapper = mock(AssetMapper.class);
+        AssetPriceMapper assetPriceMapper = mock(AssetPriceMapper.class);
+        InvestmentTransactionMapper transactionMapper = mock(InvestmentTransactionMapper.class);
+        HoldingServiceImpl service = new HoldingServiceImpl(
+                holdingMapper, assetMapper, assetPriceMapper, transactionMapper, mock(AccountMapper.class), mock(AssetService.class), mock(QuoteService.class));
+
+        when(holdingMapper.selectOne(any())).thenReturn(holding);
+        when(assetMapper.selectById(10L)).thenReturn(asset(10L, "FUND-A", "基金 A", "FUND", "CNY"));
+        when(assetPriceMapper.selectList(any())).thenReturn(List.of());
+        when(transactionMapper.selectList(any())).thenReturn(List.of());
+
+        HoldingDetailVO detail = service.detail(1L);
+        assertEquals(0, detail.getPriceSnapshots().size());
+        assertEquals(bd("10.0000"), detail.getHolding().getLatestPrice());
+        assertEquals(bd("1000.0000"), detail.getHolding().getMarketValue());
+        assertEquals(bd("0.0000"), detail.getSummary().getTotalProfit());
     }
 
     @Test
