@@ -7,6 +7,7 @@ import com.xoassets.common.exception.BusinessException;
 import com.xoassets.persistence.entity.Asset;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -44,10 +45,12 @@ public class EastMoneyFundQuoteProvider implements QuoteProvider {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "基金行情键不能为空");
         }
         try {
-            String body = restClient.get()
+            byte[] bytes = restClient.get()
                     .uri("/js/{code}.js?rt={timestamp}", fundCode, System.currentTimeMillis())
                     .retrieve()
-                    .body(String.class);
+                    .body(byte[].class);
+            // 天天基金接口返回 UTF-8 JSONP，按 String.class 读取时可能被默认编码误解导致中文基金名乱码。
+            String body = new String(bytes == null ? new byte[0] : bytes, StandardCharsets.UTF_8);
             JsonNode node = objectMapper.readTree(jsonBody(body));
             JsonNode navNode = node.path("dwjz");
             if (!navNode.isTextual() || !StringUtils.hasText(navNode.asText())) {

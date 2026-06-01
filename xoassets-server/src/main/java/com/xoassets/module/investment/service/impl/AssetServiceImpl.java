@@ -225,10 +225,12 @@ public class AssetServiceImpl implements AssetService {
             return existingLookup("FUND", keyword);
         }
         try {
-            String body = fundClient.get()
+            byte[] bytes = fundClient.get()
                     .uri("/js/{code}.js?rt={timestamp}", code, System.currentTimeMillis())
                     .retrieve()
-                    .body(String.class);
+                    .body(byte[].class);
+            // 天天基金接口返回 UTF-8 JSONP，显式按 UTF-8 解码，避免基金名称变成乱码。
+            String body = new String(bytes == null ? new byte[0] : bytes, StandardCharsets.UTF_8);
             JsonNode node = objectMapper.readTree(jsonBody(body));
             BigDecimal price = decimal(node.path("dwjz"), 8);
             BigDecimal changePercent = decimalOrNull(node.path("gszzl"), 4);
