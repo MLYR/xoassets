@@ -10,12 +10,18 @@ import com.xoassets.module.investment.service.AssetService;
 import com.xoassets.module.investment.service.HoldingService;
 import com.xoassets.module.investment.service.HoldingTradeResult;
 import com.xoassets.module.investment.service.QuoteService;
+import com.xoassets.module.investment.vo.AssetPriceVO;
+import com.xoassets.module.investment.vo.HoldingDetailSummaryVO;
+import com.xoassets.module.investment.vo.HoldingDetailVO;
 import com.xoassets.module.investment.vo.HoldingSummaryVO;
 import com.xoassets.module.investment.vo.HoldingVO;
+import com.xoassets.module.investment.vo.InvestmentTransactionVO;
+import com.xoassets.persistence.entity.Account;
 import com.xoassets.persistence.entity.Asset;
 import com.xoassets.persistence.entity.AssetPrice;
 import com.xoassets.persistence.entity.Holding;
 import com.xoassets.persistence.entity.InvestmentTransaction;
+import com.xoassets.persistence.mapper.AccountMapper;
 import com.xoassets.persistence.mapper.AssetMapper;
 import com.xoassets.persistence.mapper.AssetPriceMapper;
 import com.xoassets.persistence.mapper.HoldingMapper;
@@ -47,6 +53,7 @@ public class HoldingServiceImpl implements HoldingService {
     private final AssetMapper assetMapper;
     private final AssetPriceMapper assetPriceMapper;
     private final InvestmentTransactionMapper investmentTransactionMapper;
+    private final AccountMapper accountMapper;
     private final AssetService assetService;
     private final QuoteService quoteService;
 
@@ -55,12 +62,14 @@ public class HoldingServiceImpl implements HoldingService {
             AssetMapper assetMapper,
             AssetPriceMapper assetPriceMapper,
             InvestmentTransactionMapper investmentTransactionMapper,
+            AccountMapper accountMapper,
             AssetService assetService,
             QuoteService quoteService) {
         this.holdingMapper = holdingMapper;
         this.assetMapper = assetMapper;
         this.assetPriceMapper = assetPriceMapper;
         this.investmentTransactionMapper = investmentTransactionMapper;
+        this.accountMapper = accountMapper;
         this.assetService = assetService;
         this.quoteService = quoteService;
     }
@@ -99,6 +108,33 @@ public class HoldingServiceImpl implements HoldingService {
                 .floatingProfit(floatingProfit.setScale(4, RoundingMode.HALF_UP))
                 .floatingProfitRate(floatingProfitRate)
                 .holdingCount(holdings.size())
+                .build();
+    }
+
+    /**
+     * 查询单个持仓详情，交易明细保留已撤销记录，但汇总只统计正常交易。
+     */
+    @Override
+    public HoldingDetailVO detail(Long id) {
+        Long userId = LoginUserContext.getUserId();
+        Holding holding = findOwnedHolding(id, userId);
+        Asset asset = assetMapper.selectById(holding.getAssetId());
+        List<AssetPrice> priceSnapshots = latestPriceSnapshots(holding.getAssetId());
+        HoldingVO holdingVO = toVO(holding, asset, priceSnapshots);
+        List<InvestmentTransaction> transactions = investmentTransactionMapper.selectList(new LambdaQueryWrapper<InvestmentTransaction>()
+                .eq(InvestmentTransaction::getUserId, userId)
+                .eq(InvestmentTransaction::getHoldingId, id)
+                .orderByDesc(InvestmentTransaction::getTransactionTime)
+                .orderByDesc(InvestmentTransaction::getCreatedAt));
+        Map<Long, Account> accountMap = accountMap(transactions);
+        List<InvestmentTransactionVO> transactionVOList = transactions.stream()
+                .map(transaction -> toTransactionVO(transaction, asset, accountMap.get(transaction.getAccountId())))
+                .toList();
+        return HoldingDetailVO.builder()
+                .holding(holdingVO)
+                .summary(detailSummary(holdingVO, transactions))
+                .transactions(transactionVOList)
+                .priceSnapshots(priceSnapshots.stream().map(this::toAssetPriceVO).toList())
                 .build();
     }
 
@@ -414,6 +450,123 @@ public class HoldingServiceImpl implements HoldingService {
                 .breakEvenRate(breakEvenRate)
                 .remark(holding.getRemark())
                 .status(holding.getStatus())
+                .build();
+    }
+
+    /**
+     * 查询详情页最近 30 条价格快照；详情页只展示趋势，不在前端重新计算权威收益。
+     */
+    private List<AssetPrice> latestPriceSnapshots(Long assetId) {
+        return assetPriceMapper.selectList(new LambdaQueryWrapper<AssetPrice>()
+                .eq(AssetPrice::getAssetId, assetId)
+                .orderByDesc(AssetPrice::getQuoteTime)
+                .orderByDesc(AssetPrice::getCreatedAt)
+                .last("limit 30"));
+    }
+
+    /**
+     * 批量读取资金账户名称，交易记录展示用；账户归属已由交易 user_id 限定。
+     */
+    private Map<Long, Account> accountMap(List<InvestmentTransaction> transactions) {
+        Set<Long> accountIds = transactions.stream().map(InvestmentTransaction::getAccountId).filter(Objects::nonNull).collect(Collectors.toSet());
+        if (accountIds.isEmpty()) {
+            return Map.of();
+        }
+        return accountMapper.selectBatchIds(accountIds).stream().collect(Collectors.toMap(Account::getId, account -> account));
+    }
+
+    /**
+     * 计算单个持仓详情汇总，撤销交易保留明细展示但不参与收益统计。
+     */
+    private HoldingDetailSummaryVO detailSummary(HoldingVO holding, List<InvestmentTransaction> transactions) {
+        BigDecimal totalBuyAmount = BigDecimal.ZERO;
+        BigDecimal totalSellAmount = BigDecimal.ZERO;
+        BigDecimal totalFee = BigDecimal.ZERO;
+        BigDecimal realizedProfit = BigDecimal.ZERO;
+        int buyCount = 0;
+        int sellCount = 0;
+        java.time.LocalDateTime firstBuyDateTime = null;
+        java.time.LocalDateTime lastTradeTime = null;
+        for (InvestmentTransaction transaction : transactions) {
+            if ("REVOKED".equals(transaction.getStatus())) {
+                continue;
+            }
+            BigDecimal fee = scale4(transaction.getFee());
+            totalFee = totalFee.add(fee);
+            if ("BUY".equals(transaction.getType())) {
+                totalBuyAmount = totalBuyAmount.add(scale4(transaction.getAmount()).add(fee));
+                buyCount++;
+                if (transaction.getTransactionTime() != null && (firstBuyDateTime == null || transaction.getTransactionTime().isBefore(firstBuyDateTime))) {
+                    firstBuyDateTime = transaction.getTransactionTime();
+                }
+            }
+            if ("SELL".equals(transaction.getType())) {
+                totalSellAmount = totalSellAmount.add(scale4(transaction.getAmount()).subtract(fee));
+                realizedProfit = realizedProfit.add(scale4(transaction.getRealizedProfit()));
+                sellCount++;
+            }
+            if (transaction.getTransactionTime() != null && (lastTradeTime == null || transaction.getTransactionTime().isAfter(lastTradeTime))) {
+                lastTradeTime = transaction.getTransactionTime();
+            }
+        }
+        BigDecimal floatingProfit = scale4(holding.getFloatingProfit());
+        BigDecimal totalProfit = realizedProfit.add(floatingProfit).setScale(4, RoundingMode.HALF_UP);
+        BigDecimal totalProfitRate = totalBuyAmount.compareTo(BigDecimal.ZERO) <= 0
+                ? BigDecimal.ZERO
+                : totalProfit.multiply(BigDecimal.valueOf(100)).divide(totalBuyAmount, 4, RoundingMode.HALF_UP);
+        return HoldingDetailSummaryVO.builder()
+                .totalBuyAmount(totalBuyAmount.setScale(4, RoundingMode.HALF_UP))
+                .totalSellAmount(totalSellAmount.setScale(4, RoundingMode.HALF_UP))
+                .totalFee(totalFee.setScale(4, RoundingMode.HALF_UP))
+                .realizedProfit(realizedProfit.setScale(4, RoundingMode.HALF_UP))
+                .floatingProfit(floatingProfit)
+                .totalProfit(totalProfit)
+                .totalProfitRate(totalProfitRate)
+                .buyCount(buyCount)
+                .sellCount(sellCount)
+                .firstBuyTime(firstBuyDateTime)
+                .lastTradeTime(lastTradeTime)
+                .build();
+    }
+
+    /**
+     * 转换详情页投资交易记录，保持和投资交易列表相同字段。
+     */
+    private InvestmentTransactionVO toTransactionVO(InvestmentTransaction transaction, Asset asset, Account account) {
+        return InvestmentTransactionVO.builder()
+                .id(transaction.getId())
+                .holdingId(transaction.getHoldingId())
+                .assetId(transaction.getAssetId())
+                .accountId(transaction.getAccountId())
+                .accountName(account == null ? null : account.getName())
+                .assetName(asset == null ? null : asset.getName())
+                .symbol(asset == null ? null : asset.getSymbol())
+                .type(transaction.getType())
+                .quantity(transaction.getQuantity())
+                .price(transaction.getPrice())
+                .amount(transaction.getAmount())
+                .fee(transaction.getFee())
+                .costAmount(transaction.getCostAmount())
+                .realizedProfit(transaction.getRealizedProfit())
+                .status(transaction.getStatus())
+                .revokeTime(transaction.getRevokeTime())
+                .revokeReason(transaction.getRevokeReason())
+                .transactionTime(transaction.getTransactionTime())
+                .note(transaction.getNote())
+                .build();
+    }
+
+    /**
+     * 转换价格快照供前端绘制轻量价格趋势。
+     */
+    private AssetPriceVO toAssetPriceVO(AssetPrice price) {
+        return AssetPriceVO.builder()
+                .id(price.getId())
+                .assetId(price.getAssetId())
+                .price(price.getPrice())
+                .currency(price.getCurrency())
+                .source(price.getSource())
+                .quoteTime(price.getQuoteTime())
                 .build();
     }
 

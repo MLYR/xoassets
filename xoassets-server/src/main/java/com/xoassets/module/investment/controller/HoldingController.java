@@ -3,6 +3,7 @@ package com.xoassets.module.investment.controller;
 import com.xoassets.common.api.Result;
 import com.xoassets.module.investment.dto.HoldingRequest;
 import com.xoassets.module.investment.service.HoldingService;
+import com.xoassets.module.investment.vo.HoldingDetailVO;
 import com.xoassets.module.investment.vo.HoldingSummaryVO;
 import com.xoassets.module.investment.vo.HoldingVO;
 import jakarta.validation.Valid;
@@ -43,6 +44,14 @@ public class HoldingController {
     @GetMapping("/summary")
     public Result<HoldingSummaryVO> summary() {
         return Result.success(holdingService.summary());
+    }
+
+    /**
+     * 查询当前用户单个持仓详情。
+     */
+    @GetMapping("/{id}/detail")
+    public Result<HoldingDetailVO> detail(@PathVariable Long id) {
+        return Result.success(holdingService.detail(id));
     }
 
     /**

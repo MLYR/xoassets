@@ -23,6 +23,7 @@ const router = createRouter({
         { path: ROUTES.categories.slice(1), component: () => import('@/views/categories/CategoriesView.vue') },
         { path: ROUTES.investments.slice(1), component: () => import('@/views/investments/InvestmentsView.vue') },
         { path: ROUTES.investmentDetails.slice(1), component: () => import('@/views/investments/InvestmentDetailsView.vue') },
+        { path: ROUTES.holdingDetail.slice(1), component: () => import('@/views/investments/HoldingDetailView.vue') },
         { path: ROUTES.analytics.slice(1), component: () => import('@/views/analytics/AnalyticsView.vue') },
         { path: ROUTES.reports.slice(1), component: () => import('@/views/reports/ReportsView.vue') },
         { path: ROUTES.budgets.slice(1), component: () => import('@/views/budgets/BudgetsView.vue') },

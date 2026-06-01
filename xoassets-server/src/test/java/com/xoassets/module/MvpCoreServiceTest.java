@@ -26,6 +26,7 @@ import com.xoassets.module.investment.dto.InvestmentTransactionRevokeRequest;
 import com.xoassets.module.investment.service.impl.HoldingServiceImpl;
 import com.xoassets.module.investment.service.impl.InvestmentTransactionServiceImpl;
 import com.xoassets.module.investment.vo.HoldingVO;
+import com.xoassets.module.investment.vo.HoldingDetailVO;
 import com.xoassets.module.investment.vo.InvestmentTransactionVO;
 import com.xoassets.module.statistics.service.impl.StatisticsServiceImpl;
 import com.xoassets.module.statistics.vo.AssetDistributionVO;
@@ -124,7 +125,7 @@ class MvpCoreServiceTest {
         QuoteService quoteService = mock(QuoteService.class);
         AssetService assetService = mock(AssetService.class);
         HoldingServiceImpl service = new HoldingServiceImpl(
-                holdingMapper, assetMapper, assetPriceMapper, mock(InvestmentTransactionMapper.class), assetService, quoteService);
+                holdingMapper, assetMapper, assetPriceMapper, mock(InvestmentTransactionMapper.class), mock(AccountMapper.class), assetService, quoteService);
 
         when(holdingMapper.selectOne(any())).thenReturn(holding);
         service.applyBuy(USER_ID, 1L, 10L, bd("10.0000"), bd("20.0000"), bd("0.0000"));
@@ -163,7 +164,7 @@ class MvpCoreServiceTest {
         AssetService assetService = mock(AssetService.class);
         AccountServiceImpl accountService = new AccountServiceImpl(accountMapper, mock(TransactionRecordMapper.class));
         HoldingServiceImpl holdingService = new HoldingServiceImpl(
-                holdingMapper, assetMapper, assetPriceMapper, transactionMapper, assetService, mock(QuoteService.class));
+                holdingMapper, assetMapper, assetPriceMapper, transactionMapper, accountMapper, assetService, mock(QuoteService.class));
         InvestmentTransactionServiceImpl transactionService = new InvestmentTransactionServiceImpl(
                 transactionMapper, assetMapper, accountMapper, assetService, holdingService, accountService);
 
@@ -202,7 +203,7 @@ class MvpCoreServiceTest {
         InvestmentTransactionMapper transactionMapper = mock(InvestmentTransactionMapper.class);
         AccountServiceImpl accountService = new AccountServiceImpl(accountMapper, mock(TransactionRecordMapper.class));
         HoldingServiceImpl holdingService = new HoldingServiceImpl(
-                holdingMapper, assetMapper, mock(AssetPriceMapper.class), transactionMapper, mock(AssetService.class), mock(QuoteService.class));
+                holdingMapper, assetMapper, mock(AssetPriceMapper.class), transactionMapper, accountMapper, mock(AssetService.class), mock(QuoteService.class));
         InvestmentTransactionServiceImpl transactionService = new InvestmentTransactionServiceImpl(
                 transactionMapper, assetMapper, accountMapper, mock(AssetService.class), holdingService, accountService);
         InvestmentTransaction sell = investmentRecord(99L, "SELL", "50.0000", "12.0000", "600.0000", "2.0000", "451.0000");
@@ -274,7 +275,7 @@ class MvpCoreServiceTest {
         AssetMapper assetMapper = mock(AssetMapper.class);
         AssetPriceMapper assetPriceMapper = mock(AssetPriceMapper.class);
         HoldingServiceImpl service = new HoldingServiceImpl(
-                holdingMapper, assetMapper, assetPriceMapper, mock(InvestmentTransactionMapper.class), mock(AssetService.class), mock(QuoteService.class));
+                holdingMapper, assetMapper, assetPriceMapper, mock(InvestmentTransactionMapper.class), mock(AccountMapper.class), mock(AssetService.class), mock(QuoteService.class));
         Asset asset = asset(10L, "FUND-A", "基金 A", "FUND", "CNY");
         AssetPrice latest = price(10L, "11.00000000", "CNY", LocalDateTime.now());
         AssetPrice previous = price(10L, "9.00000000", "CNY", LocalDateTime.now().minusDays(1));
@@ -297,6 +298,39 @@ class MvpCoreServiceTest {
         when(assetPriceMapper.selectList(any())).thenReturn(List.of(price(10L, "8.00000000", "CNY", LocalDateTime.now())));
         HoldingVO loss = service.list().get(0);
         assertEquals(bd("25.0000"), loss.getBreakEvenRate());
+    }
+
+    @Test
+    void holdingDetailShouldKeepRevokedTransactionsButExcludeThemFromSummary() {
+        Holding holding = holding(1L, USER_ID, 10L, "100.0000", "10.0000", "1000.0000");
+        HoldingMapper holdingMapper = mock(HoldingMapper.class);
+        AssetMapper assetMapper = mock(AssetMapper.class);
+        AssetPriceMapper assetPriceMapper = mock(AssetPriceMapper.class);
+        InvestmentTransactionMapper transactionMapper = mock(InvestmentTransactionMapper.class);
+        AccountMapper accountMapper = mock(AccountMapper.class);
+        HoldingServiceImpl service = new HoldingServiceImpl(
+                holdingMapper, assetMapper, assetPriceMapper, transactionMapper, accountMapper, mock(AssetService.class), mock(QuoteService.class));
+        InvestmentTransaction buy = investmentRecord(1L, "BUY", "100.0000", "10.0000", "1000.0000", "2.0000", "1002.0000");
+        InvestmentTransaction sell = investmentRecord(2L, "SELL", "20.0000", "12.0000", "240.0000", "1.0000", "200.0000");
+        sell.setRealizedProfit(bd("39.0000"));
+        InvestmentTransaction revoked = investmentRecord(3L, "BUY", "10.0000", "8.0000", "80.0000", "1.0000", "81.0000");
+        revoked.setStatus("REVOKED");
+
+        when(holdingMapper.selectOne(any())).thenReturn(holding);
+        when(assetMapper.selectById(10L)).thenReturn(asset(10L, "FUND-A", "基金 A", "FUND", "CNY"));
+        when(assetPriceMapper.selectList(any())).thenReturn(List.of(price(10L, "11.00000000", "CNY", LocalDateTime.of(2026, 5, 31, 9, 0))));
+        when(transactionMapper.selectList(any())).thenReturn(List.of(sell, revoked, buy));
+        when(accountMapper.selectBatchIds(Set.of(1L))).thenReturn(List.of(account(1L, USER_ID, "银行卡", "BANK", "1000.0000")));
+
+        HoldingDetailVO detail = service.detail(1L);
+        assertEquals(3, detail.getTransactions().size());
+        assertEquals(1, detail.getSummary().getBuyCount());
+        assertEquals(1, detail.getSummary().getSellCount());
+        assertEquals(bd("1002.0000"), detail.getSummary().getTotalBuyAmount());
+        assertEquals(bd("239.0000"), detail.getSummary().getTotalSellAmount());
+        assertEquals(bd("39.0000"), detail.getSummary().getRealizedProfit());
+        assertEquals(bd("100.0000"), detail.getSummary().getFloatingProfit());
+        assertEquals(bd("139.0000"), detail.getSummary().getTotalProfit());
     }
 
     @Test

@@ -9,6 +9,7 @@ export const ROUTES = {
   categories: '/categories',
   investments: '/investments',
   investmentDetails: '/investments/details',
+  holdingDetail: '/investments/holdings/:id',
   analytics: '/analytics',
   reports: '/reports',
   budgets: '/budgets',

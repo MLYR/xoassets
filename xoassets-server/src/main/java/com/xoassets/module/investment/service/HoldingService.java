@@ -1,6 +1,7 @@
 package com.xoassets.module.investment.service;
 
 import com.xoassets.module.investment.dto.HoldingRequest;
+import com.xoassets.module.investment.vo.HoldingDetailVO;
 import com.xoassets.module.investment.vo.HoldingSummaryVO;
 import com.xoassets.module.investment.vo.HoldingVO;
 import com.xoassets.persistence.entity.Holding;
@@ -21,6 +22,11 @@ public interface HoldingService {
      * 查询当前用户持仓汇总。
      */
     HoldingSummaryVO summary();
+
+    /**
+     * 查询当前用户某个持仓的详情。
+     */
+    HoldingDetailVO detail(Long id);
 
     /**
      * 新增持仓。

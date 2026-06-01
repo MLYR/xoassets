@@ -31,7 +31,7 @@
     <section v-loading="loading" class="panel">
       <el-empty v-if="!loading && pagedHoldings.length === 0" description="暂无符合条件的投资明细" />
       <template v-else>
-        <el-table :data="pagedHoldings" stripe height="560">
+        <el-table :data="pagedHoldings" stripe height="560" :row-class-name="holdingRowClassName" @row-click="openHoldingDetail">
           <el-table-column label="持仓" min-width="190" fixed="left">
             <template #default="{ row }">
               <strong>{{ row.assetName || '-' }}</strong>
@@ -80,12 +80,12 @@
           <el-table-column label="操作" width="260" align="center" fixed="right">
             <template #default="{ row }">
               <div class="table-actions">
-                <el-button link type="primary" @click="openTradeDialog(row, 'BUY')">买入</el-button>
-                <el-button link type="primary" @click="openTradeDialog(row, 'SELL')">卖出</el-button>
-                <el-button link type="primary" @click="openHoldingDialog(row)">编辑</el-button>
-                <el-button link @click="handleRefreshQuote(row)">刷新</el-button>
-                <el-button link @click="openQuoteDialog(row)">价格</el-button>
-                <el-button link type="danger" @click="handleDeleteHolding(row)">删除</el-button>
+                <el-button link type="primary" @click.stop="openTradeDialog(row, 'BUY')">买入</el-button>
+                <el-button link type="primary" @click.stop="openTradeDialog(row, 'SELL')">卖出</el-button>
+                <el-button link type="primary" @click.stop="openHoldingDialog(row)">编辑</el-button>
+                <el-button link @click.stop="handleRefreshQuote(row)">刷新</el-button>
+                <el-button link @click.stop="openQuoteDialog(row)">价格</el-button>
+                <el-button link type="danger" @click.stop="handleDeleteHolding(row)">删除</el-button>
               </div>
             </template>
           </el-table-column>
@@ -208,7 +208,7 @@
         </el-table-column>
         <el-table-column label="操作" width="100" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button link type="danger" :disabled="row.status === 'REVOKED'" @click="handleRevokeTransaction(row)">撤销</el-button>
+            <el-button link type="danger" :disabled="row.status === 'REVOKED'" @click.stop="handleRevokeTransaction(row)">撤销</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -219,6 +219,7 @@
 <script setup lang="ts">
 // 明细页复用持仓列表接口，在前端完成类型筛选、分页和币种展示换算。
 import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Download, Plus } from '@element-plus/icons-vue';
 import AmountText from '@/components/finance/AmountText.vue';
@@ -233,6 +234,7 @@ import { investmentApi, type AssetType, type HoldingItem, type HoldingRequest, t
 type DisplayCurrency = 'CNY' | 'USD';
 
 const holdings = ref<HoldingItem[]>([]);
+const router = useRouter();
 const summary = ref<HoldingSummary>({ totalMarketValue: 0, totalCost: 0, todayProfit: 0, yesterdayProfit: 0, floatingProfit: 0, floatingProfitRate: 0, holdingCount: 0 });
 const accounts = ref<AccountItem[]>([]);
 const transactions = ref<InvestmentTransactionItem[]>([]);
@@ -356,6 +358,15 @@ function openHoldingDialog(holding?: HoldingItem) {
   holdingForm.avgCost = round4(Number(holding?.avgCost || 0));
   holdingForm.remark = holding?.remark || '';
   holdingDialogVisible.value = true;
+}
+
+function openHoldingDetail(holding: HoldingItem) {
+  // 操作按钮已用 click.stop 隔离，这里只处理点击持仓行进入详情。
+  router.push(ROUTES.holdingDetail.replace(':id', holding.id));
+}
+
+function holdingRowClassName() {
+  return 'clickable-holding-row';
 }
 
 async function handleSaveHolding() {
@@ -666,6 +677,10 @@ function roundTo(value: number, precision: number) {
 
 .table-actions :deep(.el-button) {
   margin-left: 0;
+}
+
+:deep(.clickable-holding-row) {
+  cursor: pointer;
 }
 
 .full-width {

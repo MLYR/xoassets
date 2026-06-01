@@ -91,6 +91,7 @@ http://localhost:8080/doc.html
 - `POST /api/assets`
 - `GET /api/holdings`
 - `GET /api/holdings/summary`
+- `GET /api/holdings/{id}/detail`
 - `POST /api/holdings`
 - `PUT /api/holdings/{id}`
 - `DELETE /api/holdings/{id}`

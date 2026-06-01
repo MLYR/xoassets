@@ -63,6 +63,36 @@ export interface HoldingSummary {
   holdingCount: number;
 }
 
+export interface HoldingDetailSummary {
+  totalBuyAmount: number;
+  totalSellAmount: number;
+  totalFee: number;
+  realizedProfit: number;
+  floatingProfit: number;
+  totalProfit: number;
+  totalProfitRate: number;
+  buyCount: number;
+  sellCount: number;
+  firstBuyTime?: string | null;
+  lastTradeTime?: string | null;
+}
+
+export interface AssetPriceItem {
+  id?: string;
+  assetId?: string;
+  price: number;
+  currency: string;
+  source: string;
+  quoteTime: string;
+}
+
+export interface HoldingDetail {
+  holding: HoldingItem;
+  summary: HoldingDetailSummary;
+  transactions: InvestmentTransactionItem[];
+  priceSnapshots: AssetPriceItem[];
+}
+
 export interface HoldingRequest {
   assetId?: string | null;
   assetName?: string;
@@ -145,6 +175,12 @@ export const investmentApi = {
   summaryHoldings() {
     return request<HoldingSummary>({
       url: '/holdings/summary',
+      method: 'GET'
+    });
+  },
+  detailHolding(id: string) {
+    return request<HoldingDetail>({
+      url: `/holdings/${id}/detail`,
       method: 'GET'
     });
   },
