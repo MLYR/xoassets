@@ -79,6 +79,7 @@ public class AccountLedgerServiceImpl implements AccountLedgerService {
     public AccountLedgerPageVO ledger(Long accountId, AccountLedgerQuery query) {
         Long userId = LoginUserContext.getUserId();
         Account account = accountService.findOwnedAccount(accountId, userId);
+        // MVP 阶段账户资金明细先在内存合并普通流水和投资交易；后续数据量变大可下沉为 SQL UNION ALL + 数据库分页。
         List<AccountLedgerVO> allRows = loadLedgerRows(userId, accountId, query);
         AccountLedgerSummaryVO summary = buildSummary(account, allRows);
         int from = Math.min((int) ((Math.max(query.getPageNo(), 1) - 1) * Math.max(query.getPageSize(), 1)), allRows.size());
@@ -103,6 +104,7 @@ public class AccountLedgerServiceImpl implements AccountLedgerService {
         ledgerQuery.setPageSize(Integer.MAX_VALUE);
         ledgerQuery.setStartDate(range.startDate());
         ledgerQuery.setEndDate(range.endDate());
+        // MVP 阶段复用资金明细全量加载后聚合；后续可按分类、投资资产和日期分别改为 SQL GROUP BY 聚合。
         List<AccountLedgerVO> rows = loadLedgerRows(userId, accountId, ledgerQuery).stream()
                 // 撤销投资交易保留展示，但不参与资金流向统计。
                 .filter(row -> !STATUS_REVOKED.equals(row.getStatus()))

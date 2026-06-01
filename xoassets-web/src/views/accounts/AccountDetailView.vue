@@ -76,12 +76,14 @@
       <template v-else>
         <el-table :data="records" stripe height="560">
           <el-table-column label="时间" min-width="170">
-            <template #default="{ row }">{{ formatDateTime(row.transactionTime) }}</template>
+            <template #default="{ row }"><span class="nowrap-cell">{{ formatDateTime(row.transactionTime) }}</span></template>
           </el-table-column>
           <el-table-column label="类型" width="110">
             <template #default="{ row }"><StatusBadge :label="bizTypeLabel(row.bizType)" /></template>
           </el-table-column>
-          <el-table-column label="标题" min-width="180" prop="title" />
+          <el-table-column label="标题" min-width="180">
+            <template #default="{ row }"><span class="nowrap-cell">{{ row.title }}</span></template>
+          </el-table-column>
           <el-table-column label="金额" min-width="140" align="right" header-align="right">
             <template #default="{ row }"><AmountText :class="['numeric-cell', row.amount >= 0 ? 'success-text' : 'danger-text']" :value="row.amount" with-sign :precision="4" /></template>
           </el-table-column>
@@ -310,6 +312,14 @@ function formatDateTime(value: string) {
   display: inline-block;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+}
+
+.nowrap-cell {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .success-text {
