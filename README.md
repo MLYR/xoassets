@@ -15,9 +15,9 @@
 ## 当前进度
 
 - 前端：已重建为 Vue3、Element Plus、ECharts、Pinia、Vue Router 项目；登录、注册、用户中心、账户管理、分类管理、记账流水、投资持仓、预算管理、首页、数据分析、资产目标和 AI 报告模板页已接入后端接口。
-- 后端：已创建 Spring Boot MVP，覆盖登录注册、账户、分类、流水、首页统计、基础图表统计、投资持仓手动维护、行情刷新、预算管理、资产目标和 AI 报告模板生成。
+- 后端：已创建 Spring Boot MVP，覆盖登录注册、账户、分类、流水、首页统计、基础图表统计、投资持仓维护、行情刷新、预算管理、资产目标和 AI 报告模板生成。
 - 体验稳定性：核心业务页已补齐空状态、删除二次确认、金额输入大于 0 校验、后端错误 message 展示和统一 loading 状态。
-- 暂不做：自动同步银行卡 / 支付宝 / 微信、AI 报告真实调用、自动交易或投资建议；虚拟货币行情已支持 CoinGecko 手动刷新和定时刷新，股票 / 基金自动行情暂不接入。
+- 暂不做：自动同步银行卡 / 支付宝 / 微信、AI 报告真实调用、自动交易或投资建议；行情只在后端接入，前端不直连第三方。
 
 ## 前后端联调状态
 
@@ -27,12 +27,13 @@
 - 账户管理：`GET /api/accounts`、`POST /api/accounts`、`PUT /api/accounts/{id}`、`DELETE /api/accounts/{id}` 已接入账户页，编辑账户时可手动校准当前余额；`GET /api/accounts/{id}/ledger` 和 `/flow-statistics` 已接入账户详情页。
 - 分类管理：`GET /api/categories`、`POST /api/categories`、`PUT /api/categories/{id}`、`DELETE /api/categories/{id}`、`PUT /api/categories/{id}/status` 已接入分类页。
 - 记账流水：`GET /api/transactions`、`POST /api/transactions`、`PUT /api/transactions/{id}`、`DELETE /api/transactions/{id}` 已接入记账页，支持分页和流水图片。
-- 投资持仓：`GET /api/holdings`、`GET /api/holdings/summary`、`GET /api/holdings/{id}/detail`、`POST /api/holdings`、`PUT /api/holdings/{id}`、`DELETE /api/holdings/{id}`、`POST /api/investment-transactions`、`GET /api/investment-transactions`、`POST /api/quotes/manual`、`POST /api/quotes/refresh` 已接入投资页；前端只暴露持仓概念，`xo_asset` 作为后端内部行情基础表。
+- 投资持仓：`GET /api/holdings`、`GET /api/holdings/summary`、`GET /api/holdings/{id}/detail`、`POST /api/holdings`、`PUT /api/holdings/{id}`、`DELETE /api/holdings/{id}`、`POST /api/investment-transactions`、`GET /api/investment-transactions`、`POST /api/quotes/manual`、`POST /api/quotes/refresh`、`POST /api/quotes/refresh-batch` 已接入投资页；前端只暴露持仓概念，`xo_asset` 作为后端内部行情基础表。
 - 投资展示：投资主页只展示总投资 / 基金 / 股票 / 虚拟货币统计和图表，持仓表格、买入卖出、编辑删除、价格刷新、收益分析等操作集中在 `/investments/details`；单个持仓的收益汇总、交易记录和价格快照在 `/investments/holdings/:id` 查看。
 - 投资交易：买入必须选择扣款账户并扣减余额，卖出必须选择到账账户并增加余额；买入 / 卖出不写入普通流水，不计入生活收支统计。
 - 投资撤销：`PUT /api/investment-transactions/{id}/revoke` 会反向恢复资金账户和持仓，撤销记录仍保留在投资交易中。
 - 投资精度：投资数量、手续费、成本、市值、盈亏和收益率统一按 4 位小数计算；行情价格快照保留 8 位，CRYPTO 当前价至少展示 6 位，FUND / STOCK 当前价展示 4 位。持仓列表的 `marketValue` 始终由后端使用同一个 `latestPrice` 计算，前端不使用格式化价格反算市值。
-- 行情缓存：持仓列表优先使用 `xo_asset_price` 最近快照；CRYPTO 5 分钟内、STOCK 15 分钟内、FUND 1 天内不重复刷新，MANUAL 价格不过期。
+- 行情接入：CRYPTO 使用 CoinGecko，FUND 使用天天基金，A 股使用新浪行情，美股使用 Yahoo Finance；所有第三方行情只由后端 provider 拉取并写入 `xo_asset_price`。
+- 行情缓存：持仓列表优先使用 `xo_asset_price` 最近快照；CRYPTO 5 分钟内、STOCK 15 分钟内、FUND 1 天内不重复刷新，MANUAL 价格不过期。行情失败时保留最近价格，页面可用手动价格兜底。
 - 预算管理：`GET /api/budgets`、`POST /api/budgets`、`PUT /api/budgets/{id}`、`DELETE /api/budgets/{id}`、`GET /api/budgets/summary` 已接入预算页。
 - 首页和统计：`GET /api/dashboard/overview` 返回账户、流水、投资和预算聚合指标；`/api/statistics/*` 返回净资产趋势、收支趋势、分类支出、资产分布、投资盈亏和预算进度。
 - 资产目标：`GET /api/goals`、`POST /api/goals`、`PUT /api/goals/{id}`、`DELETE /api/goals/{id}`、`GET /api/goals/summary` 已接入目标页。

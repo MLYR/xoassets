@@ -9,12 +9,12 @@
 - 分类管理
 - 收支流水
 - 首页统计和数据分析
-- 投资资产、投资持仓、投资交易、手动价格维护和 CoinGecko 虚拟货币行情刷新
+- 投资资产、投资持仓、投资交易、手动价格维护、虚拟货币 / 基金 / 股票行情刷新
 - 预算管理和预算汇总
 - 资产目标管理和目标汇总
 - AI 报告模板生成和报告列表
 
-暂不包含 AI 报告真实调用、银行卡 / 支付宝 / 微信自动同步、股票基金自动交易或投资建议；股票 / 基金自动行情暂不接入。
+暂不包含 AI 报告真实调用、银行卡 / 支付宝 / 微信自动同步、自动交易或投资建议；前端不直接请求第三方行情接口。
 
 ## 启动前准备
 
@@ -134,16 +134,18 @@ http://localhost:8080/doc.html
 - 账户资金流向统计单独区分普通收支、转账和投资资金流，投资买入不计入普通支出分类统计。
 - 流水可保存 `image_url`，第一版允许前端传图片 Data URL，数据库使用 `MEDIUMTEXT`，后续可替换为对象存储 URL。
 - 公共资产表 `xo_asset` 和价格表 `xo_asset_price` 不带 `user_id`；前端不再暴露资产管理入口，`xo_asset` 仅作为持仓行情和价格快照的内部基础数据。
+- 已有本地库升级行情字段时，执行 `src/main/resources/db/migration-quote-fields.sql`。
 - 投资买入会创建或更新持仓并按移动平均成本重算；投资卖出必须校验持仓数量，数量不足时拒绝。
 - 投资买入必须选择扣款账户并扣减账户余额；投资卖出必须选择到账账户并增加账户余额，已实现盈亏写入投资交易记录。
 - 投资交易、资金账户和持仓联动在同一事务中完成，避免交易记录与账户余额、持仓数量、成本不一致。
 - 投资交易支持撤销，不物理删除；撤销状态写入 `status = REVOKED`，账户余额和持仓通过原交易 `cost_amount` 反向恢复。
 - 投资数量、手续费、持仓成本、市值、盈亏和收益率统一按 4 位小数归一化后计算，避免不同调用入口产生精度口径差异。
 - 持仓接口返回最新价、昨价、前日价、今日收益、昨日收益、浮动盈亏、收益率、回本涨幅和报价时间；缺少历史价格时收益分析字段允许为空。
-- 行情价格快照使用 `DECIMAL(28,8)`，CoinGecko 和手动报价入库前统一保留 8 位；持仓返回 `priceScale`，CRYPTO 当前价至少展示 6 位，FUND / STOCK 展示 4 位。
+- 行情价格快照使用 `DECIMAL(28,8)`，第三方行情和手动报价入库前统一保留 8 位；`xo_asset_price` 记录 `previous_close`、`change_amount`、`change_percent`、`market_status`，持仓返回 `priceScale`，CRYPTO 当前价至少展示 6 位，FUND / STOCK 展示 4 位。
 - 持仓估值使用与资产币种一致的最近价格；没有价格或价格币种不一致时使用平均成本兜底，避免当前价和市值口径不一致。
-- 行情刷新通过 `QuoteProvider` 抽象扩展；阶段二支持 `ManualQuoteProvider` 和 `CoinGeckoQuoteProvider`。
-- CoinGecko 第一版只支持 CRYPTO 资产的 BTC、ETH、SOL、BNB、DOGE，刷新失败只返回错误提示，不删除旧价格。
+- 行情刷新通过 `QuoteProvider` 抽象扩展；当前支持 `ManualQuoteProvider`、`CoinGeckoQuoteProvider`、`EastMoneyFundQuoteProvider`、`StockQuoteProvider`。
+- CoinGecko 支持 CRYPTO 资产 BTC、ETH、SOL、BNB、DOGE；天天基金支持基金单位净值；新浪支持 A 股；Yahoo Finance 支持美股。
+- `POST /api/quotes/refresh-batch` 支持按当前持仓资产批量刷新；刷新失败保留旧价格，不删除历史快照。
 - 行情缓存按资产类型控制刷新频率：CRYPTO 5 分钟、STOCK 15 分钟、FUND 1 天；MANUAL 价格不过期。
 - 后端启用 `QuoteRefreshScheduler` 定时刷新持仓涉及资产，任务或单个资产失败只记录日志，不影响主应用启动。
 - 预算表 `xo_budget` 按当前用户隔离；每个用户每月只能有一个总预算，每个支出分类每月只能有一个分类预算。

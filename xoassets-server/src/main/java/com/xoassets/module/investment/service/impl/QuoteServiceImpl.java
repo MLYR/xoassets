@@ -15,18 +15,21 @@ import com.xoassets.persistence.mapper.AssetPriceMapper;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 /**
- * 行情价格服务实现，阶段一只支持手动报价。
+ * 行情价格服务实现，所有外部行情统一写入 xo_asset_price。
  */
+@Slf4j
 @Service
 public class QuoteServiceImpl implements QuoteService {
 
@@ -54,6 +57,7 @@ public class QuoteServiceImpl implements QuoteService {
         price.setCurrency(StringUtils.hasText(request.getCurrency()) ? request.getCurrency() : asset.getCurrency());
         price.setSource("MANUAL");
         price.setQuoteTime(request.getQuoteTime() == null ? LocalDateTime.now() : request.getQuoteTime());
+        price.setMarketStatus("MANUAL");
         price.setRawJson(null);
         price.setDeleted(0);
         assetPriceMapper.insert(price);
@@ -67,6 +71,32 @@ public class QuoteServiceImpl implements QuoteService {
     @Override
     public AssetPriceVO refreshQuote(Long assetId) {
         return refreshQuoteIfStale(assetId);
+    }
+
+    /**
+     * 批量刷新行情，单个资产失败时保留旧价格，避免影响整批持仓刷新。
+     */
+    @Override
+    public List<AssetPriceVO> refreshQuotes(Collection<Long> assetIds) {
+        if (assetIds == null || assetIds.isEmpty()) {
+            return List.of();
+        }
+        List<AssetPriceVO> results = new ArrayList<>();
+        for (Long assetId : assetIds.stream().distinct().toList()) {
+            try {
+                AssetPriceVO refreshed = refreshQuote(assetId);
+                if (refreshed != null) {
+                    results.add(refreshed);
+                }
+            } catch (Exception exception) {
+                log.warn("批量刷新行情失败 assetId={}", assetId, exception);
+                AssetPrice latestPrice = latestPrice(assetId);
+                if (latestPrice != null) {
+                    results.add(toVO(latestPrice));
+                }
+            }
+        }
+        return results;
     }
 
     /**
@@ -84,13 +114,27 @@ public class QuoteServiceImpl implements QuoteService {
                 .filter(item -> item.supports(asset))
                 .findFirst()
                 .orElseThrow(() -> new BusinessException(ErrorCode.BUSINESS_ERROR, "当前资产暂不支持自动刷新行情"));
-        QuoteFetchResult result = provider.fetch(asset);
+        QuoteFetchResult result;
+        try {
+            result = provider.fetch(asset);
+        } catch (Exception exception) {
+            // 第三方行情失败时保留旧价格；没有旧价格才把错误返回给前端，引导用户手动录价。
+            log.warn("资产行情刷新失败，保留最近价格 assetId={}", assetId, exception);
+            if (latestPrice != null) {
+                return toVO(latestPrice);
+            }
+            throw exception;
+        }
         AssetPrice price = new AssetPrice();
         price.setAssetId(asset.getId());
         price.setPrice(result.price());
         price.setCurrency(result.currency());
+        price.setPreviousClose(result.previousClose());
+        price.setChangeAmount(result.changeAmount());
+        price.setChangePercent(result.changePercent());
         price.setSource(result.source());
         price.setQuoteTime(result.quoteTime());
+        price.setMarketStatus(result.marketStatus());
         price.setRawJson(result.rawJson());
         price.setDeleted(0);
         assetPriceMapper.insert(price);
@@ -134,7 +178,7 @@ public class QuoteServiceImpl implements QuoteService {
         if (price == null) {
             return false;
         }
-        if ("MANUAL".equals(asset.getQuoteSource()) || "MANUAL".equals(price.getSource())) {
+        if ("MANUAL".equals(asset.getQuoteSource())) {
             return true;
         }
         Duration ttl = switch (asset.getType()) {
@@ -155,8 +199,12 @@ public class QuoteServiceImpl implements QuoteService {
                 .assetId(price.getAssetId())
                 .price(price.getPrice())
                 .currency(price.getCurrency())
+                .previousClose(price.getPreviousClose())
+                .changeAmount(price.getChangeAmount())
+                .changePercent(price.getChangePercent())
                 .source(price.getSource())
                 .quoteTime(price.getQuoteTime())
+                .marketStatus(price.getMarketStatus())
                 .build();
     }
 }

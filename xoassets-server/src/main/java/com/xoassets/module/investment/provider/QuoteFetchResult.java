@@ -9,7 +9,11 @@ import java.time.LocalDateTime;
 public record QuoteFetchResult(
         BigDecimal price,
         String currency,
+        BigDecimal previousClose,
+        BigDecimal changeAmount,
+        BigDecimal changePercent,
         String source,
         LocalDateTime quoteTime,
+        String marketStatus,
         String rawJson) {
 }

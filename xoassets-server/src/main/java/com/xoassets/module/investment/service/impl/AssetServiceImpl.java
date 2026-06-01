@@ -20,7 +20,7 @@ import org.springframework.util.StringUtils;
 public class AssetServiceImpl implements AssetService {
 
     private static final List<String> ASSET_TYPES = List.of("STOCK", "FUND", "CRYPTO", "OTHER");
-    private static final List<String> QUOTE_SOURCES = List.of("MANUAL", "COINGECKO", "ALPHA_VANTAGE", "TUSHARE", "AKSHARE");
+    private static final List<String> QUOTE_SOURCES = List.of("MANUAL", "COINGECKO", "EASTMONEY", "SINA", "YAHOO", "ALPHA_VANTAGE", "TUSHARE", "AKSHARE");
 
     private final AssetMapper assetMapper;
 

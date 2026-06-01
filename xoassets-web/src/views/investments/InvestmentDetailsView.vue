@@ -10,6 +10,7 @@
         <el-segmented v-model="displayCurrency" :options="currencyOptions" />
         <el-input-number v-model="usdCnyRate" class="rate-input" :min="0.0001" :precision="4" />
         <el-button @click="$router.push(ROUTES.investments)">返回主页</el-button>
+        <el-button :loading="batchRefreshing" @click="handleBatchRefreshQuotes">批量刷新行情</el-button>
         <el-button :icon="Download" :loading="exporting" @click="handleExportInvestmentTransactions">导出投资交易</el-button>
         <el-button type="primary" :icon="Plus" @click="openHoldingDialog()">新增持仓</el-button>
       </div>
@@ -35,7 +36,7 @@
           <el-table-column label="持仓" min-width="190" fixed="left">
             <template #default="{ row }">
               <strong>{{ row.assetName || '-' }}</strong>
-              <small class="muted-line">{{ row.symbol || '-' }} · {{ row.currency || '-' }}</small>
+              <small class="muted-line">{{ row.symbol || '-' }} · {{ row.currency || '-' }} · {{ row.latestPriceSource || row.quoteSource || '暂无行情' }}</small>
             </template>
           </el-table-column>
           <el-table-column label="类型" width="110">
@@ -83,7 +84,7 @@
                 <el-button link type="primary" @click.stop="openTradeDialog(row, 'BUY')">买入</el-button>
                 <el-button link type="primary" @click.stop="openTradeDialog(row, 'SELL')">卖出</el-button>
                 <el-button link type="primary" @click.stop="openHoldingDialog(row)">编辑</el-button>
-                <el-button link @click.stop="handleRefreshQuote(row)">刷新</el-button>
+                <el-button link :loading="refreshingAssetId === row.assetId" @click.stop="handleRefreshQuote(row)">刷新</el-button>
                 <el-button link @click.stop="openQuoteDialog(row)">价格</el-button>
                 <el-button link type="danger" @click.stop="handleDeleteHolding(row)">删除</el-button>
               </div>
@@ -128,12 +129,18 @@
             <el-select v-model="holdingForm.quoteSource" class="full-width">
               <el-option label="手动" value="MANUAL" />
               <el-option label="CoinGecko" value="COINGECKO" />
+              <el-option label="天天基金" value="EASTMONEY" />
+              <el-option label="新浪 A 股" value="SINA" />
+              <el-option label="Yahoo 美股" value="YAHOO" />
               <el-option label="Alpha Vantage" value="ALPHA_VANTAGE" />
               <el-option label="TuShare" value="TUSHARE" />
               <el-option label="AKShare" value="AKSHARE" />
             </el-select>
           </el-form-item>
-          <el-form-item label="行情键"><el-input v-model.trim="holdingForm.quoteKey" placeholder="BTC/ETH 或 CoinGecko id" /></el-form-item>
+          <el-form-item label="行情键">
+            <el-input v-model.trim="holdingForm.quoteKey" :placeholder="quoteKeyPlaceholder" />
+            <small class="form-tip">{{ quoteKeyTip }}</small>
+          </el-form-item>
           <el-form-item label="数量"><el-input-number v-model="holdingForm.quantity" class="full-width" :min="0.0001" :precision="4" /></el-form-item>
           <el-form-item label="平均成本"><el-input-number v-model="holdingForm.avgCost" class="full-width" :min="0" :precision="4" /></el-form-item>
         </div>
@@ -241,6 +248,8 @@ const transactions = ref<InvestmentTransactionItem[]>([]);
 const loading = ref(false);
 const submitting = ref(false);
 const exporting = ref(false);
+const batchRefreshing = ref(false);
+const refreshingAssetId = ref('');
 const activeType = ref<AssetType | 'ALL'>('ALL');
 const keyword = ref('');
 const pageNo = ref(1);
@@ -286,6 +295,14 @@ watch(
     // 新增虚拟货币时默认使用 USD，已有持仓编辑时保留原币种避免误改历史口径。
     if (!editingHolding.value && assetType === 'CRYPTO') {
       holdingForm.currency = 'USD';
+      holdingForm.quoteSource = 'COINGECKO';
+    }
+    if (!editingHolding.value && assetType === 'FUND') {
+      holdingForm.currency = 'CNY';
+      holdingForm.quoteSource = 'EASTMONEY';
+    }
+    if (!editingHolding.value && assetType === 'STOCK') {
+      holdingForm.quoteSource = 'SINA';
     }
   }
 );
@@ -302,6 +319,20 @@ const pagedHoldings = computed(() => {
   return filteredHoldings.value.slice(start, start + pageSize.value);
 });
 const activePricePrecision = computed(() => activeHolding.value ? pricePrecision(activeHolding.value) : 4);
+const quoteKeyPlaceholder = computed(() => {
+  if (holdingForm.assetType === 'CRYPTO') return 'bitcoin / ethereum / dogecoin';
+  if (holdingForm.assetType === 'FUND') return '000001';
+  if (holdingForm.assetType === 'STOCK' && holdingForm.quoteSource === 'SINA') return '600519.SH / 000001.SZ';
+  if (holdingForm.assetType === 'STOCK' && holdingForm.quoteSource === 'YAHOO') return 'AAPL / MSFT';
+  return '外部行情查询键';
+});
+const quoteKeyTip = computed(() => {
+  if (holdingForm.assetType === 'CRYPTO') return 'CRYPTO 使用 CoinGecko id，例如 bitcoin、ethereum、dogecoin。';
+  if (holdingForm.assetType === 'FUND') return '基金填写基金代码，例如 000001，行情来源选择天天基金。';
+  if (holdingForm.assetType === 'STOCK' && holdingForm.quoteSource === 'SINA') return 'A 股填写代码和市场，例如 600519.SH、000001.SZ、430047.BJ。';
+  if (holdingForm.assetType === 'STOCK' && holdingForm.quoteSource === 'YAHOO') return '美股填写股票代码，例如 AAPL。';
+  return '手动行情可不填，后续通过手动价格兜底。';
+});
 const displayedSummary = computed(() => {
   // 后端负责权威汇总口径；前端仅在用户切换币种时按当前展示汇率换算金额字段。
   return {
@@ -458,7 +489,7 @@ async function handleManualQuote() {
 }
 
 async function handleRefreshQuote(holding: HoldingItem) {
-  submitting.value = true;
+  refreshingAssetId.value = holding.assetId;
   try {
     await investmentApi.refreshQuote({ assetId: holding.assetId });
     ElMessage.success('行情已刷新');
@@ -466,7 +497,25 @@ async function handleRefreshQuote(holding: HoldingItem) {
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '行情刷新失败');
   } finally {
-    submitting.value = false;
+    refreshingAssetId.value = '';
+  }
+}
+
+async function handleBatchRefreshQuotes() {
+  const assetIds = [...new Set(filteredHoldings.value.map((item) => item.assetId))];
+  if (assetIds.length === 0) {
+    ElMessage.warning('没有可刷新的持仓');
+    return;
+  }
+  batchRefreshing.value = true;
+  try {
+    await investmentApi.refreshQuotes({ assetIds });
+    ElMessage.success('行情刷新完成');
+    await loadPageData();
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '批量刷新行情失败，请使用手动价格兜底');
+  } finally {
+    batchRefreshing.value = false;
   }
 }
 
@@ -647,6 +696,13 @@ function roundTo(value: number, precision: number) {
   display: block;
   margin-top: 4px;
   color: var(--xo-muted);
+}
+
+.form-tip {
+  display: block;
+  margin-top: 6px;
+  color: var(--xo-muted);
+  line-height: 1.4;
 }
 
 .numeric-cell {

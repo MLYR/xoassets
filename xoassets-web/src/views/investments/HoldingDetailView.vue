@@ -6,14 +6,14 @@
         <el-button class="back-button" @click="router.push(ROUTES.investmentDetails)">返回投资明细</el-button>
         <h1 class="page-title">{{ holding?.assetName || '持仓详情' }}</h1>
         <p class="page-subtitle">
-          {{ holding?.symbol || '-' }} · {{ typeLabel(holding?.assetType) }} · {{ holding?.currency || '-' }} · 最新报价 {{ formatTableTime(holding?.latestPriceTime) || '暂无' }}
+          {{ holding?.symbol || '-' }} · {{ typeLabel(holding?.assetType) }} · {{ holding?.currency || '-' }} · {{ holding?.latestPriceSource || holding?.quoteSource || '暂无行情' }} · 最新报价 {{ formatTableTime(holding?.latestPriceTime) || '暂无' }}
         </p>
       </div>
       <div class="header-actions">
         <el-button type="primary" @click="openTradeDialog('BUY')">买入</el-button>
         <el-button type="primary" plain @click="openTradeDialog('SELL')">卖出</el-button>
         <el-button @click="openQuoteDialog">手动价格</el-button>
-        <el-button :loading="submitting" @click="handleRefreshQuote">刷新行情</el-button>
+        <el-button :loading="refreshingQuote" @click="handleRefreshQuote">刷新行情</el-button>
       </div>
     </div>
 
@@ -146,6 +146,7 @@ const priceSnapshots = ref<AssetPriceItem[]>([]);
 const accounts = ref<AccountItem[]>([]);
 const loading = ref(false);
 const submitting = ref(false);
+const refreshingQuote = ref(false);
 const tradeDialogVisible = ref(false);
 const quoteDialogVisible = ref(false);
 const tradeForm = reactive({ type: 'BUY' as InvestmentTransactionType, accountId: '', quantity: 0, price: 0, fee: 0, transactionTime: new Date(), note: '' });
@@ -278,7 +279,7 @@ async function handleRefreshQuote() {
   if (!holding.value) {
     return;
   }
-  submitting.value = true;
+  refreshingQuote.value = true;
   try {
     await investmentApi.refreshQuote({ assetId: holding.value.assetId });
     ElMessage.success('行情已刷新');
@@ -286,7 +287,7 @@ async function handleRefreshQuote() {
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '行情刷新失败');
   } finally {
-    submitting.value = false;
+    refreshingQuote.value = false;
   }
 }
 

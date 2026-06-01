@@ -19,8 +19,12 @@ public class AssetPrice {
     private Long assetId;
     private BigDecimal price;
     private String currency;
+    private BigDecimal previousClose;
+    private BigDecimal changeAmount;
+    private BigDecimal changePercent;
     private String source;
     private LocalDateTime quoteTime;
+    private String marketStatus;
     private String rawJson;
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;

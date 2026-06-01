@@ -28,6 +28,8 @@ public class HoldingVO {
     private Integer priceScale;
     private LocalDateTime latestPriceTime;
     private LocalDateTime previousPriceTime;
+    private String latestPriceSource;
+    private String marketStatus;
     private BigDecimal marketValue;
     private BigDecimal todayProfit;
     private BigDecimal todayChangeRate;

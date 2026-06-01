@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xoassets.common.api.ErrorCode;
 import com.xoassets.common.exception.BusinessException;
 import com.xoassets.persistence.entity.Asset;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.Locale;
 import java.util.Map;
@@ -51,6 +53,7 @@ public class CoinGeckoQuoteProvider implements QuoteProvider {
                     .uri(uriBuilder -> uriBuilder.path("/simple/price")
                             .queryParam("ids", coinId)
                             .queryParam("vs_currencies", vsCurrency)
+                            .queryParam("include_24hr_change", "true")
                             .build())
                     .retrieve()
                     .body(JsonNode.class);
@@ -58,12 +61,20 @@ public class CoinGeckoQuoteProvider implements QuoteProvider {
             if (priceNode == null || !priceNode.isNumber()) {
                 throw new BusinessException(ErrorCode.BUSINESS_ERROR, "CoinGecko 未返回有效价格");
             }
+            BigDecimal price = priceNode.decimalValue().setScale(8, RoundingMode.HALF_UP);
+            BigDecimal changePercent = changePercent(response, coinId, vsCurrency);
+            BigDecimal previousClose = previousClose(price, changePercent);
+            BigDecimal changeAmount = previousClose == null ? null : price.subtract(previousClose).setScale(8, RoundingMode.HALF_UP);
             return new QuoteFetchResult(
                     // 行情价格保留 8 位，避免 DOGE 等低单价币种展示价和市值计算口径不一致。
-                    priceNode.decimalValue().setScale(8, java.math.RoundingMode.HALF_UP),
+                    price,
                     vsCurrency.toUpperCase(Locale.ROOT),
+                    previousClose,
+                    changeAmount,
+                    changePercent,
                     SOURCE_COINGECKO,
                     LocalDateTime.now(),
+                    "OPEN",
                     objectMapper.writeValueAsString(response));
         } catch (BusinessException exception) {
             throw exception;
@@ -88,5 +99,24 @@ public class CoinGeckoQuoteProvider implements QuoteProvider {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "CoinGecko 第一版只支持 BTC、ETH、SOL、BNB、DOGE");
         }
         return coinId;
+    }
+
+    /**
+     * CoinGecko 返回 24h 涨跌幅时，推导上一价格用于今日收益展示；缺失时收益字段保持为空。
+     */
+    private BigDecimal changePercent(JsonNode response, String coinId, String vsCurrency) {
+        JsonNode node = response == null ? null : response.path(coinId).path(vsCurrency + "_24h_change");
+        return node != null && node.isNumber() ? node.decimalValue().setScale(4, RoundingMode.HALF_UP) : null;
+    }
+
+    /**
+     * previous = price / (1 + changePercent / 100)，统一在后端完成行情口径推导。
+     */
+    private BigDecimal previousClose(BigDecimal price, BigDecimal changePercent) {
+        if (price == null || changePercent == null) {
+            return null;
+        }
+        BigDecimal divisor = BigDecimal.ONE.add(changePercent.divide(BigDecimal.valueOf(100), 8, RoundingMode.HALF_UP));
+        return divisor.compareTo(BigDecimal.ZERO) == 0 ? null : price.divide(divisor, 8, RoundingMode.HALF_UP);
     }
 }

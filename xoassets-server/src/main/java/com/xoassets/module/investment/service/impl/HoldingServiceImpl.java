@@ -47,7 +47,7 @@ import org.springframework.util.StringUtils;
 public class HoldingServiceImpl implements HoldingService {
 
     private static final List<String> ASSET_TYPES = List.of("STOCK", "FUND", "CRYPTO", "OTHER");
-    private static final List<String> QUOTE_SOURCES = List.of("MANUAL", "COINGECKO", "ALPHA_VANTAGE", "TUSHARE", "AKSHARE");
+    private static final List<String> QUOTE_SOURCES = List.of("MANUAL", "COINGECKO", "EASTMONEY", "SINA", "YAHOO", "ALPHA_VANTAGE", "TUSHARE", "AKSHARE");
 
     private final HoldingMapper holdingMapper;
     private final AssetMapper assetMapper;
@@ -411,7 +411,10 @@ public class HoldingServiceImpl implements HoldingService {
         AssetPrice previousPrice = previousPrice(matchedPrices, matchedPrice);
         AssetPrice beforePreviousPrice = beforePreviousPrice(matchedPrices);
         BigDecimal latestPrice = matchedPrice == null ? holding.getAvgCost() : matchedPrice.getPrice();
-        BigDecimal previous = previousPrice == null ? null : previousPrice.getPrice();
+        // 股票/基金 provider 会把昨收或上一净值直接写在最新快照上，优先使用该字段计算今日收益。
+        BigDecimal previous = matchedPrice != null && matchedPrice.getPreviousClose() != null
+                ? matchedPrice.getPreviousClose()
+                : previousPrice == null ? null : previousPrice.getPrice();
         BigDecimal beforePrevious = beforePreviousPrice == null ? null : beforePreviousPrice.getPrice();
         BigDecimal marketValue = holding.getQuantity().multiply(latestPrice).setScale(4, RoundingMode.HALF_UP);
         BigDecimal profit = marketValue.subtract(holding.getTotalCost());
@@ -440,6 +443,8 @@ public class HoldingServiceImpl implements HoldingService {
                 .priceScale(priceScale(asset))
                 .latestPriceTime(matchedPrice == null ? null : matchedPrice.getQuoteTime())
                 .previousPriceTime(previousPrice == null ? null : previousPrice.getQuoteTime())
+                .latestPriceSource(matchedPrice == null ? null : matchedPrice.getSource())
+                .marketStatus(matchedPrice == null ? null : matchedPrice.getMarketStatus())
                 .marketValue(marketValue)
                 .todayProfit(todayProfit)
                 .todayChangeRate(todayChangeRate)
@@ -565,8 +570,12 @@ public class HoldingServiceImpl implements HoldingService {
                 .assetId(price.getAssetId())
                 .price(price.getPrice())
                 .currency(price.getCurrency())
+                .previousClose(price.getPreviousClose())
+                .changeAmount(price.getChangeAmount())
+                .changePercent(price.getChangePercent())
                 .source(price.getSource())
                 .quoteTime(price.getQuoteTime())
+                .marketStatus(price.getMarketStatus())
                 .build();
     }
 

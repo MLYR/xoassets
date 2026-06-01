@@ -2,7 +2,7 @@
 import { request } from './http';
 
 export type AssetType = 'STOCK' | 'FUND' | 'CRYPTO' | 'OTHER';
-export type QuoteSource = 'MANUAL' | 'COINGECKO' | 'ALPHA_VANTAGE' | 'TUSHARE' | 'AKSHARE';
+export type QuoteSource = 'MANUAL' | 'COINGECKO' | 'EASTMONEY' | 'SINA' | 'YAHOO' | 'ALPHA_VANTAGE' | 'TUSHARE' | 'AKSHARE';
 export type InvestmentTransactionType = 'BUY' | 'SELL';
 
 export interface AssetItem {
@@ -41,6 +41,8 @@ export interface HoldingItem {
   priceScale?: number | null;
   latestPriceTime?: string | null;
   previousPriceTime?: string | null;
+  latestPriceSource?: string | null;
+  marketStatus?: string | null;
   marketValue: number;
   todayProfit?: number | null;
   todayChangeRate?: number | null;
@@ -82,8 +84,12 @@ export interface AssetPriceItem {
   assetId?: string;
   price: number;
   currency: string;
+  previousClose?: number | null;
+  changeAmount?: number | null;
+  changePercent?: number | null;
   source: string;
   quoteTime: string;
+  marketStatus?: string | null;
 }
 
 export interface HoldingDetail {
@@ -149,6 +155,10 @@ export interface ManualQuoteRequest {
 
 export interface RefreshQuoteRequest {
   assetId: string;
+}
+
+export interface BatchRefreshQuoteRequest {
+  assetIds: string[];
 }
 
 export const investmentApi = {
@@ -235,6 +245,13 @@ export const investmentApi = {
   refreshQuote(data: RefreshQuoteRequest) {
     return request({
       url: '/quotes/refresh',
+      method: 'POST',
+      data
+    });
+  },
+  refreshQuotes(data: BatchRefreshQuoteRequest) {
+    return request<AssetPriceItem[]>({
+      url: '/quotes/refresh-batch',
       method: 'POST',
       data
     });
