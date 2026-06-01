@@ -29,7 +29,7 @@
 - 分类管理：`GET /api/categories`、`POST /api/categories`、`PUT /api/categories/{id}`、`DELETE /api/categories/{id}`、`PUT /api/categories/{id}/status` 已接入分类页。
 - 记账流水：`GET /api/transactions`、`POST /api/transactions`、`PUT /api/transactions/{id}`、`DELETE /api/transactions/{id}` 已接入记账页，支持分页和流水图片。
 - 投资持仓：`GET /api/assets/lookup`、`GET /api/holdings`、`GET /api/holdings/summary`、`GET /api/holdings/{id}/detail`、`POST /api/holdings`、`PUT /api/holdings/{id}`、`DELETE /api/holdings/{id}`、`POST /api/investment-transactions`、`GET /api/investment-transactions`、`POST /api/quotes/manual`、`POST /api/quotes/refresh`、`POST /api/quotes/refresh-batch` 已接入投资页；前端只暴露持仓概念，`xo_asset` 作为后端内部行情基础表。
-- 投资展示：投资主页只展示总投资 / 基金 / 股票 / 虚拟货币统计和图表，投资分布按具体投资产品展示，收益贡献优先显示资产名称；持仓表格、买入卖出、编辑删除、价格刷新、收益分析等操作集中在 `/investments/details`；单个持仓的收益汇总、交易记录和价格快照在 `/investments/holdings/:id` 查看。
+- 投资展示：投资主页只展示总投资 / 基金 / 股票 / 虚拟货币统计和图表，投资分布按具体投资产品展示，并基于资产快照展示总投资资产曲线；收益贡献独占整行，支持总 / 当日 / 当月 / 当年切换且优先显示资产名称；持仓表格、买入卖出、编辑删除、价格刷新、收益分析等操作集中在 `/investments/details`；单个持仓的收益汇总、交易记录和价格快照在 `/investments/holdings/:id` 查看。
 - 投资明细：类型筛选会同步影响顶部统计块；持仓表格支持选择显示字段，默认展示类型、总市值、总收益、总收益率、今日收益和昨日收益，数值列支持排序。
 - 投资交易：买入必须选择扣款账户并扣减余额，卖出必须选择到账账户并增加余额；买入 / 卖出不写入普通流水，不计入生活收支统计。
 - 投资撤销：`PUT /api/investment-transactions/{id}/revoke` 会反向恢复资金账户和持仓，撤销记录仍保留在投资交易中。

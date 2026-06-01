@@ -123,7 +123,7 @@ com.xoassets
 - 投资模块中 `xo_asset`、`xo_asset_price` 为公共数据不带 `user_id`；`xo_holding`、`xo_investment_transaction` 必须通过当前登录用户隔离。
 - 前端投资模块只暴露“持仓”概念，资产代码、类型、币种和行情源在持仓表单内维护；后端 `xo_asset` 只作为内部行情基础数据。
 - 新增持仓优先通过 `GET /api/assets/lookup` 自动识别资产信息；查询失败不能阻塞手动录入。保存持仓时若带 `latestPrice`，后端必须写入 `xo_asset_price` 作为初始价格快照。
-- 投资主页只展示聚合统计和图表，投资分布按具体投资产品统计，收益贡献优先显示资产名称；持仓明细、买入卖出、编辑删除、价格刷新等操作集中在 `/investments/details`，单个持仓详情使用 `/investments/holdings/:id`。
+- 投资主页只展示聚合统计和图表，投资分布按具体投资产品统计，总投资资产曲线优先使用资产快照，收益贡献独占整行并支持总 / 当日 / 当月 / 当年切换且优先显示资产名称；持仓明细、买入卖出、编辑删除、价格刷新等操作集中在 `/investments/details`，单个持仓详情使用 `/investments/holdings/:id`。
 - 投资买入 / 卖出必须选择当前用户资金账户；买入扣减账户余额，卖出增加账户余额，交易、账户和持仓更新必须在同一事务内完成，且不写入普通流水。
 - 投资交易撤销必须使用 `cost_amount` 反向恢复历史成本，不物理删除交易；已撤销交易保留展示但不参与账户资金明细汇总。
 - 投资数量统一保留 10 位小数，手续费、成本、市值、盈亏和收益率统一按 4 位小数计算；行情价格快照保留 8 位，并记录 previous_close、change_amount、change_percent、market_status，持仓接口返回 `priceScale`，CRYPTO 当前价至少展示 6 位，FUND / STOCK 展示 4 位。

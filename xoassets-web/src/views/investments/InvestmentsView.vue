@@ -31,11 +31,20 @@
       </div>
       <div class="panel panel-padding">
         <div class="panel-head">
-          <h3>收益贡献</h3>
+          <h3>总投资资产曲线</h3>
         </div>
-        <el-empty v-if="!loading && holdings.length === 0" description="暂无收益贡献数据" />
-        <BaseChart v-else :option="profitOption" />
+        <el-empty v-if="!loading && investmentTrend.length === 0" description="暂无投资资产曲线数据" />
+        <BaseChart v-else :option="investmentTrendOption" />
       </div>
+    </section>
+
+    <section class="panel panel-padding contribution-panel">
+      <div class="panel-head">
+        <h3>收益贡献</h3>
+        <el-segmented v-model="contributionMode" :options="contributionOptions" />
+      </div>
+      <el-empty v-if="!loading && contributionData.length === 0" description="暂无收益贡献数据" />
+      <BaseChart v-else :option="profitOption" height="320px" />
     </section>
   </div>
 </template>
@@ -49,17 +58,28 @@ import BaseChart from '@/components/charts/BaseChart.vue';
 import MetricCard from '@/components/finance/MetricCard.vue';
 import { ROUTES } from '@/constants/routes';
 import { exchangeRateApi } from '@/services/exchangeRateApi';
-import { investmentApi, type AssetType, type HoldingItem } from '@/services/investmentApi';
+import { investmentApi, type AssetType, type HoldingItem, type InvestmentTransactionItem } from '@/services/investmentApi';
+import { snapshotApi, type AssetSnapshotItem } from '@/services/snapshotApi';
 
 type DisplayCurrency = 'CNY' | 'USD';
+type ContributionMode = 'TOTAL' | 'DAY' | 'MONTH' | 'YEAR';
 
 const holdings = ref<HoldingItem[]>([]);
+const investmentTrend = ref<AssetSnapshotItem[]>([]);
+const transactions = ref<InvestmentTransactionItem[]>([]);
 const loading = ref(false);
 const displayCurrency = ref<DisplayCurrency>('CNY');
+const contributionMode = ref<ContributionMode>('TOTAL');
 const usdCnyRate = ref(7.2);
 const currencyOptions = [
   { label: '人民币', value: 'CNY' },
   { label: 'USD', value: 'USD' }
+];
+const contributionOptions = [
+  { label: '总', value: 'TOTAL' },
+  { label: '当日', value: 'DAY' },
+  { label: '当月', value: 'MONTH' },
+  { label: '当年', value: 'YEAR' }
 ];
 
 onMounted(() => {
@@ -89,18 +109,51 @@ const allocationOption = computed<EChartsOption>(() => ({
       .filter((item) => item.value > 0)
   }]
 }));
+const investmentTrendOption = computed<EChartsOption>(() => ({
+  grid: { left: 54, right: 18, top: 24, bottom: 36 },
+  tooltip: {
+    trigger: 'axis',
+    valueFormatter: (value) => formatMoney(Number(value))
+  },
+  xAxis: { type: 'category', data: investmentTrend.value.map((item) => item.snapshotDate), axisLine: { lineStyle: { color: '#e2e8f0' } } },
+  yAxis: { type: 'value', axisLabel: { formatter: (value: number) => compactMoney(value) }, splitLine: { lineStyle: { color: '#e2e8f0' } } },
+  series: [{
+    name: '投资资产',
+    type: 'line',
+    smooth: true,
+    symbolSize: 6,
+    data: investmentTrend.value.map((item) => round4(convertAmount(item.investmentAsset, 'CNY'))),
+    lineStyle: { color: '#2563eb', width: 3 },
+    itemStyle: { color: '#2563eb' },
+    areaStyle: { color: 'rgba(37, 99, 235, 0.12)' }
+  }]
+}));
 const profitOption = computed<EChartsOption>(() => ({
   grid: { left: 50, right: 18, top: 24, bottom: 36 },
-  xAxis: { type: 'category', data: holdings.value.map((item) => item.assetName || item.symbol || '-') },
-  yAxis: { type: 'value' },
-  tooltip: { trigger: 'axis' },
-  series: [{ type: 'bar', data: holdings.value.map((item) => round4(convertAmount(item.floatingProfit, item.currency))), itemStyle: { color: '#3b82f6', borderRadius: [6, 6, 0, 0] } }]
+  xAxis: { type: 'category', data: contributionData.value.map((item) => item.name), axisLabel: { interval: 0, rotate: contributionData.value.length > 6 ? 25 : 0 } },
+  yAxis: { type: 'value', axisLabel: { formatter: (value: number) => compactMoney(value) } },
+  tooltip: { trigger: 'axis', valueFormatter: (value) => formatMoney(Number(value)) },
+  series: [{ type: 'bar', data: contributionData.value.map((item) => item.value), itemStyle: { color: '#3b82f6', borderRadius: [6, 6, 0, 0] } }]
 }));
+const contributionData = computed(() => {
+  const rows = contributionRows();
+  return rows
+    .map((item) => ({ name: item.name, value: round4(item.value) }))
+    .filter((item) => item.value !== 0)
+    .sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
+});
 
 async function loadHoldings() {
   loading.value = true;
   try {
-    holdings.value = await investmentApi.listHoldings();
+    const [holdingList, trendList, transactionList] = await Promise.all([
+      investmentApi.listHoldings(),
+      snapshotApi.trend({ startDate: dateBefore(89), endDate: dateBefore(0) }),
+      investmentApi.listTransactions()
+    ]);
+    holdings.value = holdingList;
+    investmentTrend.value = trendList;
+    transactions.value = transactionList;
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '持仓加载失败');
   } finally {
@@ -125,6 +178,39 @@ function calcTypeStat(type: AssetType) {
   return { marketValue, profitRate: rate4(profit, cost) };
 }
 
+function contributionRows() {
+  if (contributionMode.value === 'DAY') {
+    return holdings.value.map((item) => ({
+      name: item.assetName || item.symbol || '-',
+      value: convertAmount(Number(item.todayProfit || 0), item.currency)
+    }));
+  }
+  if (contributionMode.value === 'MONTH' || contributionMode.value === 'YEAR') {
+    return realizedContributionRows(contributionMode.value);
+  }
+  return holdings.value.map((item) => ({
+    name: item.assetName || item.symbol || '-',
+    value: convertAmount(Number(item.floatingProfit || 0), item.currency)
+  }));
+}
+
+function realizedContributionRows(mode: Extract<ContributionMode, 'MONTH' | 'YEAR'>) {
+  const begin = periodStart(mode);
+  const holdingMap = new Map(holdings.value.map((item) => [item.assetId, item]));
+  const result = new Map<string, number>();
+  transactions.value
+    .filter((item) => item.status !== 'REVOKED' && item.type === 'SELL' && item.realizedProfit !== null && item.realizedProfit !== undefined)
+    .filter((item) => new Date(item.transactionTime).getTime() >= begin.getTime())
+    .forEach((item) => {
+      const holding = holdingMap.get(item.assetId);
+      const name = item.assetName || holding?.assetName || item.symbol || '-';
+      // 月/年维度当前没有逐产品历史市值序列，先用卖出交易的已实现盈亏作为周期收益贡献。
+      const value = convertAmount(Number(item.realizedProfit || 0), holding?.currency || 'CNY');
+      result.set(name, round4((result.get(name) || 0) + value));
+    });
+  return [...result.entries()].map(([name, value]) => ({ name, value }));
+}
+
 function convertAmount(value: number, sourceCurrency?: string | null) {
   const source = sourceCurrency || 'CNY';
   if (source === displayCurrency.value) {
@@ -147,6 +233,29 @@ function round4(value: number) {
   return Number(Number(value || 0).toFixed(4));
 }
 
+function compactMoney(value: number) {
+  const abs = Math.abs(value);
+  if (abs >= 10000) {
+    return `${currencySymbol.value}${round4(value / 10000)}万`;
+  }
+  return `${currencySymbol.value}${round4(value)}`;
+}
+
+function formatMoney(value: number) {
+  return `${currencySymbol.value}${round4(value).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`;
+}
+
+function periodStart(mode: Extract<ContributionMode, 'MONTH' | 'YEAR'>) {
+  const now = new Date();
+  return mode === 'MONTH' ? new Date(now.getFullYear(), now.getMonth(), 1) : new Date(now.getFullYear(), 0, 1);
+}
+
+function dateBefore(days: number) {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, '0')}-${`${date.getDate()}`.padStart(2, '0')}`;
+}
+
 function typeLabel(type?: string | null) {
   return ({ FUND: '基金', STOCK: '股票', CRYPTO: '虚拟货币', OTHER: '其他' } as Record<string, string>)[type || ''] || '-';
 }
@@ -155,6 +264,10 @@ function typeLabel(type?: string | null) {
 <style scoped>
 /* 投资主页突出统计，操作入口集中到投资明细页。 */
 .panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   margin-bottom: 16px;
 }
 
@@ -171,5 +284,9 @@ function typeLabel(type?: string | null) {
 
 .currency-select {
   width: 120px;
+}
+
+.contribution-panel {
+  margin-top: 24px;
 }
 </style>
