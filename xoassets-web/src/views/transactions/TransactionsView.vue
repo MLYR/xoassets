@@ -21,7 +21,7 @@
         <el-option v-for="account in accounts" :key="account.id" :label="account.name" :value="account.id" />
       </el-select>
       <el-button :icon="Filter">更多筛选</el-button>
-      <el-button :icon="Download">导出</el-button>
+      <el-button :icon="Download" :loading="exporting" @click="handleExport">导出</el-button>
     </section>
 
     <section v-loading="loading" class="panel">
@@ -99,6 +99,7 @@ import StatusBadge from '@/components/finance/StatusBadge.vue';
 import { accountApi, type AccountItem } from '@/services/accountApi';
 import { categoryApi, type CategoryItem } from '@/services/categoryApi';
 import { transactionApi, type TransactionApiType, type TransactionItem, type TransactionRequest } from '@/services/transactionApi';
+import { exportApi } from '@/services/exportApi';
 import TransactionDialog from './components/TransactionDialog.vue';
 
 // 远程数据状态。
@@ -110,6 +111,7 @@ const total = ref(0);
 const loading = ref(false);
 const optionsLoading = ref(false);
 const submitting = ref(false);
+const exporting = ref(false);
 // 弹窗状态：editingTransaction 为空表示新增，否则表示编辑。
 const dialogVisible = ref(false);
 const editingTransaction = ref<TransactionItem | null>(null);
@@ -220,6 +222,22 @@ async function handleDelete(transaction: TransactionItem) {
       return;
     }
     ElMessage.error(error instanceof Error ? error.message : '流水删除失败');
+  }
+}
+
+// 导出当前筛选条件下的普通流水，不包含投资交易。
+async function handleExport() {
+  exporting.value = true;
+  try {
+    await exportApi.transactions({
+      keyword: keyword.value || undefined,
+      type: typeFilter.value || undefined,
+      accountId: accountFilter.value || undefined
+    });
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '流水导出失败');
+  } finally {
+    exporting.value = false;
   }
 }
 

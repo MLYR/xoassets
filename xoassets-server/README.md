@@ -67,6 +67,8 @@ http://localhost:8080/doc.html
 - `POST /api/accounts`
 - `PUT /api/accounts/{id}`
 - `DELETE /api/accounts/{id}`
+- `GET /api/accounts/{id}/ledger`
+- `GET /api/accounts/{id}/flow-statistics`
 - `GET /api/categories`
 - `POST /api/categories`
 - `PUT /api/categories/{id}`
@@ -94,8 +96,12 @@ http://localhost:8080/doc.html
 - `DELETE /api/holdings/{id}`
 - `POST /api/investment-transactions`
 - `GET /api/investment-transactions`
+- `PUT /api/investment-transactions/{id}/revoke`
 - `POST /api/quotes/manual`
 - `POST /api/quotes/refresh`
+- `GET /api/export/account-ledger`
+- `GET /api/export/transactions`
+- `GET /api/export/investment-transactions`
 - `GET /api/budgets`
 - `POST /api/budgets`
 - `PUT /api/budgets/{id}`
@@ -123,11 +129,14 @@ http://localhost:8080/doc.html
 - 转账只影响账户余额，不计入收入支出统计。
 - 删除或修改流水会在同一事务中反向修正账户余额。
 - 账户余额允许通过账户编辑手动校准，用于处理利息、漏记流水等现实差异；流水增删改仍会按事务联动余额。
+- 账户资金明细接口聚合 `xo_transaction` 和 `xo_investment_transaction`，按当前账户方向展示收入、支出、转账转入/转出、退款、投资买入和投资卖出。
+- 账户资金流向统计单独区分普通收支、转账和投资资金流，投资买入不计入普通支出分类统计。
 - 流水可保存 `image_url`，第一版允许前端传图片 Data URL，数据库使用 `MEDIUMTEXT`，后续可替换为对象存储 URL。
 - 公共资产表 `xo_asset` 和价格表 `xo_asset_price` 不带 `user_id`；前端不再暴露资产管理入口，`xo_asset` 仅作为持仓行情和价格快照的内部基础数据。
 - 投资买入会创建或更新持仓并按移动平均成本重算；投资卖出必须校验持仓数量，数量不足时拒绝。
 - 投资买入必须选择扣款账户并扣减账户余额；投资卖出必须选择到账账户并增加账户余额，已实现盈亏写入投资交易记录。
 - 投资交易、资金账户和持仓联动在同一事务中完成，避免交易记录与账户余额、持仓数量、成本不一致。
+- 投资交易支持撤销，不物理删除；撤销状态写入 `status = REVOKED`，账户余额和持仓通过原交易 `cost_amount` 反向恢复。
 - 投资数量、手续费、持仓成本、市值、盈亏和收益率统一按 4 位小数归一化后计算，避免不同调用入口产生精度口径差异。
 - 持仓接口返回最新价、昨价、前日价、今日收益、昨日收益、浮动盈亏、收益率、回本涨幅和报价时间；缺少历史价格时收益分析字段允许为空。
 - 行情价格快照使用 `DECIMAL(28,8)`，CoinGecko 和手动报价入库前统一保留 8 位；持仓返回 `priceScale`，CRYPTO 当前价至少展示 6 位，FUND / STOCK 展示 4 位。
@@ -151,19 +160,31 @@ http://localhost:8080/doc.html
 - 测试账号：`demo / xoassets123`。
 - Docker 一键启动从仓库根目录执行 `docker compose up -d`，MySQL 首次启动会自动执行 `schema.sql` 和 `dev-data.sql`。
 - 核心测试在 `src/test/java/com/xoassets/module/MvpCoreServiceTest.java`，覆盖流水余额联动、预算退款抵扣、投资账户联动、移动平均成本、收益分析、首页总资产和数据隔离基础路径。
+- CSV 导出接口只导出当前用户数据，包含账户资金明细、普通流水和投资交易；输出 UTF-8 BOM，金额保留 4 位小数。
 
 已有库升级到投资账户联动版本时，先为历史投资交易补齐当前用户的资金账户，再把字段改为非空：
 
 ```sql
 ALTER TABLE xo_investment_transaction
   ADD COLUMN account_id BIGINT NULL COMMENT '资金账户ID' AFTER asset_id,
+  ADD COLUMN cost_amount DECIMAL(18,4) DEFAULT NULL COMMENT '本次交易对应成本金额' AFTER fee,
   ADD COLUMN realized_profit DECIMAL(18,4) DEFAULT NULL COMMENT '已实现盈亏' AFTER fee,
+  ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'NORMAL' COMMENT '状态：NORMAL正常 REVOKED已撤销' AFTER realized_profit,
+  ADD COLUMN revoke_time DATETIME DEFAULT NULL COMMENT '撤销时间' AFTER status,
+  ADD COLUMN revoke_reason VARCHAR(255) DEFAULT NULL COMMENT '撤销原因' AFTER revoke_time,
   ADD KEY idx_user_account_time (user_id, account_id, transaction_time);
 
 UPDATE xo_investment_transaction t
 JOIN xo_account a ON a.user_id = t.user_id AND a.deleted = 0
 SET t.account_id = a.id
 WHERE t.account_id IS NULL;
+
+UPDATE xo_investment_transaction
+SET cost_amount = CASE
+  WHEN type = 'BUY' THEN amount + fee
+  ELSE amount
+END
+WHERE cost_amount IS NULL;
 
 ALTER TABLE xo_investment_transaction
   MODIFY account_id BIGINT NOT NULL COMMENT '资金账户ID';

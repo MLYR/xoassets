@@ -24,7 +24,11 @@ public class InvestmentTransactionVO {
     private BigDecimal price;
     private BigDecimal amount;
     private BigDecimal fee;
+    private BigDecimal costAmount;
     private BigDecimal realizedProfit;
+    private String status;
+    private java.time.LocalDateTime revokeTime;
+    private String revokeReason;
     private LocalDateTime transactionTime;
     private String note;
 }

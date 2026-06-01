@@ -24,18 +24,20 @@
 - 认证：`POST /api/auth/register`、`POST /api/auth/login`、`GET /api/auth/me` 已在前端封装为 `authApi`。
 - 登录态：前端使用 Axios 请求封装，JWT 存入 `localStorage`，请求自动携带 `Authorization: Bearer <token>`。
 - 路由守卫：没有 token 访问业务页会跳转 `/login`，401 响应会清理 token 并回到登录页。
-- 账户管理：`GET /api/accounts`、`POST /api/accounts`、`PUT /api/accounts/{id}`、`DELETE /api/accounts/{id}` 已接入账户页，编辑账户时可手动校准当前余额。
+- 账户管理：`GET /api/accounts`、`POST /api/accounts`、`PUT /api/accounts/{id}`、`DELETE /api/accounts/{id}` 已接入账户页，编辑账户时可手动校准当前余额；`GET /api/accounts/{id}/ledger` 和 `/flow-statistics` 已接入账户详情页。
 - 分类管理：`GET /api/categories`、`POST /api/categories`、`PUT /api/categories/{id}`、`DELETE /api/categories/{id}`、`PUT /api/categories/{id}/status` 已接入分类页。
 - 记账流水：`GET /api/transactions`、`POST /api/transactions`、`PUT /api/transactions/{id}`、`DELETE /api/transactions/{id}` 已接入记账页，支持分页和流水图片。
 - 投资持仓：`GET /api/holdings`、`GET /api/holdings/summary`、`POST /api/holdings`、`PUT /api/holdings/{id}`、`DELETE /api/holdings/{id}`、`POST /api/investment-transactions`、`GET /api/investment-transactions`、`POST /api/quotes/manual`、`POST /api/quotes/refresh` 已接入投资页；前端只暴露持仓概念，`xo_asset` 作为后端内部行情基础表。
 - 投资展示：投资主页只展示总投资 / 基金 / 股票 / 虚拟货币统计和图表，持仓表格、买入卖出、编辑删除、价格刷新、收益分析等操作集中在 `/investments/details`。
 - 投资交易：买入必须选择扣款账户并扣减余额，卖出必须选择到账账户并增加余额；买入 / 卖出不写入普通流水，不计入生活收支统计。
+- 投资撤销：`PUT /api/investment-transactions/{id}/revoke` 会反向恢复资金账户和持仓，撤销记录仍保留在投资交易中。
 - 投资精度：投资数量、手续费、成本、市值、盈亏和收益率统一按 4 位小数计算；行情价格快照保留 8 位，CRYPTO 当前价至少展示 6 位，FUND / STOCK 当前价展示 4 位。持仓列表的 `marketValue` 始终由后端使用同一个 `latestPrice` 计算，前端不使用格式化价格反算市值。
 - 行情缓存：持仓列表优先使用 `xo_asset_price` 最近快照；CRYPTO 5 分钟内、STOCK 15 分钟内、FUND 1 天内不重复刷新，MANUAL 价格不过期。
 - 预算管理：`GET /api/budgets`、`POST /api/budgets`、`PUT /api/budgets/{id}`、`DELETE /api/budgets/{id}`、`GET /api/budgets/summary` 已接入预算页。
 - 首页和统计：`GET /api/dashboard/overview` 返回账户、流水、投资和预算聚合指标；`/api/statistics/*` 返回净资产趋势、收支趋势、分类支出、资产分布、投资盈亏和预算进度。
 - 资产目标：`GET /api/goals`、`POST /api/goals`、`PUT /api/goals/{id}`、`DELETE /api/goals/{id}`、`GET /api/goals/summary` 已接入目标页。
 - AI 报告：`GET /api/reports`、`GET /api/reports/{id}`、`POST /api/reports/generate-preview` 已接入报告页，当前只生成模板化财务复盘，不调用真实 AI，不提供投资买卖建议。
+- CSV 导出：`GET /api/export/account-ledger`、`/transactions`、`/investment-transactions` 已接入账户详情、流水页和投资明细页，导出文件带 UTF-8 BOM。
 - ID 处理：后端 Long ID 以字符串返回，前端接口类型使用 `string` 保存和回传 ID，避免 JavaScript 数字精度丢失。
 - 本地开发：前端 Vite 将 `/api` 代理到 `http://localhost:8080`。
 
@@ -144,10 +146,13 @@ docker compose up -d
 - 登录 `demo / xoassets123` 后能进入首页。
 - 首页总资产 = 账户余额 + 投资市值，净资产当前等于总资产。
 - 记账新增收入后账户余额增加，新增支出后账户余额减少，转账只改变账户分布。
+- 账户详情能展示普通收支、转账、退款、投资买入和投资卖出的资金明细，并按当前账户方向计算累计流入、流出和净流入。
 - 删除流水后账户余额按原流水影响反向恢复。
 - 预算统计只计算支出和退款，转账不计入预算。
 - 投资持仓市值使用后端返回的 `latestPrice` 计算，DOGE 当前价至少显示 6 位小数。
 - 投资买入扣减资金账户余额，卖出增加资金账户余额，已实现盈亏只进入投资交易记录。
+- 投资交易撤销后账户余额和持仓数量 / 成本反向恢复，已撤销交易不参与账户资金明细汇总。
+- 账户详情、普通流水和投资交易可导出 CSV，Excel 打开中文不乱码。
 - 数据分析页收支趋势排除转账，投资盈亏使用最新价格快照。
 - 用户 A 不能查看或修改用户 B 的账户、分类、流水、持仓、预算、目标。
 

@@ -1,6 +1,7 @@
 package com.xoassets.module.investment.service;
 
 import com.xoassets.module.investment.dto.InvestmentTransactionRequest;
+import com.xoassets.module.investment.dto.InvestmentTransactionRevokeRequest;
 import com.xoassets.module.investment.vo.InvestmentTransactionVO;
 import java.util.List;
 
@@ -18,4 +19,9 @@ public interface InvestmentTransactionService {
      * 查询当前用户投资交易。
      */
     List<InvestmentTransactionVO> list(Long holdingId);
+
+    /**
+     * 撤销当前用户自己的投资交易，并反向恢复账户余额和持仓。
+     */
+    InvestmentTransactionVO revoke(Long id, InvestmentTransactionRevokeRequest request);
 }

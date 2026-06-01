@@ -89,7 +89,11 @@ export interface InvestmentTransactionItem {
   price: number;
   amount: number;
   fee: number;
+  costAmount?: number | null;
   realizedProfit?: number | null;
+  status?: 'NORMAL' | 'REVOKED' | null;
+  revokeTime?: string | null;
+  revokeReason?: string | null;
   transactionTime: string;
   note?: string | null;
 }
@@ -176,6 +180,13 @@ export const investmentApi = {
       url: '/investment-transactions',
       method: 'GET',
       params: holdingId ? { holdingId } : undefined
+    });
+  },
+  revokeTransaction(id: string, reason?: string) {
+    return request<InvestmentTransactionItem>({
+      url: `/investment-transactions/${id}/revoke`,
+      method: 'PUT',
+      data: { reason }
     });
   },
   manualQuote(data: ManualQuoteRequest) {

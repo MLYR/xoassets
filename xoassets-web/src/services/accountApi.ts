@@ -24,6 +24,79 @@ export interface AccountRequest {
   remark?: string;
 }
 
+export type AccountLedgerSourceType = 'TRANSACTION' | 'INVESTMENT';
+export type AccountLedgerBizType = 'INCOME' | 'EXPENSE' | 'TRANSFER_OUT' | 'TRANSFER_IN' | 'REFUND' | 'INVEST_BUY' | 'INVEST_SELL';
+
+export interface AccountLedgerItem {
+  id: string;
+  sourceType: AccountLedgerSourceType;
+  bizType: AccountLedgerBizType;
+  title: string;
+  amount: number;
+  accountId: string;
+  accountName: string | null;
+  relatedAccountId?: string | null;
+  relatedAccountName?: string | null;
+  categoryId?: string | null;
+  categoryName?: string | null;
+  assetId?: string | null;
+  assetName?: string | null;
+  symbol?: string | null;
+  status?: string | null;
+  transactionTime: string;
+  note?: string | null;
+}
+
+export interface AccountLedgerSummary {
+  currentBalance: number;
+  initialBalance: number;
+  totalInflow: number;
+  totalOutflow: number;
+  netInflow: number;
+  transactionCount: number;
+}
+
+export interface AccountLedgerQuery {
+  pageNo?: number;
+  pageSize?: number;
+  type?: AccountLedgerBizType | '';
+  startDate?: string;
+  endDate?: string;
+  keyword?: string;
+}
+
+export interface PageResult<T> {
+  records: T[];
+  total: number;
+  pageNo: number;
+  pageSize: number;
+}
+
+export interface AccountLedgerPage {
+  account: AccountItem;
+  summary: AccountLedgerSummary;
+  page: PageResult<AccountLedgerItem>;
+}
+
+export interface AccountFlowStatistics {
+  incomeAmount: number;
+  expenseAmount: number;
+  transferInAmount: number;
+  transferOutAmount: number;
+  investmentBuyAmount: number;
+  investmentSellAmount: number;
+  netFlowAmount: number;
+  categoryExpenseStats: Array<{ name: string; amount: number }>;
+  investmentFlowStats: Array<{ name: string; amount: number }>;
+  dailyFlowTrend: Array<{ date: string; inflow: number; outflow: number; netFlow: number }>;
+}
+
+export interface AccountFlowStatisticsQuery {
+  month?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
 export const accountApi = {
   // 查询当前登录用户的账户列表。
   list() {
@@ -53,6 +126,22 @@ export const accountApi = {
     return request<void>({
       url: `/accounts/${id}`,
       method: 'DELETE'
+    });
+  },
+  // 查询账户资金明细，聚合普通流水和投资交易。
+  ledger(id: string, params: AccountLedgerQuery) {
+    return request<AccountLedgerPage>({
+      url: `/accounts/${id}/ledger`,
+      method: 'GET',
+      params
+    });
+  },
+  // 查询账户资金流向统计。
+  flowStatistics(id: string, params: AccountFlowStatisticsQuery) {
+    return request<AccountFlowStatistics>({
+      url: `/accounts/${id}/flow-statistics`,
+      method: 'GET',
+      params
     });
   }
 };

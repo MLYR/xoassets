@@ -10,6 +10,7 @@
         <el-segmented v-model="displayCurrency" :options="currencyOptions" />
         <el-input-number v-model="usdCnyRate" class="rate-input" :min="0.0001" :precision="4" />
         <el-button @click="$router.push(ROUTES.investments)">返回主页</el-button>
+        <el-button :icon="Download" :loading="exporting" @click="handleExportInvestmentTransactions">导出投资交易</el-button>
         <el-button type="primary" :icon="Plus" @click="openHoldingDialog()">新增持仓</el-button>
       </div>
     </div>
@@ -181,7 +182,7 @@
         <h2>交易记录</h2>
         <span class="muted-text">买入/卖出只影响资金账户和持仓，不进入普通收支</span>
       </div>
-      <el-table :data="transactions" stripe height="280">
+      <el-table :data="transactions" stripe height="320">
         <el-table-column label="时间" prop="transactionTime" min-width="170" />
         <el-table-column label="资产" min-width="150">
           <template #default="{ row }">{{ row.assetName || row.symbol || '-' }}</template>
@@ -199,6 +200,17 @@
         <el-table-column label="已实现盈亏" min-width="140" align="right" header-align="right">
           <template #default="{ row }"><AmountText v-if="row.realizedProfit !== null && row.realizedProfit !== undefined" class="numeric-cell" :value="row.realizedProfit" with-sign :precision="4" /><span v-else class="numeric-cell muted-text">暂无</span></template>
         </el-table-column>
+        <el-table-column label="状态" width="100">
+          <template #default="{ row }"><StatusBadge :label="row.status === 'REVOKED' ? '已撤销' : '正常'" /></template>
+        </el-table-column>
+        <el-table-column label="撤销信息" min-width="180">
+          <template #default="{ row }">{{ row.status === 'REVOKED' ? (row.revokeReason || formatTableTime(row.revokeTime) || '已撤销') : '-' }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="100" align="center" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="danger" :disabled="row.status === 'REVOKED'" @click="handleRevokeTransaction(row)">撤销</el-button>
+          </template>
+        </el-table-column>
       </el-table>
     </section>
   </div>
@@ -208,13 +220,14 @@
 // 明细页复用持仓列表接口，在前端完成类型筛选、分页和币种展示换算。
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus } from '@element-plus/icons-vue';
+import { Download, Plus } from '@element-plus/icons-vue';
 import AmountText from '@/components/finance/AmountText.vue';
 import MetricCard from '@/components/finance/MetricCard.vue';
 import StatusBadge from '@/components/finance/StatusBadge.vue';
 import TrendValue from '@/components/finance/TrendValue.vue';
 import { ROUTES } from '@/constants/routes';
 import { accountApi, type AccountItem } from '@/services/accountApi';
+import { exportApi } from '@/services/exportApi';
 import { investmentApi, type AssetType, type HoldingItem, type HoldingRequest, type HoldingSummary, type InvestmentTransactionItem, type InvestmentTransactionType } from '@/services/investmentApi';
 
 type DisplayCurrency = 'CNY' | 'USD';
@@ -225,6 +238,7 @@ const accounts = ref<AccountItem[]>([]);
 const transactions = ref<InvestmentTransactionItem[]>([]);
 const loading = ref(false);
 const submitting = ref(false);
+const exporting = ref(false);
 const activeType = ref<AssetType | 'ALL'>('ALL');
 const keyword = ref('');
 const pageNo = ref(1);
@@ -458,6 +472,30 @@ async function handleDeleteHolding(holding: HoldingItem) {
   }
 }
 
+async function handleRevokeTransaction(transaction: InvestmentTransactionItem) {
+  try {
+    await ElMessageBox.confirm('撤销后会反向恢复账户余额和持仓，确认继续吗？', '撤销投资交易', { type: 'warning', confirmButtonText: '撤销', cancelButtonText: '取消' });
+    await investmentApi.revokeTransaction(transaction.id, '录入错误');
+    ElMessage.success('投资交易已撤销');
+    await loadPageData();
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') {
+      ElMessage.error(error instanceof Error ? error.message : '投资交易撤销失败');
+    }
+  }
+}
+
+async function handleExportInvestmentTransactions() {
+  exporting.value = true;
+  try {
+    await exportApi.investmentTransactions();
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '投资交易导出失败');
+  } finally {
+    exporting.value = false;
+  }
+}
+
 function displayValue(value: number, sourceCurrency?: string | null, precision = 4) {
   return convertAmount(value, sourceCurrency, precision);
 }
@@ -487,6 +525,10 @@ function typeLabel(type?: string | null) {
 function formatDateTime(date: Date) {
   const pad = (value: number) => `${value}`.padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+function formatTableTime(value?: string | null) {
+  return value ? value.replace('T', ' ').slice(0, 16) : '';
 }
 
 function formatQuantity(value: number) {

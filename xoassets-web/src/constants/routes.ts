@@ -5,6 +5,7 @@ export const ROUTES = {
   dashboard: '/dashboard',
   transactions: '/transactions',
   accounts: '/accounts',
+  accountDetail: '/accounts/:id',
   categories: '/categories',
   investments: '/investments',
   investmentDetails: '/investments/details',

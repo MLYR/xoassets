@@ -231,6 +231,49 @@ public class HoldingServiceImpl implements HoldingService {
     }
 
     /**
+     * 撤销买入时按原交易成本反向减少持仓；若数量不足说明后续交易已改变持仓，直接拒绝撤销。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public void revokeBuy(Long userId, Long holdingId, Long assetId, BigDecimal quantity, BigDecimal costAmount) {
+        Holding holding = findOwnedHolding(holdingId, userId);
+        if (!Objects.equals(holding.getAssetId(), assetId)) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "交易资产与持仓资产不一致");
+        }
+        quantity = scale4(quantity);
+        costAmount = scale4(costAmount);
+        if (holding.getQuantity().compareTo(quantity) < 0 || holding.getTotalCost().compareTo(costAmount) < 0) {
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "持仓不足，无法撤销该买入交易");
+        }
+        BigDecimal newQuantity = holding.getQuantity().subtract(quantity).setScale(4, RoundingMode.HALF_UP);
+        BigDecimal newTotalCost = holding.getTotalCost().subtract(costAmount).max(BigDecimal.ZERO).setScale(4, RoundingMode.HALF_UP);
+        holding.setQuantity(newQuantity);
+        holding.setTotalCost(newQuantity.compareTo(BigDecimal.ZERO) == 0 ? BigDecimal.ZERO : newTotalCost);
+        holding.setAvgCost(newQuantity.compareTo(BigDecimal.ZERO) == 0 ? BigDecimal.ZERO : holding.getTotalCost().divide(newQuantity, 4, RoundingMode.HALF_UP));
+        updateHoldingBalance(holding);
+    }
+
+    /**
+     * 撤销卖出时按原 sellCost 恢复数量和总成本，避免用当前价格重新推导历史成本。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public void revokeSell(Long userId, Long holdingId, Long assetId, BigDecimal quantity, BigDecimal costAmount) {
+        Holding holding = findOwnedHolding(holdingId, userId);
+        if (!Objects.equals(holding.getAssetId(), assetId)) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "交易资产与持仓资产不一致");
+        }
+        quantity = scale4(quantity);
+        costAmount = scale4(costAmount);
+        BigDecimal newQuantity = holding.getQuantity().add(quantity).setScale(4, RoundingMode.HALF_UP);
+        BigDecimal newTotalCost = holding.getTotalCost().add(costAmount).setScale(4, RoundingMode.HALF_UP);
+        holding.setQuantity(newQuantity);
+        holding.setTotalCost(newTotalCost);
+        holding.setAvgCost(newQuantity.compareTo(BigDecimal.ZERO) == 0 ? BigDecimal.ZERO : newTotalCost.divide(newQuantity, 4, RoundingMode.HALF_UP));
+        updateHoldingBalance(holding);
+    }
+
+    /**
      * 查询或创建用户某资产持仓，供买入交易自动建仓。
      */
     private Holding findOrCreateHolding(Long userId, Long assetId) {

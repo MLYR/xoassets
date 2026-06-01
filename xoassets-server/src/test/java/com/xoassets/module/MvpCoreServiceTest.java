@@ -10,6 +10,9 @@ import com.xoassets.common.api.PageResult;
 import com.xoassets.common.exception.BusinessException;
 import com.xoassets.common.security.LoginUser;
 import com.xoassets.module.account.service.impl.AccountServiceImpl;
+import com.xoassets.module.account.service.impl.AccountLedgerServiceImpl;
+import com.xoassets.module.account.vo.AccountFlowStatisticsVO;
+import com.xoassets.module.account.vo.AccountLedgerPageVO;
 import com.xoassets.module.budget.service.impl.BudgetServiceImpl;
 import com.xoassets.module.budget.vo.BudgetSummaryVO;
 import com.xoassets.module.category.service.CategoryService;
@@ -19,6 +22,7 @@ import com.xoassets.module.investment.service.HoldingService;
 import com.xoassets.module.investment.service.InvestmentTransactionService;
 import com.xoassets.module.investment.service.QuoteService;
 import com.xoassets.module.investment.dto.InvestmentTransactionRequest;
+import com.xoassets.module.investment.dto.InvestmentTransactionRevokeRequest;
 import com.xoassets.module.investment.service.impl.HoldingServiceImpl;
 import com.xoassets.module.investment.service.impl.InvestmentTransactionServiceImpl;
 import com.xoassets.module.investment.vo.HoldingVO;
@@ -35,6 +39,7 @@ import com.xoassets.persistence.entity.AssetPrice;
 import com.xoassets.persistence.entity.Budget;
 import com.xoassets.persistence.entity.Category;
 import com.xoassets.persistence.entity.Holding;
+import com.xoassets.persistence.entity.InvestmentTransaction;
 import com.xoassets.persistence.entity.TransactionRecord;
 import com.xoassets.persistence.mapper.AccountMapper;
 import com.xoassets.persistence.mapper.AssetMapper;
@@ -188,6 +193,81 @@ class MvpCoreServiceTest {
     }
 
     @Test
+    void investmentRevokeShouldRestoreAccountAndHolding() {
+        Account bank = account(1L, USER_ID, "银行卡", "BANK", "8794.0000");
+        Holding holding = holding(1L, USER_ID, 10L, "150.0000", "9.0200", "1353.0000");
+        AccountMapper accountMapper = mock(AccountMapper.class);
+        AssetMapper assetMapper = mock(AssetMapper.class);
+        HoldingMapper holdingMapper = mock(HoldingMapper.class);
+        InvestmentTransactionMapper transactionMapper = mock(InvestmentTransactionMapper.class);
+        AccountServiceImpl accountService = new AccountServiceImpl(accountMapper, mock(TransactionRecordMapper.class));
+        HoldingServiceImpl holdingService = new HoldingServiceImpl(
+                holdingMapper, assetMapper, mock(AssetPriceMapper.class), transactionMapper, mock(AssetService.class), mock(QuoteService.class));
+        InvestmentTransactionServiceImpl transactionService = new InvestmentTransactionServiceImpl(
+                transactionMapper, assetMapper, accountMapper, mock(AssetService.class), holdingService, accountService);
+        InvestmentTransaction sell = investmentRecord(99L, "SELL", "50.0000", "12.0000", "600.0000", "2.0000", "451.0000");
+
+        when(transactionMapper.selectOne(any())).thenReturn(sell);
+        when(accountMapper.selectOne(any())).thenReturn(bank);
+        when(holdingMapper.selectOne(any())).thenReturn(holding);
+        when(assetMapper.selectById(10L)).thenReturn(asset(10L, "FUND-A", "基金 A", "FUND", "CNY"));
+
+        InvestmentTransactionRevokeRequest request = new InvestmentTransactionRevokeRequest();
+        request.setReason("录入错误");
+        InvestmentTransactionVO revoked = transactionService.revoke(99L, request);
+        assertEquals(bd("8196.0000"), bank.getBalance());
+        assertEquals(bd("200.0000"), holding.getQuantity());
+        assertEquals(bd("1804.0000"), holding.getTotalCost());
+        assertEquals(bd("9.0200"), holding.getAvgCost());
+        assertEquals("REVOKED", revoked.getStatus());
+
+        sell.setStatus("REVOKED");
+        assertThrows(BusinessException.class, () -> transactionService.revoke(99L, request));
+    }
+
+    @Test
+    void accountLedgerShouldMergeTransactionsAndInvestments() {
+        Account bank = account(1L, USER_ID, "银行卡", "BANK", "10396.0000");
+        Account alipay = account(2L, USER_ID, "支付宝", "ALIPAY", "1200.0000");
+        AccountMapper accountMapper = mock(AccountMapper.class);
+        TransactionRecordMapper transactionMapper = mock(TransactionRecordMapper.class);
+        InvestmentTransactionMapper investmentMapper = mock(InvestmentTransactionMapper.class);
+        CategoryMapper categoryMapper = mock(CategoryMapper.class);
+        AssetMapper assetMapper = mock(AssetMapper.class);
+        AccountLedgerServiceImpl service = new AccountLedgerServiceImpl(
+                new AccountServiceImpl(accountMapper, transactionMapper), accountMapper, transactionMapper, investmentMapper, categoryMapper, assetMapper);
+
+        when(accountMapper.selectOne(any())).thenReturn(bank);
+        when(accountMapper.selectList(any())).thenReturn(List.of(bank, alipay));
+        when(transactionMapper.selectList(any())).thenReturn(List.of(
+                record("INCOME", "500.0000", 1L, null, 10L),
+                record("EXPENSE", "100.0000", 1L, null, 11L),
+                record("TRANSFER", "200.0000", 1L, 2L, null)));
+        when(investmentMapper.selectList(any())).thenReturn(List.of(
+                investmentRecord(1L, "BUY", "100.0000", "10.0000", "1000.0000", "2.0000", "1002.0000"),
+                investmentRecord(2L, "SELL", "100.0000", "12.0000", "1200.0000", "2.0000", "1002.0000")));
+        when(categoryMapper.selectList(any())).thenReturn(List.of(
+                category(10L, USER_ID, "工资", "INCOME"),
+                category(11L, USER_ID, "餐饮", "EXPENSE")));
+        when(assetMapper.selectBatchIds(Set.of(10L))).thenReturn(List.of(asset(10L, "FUND-A", "基金 A", "FUND", "CNY")));
+
+        AccountLedgerPageVO ledger = service.ledger(1L, new com.xoassets.module.account.dto.AccountLedgerQuery());
+        assertEquals(5, ledger.getPage().getTotal());
+        assertEquals(bd("1698.0000"), ledger.getSummary().getTotalInflow());
+        assertEquals(bd("1302.0000"), ledger.getSummary().getTotalOutflow());
+        assertEquals(bd("396.0000"), ledger.getSummary().getNetInflow());
+
+        AccountFlowStatisticsVO flow = service.flowStatistics(1L, new com.xoassets.module.account.dto.AccountFlowStatisticsQuery());
+        assertEquals(bd("500.0000"), flow.getIncomeAmount());
+        assertEquals(bd("100.0000"), flow.getExpenseAmount());
+        assertEquals(bd("200.0000"), flow.getTransferOutAmount());
+        assertEquals(bd("1002.0000"), flow.getInvestmentBuyAmount());
+        assertEquals(bd("1198.0000"), flow.getInvestmentSellAmount());
+        assertEquals(1, flow.getCategoryExpenseStats().size());
+        assertEquals(2, flow.getInvestmentFlowStats().size());
+    }
+
+    @Test
     void holdingProfitAnalysisShouldUseLatestAndHistoricalPrices() {
         Holding holding = holding(1L, USER_ID, 10L, "100.0000", "10.0000", "1000.0000");
         HoldingMapper holdingMapper = mock(HoldingMapper.class);
@@ -304,6 +384,24 @@ class MvpCoreServiceTest {
         request.setFee(bd(fee));
         request.setTransactionTime(LocalDateTime.of(2026, 5, 1, 10, 0));
         return request;
+    }
+
+    private static InvestmentTransaction investmentRecord(Long id, String type, String quantity, String price, String amount, String fee, String costAmount) {
+        InvestmentTransaction record = new InvestmentTransaction();
+        record.setId(id);
+        record.setUserId(USER_ID);
+        record.setHoldingId(1L);
+        record.setAssetId(10L);
+        record.setAccountId(1L);
+        record.setType(type);
+        record.setQuantity(bd(quantity));
+        record.setPrice(bd(price));
+        record.setAmount(bd(amount));
+        record.setFee(bd(fee));
+        record.setCostAmount(bd(costAmount));
+        record.setStatus("NORMAL");
+        record.setTransactionTime(LocalDateTime.of(2026, 5, 1, 10, 0));
+        return record;
     }
 
     private static TransactionRecord record(String type, String amount, Long accountId, Long targetAccountId, Long categoryId) {

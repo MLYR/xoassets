@@ -18,7 +18,7 @@
     <section v-loading="loading" class="panel panel-padding">
       <el-empty v-if="!loading && accounts.length === 0" description="还没有账户，创建第一个账户后即可开始记账" />
       <div v-else class="account-grid">
-        <article v-for="account in accounts" :key="account.id" class="account-card">
+        <article v-for="account in accounts" :key="account.id" class="account-card" @click="openDetail(account)">
           <div class="account-top">
             <div>
               <h3>{{ account.name }}</h3>
@@ -30,8 +30,8 @@
           <div class="account-foot">
             <span>{{ account.currency }} · {{ account.remark || '暂无备注' }}</span>
             <div class="account-actions">
-              <el-button link type="primary" @click="openEditDialog(account)">编辑</el-button>
-              <el-button link type="danger" @click="handleDelete(account)">删除</el-button>
+              <el-button link type="primary" @click.stop="openEditDialog(account)">编辑</el-button>
+              <el-button link type="danger" @click.stop="handleDelete(account)">删除</el-button>
             </div>
           </div>
         </article>
@@ -78,6 +78,7 @@
 <script setup lang="ts">
 // 账户页读取真实后端账户接口，并在页面内计算汇总指标。
 import { computed, onMounted, reactive, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { Plus } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import AmountText from '@/components/finance/AmountText.vue';
@@ -87,6 +88,7 @@ import { accountApi, type AccountItem, type AccountRequest } from '@/services/ac
 
 // 账户类型选项保持原型中的常见分类，提交时直接传给后端。
 const accountTypes = ['储蓄卡', '信用卡', '电子钱包', '投资账户', '现金账户', '其他账户'];
+const router = useRouter();
 // 账户列表和加载状态由接口驱动。
 const accounts = ref<AccountItem[]>([]);
 const loading = ref(false);
@@ -162,6 +164,11 @@ function openEditDialog(account: AccountItem) {
   dialogVisible.value = true;
 }
 
+// 点击账户卡片进入资金明细详情页，编辑和删除按钮会阻止冒泡。
+function openDetail(account: AccountItem) {
+  router.push(`/accounts/${account.id}`);
+}
+
 // 提交前做最基础的必填校验，避免无意义请求。
 function validateForm() {
   if (!form.name) {
@@ -235,6 +242,13 @@ async function handleDelete(account: AccountItem) {
   border: 1px solid var(--xo-border);
   border-radius: var(--xo-radius);
   background: #fff;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.account-card:hover {
+  border-color: var(--xo-primary);
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.08);
 }
 
 .account-top,

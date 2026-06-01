@@ -51,4 +51,14 @@ public interface HoldingService {
      * 卖出时校验数量并扣减持仓。
      */
     HoldingTradeResult applySell(Long userId, Long holdingId, Long assetId, BigDecimal quantity, BigDecimal price, BigDecimal fee);
+
+    /**
+     * 撤销买入时减少持仓数量和成本。
+     */
+    void revokeBuy(Long userId, Long holdingId, Long assetId, BigDecimal quantity, BigDecimal costAmount);
+
+    /**
+     * 撤销卖出时恢复持仓数量和成本。
+     */
+    void revokeSell(Long userId, Long holdingId, Long assetId, BigDecimal quantity, BigDecimal costAmount);
 }
