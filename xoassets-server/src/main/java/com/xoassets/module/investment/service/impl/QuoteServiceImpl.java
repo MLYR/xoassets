@@ -15,6 +15,7 @@ import com.xoassets.persistence.mapper.AssetPriceMapper;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -32,6 +33,9 @@ import org.springframework.util.StringUtils;
 @Slf4j
 @Service
 public class QuoteServiceImpl implements QuoteService {
+
+    private static final LocalTime STOCK_REFRESH_START = LocalTime.of(9, 30);
+    private static final LocalTime STOCK_REFRESH_END = LocalTime.of(15, 0);
 
     private final AssetPriceMapper assetPriceMapper;
     private final AssetService assetService;
@@ -107,6 +111,13 @@ public class QuoteServiceImpl implements QuoteService {
     public AssetPriceVO refreshQuoteIfStale(Long assetId) {
         Asset asset = assetService.findAsset(assetId);
         AssetPrice latestPrice = latestPrice(assetId);
+        if (isOutsideStockRefreshWindow(asset)) {
+            // 股票行情只在 09:30-15:00 之间主动刷新；非交易时段直接复用最近快照，避免无意义写入。
+            if (latestPrice != null) {
+                return toVO(latestPrice);
+            }
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "股票行情仅在交易时段刷新");
+        }
         if (isFresh(asset, latestPrice)) {
             return toVO(latestPrice);
         }
@@ -182,12 +193,23 @@ public class QuoteServiceImpl implements QuoteService {
             return true;
         }
         Duration ttl = switch (asset.getType()) {
-            case "CRYPTO" -> Duration.ofMinutes(5);
+            case "CRYPTO" -> Duration.ofHours(1);
             case "STOCK" -> Duration.ofMinutes(15);
             case "FUND" -> Duration.ofDays(1);
             default -> Duration.ZERO;
         };
         return ttl.isZero() || !price.getQuoteTime().isBefore(LocalDateTime.now().minus(ttl));
+    }
+
+    /**
+     * 股票只在 09:30-15:00 之间拉取第三方行情，其他时间保留最近快照。
+     */
+    private boolean isOutsideStockRefreshWindow(Asset asset) {
+        if (!"STOCK".equals(asset.getType())) {
+            return false;
+        }
+        LocalTime now = LocalTime.now();
+        return now.isBefore(STOCK_REFRESH_START) || now.isAfter(STOCK_REFRESH_END);
     }
 
     /**

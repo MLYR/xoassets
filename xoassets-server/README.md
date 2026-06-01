@@ -153,7 +153,7 @@ http://localhost:8080/doc.html
 - 资产查询失败会在后端 WARN 日志中输出行情源、代码 / 市场、响应摘要和原始异常堆栈，便于区分网络失败、第三方格式变更和代码无效。
 - CoinGecko 支持 CRYPTO 资产 BTC、ETH、SOL、BNB、DOGE；天天基金支持基金单位净值；新浪支持 A 股；Yahoo Finance 支持美股。
 - `POST /api/quotes/refresh-batch` 支持按当前持仓资产批量刷新；刷新失败保留旧价格，不删除历史快照。
-- 行情缓存按资产类型控制刷新频率：CRYPTO 5 分钟、STOCK 15 分钟、FUND 1 天；MANUAL 价格不过期。`GET /api/exchange-rates/usd-cny` 返回 USD/CNY 日缓存汇率，MVP 使用进程内缓存，后续可替换为 Redis。
+- 行情缓存按资产类型控制刷新频率：CRYPTO 1 小时、STOCK 15 分钟、FUND 1 天；MANUAL 价格不过期；股票只在 09:30-15:00 之间拉取第三方行情。`GET /api/exchange-rates/usd-cny` 返回 USD/CNY 日缓存汇率，MVP 使用进程内缓存，后续可替换为 Redis。
 - 后端启用 `QuoteRefreshScheduler` 定时刷新持仓涉及资产，任务或单个资产失败只记录日志，不影响主应用启动。
 - 预算表 `xo_budget` 按当前用户隔离；每个用户每月只能有一个总预算，每个支出分类每月只能有一个分类预算。
 - 预算使用额从 `xo_transaction` 汇总，转账不计入预算，退款抵扣支出。

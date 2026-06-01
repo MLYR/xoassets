@@ -38,7 +38,7 @@
 - 资产识别：新增持仓时可按资产类型输入代码或名称查询，后端返回名称、代码、市场、币种、行情源、行情键和当前价格；保存持仓时自动创建 / 复用 `xo_asset` 并写入价格快照，查询失败仍可手动录入。
 - 资产查询日志：第三方资产查询失败时后端会记录行情源、代码 / 市场、响应摘要和原始异常堆栈，前端仍只展示可理解的失败提示。
 - 资产市场：`xo_asset.market` 用于区分 SH / SZ / BJ / US / CN_FUND / CRYPTO，资产唯一性按 `type + market + symbol + deleted` 判断。
-- 行情缓存：持仓列表优先使用 `xo_asset_price` 最近快照；CRYPTO 5 分钟内、STOCK 15 分钟内、FUND 1 天内不重复刷新，MANUAL 价格不过期。USD/CNY 展示汇率由 `/api/exchange-rates/usd-cny` 返回后端日缓存，后续可替换为 Redis 缓存。行情失败时保留最近价格，页面可用手动价格兜底。
+- 行情缓存：持仓列表优先使用 `xo_asset_price` 最近快照；CRYPTO 1 小时内、STOCK 15 分钟内、FUND 1 天内不重复刷新，MANUAL 价格不过期；股票只在 09:30-15:00 之间拉取第三方行情。USD/CNY 展示汇率由 `/api/exchange-rates/usd-cny` 返回后端日缓存，后续可替换为 Redis 缓存。行情失败时保留最近价格，页面可用手动价格兜底。
 - 预算管理：`GET /api/budgets`、`POST /api/budgets`、`PUT /api/budgets/{id}`、`DELETE /api/budgets/{id}`、`GET /api/budgets/summary` 已接入预算页。
 - 资产快照：`GET /api/snapshots/latest`、`GET /api/snapshots/trend`、`POST /api/snapshots/generate-today` 已接入首页和数据分析页；首页右上角可手动生成今日快照，同一用户同一天重复生成会更新当天快照。
 - 首页和统计：`GET /api/dashboard/overview` 返回账户、流水、投资和预算聚合指标；`/api/statistics/*` 返回收支趋势、分类支出、资产分布、投资盈亏和预算进度，净资产 / 总资产趋势优先使用资产快照。
