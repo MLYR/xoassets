@@ -111,6 +111,7 @@ com.xoassets
 - 持仓接口使用 `/api/holdings/**`。
 - 投资交易接口使用 `/api/investment-transactions/**`。
 - 手动行情接口使用 `/api/quotes/**`。
+- 汇率展示接口使用 `/api/exchange-rates/**`，前端只读后端缓存汇率，不直连第三方汇率源。
 - 资产快照接口使用 `/api/snapshots/**`，用于首页净资产变化、趋势图、AI 报告和资产目标分析。
 - 账户资金明细接口使用 `/api/accounts/{id}/ledger`，资金流向统计使用 `/api/accounts/{id}/flow-statistics`。
 - CSV 导出接口使用 `/api/export/**`，只允许导出当前登录用户自己的数据。
@@ -122,7 +123,7 @@ com.xoassets
 - 投资模块中 `xo_asset`、`xo_asset_price` 为公共数据不带 `user_id`；`xo_holding`、`xo_investment_transaction` 必须通过当前登录用户隔离。
 - 前端投资模块只暴露“持仓”概念，资产代码、类型、币种和行情源在持仓表单内维护；后端 `xo_asset` 只作为内部行情基础数据。
 - 新增持仓优先通过 `GET /api/assets/lookup` 自动识别资产信息；查询失败不能阻塞手动录入。保存持仓时若带 `latestPrice`，后端必须写入 `xo_asset_price` 作为初始价格快照。
-- 投资主页只展示聚合统计和图表；持仓明细、买入卖出、编辑删除、价格刷新等操作集中在 `/investments/details`，单个持仓详情使用 `/investments/holdings/:id`。
+- 投资主页只展示聚合统计和图表，投资分布按具体投资产品统计，收益贡献优先显示资产名称；持仓明细、买入卖出、编辑删除、价格刷新等操作集中在 `/investments/details`，单个持仓详情使用 `/investments/holdings/:id`。
 - 投资买入 / 卖出必须选择当前用户资金账户；买入扣减账户余额，卖出增加账户余额，交易、账户和持仓更新必须在同一事务内完成，且不写入普通流水。
 - 投资交易撤销必须使用 `cost_amount` 反向恢复历史成本，不物理删除交易；已撤销交易保留展示但不参与账户资金明细汇总。
 - 投资数量统一保留 10 位小数，手续费、成本、市值、盈亏和收益率统一按 4 位小数计算；行情价格快照保留 8 位，并记录 previous_close、change_amount、change_percent、market_status，持仓接口返回 `priceScale`，CRYPTO 当前价至少展示 6 位，FUND / STOCK 展示 4 位。
@@ -131,7 +132,8 @@ com.xoassets
 - 持仓估值只能使用与资产币种一致的最新价格快照；前端展示市值、成本和盈亏必须使用后端返回字段，不得用格式化后的当前价反算。
 - 账户编辑允许手动校准当前余额；流水支持备注和图片，图片字段使用 `image_url`。
 - 账户详情页通过聚合普通流水和投资交易展示资金变化，投资买入计入账户流出，投资卖出计入账户流入，但不进入普通收支统计。
-- 行情刷新通过 `QuoteProvider` 扩展；CRYPTO 使用 CoinGecko，FUND 使用天天基金，A 股使用新浪行情，美股使用 Yahoo Finance。第三方行情只能由后端调用，前端只调 XOAssets `/api/quotes/**`。
+- 行情刷新通过 `QuoteProvider` 扩展；CRYPTO 使用 CoinGecko，FUND 使用天天基金 F10 历史净值表和实时净值兜底，A 股使用新浪行情，美股使用 Yahoo Finance。第三方行情只能由后端调用，前端只调 XOAssets `/api/quotes/**`。
+- 投资页 CNY / USD 切换使用下拉框，默认人民币；USD/CNY 汇率由后端日缓存提供，MVP 可用进程内缓存，后续可替换为 Redis。
 - 第三方资产查询失败时，后端日志必须保留行情源、代码 / 市场、响应摘要和异常堆栈；前端错误提示保持简洁，不暴露第三方原文。
 - 行情缓存 TTL：CRYPTO 5 分钟、STOCK 15 分钟、FUND 1 天、MANUAL 不过期；刷新失败保留最近价格，定时刷新失败不能影响应用启动。
 - 预算使用额从 `xo_transaction` 汇总，转账不计入，退款抵扣支出；预算接口必须按当前 user_id 隔离。

@@ -7,8 +7,9 @@
         <p class="page-subtitle">按基金、股票和虚拟货币查看投资规模与收益</p>
       </div>
       <div class="header-actions">
-        <el-segmented v-model="displayCurrency" :options="currencyOptions" />
-        <el-input-number v-model="usdCnyRate" class="rate-input" :min="0.0001" :precision="4" />
+        <el-select v-model="displayCurrency" class="currency-select" placeholder="展示币种">
+          <el-option v-for="item in currencyOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
         <el-button type="primary" @click="$router.push(ROUTES.investmentDetails)">投资明细</el-button>
       </div>
     </div>
@@ -47,6 +48,7 @@ import { ElMessage } from 'element-plus';
 import BaseChart from '@/components/charts/BaseChart.vue';
 import MetricCard from '@/components/finance/MetricCard.vue';
 import { ROUTES } from '@/constants/routes';
+import { exchangeRateApi } from '@/services/exchangeRateApi';
 import { investmentApi, type AssetType, type HoldingItem } from '@/services/investmentApi';
 
 type DisplayCurrency = 'CNY' | 'USD';
@@ -62,6 +64,7 @@ const currencyOptions = [
 
 onMounted(() => {
   loadHoldings();
+  loadExchangeRate();
 });
 
 const currencySymbol = computed(() => (displayCurrency.value === 'CNY' ? '¥' : '$'));
@@ -75,13 +78,20 @@ const typeStats = computed(() => ({
   CRYPTO: calcTypeStat('CRYPTO')
 }));
 const allocationOption = computed<EChartsOption>(() => ({
-  color: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'],
+  color: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#14b8a6', '#6366f1'],
   tooltip: { trigger: 'item' },
-  series: [{ type: 'pie', radius: ['45%', '72%'], data: ['FUND', 'STOCK', 'CRYPTO', 'OTHER'].map((type) => ({ name: typeLabel(type), value: sumByType(type as AssetType, 'marketValue') })).filter((item) => item.value > 0) }]
+  series: [{
+    type: 'pie',
+    radius: ['45%', '72%'],
+    // 投资分布按具体产品展示，避免只看到基金/股票/币的大类桶。
+    data: holdings.value
+      .map((item) => ({ name: item.assetName || item.symbol || typeLabel(item.assetType), value: round4(convertAmount(item.marketValue, item.currency)) }))
+      .filter((item) => item.value > 0)
+  }]
 }));
 const profitOption = computed<EChartsOption>(() => ({
   grid: { left: 50, right: 18, top: 24, bottom: 36 },
-  xAxis: { type: 'category', data: holdings.value.map((item) => item.symbol || '-') },
+  xAxis: { type: 'category', data: holdings.value.map((item) => item.assetName || item.symbol || '-') },
   yAxis: { type: 'value' },
   tooltip: { trigger: 'axis' },
   series: [{ type: 'bar', data: holdings.value.map((item) => round4(convertAmount(item.floatingProfit, item.currency))), itemStyle: { color: '#3b82f6', borderRadius: [6, 6, 0, 0] } }]
@@ -98,16 +108,21 @@ async function loadHoldings() {
   }
 }
 
+async function loadExchangeRate() {
+  try {
+    const result = await exchangeRateApi.usdCny();
+    usdCnyRate.value = Number(result.rate || usdCnyRate.value);
+  } catch {
+    // 汇率接口失败时保留默认值，币种切换仍可用。
+  }
+}
+
 function calcTypeStat(type: AssetType) {
   const items = holdings.value.filter((item) => item.assetType === type);
   const marketValue = round4(items.reduce((sum, item) => sum + convertAmount(item.marketValue, item.currency), 0));
   const cost = round4(items.reduce((sum, item) => sum + convertAmount(item.totalCost, item.currency), 0));
   const profit = round4(items.reduce((sum, item) => sum + convertAmount(item.floatingProfit, item.currency), 0));
   return { marketValue, profitRate: rate4(profit, cost) };
-}
-
-function sumByType(type: AssetType, field: 'marketValue' | 'floatingProfit') {
-  return round4(holdings.value.filter((item) => item.assetType === type).reduce((sum, item) => sum + convertAmount(item[field], item.currency), 0));
 }
 
 function convertAmount(value: number, sourceCurrency?: string | null) {
@@ -154,7 +169,7 @@ function typeLabel(type?: string | null) {
   align-items: center;
 }
 
-.rate-input {
-  width: 130px;
+.currency-select {
+  width: 120px;
 }
 </style>

@@ -24,6 +24,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
@@ -63,11 +65,13 @@ public class AssetServiceImpl implements AssetService {
             "solana", "Solana",
             "binancecoin", "BNB",
             "dogecoin", "Dogecoin");
+    private static final Pattern FUND_HISTORY_ROW_PATTERN = Pattern.compile("<tr><td>(\\d{4}-\\d{2}-\\d{2})</td><td[^>]*>([0-9.]+)</td><td[^>]*>[0-9.]+</td><td[^>]*>([-+0-9.]+)%</td>");
 
     private final AssetMapper assetMapper;
     private final ObjectMapper objectMapper;
     private final RestClient coinGeckoClient;
     private final RestClient fundClient;
+    private final RestClient fundHistoryClient;
     private final RestClient sinaClient;
     private final RestClient yahooClient;
 
@@ -76,6 +80,7 @@ public class AssetServiceImpl implements AssetService {
         this.objectMapper = objectMapper;
         this.coinGeckoClient = RestClient.builder().baseUrl("https://api.coingecko.com/api/v3").build();
         this.fundClient = RestClient.builder().baseUrl("https://fundgz.1234567.com.cn").build();
+        this.fundHistoryClient = RestClient.builder().baseUrl("https://fundf10.eastmoney.com").build();
         this.sinaClient = RestClient.builder()
                 .baseUrl("https://hq.sinajs.cn")
                 .defaultHeader(HttpHeaders.REFERER, "https://finance.sina.com.cn")
@@ -232,6 +237,7 @@ public class AssetServiceImpl implements AssetService {
             return existingLookup("FUND", keyword);
         }
         try {
+            List<FundNavRow> navRows = fetchFundHistoryRows(code);
             byte[] bytes = fundClient.get()
                     .uri("/js/{code}.js?rt={timestamp}", code, System.currentTimeMillis())
                     .retrieve()
@@ -243,8 +249,10 @@ public class AssetServiceImpl implements AssetService {
                 log.warn("基金资产信息查询缺少单位净值 source=EASTMONEY, code={}, response={}", safeLog(code), abbreviate(body));
                 throw new BusinessException(ErrorCode.BUSINESS_ERROR, "基金资产信息查询失败");
             }
-            BigDecimal price = decimal(node.path("dwjz"), 8);
-            BigDecimal changePercent = decimalOrNull(node.path("gszzl"), 4);
+            // lookup 同样优先使用历史净值表的最新/上一交易日净值，避免保存持仓时带入估算昨价。
+            BigDecimal price = navRows.isEmpty() ? decimal(node.path("dwjz"), 8) : navRows.get(0).price();
+            BigDecimal previousClose = navRows.size() > 1 ? navRows.get(1).price() : previousClose(price, decimalOrNull(node.path("gszzl"), 4));
+            BigDecimal changePercent = navRows.isEmpty() ? decimalOrNull(node.path("gszzl"), 4) : navRows.get(0).changePercent();
             return List.of(AssetLookupVO.builder()
                     .name(node.path("name").asText(code))
                     .symbol(code)
@@ -254,9 +262,9 @@ public class AssetServiceImpl implements AssetService {
                     .quoteSource("EASTMONEY")
                     .quoteKey(code)
                     .latestPrice(price)
-                    .previousClose(previousClose(price, changePercent))
+                    .previousClose(previousClose)
                     .changePercent(changePercent)
-                    .quoteTime(fundQuoteTime(node.path("jzrq").asText(null)))
+                    .quoteTime(navRows.isEmpty() ? fundQuoteTime(node.path("jzrq").asText(null)) : LocalDateTime.of(navRows.get(0).date(), LocalTime.of(15, 0)))
                     .build());
         } catch (BusinessException exception) {
             throw exception;
@@ -439,6 +447,31 @@ public class AssetServiceImpl implements AssetService {
         return StringUtils.hasText(dateText) ? LocalDateTime.of(LocalDate.parse(dateText), LocalTime.of(15, 0)) : LocalDateTime.now();
     }
 
+    /**
+     * 天天基金 F10 历史净值表用于拿真实上一交易日净值；接口失败时交给外层保留清晰错误日志。
+     */
+    private List<FundNavRow> fetchFundHistoryRows(String code) {
+        try {
+            byte[] bytes = fundHistoryClient.get()
+                    .uri("/F10DataApi.aspx?type=lsjz&code={code}&page=1&per=5&sdate=&edate=&rt={timestamp}", code, System.currentTimeMillis())
+                    .retrieve()
+                    .body(byte[].class);
+            String body = new String(bytes == null ? new byte[0] : bytes, StandardCharsets.UTF_8);
+            Matcher matcher = FUND_HISTORY_ROW_PATTERN.matcher(body);
+            List<FundNavRow> rows = new ArrayList<>();
+            while (matcher.find()) {
+                rows.add(new FundNavRow(
+                        LocalDate.parse(matcher.group(1)),
+                        new BigDecimal(matcher.group(2)).setScale(8, RoundingMode.HALF_UP),
+                        new BigDecimal(matcher.group(3)).setScale(4, RoundingMode.HALF_UP)));
+            }
+            return rows;
+        } catch (Exception exception) {
+            log.warn("基金历史净值查询失败，回退实时净值接口 source=EASTMONEY_F10, code={}", safeLog(code), exception);
+            return List.of();
+        }
+    }
+
     private BigDecimal decimal(JsonNode node, int scale) {
         if (node == null || node.isMissingNode() || !StringUtils.hasText(node.asText())) {
             throw new BusinessException(ErrorCode.BUSINESS_ERROR, "行情未返回有效价格");
@@ -466,6 +499,9 @@ public class AssetServiceImpl implements AssetService {
             return null;
         }
         return price.subtract(previousClose).multiply(BigDecimal.valueOf(100)).divide(previousClose, 4, RoundingMode.HALF_UP);
+    }
+
+    private record FundNavRow(LocalDate date, BigDecimal price, BigDecimal changePercent) {
     }
 
     /**

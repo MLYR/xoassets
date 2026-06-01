@@ -8,7 +8,7 @@
       </div>
     </div>
 
-    <section class="grid-4" v-loading="loading">
+    <section class="dashboard-metrics" v-loading="loading">
       <MetricCard v-for="metric in dashboardMetrics" :key="metric.title" v-bind="metric" />
     </section>
 
@@ -232,6 +232,12 @@ function dateBefore(days: number) {
   gap: 24px;
 }
 
+.dashboard-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+}
+
 .recent-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -288,6 +294,10 @@ function dateBefore(days: number) {
 
 @media (max-width: 1080px) {
   .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-metrics {
     grid-template-columns: 1fr;
   }
 }

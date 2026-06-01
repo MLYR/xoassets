@@ -11,6 +11,11 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
@@ -19,18 +24,22 @@ import org.springframework.web.client.RestClientException;
 /**
  * 天天基金公开净值 provider，基金当前价统一使用单位净值。
  */
+@Slf4j
 @Component
 public class EastMoneyFundQuoteProvider implements QuoteProvider {
 
     private static final String ASSET_TYPE_FUND = "FUND";
     private static final String SOURCE_EASTMONEY = "EASTMONEY";
+    private static final Pattern HISTORY_ROW_PATTERN = Pattern.compile("<tr><td>(\\d{4}-\\d{2}-\\d{2})</td><td[^>]*>([0-9.]+)</td><td[^>]*>[0-9.]+</td><td[^>]*>([-+0-9.]+)%</td>");
 
     private final RestClient restClient;
+    private final RestClient historyRestClient;
     private final ObjectMapper objectMapper;
 
     public EastMoneyFundQuoteProvider(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
         this.restClient = RestClient.builder().baseUrl("https://fundgz.1234567.com.cn").build();
+        this.historyRestClient = RestClient.builder().baseUrl("https://fundf10.eastmoney.com").build();
     }
 
     @Override
@@ -45,6 +54,23 @@ public class EastMoneyFundQuoteProvider implements QuoteProvider {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "基金行情键不能为空");
         }
         try {
+            List<FundNavRow> navRows = fetchHistoryRows(fundCode);
+            if (!navRows.isEmpty()) {
+                FundNavRow latest = navRows.get(0);
+                BigDecimal previousClose = navRows.size() > 1 ? navRows.get(1).price() : null;
+                BigDecimal changeAmount = previousClose == null ? null : latest.price().subtract(previousClose).setScale(8, RoundingMode.HALF_UP);
+                // 基金昨价必须取上一交易日单位净值，不能用估算涨跌幅反推，否则持仓市值和昨收口径会不一致。
+                return new QuoteFetchResult(
+                        latest.price(),
+                        "CNY",
+                        previousClose,
+                        changeAmount,
+                        latest.changePercent(),
+                        SOURCE_EASTMONEY,
+                        LocalDateTime.of(latest.date(), LocalTime.of(15, 0)),
+                        "CLOSED",
+                        navRows.toString());
+            }
             byte[] bytes = restClient.get()
                     .uri("/js/{code}.js?rt={timestamp}", fundCode, System.currentTimeMillis())
                     .retrieve()
@@ -76,6 +102,31 @@ public class EastMoneyFundQuoteProvider implements QuoteProvider {
             throw new BusinessException(ErrorCode.BUSINESS_ERROR, "基金行情刷新失败");
         } catch (Exception exception) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "基金行情解析失败");
+        }
+    }
+
+    /**
+     * 天天基金 F10 历史净值表返回最近净值列表，第一行最新、第二行上一交易日，用于修正基金昨价口径。
+     */
+    private List<FundNavRow> fetchHistoryRows(String fundCode) {
+        try {
+            byte[] bytes = historyRestClient.get()
+                    .uri("/F10DataApi.aspx?type=lsjz&code={code}&page=1&per=5&sdate=&edate=&rt={timestamp}", fundCode, System.currentTimeMillis())
+                    .retrieve()
+                    .body(byte[].class);
+            String body = new String(bytes == null ? new byte[0] : bytes, StandardCharsets.UTF_8);
+            Matcher matcher = HISTORY_ROW_PATTERN.matcher(body);
+            List<FundNavRow> rows = new ArrayList<>();
+            while (matcher.find()) {
+                rows.add(new FundNavRow(
+                        LocalDate.parse(matcher.group(1)),
+                        new BigDecimal(matcher.group(2)).setScale(8, RoundingMode.HALF_UP),
+                        new BigDecimal(matcher.group(3)).setScale(4, RoundingMode.HALF_UP)));
+            }
+            return rows;
+        } catch (Exception exception) {
+            log.warn("基金历史净值查询失败，回退实时净值接口 source=EASTMONEY_F10, code={}", fundCode, exception);
+            return List.of();
         }
     }
 
@@ -117,5 +168,8 @@ public class EastMoneyFundQuoteProvider implements QuoteProvider {
         }
         BigDecimal divisor = BigDecimal.ONE.add(changePercent.divide(BigDecimal.valueOf(100), 8, RoundingMode.HALF_UP));
         return divisor.compareTo(BigDecimal.ZERO) == 0 ? null : price.divide(divisor, 8, RoundingMode.HALF_UP);
+    }
+
+    private record FundNavRow(LocalDate date, BigDecimal price, BigDecimal changePercent) {
     }
 }

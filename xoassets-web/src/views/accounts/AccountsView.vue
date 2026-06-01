@@ -29,9 +29,9 @@
           <AmountText class="account-amount" :value="account.balance" />
           <div class="account-foot">
             <span>{{ account.currency }} · {{ account.remark || '暂无备注' }}</span>
-            <div class="account-actions">
-              <el-button link type="primary" @click.stop="openEditDialog(account)">编辑</el-button>
-              <el-button link type="danger" @click.stop="handleDelete(account)">删除</el-button>
+            <div class="account-actions" @click.stop @mousedown.stop>
+              <el-button class="action-button edit-button" :icon="Edit" @click.stop.prevent="openEditDialog(account)">编辑</el-button>
+              <el-button class="action-button delete-button" :icon="Delete" @click.stop.prevent="handleDelete(account)">删除</el-button>
             </div>
           </div>
         </article>
@@ -79,7 +79,7 @@
 // 账户页读取真实后端账户接口，并在页面内计算汇总指标。
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { Plus } from '@element-plus/icons-vue';
+import { Delete, Edit, Plus } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import AmountText from '@/components/finance/AmountText.vue';
 import MetricCard from '@/components/finance/MetricCard.vue';
@@ -288,10 +288,31 @@ async function handleDelete(account: AccountItem) {
 
 /* 账户操作按钮和底部信息保持在同一行，延续卡片紧凑布局。 */
 .account-actions {
+  position: relative;
+  z-index: 2;
   display: flex;
   flex-shrink: 0;
   align-items: center;
   gap: 6px;
+}
+
+.action-button {
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgba(37, 99, 235, 0.14);
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.07);
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.08);
+}
+
+.edit-button {
+  color: var(--xo-primary);
+}
+
+.delete-button {
+  border-color: rgba(239, 68, 68, 0.16);
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--xo-danger);
 }
 
 .account-amount {

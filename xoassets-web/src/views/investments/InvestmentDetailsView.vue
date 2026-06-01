@@ -7,8 +7,9 @@
         <p class="page-subtitle">按基金、股票、虚拟货币查看每一项持仓并记录操作</p>
       </div>
       <div class="header-actions">
-        <el-segmented v-model="displayCurrency" :options="currencyOptions" />
-        <el-input-number v-model="usdCnyRate" class="rate-input" :min="0.0001" :precision="4" />
+        <el-select v-model="displayCurrency" class="currency-select" placeholder="展示币种">
+          <el-option v-for="item in currencyOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
         <el-button @click="$router.push(ROUTES.investments)">返回主页</el-button>
         <el-button :loading="batchRefreshing" @click="handleBatchRefreshQuotes">批量刷新行情</el-button>
         <el-button :icon="Download" :loading="exporting" @click="handleExportInvestmentTransactions">导出投资交易</el-button>
@@ -19,14 +20,17 @@
     <section class="panel filter-panel">
       <el-segmented v-model="activeType" :options="typeOptions" @change="resetPage" />
       <el-input v-model="keyword" placeholder="搜索名称或代码" clearable @change="resetPage" />
+      <el-select v-model="visibleColumnKeys" class="column-select" multiple collapse-tags collapse-tags-tooltip placeholder="显示字段">
+        <el-option v-for="item in columnOptions" :key="item.key" :label="item.label" :value="item.key" />
+      </el-select>
     </section>
 
     <section class="summary-grid">
       <MetricCard title="投资总市值" :value="displayedSummary.totalMarketValue" :trend="0" description="持仓最新市值合计" :precision="4" :currency-symbol="currencySymbol" />
       <MetricCard title="今日收益" :value="displayedSummary.todayProfit" :trend="displayedSummary.todayProfit" description="按最新价与昨价计算" :precision="4" :currency-symbol="currencySymbol" :tone="profitTone(displayedSummary.todayProfit)" />
       <MetricCard title="昨日收益" :value="displayedSummary.yesterdayProfit" :trend="displayedSummary.yesterdayProfit" description="按昨价与前日价计算" :precision="4" :currency-symbol="currencySymbol" :tone="profitTone(displayedSummary.yesterdayProfit)" />
-      <MetricCard title="总收益" :value="displayedSummary.floatingProfit" :trend="summary.floatingProfitRate" description="浮动盈亏 / 总成本" :precision="4" :currency-symbol="currencySymbol" :tone="profitTone(displayedSummary.floatingProfit)" />
-      <MetricCard title="持仓数量" :value="summary.holdingCount" :trend="summary.floatingProfitRate" description="当前持仓项目数" :precision="0" currency-symbol="" />
+      <MetricCard title="总收益" :value="displayedSummary.floatingProfit" :trend="displayedSummary.floatingProfitRate" description="浮动盈亏 / 总成本" :precision="4" :currency-symbol="currencySymbol" :tone="profitTone(displayedSummary.floatingProfit)" />
+      <MetricCard title="持仓数量" :value="displayedSummary.holdingCount" :trend="displayedSummary.floatingProfitRate" description="当前持仓项目数" :precision="0" currency-symbol="" />
     </section>
 
     <section v-loading="loading" class="panel">
@@ -39,43 +43,43 @@
               <small class="muted-line">{{ row.symbol || '-' }} · {{ row.currency || '-' }} · {{ row.latestPriceSource || row.quoteSource || '暂无行情' }}</small>
             </template>
           </el-table-column>
-          <el-table-column label="类型" width="110">
+          <el-table-column v-if="columnVisible('assetType')" label="类型" prop="assetType" width="110" sortable>
             <template #default="{ row }"><StatusBadge :label="typeLabel(row.assetType)" /></template>
           </el-table-column>
-          <el-table-column label="数量" min-width="130" align="right" header-align="right">
+          <el-table-column v-if="columnVisible('quantity')" label="数量" prop="quantity" min-width="130" align="right" header-align="right" sortable>
             <template #default="{ row }"><span class="numeric-cell">{{ formatQuantity(row.quantity, row.assetType) }}</span></template>
           </el-table-column>
-          <el-table-column label="成本价" min-width="130" align="right" header-align="right">
+          <el-table-column v-if="columnVisible('avgCost')" label="成本价" prop="avgCost" min-width="130" align="right" header-align="right" sortable>
             <template #default="{ row }"><AmountText class="numeric-cell" :value="displayValue(row.avgCost, row.currency, 4)" :precision="4" :currency-symbol="currencySymbol" /></template>
           </el-table-column>
-          <el-table-column label="当前价" min-width="150" align="right" header-align="right">
+          <el-table-column v-if="columnVisible('latestPrice')" label="当前价" prop="latestPrice" min-width="150" align="right" header-align="right" sortable>
             <template #default="{ row }"><AmountText class="numeric-cell" :value="displayValue(row.latestPrice, row.currency, pricePrecision(row))" :precision="pricePrecision(row)" :currency-symbol="currencySymbol" /></template>
           </el-table-column>
-          <el-table-column label="昨价" min-width="140" align="right" header-align="right">
+          <el-table-column v-if="columnVisible('previousPrice')" label="昨价" prop="previousPrice" min-width="140" align="right" header-align="right" sortable>
             <template #default="{ row }"><span class="numeric-cell">{{ formatOptionalPrice(row.previousPrice, row) }}</span></template>
           </el-table-column>
-          <el-table-column label="今日涨跌" min-width="140" align="right" header-align="right">
+          <el-table-column v-if="columnVisible('todayChangeRate')" label="今日涨跌" prop="todayChangeRate" min-width="140" align="right" header-align="right" sortable>
             <template #default="{ row }"><TrendValue v-if="row.todayChangeRate !== null && row.todayChangeRate !== undefined" class="numeric-cell" :value="round4(row.todayChangeRate)" :precision="4" /><span v-else class="numeric-cell muted-text">暂无</span></template>
           </el-table-column>
-          <el-table-column label="市值" min-width="150" align="right" header-align="right">
+          <el-table-column v-if="columnVisible('marketValue')" label="总市值" prop="marketValue" min-width="150" align="right" header-align="right" sortable>
             <template #default="{ row }"><AmountText class="numeric-cell" :value="displayValue(row.marketValue, row.currency, 4)" :precision="4" :currency-symbol="currencySymbol" /></template>
           </el-table-column>
-          <el-table-column label="总成本" min-width="150" align="right" header-align="right">
+          <el-table-column v-if="columnVisible('totalCost')" label="总成本" prop="totalCost" min-width="150" align="right" header-align="right" sortable>
             <template #default="{ row }"><AmountText class="numeric-cell" :value="displayValue(row.totalCost, row.currency, 4)" :precision="4" :currency-symbol="currencySymbol" /></template>
           </el-table-column>
-          <el-table-column label="今日收益" min-width="150" align="right" header-align="right">
+          <el-table-column v-if="columnVisible('todayProfit')" label="今日收益" prop="todayProfit" min-width="150" align="right" header-align="right" sortable>
             <template #default="{ row }"><AmountText v-if="row.todayProfit !== null && row.todayProfit !== undefined" class="numeric-cell" :value="displayValue(row.todayProfit, row.currency, 4)" with-sign :precision="4" :currency-symbol="currencySymbol" /><span v-else class="numeric-cell muted-text">暂无</span></template>
           </el-table-column>
-          <el-table-column label="昨日收益" min-width="150" align="right" header-align="right">
+          <el-table-column v-if="columnVisible('yesterdayProfit')" label="昨日收益" prop="yesterdayProfit" min-width="150" align="right" header-align="right" sortable>
             <template #default="{ row }"><AmountText v-if="row.yesterdayProfit !== null && row.yesterdayProfit !== undefined" class="numeric-cell" :value="displayValue(row.yesterdayProfit, row.currency, 4)" with-sign :precision="4" :currency-symbol="currencySymbol" /><span v-else class="numeric-cell muted-text">暂无</span></template>
           </el-table-column>
-          <el-table-column label="总收益" min-width="150" align="right" header-align="right">
+          <el-table-column v-if="columnVisible('floatingProfit')" label="总收益" prop="floatingProfit" min-width="150" align="right" header-align="right" sortable>
             <template #default="{ row }"><AmountText class="numeric-cell" :value="displayValue(row.floatingProfit, row.currency, 4)" with-sign :precision="4" :currency-symbol="currencySymbol" /></template>
           </el-table-column>
-          <el-table-column label="收益率" min-width="120" align="right" header-align="right">
+          <el-table-column v-if="columnVisible('floatingProfitRate')" label="总收益率" prop="floatingProfitRate" min-width="120" align="right" header-align="right" sortable>
             <template #default="{ row }"><TrendValue class="numeric-cell" :value="round4(row.floatingProfitRate)" :precision="4" /></template>
           </el-table-column>
-          <el-table-column label="回本涨幅" min-width="150" align="right" header-align="right">
+          <el-table-column v-if="columnVisible('breakEvenRate')" label="回本涨幅" prop="breakEvenRate" min-width="150" align="right" header-align="right" sortable>
             <template #default="{ row }"><span :class="['numeric-cell', breakEvenClass(row.breakEvenRate)]">{{ formatBreakEven(row.breakEvenRate) }}</span></template>
           </el-table-column>
           <el-table-column label="操作" width="260" align="center" fixed="right">
@@ -260,14 +264,14 @@ import StatusBadge from '@/components/finance/StatusBadge.vue';
 import TrendValue from '@/components/finance/TrendValue.vue';
 import { ROUTES } from '@/constants/routes';
 import { accountApi, type AccountItem } from '@/services/accountApi';
+import { exchangeRateApi } from '@/services/exchangeRateApi';
 import { exportApi } from '@/services/exportApi';
-import { investmentApi, type AssetLookupItem, type AssetType, type HoldingItem, type HoldingRequest, type HoldingSummary, type InvestmentTransactionItem, type InvestmentTransactionType, type QuoteSource } from '@/services/investmentApi';
+import { investmentApi, type AssetLookupItem, type AssetType, type HoldingItem, type HoldingRequest, type InvestmentTransactionItem, type InvestmentTransactionType, type QuoteSource } from '@/services/investmentApi';
 
 type DisplayCurrency = 'CNY' | 'USD';
 
 const holdings = ref<HoldingItem[]>([]);
 const router = useRouter();
-const summary = ref<HoldingSummary>({ totalMarketValue: 0, totalCost: 0, todayProfit: 0, yesterdayProfit: 0, floatingProfit: 0, floatingProfitRate: 0, holdingCount: 0 });
 const accounts = ref<AccountItem[]>([]);
 const transactions = ref<InvestmentTransactionItem[]>([]);
 const loading = ref(false);
@@ -294,6 +298,23 @@ const currencyOptions = [
   { label: '人民币', value: 'CNY' },
   { label: 'USD', value: 'USD' }
 ];
+const columnOptions = [
+  { key: 'assetType', label: '类型' },
+  { key: 'quantity', label: '数量' },
+  { key: 'avgCost', label: '成本价' },
+  { key: 'latestPrice', label: '当前价' },
+  { key: 'previousPrice', label: '昨价' },
+  { key: 'todayChangeRate', label: '今日涨跌' },
+  { key: 'marketValue', label: '总市值' },
+  { key: 'totalCost', label: '总成本' },
+  { key: 'todayProfit', label: '今日收益' },
+  { key: 'yesterdayProfit', label: '昨日收益' },
+  { key: 'floatingProfit', label: '总收益' },
+  { key: 'floatingProfitRate', label: '总收益率' },
+  { key: 'breakEvenRate', label: '回本涨幅' }
+];
+// 默认只展示用户最常比较的收益字段，其余字段可通过表格字段选择器打开。
+const visibleColumnKeys = ref(['assetType', 'marketValue', 'floatingProfit', 'floatingProfitRate', 'todayProfit', 'yesterdayProfit']);
 const typeOptions = [
   { label: '全部', value: 'ALL' },
   { label: '基金', value: 'FUND' },
@@ -322,6 +343,7 @@ const quoteForm = reactive({ price: 0, currency: 'CNY' });
 
 onMounted(() => {
   loadPageData();
+  loadExchangeRate();
 });
 
 watch(
@@ -377,12 +399,16 @@ const quoteKeyTip = computed(() => {
   return '手动行情可不填，后续通过手动价格兜底。';
 });
 const displayedSummary = computed(() => {
-  // 后端负责权威汇总口径；前端仅在用户切换币种时按当前展示汇率换算金额字段。
+  // 统计块跟随当前资产类型和关键词筛选，全部则统计所有基金、股票、虚拟货币。
+  const totalCost = sumDisplayed('totalCost');
+  const floatingProfit = sumDisplayed('floatingProfit');
   return {
     totalMarketValue: sumDisplayed('marketValue'),
     todayProfit: sumDisplayed('todayProfit'),
     yesterdayProfit: sumDisplayed('yesterdayProfit'),
-    floatingProfit: sumDisplayed('floatingProfit')
+    floatingProfit,
+    floatingProfitRate: rate4(floatingProfit, totalCost),
+    holdingCount: filteredHoldings.value.length
   };
 });
 
@@ -390,7 +416,6 @@ async function loadHoldings() {
   loading.value = true;
   try {
     holdings.value = await investmentApi.listHoldings();
-    summary.value = await investmentApi.summaryHoldings();
     transactions.value = await investmentApi.listTransactions();
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '投资明细加载失败');
@@ -403,20 +428,27 @@ async function loadPageData() {
   loading.value = true;
   try {
     // 交易弹窗需要展示当前用户资金账户，后端仍会再次校验 accountId 归属。
-    const [holdingList, holdingSummary, accountList, transactionList] = await Promise.all([
+    const [holdingList, accountList, transactionList] = await Promise.all([
       investmentApi.listHoldings(),
-      investmentApi.summaryHoldings(),
       accountApi.list(),
       investmentApi.listTransactions()
     ]);
     holdings.value = holdingList;
-    summary.value = holdingSummary;
     accounts.value = accountList;
     transactions.value = transactionList;
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '投资明细加载失败');
   } finally {
     loading.value = false;
+  }
+}
+
+async function loadExchangeRate() {
+  try {
+    const result = await exchangeRateApi.usdCny();
+    usdCnyRate.value = Number(result.rate || usdCnyRate.value);
+  } catch {
+    // 汇率接口失败时保留默认值，避免影响投资明细主流程。
   }
 }
 
@@ -695,6 +727,10 @@ function resetPage() {
   pageNo.value = 1;
 }
 
+function columnVisible(key: string) {
+  return visibleColumnKeys.value.includes(key);
+}
+
 function typeLabel(type?: string | null) {
   return ({ FUND: '基金', STOCK: '股票', CRYPTO: '虚拟货币', OTHER: '其他' } as Record<string, string>)[type || ''] || '-';
 }
@@ -751,8 +787,12 @@ function profitTone(value: number): 'success' | 'danger' | 'primary' {
   return 'primary';
 }
 
-function sumDisplayed(field: 'marketValue' | 'todayProfit' | 'yesterdayProfit' | 'floatingProfit') {
-  return round4(holdings.value.reduce((total, item) => total + displayValue(Number(item[field] || 0), item.currency, 4), 0));
+function sumDisplayed(field: 'marketValue' | 'totalCost' | 'todayProfit' | 'yesterdayProfit' | 'floatingProfit') {
+  return round4(filteredHoldings.value.reduce((total, item) => total + displayValue(Number(item[field] || 0), item.currency, 4), 0));
+}
+
+function rate4(profit: number, cost: number) {
+  return cost <= 0 ? 0 : round4((profit / cost) * 100);
 }
 
 function pricePrecision(row: HoldingItem) {
@@ -784,7 +824,7 @@ function roundTo(value: number, precision: number) {
 
 .filter-panel {
   display: grid;
-  grid-template-columns: auto minmax(220px, 320px);
+  grid-template-columns: auto minmax(220px, 320px) minmax(220px, 300px);
   gap: 12px;
   padding: 16px;
   align-items: center;
@@ -792,8 +832,18 @@ function roundTo(value: number, precision: number) {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(170px, 1fr));
   gap: 16px;
+}
+
+.summary-grid :deep(.metric-card) {
+  min-width: 0;
+}
+
+.summary-grid :deep(.metric-value) {
+  overflow-wrap: anywhere;
+  font-size: clamp(20px, 1.7vw, 26px);
+  line-height: 1.18;
 }
 
 .transactions-panel {
@@ -867,8 +917,13 @@ function roundTo(value: number, precision: number) {
   font-size: 12px;
 }
 
-.rate-input {
-  width: 130px;
+.currency-select,
+.column-select {
+  width: 120px;
+}
+
+.column-select {
+  width: 100%;
 }
 
 .muted-line {
