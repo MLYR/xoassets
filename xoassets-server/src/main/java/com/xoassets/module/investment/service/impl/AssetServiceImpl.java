@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +35,7 @@ import org.springframework.web.client.RestClientException;
 /**
  * 公共资产服务实现。
  */
+@Slf4j
 @Service
 public class AssetServiceImpl implements AssetService {
 
@@ -215,6 +217,8 @@ public class AssetServiceImpl implements AssetService {
         } catch (BusinessException exception) {
             throw exception;
         } catch (Exception exception) {
+            log.warn("虚拟货币资产信息查询失败 source=COINGECKO, keyword={}, coinId={}, message={}",
+                    safeLog(keyword), safeLog(coinId), exception.getMessage(), exception);
             throw new BusinessException(ErrorCode.BUSINESS_ERROR, "虚拟货币资产信息查询失败");
         }
     }
@@ -234,7 +238,11 @@ public class AssetServiceImpl implements AssetService {
                     .body(byte[].class);
             // 天天基金接口返回 UTF-8 JSONP，显式按 UTF-8 解码，避免基金名称变成乱码。
             String body = new String(bytes == null ? new byte[0] : bytes, StandardCharsets.UTF_8);
-            JsonNode node = objectMapper.readTree(jsonBody(body));
+            JsonNode node = objectMapper.readTree(jsonBody(body, "EASTMONEY", code));
+            if (!StringUtils.hasText(node.path("dwjz").asText(null))) {
+                log.warn("基金资产信息查询缺少单位净值 source=EASTMONEY, code={}, response={}", safeLog(code), abbreviate(body));
+                throw new BusinessException(ErrorCode.BUSINESS_ERROR, "基金资产信息查询失败");
+            }
             BigDecimal price = decimal(node.path("dwjz"), 8);
             BigDecimal changePercent = decimalOrNull(node.path("gszzl"), 4);
             return List.of(AssetLookupVO.builder()
@@ -253,6 +261,8 @@ public class AssetServiceImpl implements AssetService {
         } catch (BusinessException exception) {
             throw exception;
         } catch (Exception exception) {
+            log.warn("基金资产信息查询失败 source=EASTMONEY, code={}, message={}",
+                    safeLog(code), exception.getMessage(), exception);
             throw new BusinessException(ErrorCode.BUSINESS_ERROR, "基金资产信息查询失败");
         }
     }
@@ -279,6 +289,8 @@ public class AssetServiceImpl implements AssetService {
             String body = new String(bytes == null ? new byte[0] : bytes, Charset.forName("GBK"));
             String[] fields = quotePayload(body).split(",");
             if (fields.length < 32 || !StringUtils.hasText(fields[3])) {
+                log.warn("A股资产信息查询响应无效 source=SINA, keyword={}, market={}, sinaKey={}, response={}",
+                        safeLog(keyword), safeLog(market), safeLog(sinaKey), abbreviate(body));
                 throw new BusinessException(ErrorCode.BUSINESS_ERROR, "股票资产信息查询失败");
             }
             BigDecimal previousClose = new BigDecimal(fields[2]).setScale(8, RoundingMode.HALF_UP);
@@ -299,6 +311,8 @@ public class AssetServiceImpl implements AssetService {
         } catch (BusinessException exception) {
             throw exception;
         } catch (Exception exception) {
+            log.warn("A股资产信息查询失败 source=SINA, keyword={}, market={}, sinaKey={}, message={}",
+                    safeLog(keyword), safeLog(market), safeLog(sinaKey), exception.getMessage(), exception);
             throw new BusinessException(ErrorCode.BUSINESS_ERROR, "股票资产信息查询失败");
         }
     }
@@ -334,6 +348,8 @@ public class AssetServiceImpl implements AssetService {
         } catch (BusinessException exception) {
             throw exception;
         } catch (Exception exception) {
+            log.warn("美股资产信息查询失败 source=YAHOO, keyword={}, symbol={}, message={}",
+                    safeLog(keyword), safeLog(symbol), exception.getMessage(), exception);
             throw new BusinessException(ErrorCode.BUSINESS_ERROR, "股票资产信息查询失败");
         }
     }
@@ -389,12 +405,21 @@ public class AssetServiceImpl implements AssetService {
     }
 
     private String jsonBody(String body) {
+        return jsonBody(body, "UNKNOWN", null);
+    }
+
+    /**
+     * 从 JSONP 响应中截取 JSON，并在失败时记录来源和响应摘要。
+     */
+    private String jsonBody(String body, String source, String key) {
         if (!StringUtils.hasText(body)) {
+            log.warn("行情响应为空 source={}, key={}", source, safeLog(key));
             throw new BusinessException(ErrorCode.BUSINESS_ERROR, "行情响应为空");
         }
         int start = body.indexOf('{');
         int end = body.lastIndexOf('}');
         if (start < 0 || end <= start) {
+            log.warn("行情格式不正确 source={}, key={}, response={}", source, safeLog(key), abbreviate(body));
             throw new BusinessException(ErrorCode.BUSINESS_ERROR, "行情格式不正确");
         }
         return body.substring(start, end + 1);
@@ -404,6 +429,7 @@ public class AssetServiceImpl implements AssetService {
         int start = body.indexOf('"');
         int end = body.lastIndexOf('"');
         if (start < 0 || end <= start) {
+            log.warn("股票行情响应格式不正确 response={}", abbreviate(body));
             throw new BusinessException(ErrorCode.BUSINESS_ERROR, "股票行情格式不正确");
         }
         return body.substring(start + 1, end);
@@ -440,6 +466,24 @@ public class AssetServiceImpl implements AssetService {
             return null;
         }
         return price.subtract(previousClose).multiply(BigDecimal.valueOf(100)).divide(previousClose, 4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 日志中只保留排查必要的短文本，避免第三方响应过长刷屏。
+     */
+    private String abbreviate(String value) {
+        if (value == null) {
+            return "";
+        }
+        String compact = value.replaceAll("\\s+", " ").trim();
+        return compact.length() > 300 ? compact.substring(0, 300) + "..." : compact;
+    }
+
+    /**
+     * 外部输入写日志前做长度限制，避免异常日志被超长参数污染。
+     */
+    private String safeLog(String value) {
+        return abbreviate(value);
     }
 
     /**
