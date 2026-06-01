@@ -43,10 +43,10 @@ VALUES
   (1300000000000000004, 1000000000000000001, 'REFUND', 20.0000, 1100000000000000002, NULL, 1200000000000000101, 1300000000000000002, '2026-05-12 10:00:00', '餐饮优惠退款', NULL, 1, NOW(), NOW(), 0),
   (1300000000000000101, 1000000000000000002, 'EXPENSE', 10.0000, 1100000000000000101, NULL, 1200000000000000201, NULL, '2026-05-08 12:30:00', '隔离用户流水', NULL, 1, NOW(), NOW(), 0);
 
-INSERT INTO xo_asset (id, symbol, name, type, currency, quote_source, quote_key, status, created_at, updated_at, deleted)
+INSERT INTO xo_asset (id, symbol, name, type, market, currency, quote_source, quote_key, status, created_at, updated_at, deleted)
 VALUES
-  (1400000000000000001, 'DOGE', 'Dogecoin', 'CRYPTO', 'USD', 'COINGECKO', 'DOGE', 1, NOW(), NOW(), 0),
-  (1400000000000000002, '510300', '沪深300ETF', 'FUND', 'CNY', 'MANUAL', '510300', 1, NOW(), NOW(), 0);
+  (1400000000000000001, 'DOGE', 'Dogecoin', 'CRYPTO', 'CRYPTO', 'USD', 'COINGECKO', 'DOGE', 1, NOW(), NOW(), 0),
+  (1400000000000000002, '510300', '沪深300ETF', 'FUND', 'CN_FUND', 'CNY', 'MANUAL', '510300', 1, NOW(), NOW(), 0);
 
 INSERT INTO xo_holding (id, user_id, asset_id, quantity, avg_cost, total_cost, remark, status, created_at, updated_at, deleted)
 VALUES

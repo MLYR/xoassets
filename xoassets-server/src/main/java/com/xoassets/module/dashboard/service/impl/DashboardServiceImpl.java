@@ -62,16 +62,12 @@ public class DashboardServiceImpl implements DashboardService {
         YearMonth targetMonth = month == null ? YearMonth.now() : month;
         YearMonth previousMonth = targetMonth.minusMonths(1);
 
-        BigDecimal accountAssets = accountMapper.selectList(new LambdaQueryWrapper<Account>()
-                        .eq(Account::getUserId, userId)
-                        .eq(Account::getStatus, 1))
-                .stream()
-                .map(Account::getBalance)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        AccountAssetSummary accountSummary = accountAssetSummary(userId);
         List<HoldingVO> holdings = holdingService.list();
         BigDecimal investmentMarketValue = holdings.stream().map(HoldingVO::getMarketValue).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal investmentFloatingProfit = holdings.stream().map(HoldingVO::getFloatingProfit).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal totalAssets = accountAssets.add(investmentMarketValue);
+        BigDecimal totalAssets = accountSummary.cashAsset().add(investmentMarketValue);
+        BigDecimal netAssets = totalAssets.subtract(accountSummary.liability());
         BigDecimal budgetUsageRate = safeBudgetUsageRate(targetMonth);
 
         BigDecimal monthlyIncome = sumIncome(userId, targetMonth);
@@ -85,7 +81,7 @@ public class DashboardServiceImpl implements DashboardService {
 
         return DashboardOverviewVO.builder()
                 .totalAssets(totalAssets)
-                .netAssets(totalAssets)
+                .netAssets(netAssets)
                 .todayExpense(todayExpense)
                 .monthlyIncome(monthlyIncome)
                 .monthlyExpense(monthlyExpense)
@@ -169,6 +165,26 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     /**
+     * 账户余额按财务口径拆分：正余额是现金资产，负余额绝对值是负债。
+     */
+    private AccountAssetSummary accountAssetSummary(Long userId) {
+        BigDecimal cashAsset = BigDecimal.ZERO;
+        BigDecimal liability = BigDecimal.ZERO;
+        List<Account> accounts = accountMapper.selectList(new LambdaQueryWrapper<Account>()
+                .eq(Account::getUserId, userId)
+                .eq(Account::getStatus, 1));
+        for (Account account : accounts) {
+            BigDecimal balance = account.getBalance() == null ? BigDecimal.ZERO : account.getBalance();
+            if (balance.compareTo(BigDecimal.ZERO) >= 0) {
+                cashAsset = cashAsset.add(balance);
+            } else {
+                liability = liability.add(balance.abs());
+            }
+        }
+        return new AccountAssetSummary(cashAsset, liability);
+    }
+
+    /**
      * 构造月份时间范围查询条件，包含整月首日到末日。
      */
     private LambdaQueryWrapper<TransactionRecord> monthWrapper(Long userId, YearMonth month) {
@@ -198,5 +214,11 @@ public class DashboardServiceImpl implements DashboardService {
         return current.subtract(previous)
                 .multiply(BigDecimal.valueOf(100))
                 .divide(previous.abs(), 4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 首页资产拆分结果。
+     */
+    private record AccountAssetSummary(BigDecimal cashAsset, BigDecimal liability) {
     }
 }

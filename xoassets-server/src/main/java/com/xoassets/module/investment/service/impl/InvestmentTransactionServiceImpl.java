@@ -72,7 +72,7 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
         ensureType(request.getType());
         assetService.findAsset(request.getAssetId());
         Account account = accountService.findOwnedAccount(request.getAccountId(), userId);
-        BigDecimal quantity = scale4(request.getQuantity());
+        BigDecimal quantity = scaleQuantity(request.getQuantity());
         BigDecimal price = scale4(request.getPrice());
         BigDecimal fee = scale4(request.getFee());
         BigDecimal amount = quantity.multiply(price).setScale(4, RoundingMode.HALF_UP);
@@ -206,10 +206,17 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
     }
 
     /**
-     * 投资交易入库前统一四位小数，确保持仓联动和交易记录金额口径一致。
+     * 投资金额入库前统一四位小数，确保持仓联动和交易记录金额口径一致。
      */
     private BigDecimal scale4(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value.setScale(4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 投资数量保留十位小数，避免虚拟货币数量被截断。
+     */
+    private BigDecimal scaleQuantity(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value.setScale(10, RoundingMode.HALF_UP);
     }
 
     /**

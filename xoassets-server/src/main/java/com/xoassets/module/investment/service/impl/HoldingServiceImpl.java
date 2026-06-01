@@ -146,7 +146,7 @@ public class HoldingServiceImpl implements HoldingService {
     public HoldingVO create(HoldingRequest request) {
         Long userId = LoginUserContext.getUserId();
         Asset asset = resolveAsset(request);
-        BigDecimal quantity = scale4(request.getQuantity());
+        BigDecimal quantity = scaleQuantity(request.getQuantity());
         BigDecimal avgCost = scale4(request.getAvgCost());
         ensureNoDuplicatedHolding(userId, asset.getId(), null);
         Holding holding = new Holding();
@@ -172,7 +172,7 @@ public class HoldingServiceImpl implements HoldingService {
         Long userId = LoginUserContext.getUserId();
         Asset asset = resolveAsset(request);
         Holding holding = findOwnedHolding(id, userId);
-        BigDecimal quantity = scale4(request.getQuantity());
+        BigDecimal quantity = scaleQuantity(request.getQuantity());
         BigDecimal avgCost = scale4(request.getAvgCost());
         ensureNoDuplicatedHolding(userId, asset.getId(), id);
         holding.setAssetId(asset.getId());
@@ -223,7 +223,7 @@ public class HoldingServiceImpl implements HoldingService {
     @Transactional(rollbackFor = Exception.class)
     @Override
     public HoldingTradeResult applyBuy(Long userId, Long holdingId, Long assetId, BigDecimal quantity, BigDecimal price, BigDecimal fee) {
-        quantity = scale4(quantity);
+        quantity = scaleQuantity(quantity);
         price = scale4(price);
         fee = scale4(fee);
         Holding holding = holdingId == null ? findOrCreateHolding(userId, assetId) : findOwnedHolding(holdingId, userId);
@@ -231,7 +231,7 @@ public class HoldingServiceImpl implements HoldingService {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "交易资产与持仓资产不一致");
         }
         BigDecimal buyCost = quantity.multiply(price).add(fee).setScale(4, RoundingMode.HALF_UP);
-        BigDecimal newQuantity = holding.getQuantity().add(quantity);
+        BigDecimal newQuantity = holding.getQuantity().add(quantity).setScale(10, RoundingMode.HALF_UP);
         BigDecimal newTotalCost = holding.getTotalCost().add(buyCost);
         holding.setQuantity(newQuantity);
         holding.setTotalCost(newTotalCost);
@@ -246,7 +246,7 @@ public class HoldingServiceImpl implements HoldingService {
     @Transactional(rollbackFor = Exception.class)
     @Override
     public HoldingTradeResult applySell(Long userId, Long holdingId, Long assetId, BigDecimal quantity, BigDecimal price, BigDecimal fee) {
-        quantity = scale4(quantity);
+        quantity = scaleQuantity(quantity);
         price = scale4(price);
         fee = scale4(fee);
         Holding holding = holdingId == null ? findHoldingByAsset(userId, assetId) : findOwnedHolding(holdingId, userId);
@@ -258,7 +258,7 @@ public class HoldingServiceImpl implements HoldingService {
         }
         BigDecimal sellCost = holding.getAvgCost().multiply(quantity).setScale(4, RoundingMode.HALF_UP);
         BigDecimal realizedProfit = quantity.multiply(price).subtract(fee).subtract(sellCost).setScale(4, RoundingMode.HALF_UP);
-        BigDecimal newQuantity = holding.getQuantity().subtract(quantity);
+        BigDecimal newQuantity = holding.getQuantity().subtract(quantity).setScale(10, RoundingMode.HALF_UP);
         BigDecimal newTotalCost = holding.getTotalCost().subtract(sellCost).max(BigDecimal.ZERO).setScale(4, RoundingMode.HALF_UP);
         holding.setQuantity(newQuantity);
         holding.setTotalCost(newQuantity.compareTo(BigDecimal.ZERO) == 0 ? BigDecimal.ZERO : newTotalCost);
@@ -277,12 +277,12 @@ public class HoldingServiceImpl implements HoldingService {
         if (!Objects.equals(holding.getAssetId(), assetId)) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "交易资产与持仓资产不一致");
         }
-        quantity = scale4(quantity);
+        quantity = scaleQuantity(quantity);
         costAmount = scale4(costAmount);
         if (holding.getQuantity().compareTo(quantity) < 0 || holding.getTotalCost().compareTo(costAmount) < 0) {
             throw new BusinessException(ErrorCode.BUSINESS_ERROR, "持仓不足，无法撤销该买入交易");
         }
-        BigDecimal newQuantity = holding.getQuantity().subtract(quantity).setScale(4, RoundingMode.HALF_UP);
+        BigDecimal newQuantity = holding.getQuantity().subtract(quantity).setScale(10, RoundingMode.HALF_UP);
         BigDecimal newTotalCost = holding.getTotalCost().subtract(costAmount).max(BigDecimal.ZERO).setScale(4, RoundingMode.HALF_UP);
         holding.setQuantity(newQuantity);
         holding.setTotalCost(newQuantity.compareTo(BigDecimal.ZERO) == 0 ? BigDecimal.ZERO : newTotalCost);
@@ -300,9 +300,9 @@ public class HoldingServiceImpl implements HoldingService {
         if (!Objects.equals(holding.getAssetId(), assetId)) {
             throw new BusinessException(ErrorCode.PARAM_ERROR, "交易资产与持仓资产不一致");
         }
-        quantity = scale4(quantity);
+        quantity = scaleQuantity(quantity);
         costAmount = scale4(costAmount);
-        BigDecimal newQuantity = holding.getQuantity().add(quantity).setScale(4, RoundingMode.HALF_UP);
+        BigDecimal newQuantity = holding.getQuantity().add(quantity).setScale(10, RoundingMode.HALF_UP);
         BigDecimal newTotalCost = holding.getTotalCost().add(costAmount).setScale(4, RoundingMode.HALF_UP);
         holding.setQuantity(newQuantity);
         holding.setTotalCost(newTotalCost);
@@ -356,10 +356,17 @@ public class HoldingServiceImpl implements HoldingService {
     }
 
     /**
-     * 投资模块统一按四位小数参与持仓和成本计算，避免不同入口传入精度不一致。
+     * 投资金额统一按四位小数计算，保持成本、市值和盈亏口径稳定。
      */
     private BigDecimal scale4(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value.setScale(4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 投资数量保留十位小数，满足虚拟货币小额持仓记录需求。
+     */
+    private BigDecimal scaleQuantity(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value.setScale(10, RoundingMode.HALF_UP);
     }
 
     /**
@@ -433,6 +440,7 @@ public class HoldingServiceImpl implements HoldingService {
                 .assetName(asset == null ? null : asset.getName())
                 .symbol(asset == null ? null : asset.getSymbol())
                 .assetType(asset == null ? null : asset.getType())
+                .market(asset == null ? null : asset.getMarket())
                 .quoteSource(asset == null ? null : asset.getQuoteSource())
                 .currency(asset == null ? null : asset.getCurrency())
                 .quantity(holding.getQuantity())
@@ -683,6 +691,7 @@ public class HoldingServiceImpl implements HoldingService {
         String type = request.getAssetType();
         Asset exists = assetMapper.selectOne(new LambdaQueryWrapper<Asset>()
                 .eq(Asset::getType, type)
+                .eq(Asset::getMarket, normalizeMarket(type, request.getMarket(), symbol))
                 .eq(Asset::getSymbol, symbol)
                 .last("LIMIT 1"));
         if (exists != null) {
@@ -692,6 +701,7 @@ public class HoldingServiceImpl implements HoldingService {
         asset.setSymbol(symbol);
         asset.setName(request.getAssetName().trim());
         asset.setType(type);
+        asset.setMarket(normalizeMarket(type, request.getMarket(), symbol));
         asset.setCurrency(request.getCurrency());
         asset.setQuoteSource(request.getQuoteSource());
         asset.setQuoteKey(StringUtils.hasText(request.getQuoteKey()) ? request.getQuoteKey().trim() : symbol);
@@ -739,6 +749,29 @@ public class HoldingServiceImpl implements HoldingService {
             return false;
         }
         return Objects.equals(asset.getCurrency(), price.getCurrency());
+    }
+
+    /**
+     * 市场字段用于区分同代码不同市场资产；手动录入时按类型给出低认知默认值。
+     */
+    private String normalizeMarket(String type, String market, String symbol) {
+        if (StringUtils.hasText(market)) {
+            return market.trim().toUpperCase();
+        }
+        if ("CRYPTO".equals(type)) {
+            return "CRYPTO";
+        }
+        if ("FUND".equals(type)) {
+            return "CN_FUND";
+        }
+        if ("STOCK".equals(type) && StringUtils.hasText(symbol)) {
+            String normalized = symbol.trim().toUpperCase();
+            if (normalized.endsWith(".SH")) return "SH";
+            if (normalized.endsWith(".SZ")) return "SZ";
+            if (normalized.endsWith(".BJ")) return "BJ";
+            return normalized.matches("\\d{6}") ? (normalized.startsWith("6") ? "SH" : "SZ") : "US";
+        }
+        return "UNKNOWN";
     }
 
     /**

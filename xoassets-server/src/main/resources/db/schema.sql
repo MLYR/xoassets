@@ -81,6 +81,7 @@ CREATE TABLE IF NOT EXISTS xo_asset (
   symbol VARCHAR(80) NOT NULL COMMENT '资产代码',
   name VARCHAR(120) NOT NULL COMMENT '资产名称',
   type VARCHAR(20) NOT NULL COMMENT '资产类型：STOCK FUND CRYPTO OTHER',
+  market VARCHAR(30) NOT NULL DEFAULT 'UNKNOWN' COMMENT '交易市场：SH SZ BJ US CN_FUND CRYPTO UNKNOWN',
   currency VARCHAR(10) NOT NULL DEFAULT 'CNY' COMMENT '计价币种',
   quote_source VARCHAR(30) NOT NULL DEFAULT 'MANUAL' COMMENT '行情来源：MANUAL COINGECKO EASTMONEY SINA YAHOO ALPHA_VANTAGE TUSHARE AKSHARE',
   quote_key VARCHAR(120) DEFAULT NULL COMMENT '外部行情查询键',
@@ -89,15 +90,16 @@ CREATE TABLE IF NOT EXISTS xo_asset (
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除：0否 1是',
   KEY idx_type_symbol (type, symbol),
+  KEY idx_type_market_symbol (type, market, symbol),
   KEY idx_name (name),
-  UNIQUE KEY uk_type_symbol_deleted (type, symbol, deleted)
+  UNIQUE KEY uk_type_market_symbol_deleted (type, market, symbol, deleted)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='公共资产基础表';
 
 CREATE TABLE IF NOT EXISTS xo_holding (
   id BIGINT PRIMARY KEY COMMENT '持仓ID',
   user_id BIGINT NOT NULL COMMENT '用户ID',
   asset_id BIGINT NOT NULL COMMENT '资产ID',
-  quantity DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '持仓数量，投资计算统一四位小数',
+  quantity DECIMAL(28,10) NOT NULL DEFAULT 0 COMMENT '持仓数量，虚拟货币最多保留十位小数',
   avg_cost DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '移动平均成本单价',
   total_cost DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '持仓总成本',
   remark VARCHAR(255) DEFAULT NULL COMMENT '备注',
@@ -116,7 +118,7 @@ CREATE TABLE IF NOT EXISTS xo_investment_transaction (
   asset_id BIGINT NOT NULL COMMENT '资产ID',
   account_id BIGINT NOT NULL COMMENT '资金账户ID',
   type VARCHAR(20) NOT NULL COMMENT '交易类型：BUY SELL',
-  quantity DECIMAL(18,4) NOT NULL COMMENT '交易数量，投资计算统一四位小数',
+  quantity DECIMAL(28,10) NOT NULL COMMENT '交易数量，虚拟货币最多保留十位小数',
   price DECIMAL(18,4) NOT NULL COMMENT '成交单价',
   amount DECIMAL(18,4) NOT NULL COMMENT '成交金额',
   fee DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '手续费',

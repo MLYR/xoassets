@@ -43,7 +43,7 @@
             <template #default="{ row }"><StatusBadge :label="typeLabel(row.assetType)" /></template>
           </el-table-column>
           <el-table-column label="数量" min-width="130" align="right" header-align="right">
-            <template #default="{ row }"><span class="numeric-cell">{{ formatQuantity(row.quantity) }}</span></template>
+            <template #default="{ row }"><span class="numeric-cell">{{ formatQuantity(row.quantity, row.assetType) }}</span></template>
           </el-table-column>
           <el-table-column label="成本价" min-width="130" align="right" header-align="right">
             <template #default="{ row }"><AmountText class="numeric-cell" :value="displayValue(row.avgCost, row.currency, 4)" :precision="4" :currency-symbol="currencySymbol" /></template>
@@ -122,7 +122,7 @@
             <small class="form-tip">{{ quoteKeyTip }}</small>
           </el-form-item>
           <div v-if="lookupResults.length > 0" class="lookup-results">
-            <button v-for="item in lookupResults" :key="`${item.assetType}-${item.symbol}-${item.quoteSource}`" type="button" class="lookup-item" @click="applyLookupResult(item)">
+            <button v-for="item in lookupResults" :key="`${item.assetType}-${item.market}-${item.symbol}-${item.quoteSource}`" type="button" class="lookup-item" @click="applyLookupResult(item)">
               <strong>{{ item.name }}</strong>
               <span>{{ item.symbol }} · {{ item.market || '-' }} · {{ item.currency }} · {{ item.quoteSource }}</span>
               <span v-if="item.latestPrice">当前价 {{ formatLookupPrice(item) }} · {{ formatTableTime(item.quoteTime) || '暂无时间' }}</span>
@@ -140,6 +140,7 @@
               <el-option label="其他" value="OTHER" />
             </el-select>
           </el-form-item>
+          <el-form-item label="市场"><el-input v-model.trim="holdingForm.market" placeholder="自动识别，例如 SH / US / CN_FUND / CRYPTO" /></el-form-item>
           <el-form-item label="币种">
             <el-select v-model="holdingForm.currency" class="full-width">
               <el-option label="人民币 CNY" value="CNY" />
@@ -164,7 +165,7 @@
             <el-input v-model.trim="holdingForm.quoteKey" :placeholder="quoteKeyPlaceholder" />
             <small class="form-tip">{{ quoteKeyTip }}</small>
           </el-form-item>
-          <el-form-item label="数量"><el-input-number v-model="holdingForm.quantity" class="full-width" :min="0.0001" :precision="4" /></el-form-item>
+          <el-form-item label="数量"><el-input-number v-model="holdingForm.quantity" class="full-width" :min="quantityMin" :precision="quantityPrecision" /></el-form-item>
           <el-form-item label="平均成本"><el-input-number v-model="holdingForm.avgCost" class="full-width" :min="0" :precision="4" /></el-form-item>
           <el-form-item label="当前价格"><el-input-number v-model="holdingForm.latestPrice" class="full-width" :min="0" :precision="formPricePrecision" /></el-form-item>
         </div>
@@ -184,7 +185,7 @@
             <el-option v-for="account in accounts" :key="account.id" :label="`${account.name} · ${account.balance.toFixed(2)} ${account.currency}`" :value="account.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="数量"><el-input-number v-model="tradeForm.quantity" class="full-width" :min="0.0001" :precision="4" /></el-form-item>
+        <el-form-item label="数量"><el-input-number v-model="tradeForm.quantity" class="full-width" :min="tradeQuantityMin" :precision="tradeQuantityPrecision" /></el-form-item>
         <el-form-item label="价格"><el-input-number v-model="tradeForm.price" class="full-width" :min="0.000001" :precision="activePricePrecision" /></el-form-item>
         <el-form-item label="手续费"><el-input-number v-model="tradeForm.fee" class="full-width" :min="0" :precision="4" /></el-form-item>
         <el-form-item label="交易时间"><el-date-picker v-model="tradeForm.transactionTime" type="datetime" class="full-width" /></el-form-item>
@@ -303,6 +304,7 @@ const holdingForm = reactive<Required<Omit<HoldingRequest, 'assetId'>>>({
   assetName: '',
   symbol: '',
   assetType: 'FUND',
+  market: 'CN_FUND',
   currency: 'CNY',
   quoteSource: 'MANUAL',
   quoteKey: '',
@@ -327,14 +329,17 @@ watch(
   (assetType) => {
     // 新增虚拟货币时默认使用 USD，已有持仓编辑时保留原币种避免误改历史口径。
     if (!editingHolding.value && assetType === 'CRYPTO') {
+      holdingForm.market = 'CRYPTO';
       holdingForm.currency = 'USD';
       holdingForm.quoteSource = 'COINGECKO';
     }
     if (!editingHolding.value && assetType === 'FUND') {
+      holdingForm.market = 'CN_FUND';
       holdingForm.currency = 'CNY';
       holdingForm.quoteSource = 'EASTMONEY';
     }
     if (!editingHolding.value && assetType === 'STOCK') {
+      holdingForm.market = '';
       holdingForm.quoteSource = 'SINA';
     }
   }
@@ -353,6 +358,10 @@ const pagedHoldings = computed(() => {
 });
 const activePricePrecision = computed(() => activeHolding.value ? pricePrecision(activeHolding.value) : 4);
 const formPricePrecision = computed(() => holdingForm.assetType === 'CRYPTO' ? 8 : 4);
+const quantityPrecision = computed(() => holdingForm.assetType === 'CRYPTO' ? 10 : 4);
+const quantityMin = computed(() => holdingForm.assetType === 'CRYPTO' ? 0.0000000001 : 0.0001);
+const tradeQuantityPrecision = computed(() => activeHolding.value?.assetType === 'CRYPTO' ? 10 : 4);
+const tradeQuantityMin = computed(() => activeHolding.value?.assetType === 'CRYPTO' ? 0.0000000001 : 0.0001);
 const quoteKeyPlaceholder = computed(() => {
   if (holdingForm.assetType === 'CRYPTO') return 'bitcoin / ethereum / dogecoin';
   if (holdingForm.assetType === 'FUND') return '000001';
@@ -416,6 +425,7 @@ function openHoldingDialog(holding?: HoldingItem) {
   holdingForm.assetName = holding?.assetName || '';
   holdingForm.symbol = holding?.symbol || '';
   holdingForm.assetType = holding?.assetType || 'FUND';
+  holdingForm.market = holding?.market || defaultMarket(holdingForm.assetType, holdingForm.symbol);
   holdingForm.currency = holding?.currency || (holdingForm.assetType === 'CRYPTO' ? 'USD' : 'CNY');
   holdingForm.quoteSource = holding?.quoteSource || defaultQuoteSource(holdingForm.assetType);
   holdingForm.quoteKey = holding?.symbol || '';
@@ -424,7 +434,7 @@ function openHoldingDialog(holding?: HoldingItem) {
   holdingForm.changePercent = null;
   holdingForm.quoteTime = null;
   holdingForm.marketStatus = '';
-  holdingForm.quantity = round4(Number(holding?.quantity || 0));
+  holdingForm.quantity = roundQuantity(Number(holding?.quantity || 0), holdingForm.assetType);
   holdingForm.avgCost = round4(Number(holding?.avgCost || 0));
   holdingForm.remark = holding?.remark || '';
   lookupKeyword.value = '';
@@ -447,6 +457,20 @@ function defaultQuoteSource(assetType: AssetType): QuoteSource {
   if (assetType === 'FUND') return 'EASTMONEY';
   if (assetType === 'STOCK') return 'SINA';
   return 'MANUAL';
+}
+
+function defaultMarket(assetType: AssetType, symbol = '') {
+  // 市场字段给后端区分同代码资产，用户手动录入时提供可理解的默认值。
+  if (assetType === 'CRYPTO') return 'CRYPTO';
+  if (assetType === 'FUND') return 'CN_FUND';
+  if (assetType === 'STOCK') {
+    const normalized = symbol.toUpperCase();
+    if (normalized.endsWith('.SH')) return 'SH';
+    if (normalized.endsWith('.SZ')) return 'SZ';
+    if (normalized.endsWith('.BJ')) return 'BJ';
+    return normalized && !/^\d{6}$/.test(normalized) ? 'US' : '';
+  }
+  return 'UNKNOWN';
 }
 
 async function handleLookupAsset() {
@@ -477,6 +501,7 @@ function applyLookupResult(item: AssetLookupItem) {
   holdingForm.assetName = item.name;
   holdingForm.symbol = item.symbol;
   holdingForm.assetType = item.assetType;
+  holdingForm.market = item.market || defaultMarket(item.assetType, item.symbol);
   holdingForm.currency = item.currency;
   holdingForm.quoteSource = item.quoteSource;
   holdingForm.quoteKey = item.quoteKey;
@@ -484,7 +509,7 @@ function applyLookupResult(item: AssetLookupItem) {
   holdingForm.previousClose = item.previousClose ?? null;
   holdingForm.changePercent = item.changePercent ?? null;
   holdingForm.quoteTime = item.quoteTime || null;
-  holdingForm.marketStatus = item.market || 'LOOKUP';
+  holdingForm.marketStatus = 'LOOKUP';
   if (!holdingForm.avgCost && item.latestPrice) {
     holdingForm.avgCost = roundTo(item.latestPrice, 4);
   }
@@ -499,7 +524,7 @@ async function handleSaveHolding() {
   }
   submitting.value = true;
   try {
-    const payload = { ...holdingForm, quantity: round4(holdingForm.quantity), avgCost: round4(holdingForm.avgCost) };
+    const payload = { ...holdingForm, quantity: roundQuantity(holdingForm.quantity, holdingForm.assetType), avgCost: round4(holdingForm.avgCost) };
     if (editingHolding.value) {
       await investmentApi.updateHolding(editingHolding.value.id, payload);
     } else {
@@ -546,7 +571,7 @@ async function handleCreateTrade() {
       assetId: activeHolding.value.assetId,
       accountId: tradeForm.accountId,
       type: tradeForm.type,
-      quantity: round4(tradeForm.quantity),
+      quantity: roundQuantity(tradeForm.quantity, activeHolding.value.assetType || 'OTHER'),
       price: roundTo(tradeForm.price, activePricePrecision.value),
       fee: round4(tradeForm.fee),
       transactionTime: formatDateTime(tradeForm.transactionTime),
@@ -683,8 +708,9 @@ function formatTableTime(value?: string | null) {
   return value ? value.replace('T', ' ').slice(0, 16) : '';
 }
 
-function formatQuantity(value: number) {
-  return round4(Number(value)).toLocaleString('zh-CN', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+function formatQuantity(value: number, assetType?: AssetType | null) {
+  const precision = assetType === 'CRYPTO' ? 10 : 4;
+  return roundTo(Number(value), precision).toLocaleString('zh-CN', { minimumFractionDigits: assetType === 'CRYPTO' ? 0 : 4, maximumFractionDigits: precision });
 }
 
 function formatOptionalPrice(value: number | null | undefined, row: HoldingItem) {
@@ -736,6 +762,10 @@ function pricePrecision(row: HoldingItem) {
 
 function round4(value: number) {
   return roundTo(value, 4);
+}
+
+function roundQuantity(value: number, assetType?: AssetType | null) {
+  return roundTo(value, assetType === 'CRYPTO' ? 10 : 4);
 }
 
 function roundTo(value: number, precision: number) {

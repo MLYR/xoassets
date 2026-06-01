@@ -143,9 +143,10 @@ http://localhost:8080/doc.html
 - 投资买入必须选择扣款账户并扣减账户余额；投资卖出必须选择到账账户并增加账户余额，已实现盈亏写入投资交易记录。
 - 投资交易、资金账户和持仓联动在同一事务中完成，避免交易记录与账户余额、持仓数量、成本不一致。
 - 投资交易支持撤销，不物理删除；撤销状态写入 `status = REVOKED`，账户余额和持仓通过原交易 `cost_amount` 反向恢复。
-- 投资数量、手续费、持仓成本、市值、盈亏和收益率统一按 4 位小数归一化后计算，避免不同调用入口产生精度口径差异。
+- 投资数量统一保留 10 位小数，手续费、持仓成本、市值、盈亏和收益率统一按 4 位小数归一化后计算，避免不同调用入口产生精度口径差异。
 - 持仓接口返回最新价、昨价、前日价、今日收益、昨日收益、浮动盈亏、收益率、回本涨幅和报价时间；缺少历史价格时收益分析字段允许为空。
 - 行情价格快照使用 `DECIMAL(28,8)`，第三方行情和手动报价入库前统一保留 8 位；`xo_asset_price` 记录 `previous_close`、`change_amount`、`change_percent`、`market_status`，持仓返回 `priceScale`，CRYPTO 当前价至少展示 6 位，FUND / STOCK 展示 4 位。
+- 公共资产表 `xo_asset` 使用 `market` 区分交易市场，股票为 `SH` / `SZ` / `BJ` / `US`，基金为 `CN_FUND`，虚拟货币为 `CRYPTO`；唯一性按 `type + market + symbol + deleted` 控制。
 - 持仓估值使用与资产币种一致的最近价格；没有价格或价格币种不一致时使用平均成本兜底，避免当前价和市值口径不一致。
 - 行情刷新通过 `QuoteProvider` 抽象扩展；当前支持 `ManualQuoteProvider`、`CoinGeckoQuoteProvider`、`EastMoneyFundQuoteProvider`、`StockQuoteProvider`。
 - `GET /api/assets/lookup` 支持新增持仓时按类型查询基金、股票、虚拟货币基础信息和当前价格；前端选择结果后保存持仓，后端创建或复用 `xo_asset` 并写入 `xo_asset_price`。

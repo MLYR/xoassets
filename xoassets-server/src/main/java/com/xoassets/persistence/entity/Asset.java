@@ -18,6 +18,7 @@ public class Asset {
     private String symbol;
     private String name;
     private String type;
+    private String market;
     private String currency;
     private String quoteSource;
     private String quoteKey;

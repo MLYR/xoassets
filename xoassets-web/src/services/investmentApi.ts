@@ -10,6 +10,7 @@ export interface AssetItem {
   symbol: string;
   name: string;
   type: AssetType;
+  market?: string | null;
   currency: string;
   quoteSource: QuoteSource;
   quoteKey?: string | null;
@@ -33,6 +34,7 @@ export interface AssetRequest {
   symbol: string;
   name: string;
   type: AssetType;
+  market?: string;
   currency: string;
   quoteSource: QuoteSource;
   quoteKey?: string;
@@ -44,6 +46,7 @@ export interface HoldingItem {
   assetName: string | null;
   symbol: string | null;
   assetType: AssetType | null;
+  market?: string | null;
   quoteSource: QuoteSource | null;
   currency: string | null;
   quantity: number;
@@ -118,6 +121,7 @@ export interface HoldingRequest {
   assetName?: string;
   symbol?: string;
   assetType?: AssetType;
+  market?: string;
   currency?: string;
   quoteSource?: QuoteSource;
   quoteKey?: string;

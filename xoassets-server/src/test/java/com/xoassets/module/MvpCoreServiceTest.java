@@ -46,6 +46,7 @@ import com.xoassets.persistence.entity.TransactionRecord;
 import com.xoassets.persistence.mapper.AccountMapper;
 import com.xoassets.persistence.mapper.AssetMapper;
 import com.xoassets.persistence.mapper.AssetPriceMapper;
+import com.xoassets.persistence.mapper.AssetSnapshotMapper;
 import com.xoassets.persistence.mapper.BudgetMapper;
 import com.xoassets.persistence.mapper.CategoryMapper;
 import com.xoassets.persistence.mapper.HoldingMapper;
@@ -130,12 +131,12 @@ class MvpCoreServiceTest {
 
         when(holdingMapper.selectOne(any())).thenReturn(holding);
         service.applyBuy(USER_ID, 1L, 10L, bd("10.0000"), bd("20.0000"), bd("0.0000"));
-        assertEquals(bd("20.0000"), holding.getQuantity());
+        assertEquals(bd("20.0000000000"), holding.getQuantity());
         assertEquals(bd("300.0000"), holding.getTotalCost());
         assertEquals(bd("15.0000"), holding.getAvgCost());
 
         service.applySell(USER_ID, 1L, 10L, bd("5.0000"), bd("18.0000"), bd("0.0000"));
-        assertEquals(bd("15.0000"), holding.getQuantity());
+        assertEquals(bd("15.0000000000"), holding.getQuantity());
         assertEquals(bd("225.0000"), holding.getTotalCost());
 
         assertThrows(BusinessException.class, () -> service.applySell(USER_ID, 1L, 10L, bd("20.0000"), bd("18.0000"), bd("0.0000")));
@@ -176,19 +177,19 @@ class MvpCoreServiceTest {
 
         transactionService.create(investmentTransaction("BUY", 1L, 10L, 1L, "100.0000", "10.0000", "2.0000"));
         assertEquals(bd("8998.0000"), bank.getBalance());
-        assertEquals(bd("100.0000"), holding.getQuantity());
+        assertEquals(bd("100.0000000000"), holding.getQuantity());
         assertEquals(bd("1002.0000"), holding.getTotalCost());
         assertEquals(bd("10.0200"), holding.getAvgCost());
 
         transactionService.create(investmentTransaction("BUY", 1L, 10L, 1L, "100.0000", "8.0000", "2.0000"));
         assertEquals(bd("8196.0000"), bank.getBalance());
-        assertEquals(bd("200.0000"), holding.getQuantity());
+        assertEquals(bd("200.0000000000"), holding.getQuantity());
         assertEquals(bd("1804.0000"), holding.getTotalCost());
         assertEquals(bd("9.0200"), holding.getAvgCost());
 
         InvestmentTransactionVO sell = transactionService.create(investmentTransaction("SELL", 1L, 10L, 1L, "50.0000", "12.0000", "2.0000"));
         assertEquals(bd("8794.0000"), bank.getBalance());
-        assertEquals(bd("150.0000"), holding.getQuantity());
+        assertEquals(bd("150.0000000000"), holding.getQuantity());
         assertEquals(bd("1353.0000"), holding.getTotalCost());
         assertEquals(bd("9.0200"), holding.getAvgCost());
         assertEquals(bd("147.0000"), sell.getRealizedProfit());
@@ -218,7 +219,7 @@ class MvpCoreServiceTest {
         request.setReason("录入错误");
         InvestmentTransactionVO revoked = transactionService.revoke(99L, request);
         assertEquals(bd("8196.0000"), bank.getBalance());
-        assertEquals(bd("200.0000"), holding.getQuantity());
+        assertEquals(bd("200.0000000000"), holding.getQuantity());
         assertEquals(bd("1804.0000"), holding.getTotalCost());
         assertEquals(bd("9.0200"), holding.getAvgCost());
         assertEquals("REVOKED", revoked.getStatus());
@@ -439,7 +440,7 @@ class MvpCoreServiceTest {
         assertEquals(bd("1638.3592"), dashboard.overview(YearMonth.of(2026, 5)).getTotalAssets());
 
         StatisticsServiceImpl statistics = new StatisticsServiceImpl(
-                accountMapper, mock(CategoryMapper.class), transactionMapper, dashboard, holdingService, budgetService);
+                accountMapper, mock(AssetSnapshotMapper.class), mock(CategoryMapper.class), transactionMapper, dashboard, holdingService, budgetService);
         List<AssetDistributionVO> distribution = statistics.assetDistribution();
         assertEquals(2, distribution.size());
         assertEquals(bd("61.0367"), distribution.get(0).getPercent());
@@ -546,6 +547,7 @@ class MvpCoreServiceTest {
         asset.setSymbol(symbol);
         asset.setName(name);
         asset.setType(type);
+        asset.setMarket("CRYPTO".equals(type) ? "CRYPTO" : "FUND".equals(type) ? "CN_FUND" : "UNKNOWN");
         asset.setCurrency(currency);
         asset.setQuoteSource("MANUAL");
         return asset;

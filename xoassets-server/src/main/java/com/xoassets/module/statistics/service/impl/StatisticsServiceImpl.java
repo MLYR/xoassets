@@ -14,9 +14,11 @@ import com.xoassets.module.statistics.vo.ExpenseCategoryVO;
 import com.xoassets.module.statistics.vo.IncomeExpenseTrendVO;
 import com.xoassets.module.statistics.vo.InvestmentProfitTrendVO;
 import com.xoassets.persistence.entity.Account;
+import com.xoassets.persistence.entity.AssetSnapshot;
 import com.xoassets.persistence.entity.Category;
 import com.xoassets.persistence.entity.TransactionRecord;
 import com.xoassets.persistence.mapper.AccountMapper;
+import com.xoassets.persistence.mapper.AssetSnapshotMapper;
 import com.xoassets.persistence.mapper.CategoryMapper;
 import com.xoassets.persistence.mapper.TransactionRecordMapper;
 import java.math.BigDecimal;
@@ -38,6 +40,7 @@ import org.springframework.stereotype.Service;
 public class StatisticsServiceImpl implements StatisticsService {
 
     private final AccountMapper accountMapper;
+    private final AssetSnapshotMapper assetSnapshotMapper;
     private final CategoryMapper categoryMapper;
     private final TransactionRecordMapper transactionRecordMapper;
     private final DashboardService dashboardService;
@@ -46,12 +49,14 @@ public class StatisticsServiceImpl implements StatisticsService {
 
     public StatisticsServiceImpl(
             AccountMapper accountMapper,
+            AssetSnapshotMapper assetSnapshotMapper,
             CategoryMapper categoryMapper,
             TransactionRecordMapper transactionRecordMapper,
             DashboardService dashboardService,
             HoldingService holdingService,
             BudgetService budgetService) {
         this.accountMapper = accountMapper;
+        this.assetSnapshotMapper = assetSnapshotMapper;
         this.categoryMapper = categoryMapper;
         this.transactionRecordMapper = transactionRecordMapper;
         this.dashboardService = dashboardService;
@@ -60,13 +65,17 @@ public class StatisticsServiceImpl implements StatisticsService {
     }
 
     /**
-     * 生成资产趋势点：用当前资产倒推历史流水影响，得到区间内每日资产估算值。
+     * 生成总资产趋势点；优先使用资产快照，没有快照时再用实时估算兜底。
      */
     @Override
     public List<AssetTrendPointVO> assetTrend(LocalDate startDate, LocalDate endDate) {
         Long userId = LoginUserContext.getUserId();
         LocalDate start = startDate == null ? LocalDate.now().minusDays(30) : startDate;
         LocalDate end = endDate == null ? LocalDate.now() : endDate;
+        List<AssetTrendPointVO> snapshotPoints = snapshotTrend(userId, start, end, false);
+        if (!snapshotPoints.isEmpty()) {
+            return snapshotPoints;
+        }
         BigDecimal currentAssets = currentTotalAssets(userId);
 
         List<TransactionRecord> records = transactionRecordMapper.selectList(new LambdaQueryWrapper<TransactionRecord>()
@@ -88,25 +97,36 @@ public class StatisticsServiceImpl implements StatisticsService {
     }
 
     /**
-     * 净资产趋势第一版等同资产趋势；当前尚未建负债模型。
+     * 净资产趋势优先使用资产快照；没有快照时用修正后的实时净资产估算。
      */
     @Override
     public List<AssetTrendPointVO> netAssetsTrend(LocalDate startDate, LocalDate endDate) {
-        return assetTrend(startDate, endDate);
+        Long userId = LoginUserContext.getUserId();
+        LocalDate start = startDate == null ? LocalDate.now().minusDays(30) : startDate;
+        LocalDate end = endDate == null ? LocalDate.now() : endDate;
+        List<AssetTrendPointVO> snapshotPoints = snapshotTrend(userId, start, end, true);
+        if (!snapshotPoints.isEmpty()) {
+            return snapshotPoints;
+        }
+        return fallbackTrend(userId, start, end, currentNetAssets(userId));
     }
 
     /**
-     * 当前账户余额加投资市值，投资无行情时由持仓服务用平均成本兜底。
+     * 当前总资产 = 正余额账户现金资产 + 投资市值。
      */
     private BigDecimal currentTotalAssets(Long userId) {
-        BigDecimal accountAssets = accountMapper.selectList(new LambdaQueryWrapper<Account>()
-                        .eq(Account::getUserId, userId)
-                        .eq(Account::getStatus, 1))
-                .stream()
-                .map(Account::getBalance)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        AccountAssetSummary accountSummary = accountAssetSummary(userId);
         BigDecimal investmentMarketValue = holdingService.list().stream().map(HoldingVO::getMarketValue).reduce(BigDecimal.ZERO, BigDecimal::add);
-        return accountAssets.add(investmentMarketValue);
+        return accountSummary.cashAsset().add(investmentMarketValue);
+    }
+
+    /**
+     * 当前净资产 = 总资产 - 负债，负余额账户不抵扣总资产。
+     */
+    private BigDecimal currentNetAssets(Long userId) {
+        AccountAssetSummary accountSummary = accountAssetSummary(userId);
+        BigDecimal investmentMarketValue = holdingService.list().stream().map(HoldingVO::getMarketValue).reduce(BigDecimal.ZERO, BigDecimal::add);
+        return accountSummary.cashAsset().add(investmentMarketValue).subtract(accountSummary.liability());
     }
 
     /**
@@ -171,7 +191,7 @@ public class StatisticsServiceImpl implements StatisticsService {
     }
 
     /**
-     * 资产分布包含现金类账户和投资持仓市值。
+     * 资产分布只展示正向资产，负余额账户作为负债不参与资产占比。
      */
     @Override
     public List<AssetDistributionVO> assetDistribution() {
@@ -180,6 +200,7 @@ public class StatisticsServiceImpl implements StatisticsService {
                         .eq(Account::getUserId, userId)
                         .eq(Account::getStatus, 1))
                 .stream()
+                .filter(account -> account.getBalance() != null && account.getBalance().compareTo(BigDecimal.ZERO) > 0)
                 .map(account -> AssetDistributionVO.builder()
                         .name(account.getName())
                         .type(account.getType())
@@ -210,12 +231,16 @@ public class StatisticsServiceImpl implements StatisticsService {
     }
 
     /**
-     * 第一版投资盈亏趋势按当前持仓估值生成月度点，后续有历史持仓快照后再精细化。
+     * 投资盈亏趋势优先使用资产快照每月最后一条；没有快照时再用当前持仓估值兜底。
      */
     @Override
     public List<InvestmentProfitTrendVO> investmentProfitTrend(YearMonth startMonth, YearMonth endMonth) {
         YearMonth start = startMonth == null ? YearMonth.now().minusMonths(5) : startMonth;
         YearMonth end = endMonth == null ? YearMonth.now() : endMonth;
+        List<InvestmentProfitTrendVO> snapshotTrend = investmentProfitSnapshotTrend(start, end);
+        if (!snapshotTrend.isEmpty()) {
+            return snapshotTrend;
+        }
         BigDecimal marketValue = holdingService.list().stream().map(HoldingVO::getMarketValue).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalCost = holdingService.list().stream().map(HoldingVO::getTotalCost).reduce(BigDecimal.ZERO, BigDecimal::add);
         List<InvestmentProfitTrendVO> result = new ArrayList<>();
@@ -242,6 +267,88 @@ public class StatisticsServiceImpl implements StatisticsService {
     }
 
     /**
+     * 从资产快照读取趋势；netAsset=true 返回净资产，否则返回总资产。
+     */
+    private List<AssetTrendPointVO> snapshotTrend(Long userId, LocalDate start, LocalDate end, boolean netAsset) {
+        return assetSnapshotMapper.selectList(new LambdaQueryWrapper<AssetSnapshot>()
+                        .eq(AssetSnapshot::getUserId, userId)
+                        .between(AssetSnapshot::getSnapshotDate, start, end)
+                        .orderByAsc(AssetSnapshot::getSnapshotDate))
+                .stream()
+                .map(snapshot -> AssetTrendPointVO.builder()
+                        .date(snapshot.getSnapshotDate())
+                        .value(netAsset ? snapshot.getNetAsset() : snapshot.getTotalAsset())
+                        .build())
+                .toList();
+    }
+
+    /**
+     * 没有快照时保留 MVP 的实时倒推估算，避免图表空白。
+     */
+    private List<AssetTrendPointVO> fallbackTrend(Long userId, LocalDate start, LocalDate end, BigDecimal currentValue) {
+        List<TransactionRecord> records = transactionRecordMapper.selectList(new LambdaQueryWrapper<TransactionRecord>()
+                .eq(TransactionRecord::getUserId, userId)
+                .between(TransactionRecord::getTransactionTime, LocalDateTime.of(start, LocalTime.MIN), LocalDateTime.of(end, LocalTime.MAX)));
+        List<AssetTrendPointVO> points = new ArrayList<>();
+        LocalDate cursor = start;
+        while (!cursor.isAfter(end)) {
+            LocalDate day = cursor;
+            BigDecimal futureImpact = records.stream()
+                    .filter(record -> record.getTransactionTime().toLocalDate().isAfter(day))
+                    .map(this::netAssetImpact)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            points.add(AssetTrendPointVO.builder().date(day).value(currentValue.subtract(futureImpact)).build());
+            cursor = cursor.plusDays(1);
+        }
+        return points;
+    }
+
+    /**
+     * 账户余额拆成现金资产和负债，保证统计页与快照、首页一致。
+     */
+    private AccountAssetSummary accountAssetSummary(Long userId) {
+        BigDecimal cashAsset = BigDecimal.ZERO;
+        BigDecimal liability = BigDecimal.ZERO;
+        List<Account> accounts = accountMapper.selectList(new LambdaQueryWrapper<Account>()
+                .eq(Account::getUserId, userId)
+                .eq(Account::getStatus, 1));
+        for (Account account : accounts) {
+            BigDecimal balance = account.getBalance() == null ? BigDecimal.ZERO : account.getBalance();
+            if (balance.compareTo(BigDecimal.ZERO) >= 0) {
+                cashAsset = cashAsset.add(balance);
+            } else {
+                liability = liability.add(balance.abs());
+            }
+        }
+        return new AccountAssetSummary(cashAsset, liability);
+    }
+
+    /**
+     * 读取每月最后一条快照作为投资盈亏趋势点。
+     */
+    private List<InvestmentProfitTrendVO> investmentProfitSnapshotTrend(YearMonth start, YearMonth end) {
+        Long userId = LoginUserContext.getUserId();
+        List<AssetSnapshot> snapshots = assetSnapshotMapper.selectList(new LambdaQueryWrapper<AssetSnapshot>()
+                .eq(AssetSnapshot::getUserId, userId)
+                .between(AssetSnapshot::getSnapshotDate, start.atDay(1), end.atEndOfMonth())
+                .orderByAsc(AssetSnapshot::getSnapshotDate));
+        Map<YearMonth, AssetSnapshot> latestByMonth = snapshots.stream()
+                .collect(Collectors.toMap(
+                        snapshot -> YearMonth.from(snapshot.getSnapshotDate()),
+                        snapshot -> snapshot,
+                        (left, right) -> right));
+        return latestByMonth.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(entry -> InvestmentProfitTrendVO.builder()
+                        .month(entry.getKey())
+                        .marketValue(entry.getValue().getInvestmentAsset())
+                        .totalCost(entry.getValue().getInvestmentCost())
+                        .floatingProfit(entry.getValue().getInvestmentProfit())
+                        .build())
+                .toList();
+    }
+
+    /**
      * 构造指定月份的流水查询条件。
      */
     private LambdaQueryWrapper<TransactionRecord> monthWrapper(Long userId, YearMonth month) {
@@ -263,5 +370,11 @@ public class StatisticsServiceImpl implements StatisticsService {
             return record.getAmount().negate();
         }
         return BigDecimal.ZERO;
+    }
+
+    /**
+     * 账户资产拆分结果。
+     */
+    private record AccountAssetSummary(BigDecimal cashAsset, BigDecimal liability) {
     }
 }

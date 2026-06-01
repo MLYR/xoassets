@@ -252,7 +252,8 @@ public class SnapshotServiceImpl implements SnapshotService {
             if (latestPrice == null) {
                 latestPrice = scale4(holding.getAvgCost());
             }
-            marketValue = marketValue.add(scale4(holding.getQuantity()).multiply(latestPrice).setScale(4, RoundingMode.HALF_UP));
+            // 数量保留持仓表原始精度，避免虚拟货币小数位在快照估值前被截断。
+            marketValue = marketValue.add(nullToZero(holding.getQuantity()).multiply(latestPrice).setScale(4, RoundingMode.HALF_UP));
             totalCost = totalCost.add(scale4(holding.getTotalCost()));
         }
         return new InvestmentSummary(marketValue.setScale(4, RoundingMode.HALF_UP), totalCost.setScale(4, RoundingMode.HALF_UP));
@@ -394,6 +395,13 @@ public class SnapshotServiceImpl implements SnapshotService {
      */
     private BigDecimal scale4(BigDecimal value) {
         return value == null ? BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP) : value.setScale(4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 原始计算值兜底，保留传入字段自己的精度。
+     */
+    private BigDecimal nullToZero(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 
     /**

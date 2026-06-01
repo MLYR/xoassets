@@ -17,6 +17,7 @@ public class HoldingVO {
     private String assetName;
     private String symbol;
     private String assetType;
+    private String market;
     private String quoteSource;
     private String currency;
     private BigDecimal quantity;

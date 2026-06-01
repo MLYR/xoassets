@@ -18,6 +18,7 @@ public class AssetRequest {
     @NotBlank(message = "资产类型不能为空")
     private String type;
 
+    private String market = "UNKNOWN";
     private String currency = "CNY";
     private String quoteSource = "MANUAL";
     private String quoteKey;

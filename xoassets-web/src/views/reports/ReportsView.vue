@@ -104,7 +104,7 @@ function parseSummary(summaryJson?: string | null) {
   try {
     const summary = JSON.parse(summaryJson) as Record<string, number | string>;
     return [
-      { label: '净资产', value: `${summary.netAssets ?? 0}`, description: '当前没有负债模型时，净资产按总资产展示。' },
+      { label: '净资产', value: `${summary.netAssets ?? 0}`, description: '净资产按现金资产 + 投资资产 - 负债展示。' },
       { label: '预算使用率', value: `${summary.budgetUsageRate ?? 0}%`, description: `预算状态：${summary.budgetStatus ?? '-'}` },
       { label: '投资浮动盈亏', value: `${summary.investmentFloatingProfit ?? 0}`, description: '仅做数据观察，不构成买入或卖出建议。' }
     ];

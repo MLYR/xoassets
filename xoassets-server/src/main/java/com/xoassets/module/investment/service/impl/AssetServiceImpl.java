@@ -117,15 +117,17 @@ public class AssetServiceImpl implements AssetService {
     }
 
     /**
-     * 创建公共资产，按类型和代码防止重复。
+     * 创建公共资产，按类型、市场和代码防止重复。
      */
     @Transactional(rollbackFor = Exception.class)
     @Override
     public AssetVO create(AssetRequest request) {
         ensureAssetType(request.getType());
         ensureQuoteSource(request.getQuoteSource());
+        String market = normalizeMarket(request.getType(), request.getMarket(), request.getSymbol());
         Long exists = assetMapper.selectCount(new LambdaQueryWrapper<Asset>()
                 .eq(Asset::getType, request.getType())
+                .eq(Asset::getMarket, market)
                 .eq(Asset::getSymbol, request.getSymbol()));
         if (exists > 0) {
             throw new BusinessException(ErrorCode.BUSINESS_ERROR, "资产已存在");
@@ -134,6 +136,7 @@ public class AssetServiceImpl implements AssetService {
         asset.setSymbol(request.getSymbol());
         asset.setName(request.getName());
         asset.setType(request.getType());
+        asset.setMarket(market);
         asset.setCurrency(request.getCurrency());
         asset.setQuoteSource(request.getQuoteSource());
         asset.setQuoteKey(request.getQuoteKey());
@@ -238,7 +241,7 @@ public class AssetServiceImpl implements AssetService {
                     .name(node.path("name").asText(code))
                     .symbol(code)
                     .assetType("FUND")
-                    .market("CN")
+                    .market("CN_FUND")
                     .currency("CNY")
                     .quoteSource("EASTMONEY")
                     .quoteKey(code)
@@ -341,6 +344,7 @@ public class AssetServiceImpl implements AssetService {
                         .name(asset.getName())
                         .symbol(asset.getSymbol())
                         .assetType(asset.getType())
+                        .market(asset.getMarket())
                         .currency(asset.getCurrency())
                         .quoteSource(asset.getQuoteSource())
                         .quoteKey(asset.getQuoteKey())
@@ -363,6 +367,25 @@ public class AssetServiceImpl implements AssetService {
             return "SZ";
         }
         return "US";
+    }
+
+    /**
+     * 资产市场统一落库，避免同代码但不同市场的股票互相覆盖。
+     */
+    private String normalizeMarket(String type, String market, String symbol) {
+        if (StringUtils.hasText(market)) {
+            return market.trim().toUpperCase(Locale.ROOT);
+        }
+        if ("CRYPTO".equals(type)) {
+            return "CRYPTO";
+        }
+        if ("FUND".equals(type)) {
+            return "CN_FUND";
+        }
+        if ("STOCK".equals(type) && StringUtils.hasText(symbol)) {
+            return inferMarket(symbol);
+        }
+        return "UNKNOWN";
     }
 
     private String jsonBody(String body) {
@@ -428,6 +451,7 @@ public class AssetServiceImpl implements AssetService {
                 .symbol(asset.getSymbol())
                 .name(asset.getName())
                 .type(asset.getType())
+                .market(asset.getMarket())
                 .currency(asset.getCurrency())
                 .quoteSource(asset.getQuoteSource())
                 .quoteKey(asset.getQuoteKey())

@@ -6,7 +6,7 @@
         <el-button class="back-button" @click="router.push(ROUTES.investmentDetails)">返回投资明细</el-button>
         <h1 class="page-title">{{ holding?.assetName || '持仓详情' }}</h1>
         <p class="page-subtitle">
-          {{ holding?.symbol || '-' }} · {{ typeLabel(holding?.assetType) }} · {{ holding?.currency || '-' }} · {{ holding?.latestPriceSource || holding?.quoteSource || '暂无行情' }} · 最新报价 {{ formatTableTime(holding?.latestPriceTime) || '暂无' }}
+          {{ holding?.symbol || '-' }} · {{ holding?.market || '-' }} · {{ typeLabel(holding?.assetType) }} · {{ holding?.currency || '-' }} · {{ holding?.latestPriceSource || holding?.quoteSource || '暂无行情' }} · 最新报价 {{ formatTableTime(holding?.latestPriceTime) || '暂无' }}
         </p>
       </div>
       <div class="header-actions">
@@ -19,7 +19,7 @@
 
     <section v-loading="loading" class="summary-grid">
       <MetricCard title="当前市值" :value="holding?.marketValue || 0" :trend="holding?.floatingProfitRate || 0" description="数量 × 最新价格" :precision="4" :currency-symbol="currencySymbol" />
-      <MetricCard title="持仓数量" :value="holding?.quantity || 0" :trend="0" description="当前剩余持仓" :precision="4" currency-symbol="" />
+      <MetricCard title="持仓数量" :value="holding?.quantity || 0" :trend="0" description="当前剩余持仓" :precision="quantityPrecision" currency-symbol="" />
       <MetricCard title="持仓成本" :value="holding?.totalCost || 0" :trend="0" description="移动平均成本口径" :precision="4" :currency-symbol="currencySymbol" />
       <MetricCard title="今日收益" :value="holding?.todayProfit || 0" :trend="holding?.todayChangeRate || 0" description="最新价对比昨价" :precision="4" :currency-symbol="currencySymbol" :tone="profitTone(holding?.todayProfit || 0)" />
       <MetricCard title="总收益" :value="summary?.totalProfit || 0" :trend="summary?.totalProfitRate || 0" description="已实现 + 浮动盈亏" :precision="4" :currency-symbol="currencySymbol" :tone="profitTone(summary?.totalProfit || 0)" />
@@ -97,7 +97,7 @@
             <el-option v-for="account in accounts" :key="account.id" :label="`${account.name} · ${account.balance.toFixed(2)} ${account.currency}`" :value="account.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="数量"><el-input-number v-model="tradeForm.quantity" class="full-width" :min="0.0001" :precision="4" /></el-form-item>
+        <el-form-item label="数量"><el-input-number v-model="tradeForm.quantity" class="full-width" :min="quantityMin" :precision="quantityPrecision" /></el-form-item>
         <el-form-item label="价格"><el-input-number v-model="tradeForm.price" class="full-width" :min="0.000001" :precision="pricePrecision" /></el-form-item>
         <el-form-item label="手续费"><el-input-number v-model="tradeForm.fee" class="full-width" :min="0" :precision="4" /></el-form-item>
         <el-form-item label="交易时间"><el-date-picker v-model="tradeForm.transactionTime" type="datetime" class="full-width" /></el-form-item>
@@ -155,6 +155,8 @@ const quoteForm = reactive({ price: 0, currency: 'CNY' });
 const holdingId = computed(() => String(route.params.id || ''));
 const currencySymbol = computed(() => (holding.value?.currency === 'USD' ? '$' : '¥'));
 const pricePrecision = computed(() => holding.value?.priceScale || (holding.value?.assetType === 'CRYPTO' ? 6 : 4));
+const quantityPrecision = computed(() => holding.value?.assetType === 'CRYPTO' ? 10 : 4);
+const quantityMin = computed(() => holding.value?.assetType === 'CRYPTO' ? 0.0000000001 : 0.0001);
 const priceChartOption = computed<EChartsOption>(() => {
   const points = [...priceSnapshots.value].reverse();
   return {
@@ -241,7 +243,7 @@ async function handleCreateTrade() {
       assetId: holding.value.assetId,
       accountId: tradeForm.accountId,
       type: tradeForm.type,
-      quantity: round4(tradeForm.quantity),
+      quantity: roundQuantity(tradeForm.quantity),
       price: roundTo(tradeForm.price, pricePrecision.value),
       fee: round4(tradeForm.fee),
       transactionTime: formatDateTime(tradeForm.transactionTime),
@@ -318,7 +320,7 @@ function formatTableTime(value?: string | null) {
 }
 
 function formatQuantity(value: number) {
-  return round4(Number(value)).toLocaleString('zh-CN', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+  return roundTo(Number(value), quantityPrecision.value).toLocaleString('zh-CN', { minimumFractionDigits: holding.value?.assetType === 'CRYPTO' ? 0 : 4, maximumFractionDigits: quantityPrecision.value });
 }
 
 function formatBreakEven(value: number | null | undefined) {
@@ -362,6 +364,10 @@ function formatPercent(value: number) {
 
 function round4(value: number) {
   return roundTo(value, 4);
+}
+
+function roundQuantity(value: number) {
+  return roundTo(value, quantityPrecision.value);
 }
 
 function roundTo(value: number, precision: number) {

@@ -31,9 +31,10 @@
 - 投资展示：投资主页只展示总投资 / 基金 / 股票 / 虚拟货币统计和图表，持仓表格、买入卖出、编辑删除、价格刷新、收益分析等操作集中在 `/investments/details`；单个持仓的收益汇总、交易记录和价格快照在 `/investments/holdings/:id` 查看。
 - 投资交易：买入必须选择扣款账户并扣减余额，卖出必须选择到账账户并增加余额；买入 / 卖出不写入普通流水，不计入生活收支统计。
 - 投资撤销：`PUT /api/investment-transactions/{id}/revoke` 会反向恢复资金账户和持仓，撤销记录仍保留在投资交易中。
-- 投资精度：投资数量、手续费、成本、市值、盈亏和收益率统一按 4 位小数计算；行情价格快照保留 8 位，CRYPTO 当前价至少展示 6 位，FUND / STOCK 当前价展示 4 位。持仓列表的 `marketValue` 始终由后端使用同一个 `latestPrice` 计算，前端不使用格式化价格反算市值。
+- 投资精度：投资数量保留 10 位小数，手续费、成本、市值、盈亏和收益率统一按 4 位小数计算；行情价格快照保留 8 位，CRYPTO 当前价至少展示 6 位，FUND / STOCK 当前价展示 4 位。持仓列表的 `marketValue` 始终由后端使用同一个 `latestPrice` 计算，前端不使用格式化价格反算市值。
 - 行情接入：CRYPTO 使用 CoinGecko，FUND 使用天天基金，A 股使用新浪行情，美股使用 Yahoo Finance；所有第三方行情只由后端 provider 拉取并写入 `xo_asset_price`。
 - 资产识别：新增持仓时可按资产类型输入代码或名称查询，后端返回名称、代码、市场、币种、行情源、行情键和当前价格；保存持仓时自动创建 / 复用 `xo_asset` 并写入价格快照，查询失败仍可手动录入。
+- 资产市场：`xo_asset.market` 用于区分 SH / SZ / BJ / US / CN_FUND / CRYPTO，资产唯一性按 `type + market + symbol + deleted` 判断。
 - 行情缓存：持仓列表优先使用 `xo_asset_price` 最近快照；CRYPTO 5 分钟内、STOCK 15 分钟内、FUND 1 天内不重复刷新，MANUAL 价格不过期。行情失败时保留最近价格，页面可用手动价格兜底。
 - 预算管理：`GET /api/budgets`、`POST /api/budgets`、`PUT /api/budgets/{id}`、`DELETE /api/budgets/{id}`、`GET /api/budgets/summary` 已接入预算页。
 - 资产快照：`GET /api/snapshots/latest`、`GET /api/snapshots/trend`、`POST /api/snapshots/generate-today` 已接入首页和数据分析页；同一用户同一天重复生成会更新当天快照。
@@ -139,7 +140,7 @@ docker compose up -d
 
 关键验收口径：
 
-- DOGE：`quantity = 881.3220`，`latestPrice = 0.72432000`，`marketValue = 638.3592`。
+- DOGE：`quantity = 881.3220000000`，`latestPrice = 0.72432000`，`marketValue = 638.3592`。
 - 投资收益分析：持仓接口返回最新价、昨价、前日价、今日收益、昨日收益、总收益、收益率和回本涨幅；缺少历史价格时页面展示“暂无”。
 - 预算：5 月餐饮支出 `86.5000 - 20.0000 = 66.5000`，转账不进入预算。
 - 账户：银行卡 `21500.0000`，支付宝 `1933.5000`，与初始化余额和流水变更一致。
