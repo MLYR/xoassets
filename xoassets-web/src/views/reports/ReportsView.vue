@@ -119,7 +119,7 @@ function formatDateTime(value: string) {
 </script>
 
 <style scoped>
-/* 报告页采用左列表右详情，适合后续扩展报告历史。 */
+/* 报告页采用左列表右详情，浅蓝选中态和报告卡片保持统一。 */
 .header-actions {
   display: flex;
   gap: 10px;
@@ -138,6 +138,8 @@ function formatDateTime(value: string) {
 
 .report-list {
   padding: 8px;
+  max-height: calc(100vh - 190px);
+  overflow: auto;
 }
 
 .report-list button {
@@ -147,15 +149,17 @@ function formatDateTime(value: string) {
   margin-bottom: 8px;
   padding: 14px;
   border: 0;
-  border-radius: var(--xo-radius);
+  border-radius: var(--xo-radius-inner);
   background: transparent;
   text-align: left;
   cursor: pointer;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 
 .report-list button.active,
 .report-list button:hover {
   background: #eff6ff;
+  box-shadow: inset 3px 0 0 var(--xo-primary);
 }
 
 .report-list span,
@@ -174,6 +178,8 @@ function formatDateTime(value: string) {
 
 .report-head h2 {
   margin: 0 0 6px;
+  font-size: 24px;
+  font-weight: 800;
 }
 
 .summary {
@@ -191,7 +197,8 @@ function formatDateTime(value: string) {
 .insight-grid div {
   padding: 16px;
   border: 1px solid var(--xo-border);
-  border-radius: var(--xo-radius);
+  border-radius: var(--xo-radius-inner);
+  background: #f8fbff;
 }
 
 .insight-grid span {

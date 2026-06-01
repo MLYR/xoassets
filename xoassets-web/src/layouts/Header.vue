@@ -1,4 +1,4 @@
-<!-- 顶部栏：搜索、提醒和用户中心入口，保持原型 64px 高度。 -->
+<!-- 顶部栏：搜索、提醒和用户中心入口，使用轻玻璃工具栏质感。 -->
 <template>
   <header class="app-header">
     <el-input class="search" placeholder="搜索交易、账户..." :prefix-icon="Search" clearable />
@@ -195,19 +195,20 @@ function logoutToLogin() {
 </script>
 
 <style scoped>
-/* Header 使用白底细边框，让内容区保持轻量工作台质感。 */
+/* Header 使用半透明白底，保持内容区的轻量工作台质感。 */
 .app-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 64px;
+  height: 72px;
   padding: 0 24px;
   border-bottom: 1px solid var(--xo-border);
-  background: var(--xo-card);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: var(--xo-blur);
 }
 
 .search {
-  max-width: 420px;
+  max-width: 460px;
 }
 
 .header-actions {
@@ -223,7 +224,9 @@ function logoutToLogin() {
 }
 
 .user-chip {
-  border: 0;
-  background: transparent;
+  border-color: var(--xo-border);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--xo-text);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
 }
 </style>

@@ -230,25 +230,39 @@ async function handleDelete(account: AccountItem) {
 </script>
 
 <style scoped>
-/* 账户卡片采用网格排列，便于快速扫描各账户状态。 */
+/* 账户卡片采用玻璃白底和大圆角，便于快速扫描各账户状态。 */
 .account-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  gap: 18px;
 }
 
 .account-card {
-  padding: 18px;
+  position: relative;
+  overflow: hidden;
+  padding: 20px;
   border: 1px solid var(--xo-border);
   border-radius: var(--xo-radius);
-  background: #fff;
+  background: rgba(255, 255, 255, 0.9);
   cursor: pointer;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.account-card::after {
+  position: absolute;
+  right: -36px;
+  bottom: -44px;
+  width: 118px;
+  height: 118px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.08);
+  content: "";
 }
 
 .account-card:hover {
-  border-color: var(--xo-primary);
-  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.08);
+  border-color: rgba(37, 99, 235, 0.28);
+  box-shadow: var(--xo-shadow-hover);
+  transform: translateY(-2px);
 }
 
 .account-top,
@@ -261,7 +275,8 @@ async function handleDelete(account: AccountItem) {
 
 .account-top h3 {
   margin: 0 0 6px;
-  font-size: 16px;
+  font-size: 17px;
+  font-weight: 800;
 }
 
 .account-top p,
@@ -282,7 +297,7 @@ async function handleDelete(account: AccountItem) {
 .account-amount {
   display: block;
   margin: 22px 0;
-  font-size: 28px;
+  font-size: 30px;
 }
 
 .full-width {

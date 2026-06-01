@@ -376,7 +376,7 @@ function roundTo(value: number, precision: number) {
 </script>
 
 <style scoped>
-/* 详情页延续投资明细页的面板、表格和数字排版风格。 */
+/* 详情页延续投资明细页的玻璃面板、表格和数字排版风格。 */
 .back-button {
   margin-bottom: 10px;
 }
@@ -400,6 +400,19 @@ function roundTo(value: number, precision: number) {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.break-even-card::after,
+.rate-card::after {
+  position: absolute;
+  inset: auto -28px -42px auto;
+  width: 110px;
+  height: 110px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.08);
+  content: "";
 }
 
 .break-even-card span,
@@ -419,6 +432,7 @@ function roundTo(value: number, precision: number) {
 .chart-panel,
 .transactions-panel {
   margin-top: 18px;
+  overflow: hidden;
 }
 
 .section-head {
@@ -431,6 +445,7 @@ function roundTo(value: number, precision: number) {
 .section-head h2 {
   margin: 0;
   font-size: 18px;
+  font-weight: 800;
 }
 
 .numeric-cell {

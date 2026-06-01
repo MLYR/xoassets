@@ -1,17 +1,30 @@
-/* 主题变量：贴近原型的蓝色主色、深色侧边栏和浅灰工作区。 */
+/* 主题变量：统一浅蓝金融 SaaS 的背景、玻璃卡片、圆角和柔和阴影。 */
 :root {
-  --xo-bg: #f5f7fa;
-  --xo-card: #ffffff;
-  --xo-text: #1e293b;
+  --xo-bg: #f6f8fc;
+  --xo-bg-soft: #edf4ff;
+  --xo-card: rgba(255, 255, 255, 0.88);
+  --xo-card-solid: #ffffff;
+  --xo-text: #0f172a;
   --xo-muted: #64748b;
-  --xo-border: #e2e8f0;
-  --xo-primary: #3b82f6;
+  --xo-muted-soft: #94a3b8;
+  --xo-border: rgba(226, 232, 240, 0.8);
+  --xo-primary: #2563eb;
+  --xo-primary-light: #60a5fa;
   --xo-primary-dark: #2563eb;
-  --xo-success: #10b981;
-  --xo-warning: #f59e0b;
-  --xo-danger: #ef4444;
-  --xo-sidebar: #1e293b;
-  --xo-sidebar-soft: #334155;
-  --xo-radius: 8px;
-  --xo-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --xo-success: #12b981;
+  --xo-warning: #f6b73c;
+  --xo-danger: #f05d4f;
+  --xo-purple: #8b5cf6;
+  --xo-sidebar: rgba(255, 255, 255, 0.92);
+  --xo-sidebar-soft: #eff6ff;
+  --xo-radius: 20px;
+  --xo-radius-inner: 12px;
+  --xo-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+  --xo-shadow-hover: 0 18px 38px rgba(37, 99, 235, 0.14);
+  --xo-blur: blur(18px);
+  --xo-chart-blue: #3b82f6;
+  --xo-chart-green: #2dd4bf;
+  --xo-chart-purple: #8b5cf6;
+  --xo-chart-yellow: #f6c453;
+  --xo-chart-red: #fb7185;
 }

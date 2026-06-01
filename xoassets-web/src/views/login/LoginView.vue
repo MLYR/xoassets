@@ -116,11 +116,13 @@ async function handleLogin() {
 </script>
 
 <style scoped>
-/* 登录页采用左右分屏，移动端隐藏品牌展示区。 */
+/* 登录页采用原型同款左右分屏，左侧用城市氛围和指标卡强化金融感。 */
 .login-page {
   display: flex;
-  min-height: 100vh;
-  background: var(--xo-card);
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at 74% 18%, rgba(96, 165, 250, 0.16), transparent 26%),
+    linear-gradient(90deg, #eef6ff 0%, #f8fbff 52%, #ffffff 100%);
 }
 
 .login-brand {
@@ -130,15 +132,19 @@ async function handleLogin() {
   flex-direction: column;
   justify-content: space-between;
   overflow: hidden;
-  padding: 48px;
-  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  padding: 64px 64px 54px;
+  background:
+    linear-gradient(180deg, rgba(239, 246, 255, 0.16), rgba(219, 234, 254, 0.72)),
+    linear-gradient(135deg, #f8fbff 0%, #dbeafe 100%);
 }
 
 .login-brand::after {
   position: absolute;
-  inset: auto 0 0;
-  height: 48%;
-  background: linear-gradient(0deg, rgba(59, 130, 246, 0.18), rgba(59, 130, 246, 0));
+  inset: auto -10% 0 -8%;
+  height: 50%;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(219, 234, 254, 0.72)),
+    url("data:image/svg+xml,%3Csvg width='900' height='360' viewBox='0 0 900 360' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%232563eb' stroke-opacity='.18'%3E%3Cpath d='M28 330h844'/%3E%3Cpath d='M90 330V210h52v120M180 330V160h72v170M306 330V118h56v212M410 330V76h92v254M550 330V138h62v192M664 330V96h82v234M790 330V184h52v146'/%3E%3Cpath d='M0 260c120 14 194-14 292-10 110 5 190 42 314 32 112-8 176-54 294-42'/%3E%3C/g%3E%3C/svg%3E") bottom center / cover no-repeat;
   content: "";
 }
 
@@ -156,9 +162,10 @@ async function handleLogin() {
   height: 40px;
   place-items: center;
   border-radius: 12px;
-  background: var(--xo-primary);
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: #fff;
   font-weight: 700;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.22);
 }
 
 .login-logo strong,
@@ -188,30 +195,32 @@ async function handleLogin() {
 .login-copy h1 {
   margin: 0 0 16px;
   color: var(--xo-text);
-  font-size: 40px;
-  line-height: 1.25;
+  font-size: clamp(42px, 5vw, 62px);
+  line-height: 1.18;
+  font-weight: 900;
 }
 
 .login-copy p {
   margin: 0;
   color: var(--xo-muted);
   font-size: 18px;
-  line-height: 1.7;
+  line-height: 1.85;
 }
 
 .preview-cards {
   display: flex;
   gap: 16px;
-  margin-top: 32px;
+  margin-top: 38px;
 }
 
 .preview-card {
-  min-width: 180px;
-  padding: 16px;
+  min-width: 190px;
+  padding: 18px;
   border: 1px solid rgba(255, 255, 255, 0.7);
   border-radius: var(--xo-radius);
   background: rgba(255, 255, 255, 0.82);
   box-shadow: var(--xo-shadow);
+  backdrop-filter: var(--xo-blur);
 }
 
 .preview-card span,
@@ -234,21 +243,28 @@ async function handleLogin() {
 
 .login-form-panel {
   display: flex;
-  width: 480px;
+  width: min(48vw, 620px);
   align-items: center;
   justify-content: center;
-  padding: 32px;
+  padding: 48px;
 }
 
 .form-card {
   width: 100%;
-  max-width: 360px;
+  max-width: 430px;
+  padding: 46px;
+  border: 1px solid var(--xo-border);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.08);
+  backdrop-filter: var(--xo-blur);
 }
 
 .form-card h2 {
   margin: 0 0 8px;
   text-align: center;
-  font-size: 24px;
+  font-size: 30px;
+  font-weight: 800;
 }
 
 .form-card > p {
@@ -266,7 +282,9 @@ async function handleLogin() {
 
 .login-button {
   width: 100%;
-  height: 44px;
+  height: 48px;
+  border-radius: 14px;
+  font-size: 16px;
 }
 
 /* 登录页底部入口只负责切换到注册页，不影响原登录表单布局。 */

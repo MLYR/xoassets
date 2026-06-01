@@ -207,7 +207,7 @@ function currentMonth() {
   align-items: center;
 }
 
-/* 预算卡片强调进度条，便于快速识别超支项目。 */
+/* 预算卡片强调进度条和状态，便于快速识别超支项目。 */
 .budget-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -216,6 +216,12 @@ function currentMonth() {
 
 .budget-card {
   min-height: 166px;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.budget-card:hover {
+  box-shadow: var(--xo-shadow-hover);
+  transform: translateY(-2px);
 }
 
 .budget-head {
@@ -227,6 +233,8 @@ function currentMonth() {
 
 .budget-head h3 {
   margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 800;
 }
 
 .budget-head p {

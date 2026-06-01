@@ -1,4 +1,4 @@
-/* 全局基础样式：统一盒模型、字体和页面背景。 */
+/* 全局基础样式：统一盒模型、字体、数据数字和浅蓝画布。 */
 * {
   box-sizing: border-box;
 }
@@ -13,10 +13,14 @@ body,
 }
 
 body {
-  background: var(--xo-bg);
+  background:
+    radial-gradient(circle at 12% 8%, rgba(96, 165, 250, 0.18), transparent 28%),
+    radial-gradient(circle at 90% 4%, rgba(45, 212, 191, 0.12), transparent 24%),
+    linear-gradient(180deg, #f8fbff 0%, var(--xo-bg) 44%, #f8fafc 100%);
   color: var(--xo-text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 a {
@@ -24,23 +28,103 @@ a {
   text-decoration: none;
 }
 
-/* Element Plus 主题覆盖：让组件与原型卡片和按钮半径保持一致。 */
+/* Element Plus 主题覆盖：让表单、弹窗、按钮和表格贴合玻璃卡片风格。 */
 .el-button,
 .el-input__wrapper,
 .el-select__wrapper,
 .el-card,
 .el-dialog {
-  border-radius: var(--xo-radius);
+  border-radius: var(--xo-radius-inner);
+}
+
+.el-button {
+  font-weight: 600;
+  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 }
 
 .el-button--primary {
-  --el-button-bg-color: var(--xo-primary);
-  --el-button-border-color: var(--xo-primary);
+  --el-button-bg-color: #2563eb;
+  --el-button-border-color: #2563eb;
   --el-button-hover-bg-color: var(--xo-primary-dark);
   --el-button-hover-border-color: var(--xo-primary-dark);
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.18);
+}
+
+.el-button--primary:hover {
+  box-shadow: var(--xo-shadow-hover);
+  transform: translateY(-1px);
+}
+
+.el-button:active {
+  transform: translateY(1px);
+}
+
+.el-input__wrapper,
+.el-select__wrapper,
+.el-textarea__inner {
+  border-radius: var(--xo-radius-inner);
+  box-shadow: 0 0 0 1px var(--xo-border) inset;
+  transition: box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.el-input__wrapper:hover,
+.el-select__wrapper:hover,
+.el-textarea__inner:hover {
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.32) inset;
+}
+
+.el-input__wrapper.is-focus,
+.el-select__wrapper.is-focused,
+.el-textarea__inner:focus {
+  box-shadow: 0 0 0 1px var(--xo-primary) inset, 0 0 0 4px rgba(37, 99, 235, 0.1);
+}
+
+.el-dialog {
+  border: 1px solid var(--xo-border);
+  box-shadow: 0 26px 70px rgba(15, 23, 42, 0.18);
 }
 
 .el-table {
-  --el-table-header-bg-color: #f8fafc;
-  --el-table-row-hover-bg-color: #f8fafc;
+  --el-table-header-bg-color: #f4f7fb;
+  --el-table-row-hover-bg-color: #eff6ff;
+  --el-table-border-color: var(--xo-border);
+  border-radius: var(--xo-radius-inner);
+  color: var(--xo-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.el-table th.el-table__cell {
+  color: #475569;
+  font-weight: 700;
+}
+
+.el-table .cell {
+  line-height: 1.5;
+}
+
+.el-table .el-table__cell.is-right .cell {
+  white-space: nowrap;
+}
+
+.el-empty {
+  --el-empty-fill-color-0: #eff6ff;
+  --el-empty-fill-color-1: #dbeafe;
+  --el-empty-fill-color-2: #bfdbfe;
+}
+
+.el-segmented {
+  --el-segmented-bg-color: #eef4ff;
+  --el-segmented-item-selected-bg-color: #ffffff;
+  --el-segmented-item-selected-color: var(--xo-primary);
+  border-radius: var(--xo-radius-inner);
+  padding: 4px;
+}
+
+.el-progress-bar__outer {
+  background-color: #e8eef8;
+}
+
+.el-progress-bar__inner {
+  background: linear-gradient(90deg, #60a5fa 0%, #2563eb 100%);
 }

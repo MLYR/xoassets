@@ -11,6 +11,22 @@
 - ECharts
 - Axios
 
+## 当前视觉基线
+
+- 设计参考：`原型图/` 目录下的页面截图。
+- 整体风格：现代金融 SaaS，浅灰蓝背景、蓝色主色、白色玻璃卡片、柔和阴影、大圆角、宽松留白。
+- 主题样式入口：
+  - `src/styles/variables.css`：颜色、圆角、阴影、图表色板等设计变量。
+  - `src/styles/global.css`：Element Plus 按钮、输入框、表格、弹窗、分段控件等全局覆盖。
+  - `src/styles/layout.css`：页面容器、栅格、面板和通用排版辅助类。
+- 统一组件：
+  - `src/components/finance/MetricCard.vue`
+  - `src/components/finance/AmountText.vue`
+  - `src/components/finance/StatusBadge.vue`
+  - `src/components/finance/TrendValue.vue`
+- 当前重点优化页面：登录页、首页仪表盘、账户管理、账户详情、记账流水、投资明细、持仓详情、预算管理、统计分析、AI 报告。
+- 后续做 UI 调整时，优先改全局变量和公共样式，再做页面局部补充；不要在单页散落一套独立视觉规则。
+
 ## 接口联调状态
 
 - 已接入真实接口：登录、注册、用户中心、账户管理、分类管理、记账流水、投资持仓、虚拟货币 / 基金 / 股票行情刷新、预算管理、首页仪表盘、数据分析、资产目标、AI 报告模板。

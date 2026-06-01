@@ -43,11 +43,12 @@ const toneClass = computed(() => {
 </script>
 
 <style scoped>
-/* 金额颜色遵循收入绿色、支出红色、普通金额深色。 */
+/* 金额颜色遵循收入绿色、支出红色，数字固定宽度便于表格对齐。 */
 .amount-text {
   color: var(--xo-text);
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .is-positive {

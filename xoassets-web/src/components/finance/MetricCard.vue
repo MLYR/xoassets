@@ -41,9 +41,32 @@ const iconComponent = computed(() => (props.tone === 'danger' ? BottomRight : Tr
 </script>
 
 <style scoped>
-/* 卡片样式贴近原型：白底、细边框、轻阴影和 8px 圆角。 */
+/* 指标卡强调金额和轻盈层次，hover 仅提供轻微反馈。 */
 .metric-card {
   min-height: 154px;
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+
+.metric-card::after {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), transparent 42%);
+  content: "";
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.metric-card:hover {
+  border-color: rgba(37, 99, 235, 0.18);
+  box-shadow: var(--xo-shadow-hover);
+  transform: translateY(-2px);
+}
+
+.metric-card:hover::after {
+  opacity: 1;
 }
 
 .metric-head {
@@ -51,12 +74,19 @@ const iconComponent = computed(() => (props.tone === 'danger' ? BottomRight : Tr
   align-items: center;
   justify-content: space-between;
   margin-bottom: 16px;
-  color: var(--xo-muted);
+  color: #475569;
   font-size: 14px;
+  font-weight: 700;
 }
 
 .metric-icon {
-  font-size: 20px;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 12px;
+  background: #eff6ff;
+  font-size: 18px;
 }
 
 .tone-success {
@@ -78,7 +108,8 @@ const iconComponent = computed(() => (props.tone === 'danger' ? BottomRight : Tr
 .metric-value {
   display: block;
   margin-bottom: 10px;
-  font-size: 30px;
+  font-size: 31px;
   line-height: 1.15;
+  letter-spacing: 0;
 }
 </style>

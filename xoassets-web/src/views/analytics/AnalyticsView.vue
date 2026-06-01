@@ -93,7 +93,7 @@ const assetOption = computed<EChartsOption>(() => ({
   grid: { left: 44, right: 18, top: 24, bottom: 36 },
   xAxis: { type: 'category', data: netAssetsTrend.value.map((item) => item.snapshotDate) },
   yAxis: { type: 'value' },
-  series: [{ type: 'line', smooth: true, data: netAssetsTrend.value.map((item) => item.netAsset), lineStyle: { color: '#3b82f6', width: 3 }, itemStyle: { color: '#3b82f6' } }]
+  series: [{ type: 'line', smooth: true, data: netAssetsTrend.value.map((item) => item.netAsset), lineStyle: { color: '#2563eb', width: 3 }, itemStyle: { color: '#2563eb' }, areaStyle: { color: 'rgba(37, 99, 235, 0.08)' } }]
 }));
 
 const totalAssetOption = computed<EChartsOption>(() => ({
@@ -101,7 +101,7 @@ const totalAssetOption = computed<EChartsOption>(() => ({
   grid: { left: 44, right: 18, top: 24, bottom: 36 },
   xAxis: { type: 'category', data: netAssetsTrend.value.map((item) => item.snapshotDate) },
   yAxis: { type: 'value' },
-  series: [{ type: 'line', smooth: true, data: netAssetsTrend.value.map((item) => item.totalAsset), lineStyle: { color: '#14b8a6', width: 3 }, itemStyle: { color: '#14b8a6' } }]
+  series: [{ type: 'line', smooth: true, data: netAssetsTrend.value.map((item) => item.totalAsset), lineStyle: { color: '#2dd4bf', width: 3 }, itemStyle: { color: '#2dd4bf' }, areaStyle: { color: 'rgba(45, 212, 191, 0.08)' } }]
 }));
 
 const assetStructureOption = computed<EChartsOption>(() => ({
@@ -111,19 +111,19 @@ const assetStructureOption = computed<EChartsOption>(() => ({
   xAxis: { type: 'category', data: netAssetsTrend.value.map((item) => item.snapshotDate) },
   yAxis: { type: 'value' },
   series: [
-    { name: '现金资产', type: 'line', smooth: true, data: netAssetsTrend.value.map((item) => item.cashAsset), lineStyle: { color: '#3b82f6', width: 3 }, itemStyle: { color: '#3b82f6' } },
-    { name: '投资资产', type: 'line', smooth: true, data: netAssetsTrend.value.map((item) => item.investmentAsset), lineStyle: { color: '#10b981', width: 3 }, itemStyle: { color: '#10b981' } }
+    { name: '现金资产', type: 'line', smooth: true, data: netAssetsTrend.value.map((item) => item.cashAsset), lineStyle: { color: '#2563eb', width: 3 }, itemStyle: { color: '#2563eb' } },
+    { name: '投资资产', type: 'line', smooth: true, data: netAssetsTrend.value.map((item) => item.investmentAsset), lineStyle: { color: '#2dd4bf', width: 3 }, itemStyle: { color: '#2dd4bf' } }
   ]
 }));
 
 const expenseOption = computed<EChartsOption>(() => ({
-  color: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'],
+  color: ['#3b82f6', '#2dd4bf', '#8b5cf6', '#f6c453', '#fb7185'],
   tooltip: { trigger: 'item' },
   series: [{ type: 'pie', radius: '72%', data: expenseCategories.value.map((item) => ({ name: item.categoryName || '未分类', value: item.amount })) }]
 }));
 
 const assetDistributionOption = computed<EChartsOption>(() => ({
-  color: ['#3b82f6', '#14b8a6', '#f59e0b', '#ef4444', '#8b5cf6'],
+  color: ['#3b82f6', '#2dd4bf', '#8b5cf6', '#f6c453', '#fb7185'],
   tooltip: { trigger: 'item' },
   series: [{ type: 'pie', radius: ['44%', '72%'], data: assetDistribution.value.map((item) => ({ name: item.name, value: item.value })) }]
 }));
@@ -133,7 +133,7 @@ const investmentOption = computed<EChartsOption>(() => ({
   grid: { left: 44, right: 18, top: 24, bottom: 36 },
   xAxis: { type: 'category', data: investmentTrend.value.map((item) => item.month) },
   yAxis: { type: 'value' },
-  series: [{ type: 'bar', data: investmentTrend.value.map((item) => item.floatingProfit), itemStyle: { color: '#10b981', borderRadius: [6, 6, 0, 0] } }]
+  series: [{ type: 'bar', data: investmentTrend.value.map((item) => item.floatingProfit), itemStyle: { color: '#2dd4bf', borderRadius: [10, 10, 0, 0] } }]
 }));
 
 const incomeExpenseOption = computed<EChartsOption>(() => ({
@@ -143,9 +143,9 @@ const incomeExpenseOption = computed<EChartsOption>(() => ({
   xAxis: { type: 'category', data: incomeExpenseTrend.value.map((item) => item.month) },
   yAxis: { type: 'value' },
   series: [
-    { name: '收入', type: 'bar', data: incomeExpenseTrend.value.map((item) => item.income), itemStyle: { color: '#10b981' } },
-    { name: '支出', type: 'bar', data: incomeExpenseTrend.value.map((item) => item.expense), itemStyle: { color: '#ef4444' } },
-    { name: '预算使用率', type: 'line', data: incomeExpenseTrend.value.map(() => budgetSummary.value.usageRate), lineStyle: { color: '#f59e0b', width: 3 }, itemStyle: { color: '#f59e0b' } }
+    { name: '收入', type: 'bar', data: incomeExpenseTrend.value.map((item) => item.income), itemStyle: { color: '#2dd4bf', borderRadius: [10, 10, 0, 0] } },
+    { name: '支出', type: 'bar', data: incomeExpenseTrend.value.map((item) => item.expense), itemStyle: { color: '#fb7185', borderRadius: [10, 10, 0, 0] } },
+    { name: '预算使用率', type: 'line', data: incomeExpenseTrend.value.map(() => budgetSummary.value.usageRate), lineStyle: { color: '#f6c453', width: 3 }, itemStyle: { color: '#f6c453' } }
   ]
 }));
 
@@ -217,6 +217,7 @@ function dateBefore(days: number) {
 h3 {
   margin: 0 0 16px;
   font-size: 18px;
+  font-weight: 800;
 }
 
 .wide {

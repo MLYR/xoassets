@@ -25,3 +25,11 @@ const tagType = computed(() => {
   return 'info';
 });
 </script>
+
+<style scoped>
+/* 状态标签使用小圆角浅色底，避免在表格里显得过重。 */
+:deep(.el-tag) {
+  border-radius: 10px;
+  font-weight: 700;
+}
+</style>

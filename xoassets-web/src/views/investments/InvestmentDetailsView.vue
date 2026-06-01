@@ -774,11 +774,12 @@ function roundTo(value: number, precision: number) {
 </script>
 
 <style scoped>
-/* 明细页承载投资操作，主页只保留概览。 */
+/* 明细页承载投资操作，表格数字密度高但保留现代金融工具的轻盈感。 */
 .header-actions {
   display: flex;
   gap: 10px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .filter-panel {
@@ -786,6 +787,7 @@ function roundTo(value: number, precision: number) {
   grid-template-columns: auto minmax(220px, 320px);
   gap: 12px;
   padding: 16px;
+  align-items: center;
 }
 
 .summary-grid {
@@ -845,13 +847,19 @@ function roundTo(value: number, precision: number) {
   display: grid;
   gap: 4px;
   width: 100%;
-  padding: 10px 12px;
+  padding: 12px 14px;
   text-align: left;
   border: 1px solid var(--xo-border);
-  border-radius: 8px;
+  border-radius: var(--xo-radius-inner);
   background: #fff;
   color: var(--xo-text);
   cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.lookup-item:hover {
+  border-color: rgba(37, 99, 235, 0.3);
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.08);
 }
 
 .lookup-item span {
@@ -867,6 +875,7 @@ function roundTo(value: number, precision: number) {
   display: block;
   margin-top: 4px;
   color: var(--xo-muted);
+  line-height: 1.5;
 }
 
 .form-tip {
@@ -919,6 +928,9 @@ function roundTo(value: number, precision: number) {
   align-items: center;
   justify-content: space-between;
   padding: 16px;
+  border-top: 1px solid var(--xo-border);
+  color: var(--xo-muted);
+  background: rgba(248, 251, 255, 0.72);
 }
 
 @media (max-width: 760px) {

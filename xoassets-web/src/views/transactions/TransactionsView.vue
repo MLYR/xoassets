@@ -278,12 +278,13 @@ function formatDateTime(value: string) {
 </script>
 
 <style scoped>
-/* 筛选区沿用原型横向工具栏，窄屏自动换行。 */
+/* 筛选区沿用原型横向工具栏，白色玻璃底让表格入口更轻。 */
 .filter-panel {
   display: grid;
   grid-template-columns: minmax(240px, 1fr) 160px 180px auto auto;
   gap: 12px;
   padding: 16px;
+  align-items: center;
 }
 
 .table-footer {
@@ -294,12 +295,13 @@ function formatDateTime(value: string) {
   border-top: 1px solid var(--xo-border);
   color: var(--xo-muted);
   font-size: 14px;
+  background: rgba(248, 251, 255, 0.72);
 }
 
 .transaction-image {
   width: 42px;
   height: 42px;
-  border-radius: 6px;
+  border-radius: 10px;
 }
 
 @media (max-width: 980px) {

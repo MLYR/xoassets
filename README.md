@@ -15,6 +15,7 @@
 ## 当前进度
 
 - 前端：已重建为 Vue3、Element Plus、ECharts、Pinia、Vue Router 项目；登录、注册、用户中心、账户管理、分类管理、记账流水、投资持仓、预算管理、首页、数据分析、资产目标和 AI 报告模板页已接入后端接口。
+- 前端视觉：已按 `xoassets-web/原型图/` 统一为现代金融 SaaS 风格，重点页包括登录页、首页、账户、流水、投资、预算、统计和 AI 报告；当前主风格为浅灰蓝背景、蓝色主色、白色玻璃卡片、大圆角、柔和阴影和统一金额数字排版。
 - 后端：已创建 Spring Boot MVP，覆盖登录注册、账户、分类、流水、首页统计、基础图表统计、资产快照、投资持仓维护、行情刷新、预算管理、资产目标和 AI 报告模板生成。
 - 体验稳定性：核心业务页已补齐空状态、删除二次确认、金额输入大于 0 校验、后端错误 message 展示和统一 loading 状态。
 - 暂不做：自动同步银行卡 / 支付宝 / 微信、AI 报告真实调用、自动交易或投资建议；行情只在后端接入，前端不直连第三方。
@@ -45,6 +46,21 @@
 - CSV 导出：`GET /api/export/account-ledger`、`/transactions`、`/investment-transactions` 已接入账户详情、流水页和投资明细页，导出文件带 UTF-8 BOM。
 - ID 处理：后端 Long ID 以字符串返回，前端接口类型使用 `string` 保存和回传 ID，避免 JavaScript 数字精度丢失。
 - 本地开发：前端 Vite 将 `/api` 代理到 `http://localhost:8080`。
+
+## 前端视觉约定
+
+- 视觉参考图目录：`xoassets-web/原型图/`。
+- 全局样式入口：`xoassets-web/src/styles/index.css`。
+- 主题变量：`xoassets-web/src/styles/variables.css`。
+- 全局组件皮肤：`xoassets-web/src/styles/global.css`。
+- 页面布局辅助类：`xoassets-web/src/styles/layout.css`。
+- 当前视觉基线：
+  - 页面背景使用浅灰蓝渐变 / `#F6F8FC` 体系。
+  - 主色以亮蓝 `#2563EB` 为核心，图表用低饱和蓝 / 绿 / 紫 / 黄。
+  - 卡片统一白色玻璃感、`20px` 圆角、柔和阴影、浅边框。
+  - 表格表头浅灰底、hover 柔和高亮、金额右对齐且不换行。
+  - 侧边栏为白色背景，当前菜单浅蓝底 + 蓝字，不再使用旧深色侧栏风格。
+  - 优先使用 Element Plus + 自定义 CSS 做样式统一，不引入复杂 UI 框架。
 
 ## 前端命令
 

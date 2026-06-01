@@ -269,6 +269,12 @@ function formatDateTime(value: string) {
   gap: 16px;
 }
 
+.account-info > div {
+  padding: 14px;
+  border-radius: var(--xo-radius-inner);
+  background: #f8fbff;
+}
+
 .info-label {
   display: block;
   margin-bottom: 6px;
@@ -290,6 +296,7 @@ function formatDateTime(value: string) {
 
 .chart-panel {
   min-height: 330px;
+  padding-bottom: 10px;
 }
 
 .section-head {
@@ -306,6 +313,7 @@ function formatDateTime(value: string) {
   grid-template-columns: 320px 180px minmax(220px, 1fr);
   gap: 12px;
   padding: 16px;
+  align-items: center;
 }
 
 .numeric-cell {
@@ -338,6 +346,7 @@ function formatDateTime(value: string) {
   border-top: 1px solid var(--xo-border);
   color: var(--xo-muted);
   font-size: 14px;
+  background: rgba(248, 251, 255, 0.72);
 }
 
 @media (max-width: 1080px) {

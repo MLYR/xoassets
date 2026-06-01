@@ -1,9 +1,11 @@
-/* 页面通用布局类：降低各 view 的重复结构代码。 */
+/* 页面通用布局类：统一宽松间距、玻璃面板和响应式栅格。 */
 .page {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  padding: 24px;
+  gap: 28px;
+  width: min(100%, 1440px);
+  margin: 0 auto;
+  padding: 28px;
 }
 
 .page-header {
@@ -15,13 +17,15 @@
 
 .page-title {
   margin: 0;
-  font-size: 24px;
-  font-weight: 700;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.2;
   color: var(--xo-text);
+  text-wrap: balance;
 }
 
 .page-subtitle {
-  margin: 6px 0 0;
+  margin: 8px 0 0;
   color: var(--xo-muted);
   font-size: 14px;
 }
@@ -31,6 +35,7 @@
   border: 1px solid var(--xo-border);
   border-radius: var(--xo-radius);
   box-shadow: var(--xo-shadow);
+  backdrop-filter: var(--xo-blur);
 }
 
 .panel-padding {
@@ -41,6 +46,11 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 24px;
+}
+
+.numeric-cell,
+.amount-text {
+  white-space: nowrap;
 }
 
 .grid-3 {
@@ -64,7 +74,7 @@
 
 @media (max-width: 720px) {
   .page {
-    padding: 16px;
+    padding: 18px;
   }
 
   .page-header,

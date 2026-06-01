@@ -155,11 +155,11 @@ const assetOption = computed<EChartsOption>(() => ({
   tooltip: { trigger: 'axis' },
   xAxis: { type: 'category', data: assetTrend.value.map((item) => item.snapshotDate), axisLine: { lineStyle: { color: '#e2e8f0' } } },
   yAxis: { type: 'value', axisLabel: { formatter: (value: number) => `${Math.round(value / 1000)}k` }, splitLine: { lineStyle: { color: '#e2e8f0' } } },
-  series: [{ type: 'line', smooth: true, data: assetTrend.value.map((item) => item.netAsset), symbolSize: 7, lineStyle: { color: '#3b82f6', width: 3 }, itemStyle: { color: '#3b82f6' }, areaStyle: { color: 'rgba(59, 130, 246, 0.1)' } }]
+  series: [{ type: 'line', smooth: true, data: assetTrend.value.map((item) => item.netAsset), symbolSize: 7, lineStyle: { color: '#2563eb', width: 3 }, itemStyle: { color: '#2563eb' }, areaStyle: { color: 'rgba(37, 99, 235, 0.12)' } }]
 }));
 
 const expenseOption = computed<EChartsOption>(() => ({
-  color: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'],
+  color: ['#3b82f6', '#2dd4bf', '#8b5cf6', '#f6c453', '#fb7185'],
   tooltip: { trigger: 'item' },
   series: [{ type: 'pie', radius: ['56%', '78%'], avoidLabelOverlap: true, label: { show: false }, data: expenseBreakdown.value }]
 }));
@@ -225,7 +225,7 @@ function dateBefore(days: number) {
 </script>
 
 <style scoped>
-/* 首页核心布局为 2:1 图表区，复刻原型的信息密度。 */
+/* 首页核心布局为 2:1 图表区，卡片留白和圆角对齐原型。 */
 .dashboard-grid {
   display: grid;
   grid-template-columns: 2fr 1fr;
@@ -249,6 +249,7 @@ function dateBefore(days: number) {
 .panel-head h3 {
   margin: 0;
   font-size: 18px;
+  font-weight: 800;
 }
 
 .panel-head p {
@@ -267,6 +268,7 @@ function dateBefore(days: number) {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 8px 0;
 }
 
 .legend-row span {
@@ -281,7 +283,7 @@ function dateBefore(days: number) {
   width: 10px;
   height: 10px;
   border-radius: 3px;
-  background: var(--xo-primary);
+  background: linear-gradient(135deg, #60a5fa, #2563eb);
 }
 
 @media (max-width: 1080px) {

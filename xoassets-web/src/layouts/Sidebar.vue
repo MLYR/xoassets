@@ -1,4 +1,4 @@
-<!-- 左侧导航：延续原型深色侧栏、蓝色激活项和紧凑菜单。 -->
+<!-- 左侧导航：白色侧栏、浅蓝激活态和清晰图标文字对齐。 -->
 <template>
   <aside class="sidebar">
     <RouterLink class="brand" :to="ROUTES.dashboard">
@@ -13,8 +13,8 @@
       :default-active="route.path"
       class="sidebar-menu"
       background-color="transparent"
-      text-color="#cbd5e1"
-      active-text-color="#ffffff"
+      text-color="#475569"
+      active-text-color="#2563eb"
       router
     >
       <el-menu-item v-for="item in menuItems" :key="item.path" :index="item.path">
@@ -37,12 +37,15 @@ const route = useRoute();
 </script>
 
 <style scoped>
-/* 侧边栏尺寸和配色与原型保持一致。 */
+/* 侧边栏使用白色玻璃面，当前菜单以浅蓝背景突出。 */
 .sidebar {
   width: 240px;
   flex-shrink: 0;
   background: var(--xo-sidebar);
-  color: #fff;
+  border-right: 1px solid var(--xo-border);
+  color: var(--xo-text);
+  box-shadow: 12px 0 36px rgba(15, 23, 42, 0.04);
+  backdrop-filter: var(--xo-blur);
 }
 
 .brand {
@@ -51,7 +54,7 @@ const route = useRoute();
   gap: 12px;
   height: 64px;
   padding: 0 24px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  border-bottom: 1px solid var(--xo-border);
 }
 
 .brand-mark {
@@ -59,9 +62,10 @@ const route = useRoute();
   width: 32px;
   height: 32px;
   place-items: center;
-  border-radius: var(--xo-radius);
-  background: var(--xo-primary);
+  border-radius: 12px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   font-weight: 700;
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.18);
 }
 
 .brand-text {
@@ -80,7 +84,7 @@ const route = useRoute();
 
 .brand-text span {
   margin-top: 4px;
-  color: rgba(226, 232, 240, 0.62);
+  color: var(--xo-muted);
   font-size: 12px;
   line-height: 1;
 }
@@ -93,14 +97,17 @@ const route = useRoute();
 .sidebar-menu :deep(.el-menu-item) {
   height: 42px;
   margin-bottom: 4px;
-  border-radius: var(--xo-radius);
+  border-radius: 14px;
+  font-weight: 600;
 }
 
 .sidebar-menu :deep(.el-menu-item.is-active) {
-  background: var(--xo-primary);
+  background: #eff6ff;
+  box-shadow: inset 3px 0 0 var(--xo-primary);
 }
 
 .sidebar-menu :deep(.el-menu-item:not(.is-active):hover) {
   background: var(--xo-sidebar-soft);
+  color: var(--xo-primary);
 }
 </style>

@@ -18,13 +18,13 @@ import AppHeader from './Header.vue';
 </script>
 
 <style scoped>
-/* 主布局固定满屏，内容区内部滚动，保持侧边栏稳定。 */
+/* 主布局固定满屏，浅蓝渐变由全局背景承载，内容区内部滚动。 */
 .app-layout {
   display: flex;
   width: 100%;
   height: 100vh;
   overflow: hidden;
-  background: var(--xo-bg);
+  background: transparent;
 }
 
 .content-shell {
