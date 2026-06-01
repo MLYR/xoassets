@@ -3,6 +3,7 @@ package com.xoassets.module.investment.dto;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import lombok.Data;
 
 /**
@@ -19,6 +20,11 @@ public class HoldingRequest {
     private String currency = "CNY";
     private String quoteSource = "MANUAL";
     private String quoteKey;
+    private BigDecimal latestPrice;
+    private BigDecimal previousClose;
+    private BigDecimal changePercent;
+    private LocalDateTime quoteTime;
+    private String marketStatus;
 
     @NotNull(message = "持仓数量不能为空")
     @DecimalMin(value = "0.0001", message = "持仓数量必须大于0")

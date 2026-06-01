@@ -1,6 +1,7 @@
 package com.xoassets.module.investment.service;
 
 import com.xoassets.module.investment.dto.AssetRequest;
+import com.xoassets.module.investment.vo.AssetLookupVO;
 import com.xoassets.module.investment.vo.AssetVO;
 import com.xoassets.persistence.entity.Asset;
 import java.util.List;
@@ -14,6 +15,11 @@ public interface AssetService {
      * 按关键词和类型搜索公共资产。
      */
     List<AssetVO> search(String keyword, String type);
+
+    /**
+     * 根据代码或名称自动识别资产，并返回可直接填入持仓表单的行情信息。
+     */
+    List<AssetLookupVO> lookup(String type, String keyword, String market);
 
     /**
      * 创建公共资产。

@@ -106,6 +106,29 @@
 
     <el-dialog v-model="holdingDialogVisible" :title="editingHolding ? '编辑持仓' : '新增持仓'" width="520px">
       <el-form label-position="top" @submit.prevent="handleSaveHolding">
+        <section v-if="!editingHolding" class="lookup-panel">
+          <el-form-item label="资产搜索">
+            <div class="lookup-row">
+              <el-select v-if="holdingForm.assetType === 'STOCK'" v-model="lookupMarket" class="market-select" placeholder="市场">
+                <el-option label="自动" value="" />
+                <el-option label="上交所 SH" value="SH" />
+                <el-option label="深交所 SZ" value="SZ" />
+                <el-option label="北交所 BJ" value="BJ" />
+                <el-option label="美股 US" value="US" />
+              </el-select>
+              <el-input v-model.trim="lookupKeyword" :placeholder="quoteKeyPlaceholder" clearable />
+              <el-button :loading="lookupLoading" @click="handleLookupAsset">搜索</el-button>
+            </div>
+            <small class="form-tip">{{ quoteKeyTip }}</small>
+          </el-form-item>
+          <div v-if="lookupResults.length > 0" class="lookup-results">
+            <button v-for="item in lookupResults" :key="`${item.assetType}-${item.symbol}-${item.quoteSource}`" type="button" class="lookup-item" @click="applyLookupResult(item)">
+              <strong>{{ item.name }}</strong>
+              <span>{{ item.symbol }} · {{ item.market || '-' }} · {{ item.currency }} · {{ item.quoteSource }}</span>
+              <span v-if="item.latestPrice">当前价 {{ formatLookupPrice(item) }} · {{ formatTableTime(item.quoteTime) || '暂无时间' }}</span>
+            </button>
+          </div>
+        </section>
         <div class="form-grid">
           <el-form-item label="持仓名称"><el-input v-model.trim="holdingForm.assetName" placeholder="例如：比特币 / 沪深300ETF" /></el-form-item>
           <el-form-item label="资产代码"><el-input v-model.trim="holdingForm.symbol" placeholder="例如：BTC / 510300" /></el-form-item>
@@ -143,6 +166,7 @@
           </el-form-item>
           <el-form-item label="数量"><el-input-number v-model="holdingForm.quantity" class="full-width" :min="0.0001" :precision="4" /></el-form-item>
           <el-form-item label="平均成本"><el-input-number v-model="holdingForm.avgCost" class="full-width" :min="0" :precision="4" /></el-form-item>
+          <el-form-item label="当前价格"><el-input-number v-model="holdingForm.latestPrice" class="full-width" :min="0" :precision="formPricePrecision" /></el-form-item>
         </div>
         <el-form-item label="备注"><el-input v-model.trim="holdingForm.remark" type="textarea" :rows="3" /></el-form-item>
       </el-form>
@@ -236,7 +260,7 @@ import TrendValue from '@/components/finance/TrendValue.vue';
 import { ROUTES } from '@/constants/routes';
 import { accountApi, type AccountItem } from '@/services/accountApi';
 import { exportApi } from '@/services/exportApi';
-import { investmentApi, type AssetType, type HoldingItem, type HoldingRequest, type HoldingSummary, type InvestmentTransactionItem, type InvestmentTransactionType } from '@/services/investmentApi';
+import { investmentApi, type AssetLookupItem, type AssetType, type HoldingItem, type HoldingRequest, type HoldingSummary, type InvestmentTransactionItem, type InvestmentTransactionType, type QuoteSource } from '@/services/investmentApi';
 
 type DisplayCurrency = 'CNY' | 'USD';
 
@@ -261,6 +285,10 @@ const tradeDialogVisible = ref(false);
 const quoteDialogVisible = ref(false);
 const editingHolding = ref<HoldingItem | null>(null);
 const activeHolding = ref<HoldingItem | null>(null);
+const lookupKeyword = ref('');
+const lookupMarket = ref('');
+const lookupLoading = ref(false);
+const lookupResults = ref<AssetLookupItem[]>([]);
 const currencyOptions = [
   { label: '人民币', value: 'CNY' },
   { label: 'USD', value: 'USD' }
@@ -278,6 +306,11 @@ const holdingForm = reactive<Required<Omit<HoldingRequest, 'assetId'>>>({
   currency: 'CNY',
   quoteSource: 'MANUAL',
   quoteKey: '',
+  latestPrice: 0,
+  previousClose: null,
+  changePercent: null,
+  quoteTime: null,
+  marketStatus: '',
   quantity: 0,
   avgCost: 0,
   remark: ''
@@ -319,6 +352,7 @@ const pagedHoldings = computed(() => {
   return filteredHoldings.value.slice(start, start + pageSize.value);
 });
 const activePricePrecision = computed(() => activeHolding.value ? pricePrecision(activeHolding.value) : 4);
+const formPricePrecision = computed(() => holdingForm.assetType === 'CRYPTO' ? 8 : 4);
 const quoteKeyPlaceholder = computed(() => {
   if (holdingForm.assetType === 'CRYPTO') return 'bitcoin / ethereum / dogecoin';
   if (holdingForm.assetType === 'FUND') return '000001';
@@ -383,11 +417,19 @@ function openHoldingDialog(holding?: HoldingItem) {
   holdingForm.symbol = holding?.symbol || '';
   holdingForm.assetType = holding?.assetType || 'FUND';
   holdingForm.currency = holding?.currency || (holdingForm.assetType === 'CRYPTO' ? 'USD' : 'CNY');
-  holdingForm.quoteSource = holding?.quoteSource || 'MANUAL';
+  holdingForm.quoteSource = holding?.quoteSource || defaultQuoteSource(holdingForm.assetType);
   holdingForm.quoteKey = holding?.symbol || '';
+  holdingForm.latestPrice = roundTo(Number(holding?.latestPrice || 0), holding?.assetType === 'CRYPTO' ? 8 : 4);
+  holdingForm.previousClose = null;
+  holdingForm.changePercent = null;
+  holdingForm.quoteTime = null;
+  holdingForm.marketStatus = '';
   holdingForm.quantity = round4(Number(holding?.quantity || 0));
   holdingForm.avgCost = round4(Number(holding?.avgCost || 0));
   holdingForm.remark = holding?.remark || '';
+  lookupKeyword.value = '';
+  lookupMarket.value = '';
+  lookupResults.value = [];
   holdingDialogVisible.value = true;
 }
 
@@ -398,6 +440,56 @@ function openHoldingDetail(holding: HoldingItem) {
 
 function holdingRowClassName() {
   return 'clickable-holding-row';
+}
+
+function defaultQuoteSource(assetType: AssetType): QuoteSource {
+  if (assetType === 'CRYPTO') return 'COINGECKO';
+  if (assetType === 'FUND') return 'EASTMONEY';
+  if (assetType === 'STOCK') return 'SINA';
+  return 'MANUAL';
+}
+
+async function handleLookupAsset() {
+  if (!lookupKeyword.value) {
+    ElMessage.warning('请输入代码或名称');
+    return;
+  }
+  lookupLoading.value = true;
+  try {
+    lookupResults.value = await investmentApi.lookupAssets({
+      type: holdingForm.assetType,
+      keyword: lookupKeyword.value,
+      market: lookupMarket.value || undefined
+    });
+    if (lookupResults.value.length === 0) {
+      ElMessage.warning('没有查询到资产信息，可手动录入');
+    }
+  } catch (error) {
+    lookupResults.value = [];
+    ElMessage.error(error instanceof Error ? error.message : '资产信息查询失败，可手动录入');
+  } finally {
+    lookupLoading.value = false;
+  }
+}
+
+function applyLookupResult(item: AssetLookupItem) {
+  // 查询结果只是帮助填表，保存时后端仍会创建或复用 xo_asset，并写入价格快照。
+  holdingForm.assetName = item.name;
+  holdingForm.symbol = item.symbol;
+  holdingForm.assetType = item.assetType;
+  holdingForm.currency = item.currency;
+  holdingForm.quoteSource = item.quoteSource;
+  holdingForm.quoteKey = item.quoteKey;
+  holdingForm.latestPrice = item.latestPrice ? roundTo(item.latestPrice, item.assetType === 'CRYPTO' ? 8 : 4) : 0;
+  holdingForm.previousClose = item.previousClose ?? null;
+  holdingForm.changePercent = item.changePercent ?? null;
+  holdingForm.quoteTime = item.quoteTime || null;
+  holdingForm.marketStatus = item.market || 'LOOKUP';
+  if (!holdingForm.avgCost && item.latestPrice) {
+    holdingForm.avgCost = roundTo(item.latestPrice, 4);
+  }
+  lookupKeyword.value = item.symbol;
+  ElMessage.success('资产信息已填充');
 }
 
 async function handleSaveHolding() {
@@ -602,6 +694,12 @@ function formatOptionalPrice(value: number | null | undefined, row: HoldingItem)
   return `${currencySymbol.value}${displayValue(value, row.currency, pricePrecision(row)).toLocaleString('zh-CN', { minimumFractionDigits: pricePrecision(row), maximumFractionDigits: pricePrecision(row) })}`;
 }
 
+function formatLookupPrice(item: AssetLookupItem) {
+  const precision = item.assetType === 'CRYPTO' ? 8 : 4;
+  const symbol = item.currency === 'USD' ? '$' : '¥';
+  return `${symbol}${Number(item.latestPrice || 0).toLocaleString('zh-CN', { minimumFractionDigits: precision, maximumFractionDigits: precision })}`;
+}
+
 function formatBreakEven(value: number | null | undefined) {
   // 回本涨幅只在亏损时提示还需上涨比例，盈利或打平直接展示已盈利。
   if (value === null || value === undefined) {
@@ -686,6 +784,49 @@ function roundTo(value: number, precision: number) {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0 16px;
+}
+
+.lookup-panel {
+  padding: 4px 0 12px;
+}
+
+.lookup-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  width: 100%;
+}
+
+.lookup-row .market-select {
+  width: 120px;
+}
+
+.lookup-row:has(.market-select) {
+  grid-template-columns: 120px minmax(0, 1fr) auto;
+}
+
+.lookup-results {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.lookup-item {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 10px 12px;
+  text-align: left;
+  border: 1px solid var(--xo-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--xo-text);
+  cursor: pointer;
+}
+
+.lookup-item span {
+  color: var(--xo-muted);
+  font-size: 12px;
 }
 
 .rate-input {

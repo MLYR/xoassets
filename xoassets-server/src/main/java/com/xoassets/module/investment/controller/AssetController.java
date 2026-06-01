@@ -3,6 +3,7 @@ package com.xoassets.module.investment.controller;
 import com.xoassets.common.api.Result;
 import com.xoassets.module.investment.dto.AssetRequest;
 import com.xoassets.module.investment.service.AssetService;
+import com.xoassets.module.investment.vo.AssetLookupVO;
 import com.xoassets.module.investment.vo.AssetVO;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -32,6 +33,17 @@ public class AssetController {
     @GetMapping("/search")
     public Result<List<AssetVO>> search(@RequestParam(required = false) String keyword, @RequestParam(required = false) String type) {
         return Result.success(assetService.search(keyword, type));
+    }
+
+    /**
+     * 自动识别资产信息和最新价格。
+     */
+    @GetMapping("/lookup")
+    public Result<List<AssetLookupVO>> lookup(
+            @RequestParam String type,
+            @RequestParam String keyword,
+            @RequestParam(required = false) String market) {
+        return Result.success(assetService.lookup(type, keyword, market));
     }
 
     /**

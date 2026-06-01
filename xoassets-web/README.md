@@ -19,7 +19,7 @@
 - API 模块：`src/services/authApi.ts`、`src/services/accountApi.ts`、`src/services/categoryApi.ts`、`src/services/transactionApi.ts`、`src/services/investmentApi.ts`、`src/services/budgetApi.ts`、`src/services/dashboardApi.ts`、`src/services/statisticsApi.ts`、`src/services/goalApi.ts`、`src/services/reportApi.ts`。
 - 账户页：支持编辑账户当前余额，用于利息、漏记流水等现实余额校准；账户卡片可进入 `/accounts/:id` 查看资金明细、流向统计和导出账户明细。
 - 记账页：支持分页、备注、图片上传和普通流水 CSV 导出，图片第一版以 Data URL 随流水保存。
-- 投资页：前端只保留“持仓”概念，支持在持仓中维护资产名称、代码、类型、币种、行情源；主页只展示总投资 / 基金 / 股票 / 虚拟货币统计和图表，明细页支持按类型分页查看并完成新增、编辑、买入、卖出、单个刷新、批量刷新、手动价格、删除等操作，点击持仓行可进入 `/investments/holdings/:id` 查看单个持仓详情。
+- 投资页：前端只保留“持仓”概念，支持通过资产类型 + 代码 / 名称搜索自动带出资产名称、代码、市场、币种、行情源、行情键和当前价格，也保留手动录入；主页只展示总投资 / 基金 / 股票 / 虚拟货币统计和图表，明细页支持按类型分页查看并完成新增、编辑、买入、卖出、单个刷新、批量刷新、手动价格、删除等操作，点击持仓行可进入 `/investments/holdings/:id` 查看单个持仓详情。
 - 行情提示：CRYPTO 使用 CoinGecko id，例如 `bitcoin`；基金使用代码，例如 `000001`；A 股使用 `600519.SH`；美股使用 `AAPL`。前端只调用 XOAssets 后端接口，不直连第三方行情。
 - 投资交易：买入弹窗必须选择扣款账户，卖出弹窗必须选择到账账户，交易记录展示资金账户和已实现盈亏。
 - 投资撤销：投资交易记录支持撤销，撤销后刷新持仓、交易、账户和汇总数据，已撤销交易禁用撤销按钮。

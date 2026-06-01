@@ -159,6 +159,7 @@ public class HoldingServiceImpl implements HoldingService {
         holding.setStatus(1);
         holding.setDeleted(0);
         holdingMapper.insert(holding);
+        saveLookupPriceSnapshot(request, asset);
         return toVO(holding);
     }
 
@@ -698,6 +699,29 @@ public class HoldingServiceImpl implements HoldingService {
         asset.setDeleted(0);
         assetMapper.insert(asset);
         return asset;
+    }
+
+    /**
+     * 资产识别结果带回的当前价在新增持仓时落入价格快照，后续估值统一从 xo_asset_price 读取。
+     */
+    private void saveLookupPriceSnapshot(HoldingRequest request, Asset asset) {
+        if (request.getLatestPrice() == null || request.getLatestPrice().compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+        AssetPrice price = new AssetPrice();
+        price.setAssetId(asset.getId());
+        price.setPrice(request.getLatestPrice().setScale(8, RoundingMode.HALF_UP));
+        price.setCurrency(StringUtils.hasText(request.getCurrency()) ? request.getCurrency() : asset.getCurrency());
+        price.setPreviousClose(request.getPreviousClose() == null ? null : request.getPreviousClose().setScale(8, RoundingMode.HALF_UP));
+        if (request.getPreviousClose() != null) {
+            price.setChangeAmount(request.getLatestPrice().subtract(request.getPreviousClose()).setScale(8, RoundingMode.HALF_UP));
+        }
+        price.setChangePercent(request.getChangePercent() == null ? null : request.getChangePercent().setScale(4, RoundingMode.HALF_UP));
+        price.setSource(StringUtils.hasText(request.getQuoteSource()) ? request.getQuoteSource() : "MANUAL");
+        price.setQuoteTime(request.getQuoteTime() == null ? java.time.LocalDateTime.now() : request.getQuoteTime());
+        price.setMarketStatus(StringUtils.hasText(request.getMarketStatus()) ? request.getMarketStatus() : "LOOKUP");
+        price.setDeleted(0);
+        assetPriceMapper.insert(price);
     }
 
     /**

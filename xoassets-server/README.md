@@ -9,7 +9,7 @@
 - 分类管理
 - 收支流水
 - 首页统计和数据分析
-- 投资资产、投资持仓、投资交易、手动价格维护、虚拟货币 / 基金 / 股票行情刷新
+- 投资资产识别、投资持仓、投资交易、手动价格维护、虚拟货币 / 基金 / 股票行情刷新
 - 预算管理和预算汇总
 - 资产目标管理和目标汇总
 - AI 报告模板生成和报告列表
@@ -144,6 +144,7 @@ http://localhost:8080/doc.html
 - 行情价格快照使用 `DECIMAL(28,8)`，第三方行情和手动报价入库前统一保留 8 位；`xo_asset_price` 记录 `previous_close`、`change_amount`、`change_percent`、`market_status`，持仓返回 `priceScale`，CRYPTO 当前价至少展示 6 位，FUND / STOCK 展示 4 位。
 - 持仓估值使用与资产币种一致的最近价格；没有价格或价格币种不一致时使用平均成本兜底，避免当前价和市值口径不一致。
 - 行情刷新通过 `QuoteProvider` 抽象扩展；当前支持 `ManualQuoteProvider`、`CoinGeckoQuoteProvider`、`EastMoneyFundQuoteProvider`、`StockQuoteProvider`。
+- `GET /api/assets/lookup` 支持新增持仓时按类型查询基金、股票、虚拟货币基础信息和当前价格；前端选择结果后保存持仓，后端创建或复用 `xo_asset` 并写入 `xo_asset_price`。
 - CoinGecko 支持 CRYPTO 资产 BTC、ETH、SOL、BNB、DOGE；天天基金支持基金单位净值；新浪支持 A 股；Yahoo Finance 支持美股。
 - `POST /api/quotes/refresh-batch` 支持按当前持仓资产批量刷新；刷新失败保留旧价格，不删除历史快照。
 - 行情缓存按资产类型控制刷新频率：CRYPTO 5 分钟、STOCK 15 分钟、FUND 1 天；MANUAL 价格不过期。

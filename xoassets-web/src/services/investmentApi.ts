@@ -15,6 +15,20 @@ export interface AssetItem {
   quoteKey?: string | null;
 }
 
+export interface AssetLookupItem {
+  name: string;
+  symbol: string;
+  assetType: AssetType;
+  market?: string | null;
+  currency: string;
+  quoteSource: QuoteSource;
+  quoteKey: string;
+  latestPrice?: number | null;
+  previousClose?: number | null;
+  changePercent?: number | null;
+  quoteTime?: string | null;
+}
+
 export interface AssetRequest {
   symbol: string;
   name: string;
@@ -107,6 +121,11 @@ export interface HoldingRequest {
   currency?: string;
   quoteSource?: QuoteSource;
   quoteKey?: string;
+  latestPrice?: number;
+  previousClose?: number | null;
+  changePercent?: number | null;
+  quoteTime?: string | null;
+  marketStatus?: string;
   quantity: number;
   avgCost: number;
   remark?: string;
@@ -165,6 +184,13 @@ export const investmentApi = {
   searchAssets(params: { keyword?: string; type?: AssetType }) {
     return request<AssetItem[]>({
       url: '/assets/search',
+      method: 'GET',
+      params
+    });
+  },
+  lookupAssets(params: { type: AssetType; keyword: string; market?: string }) {
+    return request<AssetLookupItem[]>({
+      url: '/assets/lookup',
       method: 'GET',
       params
     });
