@@ -1,0 +1,95 @@
+/* ===== 小〇财迹 App 全局样式 ===== */
+@import './variables.scss';
+
+/* 通用卡片 */
+.card {
+  background: $bg-card;
+  border-radius: $border-radius;
+  box-shadow: $card-shadow;
+  padding: $spacing-md;
+  margin: $spacing-sm;
+}
+
+/* 金额显示 */
+.amount {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.amount.income { color: $income-color; }
+.amount.expense { color: $expense-color; }
+.amount.transfer { color: $transfer-color; }
+
+.amount-lg { font-size: $amount-lg; }
+.amount-md { font-size: $amount-md; }
+.amount-sm { font-size: $amount-sm; }
+
+/* 标签 */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4rpx 16rpx;
+  border-radius: 8rpx;
+  font-size: $font-xs;
+  font-weight: 500;
+}
+.tag-income { background: rgba($income-color, 0.1); color: $income-color; }
+.tag-expense { background: rgba($expense-color, 0.1); color: $expense-color; }
+.tag-transfer { background: rgba($transfer-color, 0.1); color: $transfer-color; }
+
+/* 按钮 */
+.btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 88rpx;
+  border-radius: $border-radius;
+  background: $primary-color;
+  color: $text-white;
+  font-size: $font-lg;
+  font-weight: 600;
+  border: none;
+  &:active {
+    background: $primary-dark;
+  }
+  &[disabled] {
+    background: #C0C4CC;
+  }
+}
+
+.btn-outline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 88rpx;
+  border-radius: $border-radius;
+  background: transparent;
+  color: $primary-color;
+  font-size: $font-lg;
+  border: 2rpx solid $primary-color;
+  &:active {
+    background: rgba($primary-color, 0.05);
+  }
+}
+
+/* 分割线 */
+.divider {
+  height: 1rpx;
+  background: $border-color;
+  margin: $spacing-md 0;
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-xl * 2;
+  color: $text-secondary;
+  font-size: $font-md;
+}
+
+/* 安全底部 */
+.safe-bottom {
+  padding-bottom: calc(#{$spacing-lg} + #{$safe-bottom});
+}

@@ -33,6 +33,19 @@
 - Axios
 - Vue Router
 - 前端真实接口统一放在 `xoassets-web/src/services/*Api.ts`，公共请求逻辑放在 `xoassets-web/src/services/http.ts`。
+
+### 3.3 移动端
+- uni-app 3.x（alpha）
+- Vue 3
+- Pinia
+- TypeScript
+- SCSS
+- 移动端项目位于 `xoassets-app/`，独立于 Web 管理端，复用后端 API。
+- 移动端 services 和 stores 结构与 Web 端一致，API 类型定义复用后端接口契约。
+- 移动端 token 使用 `uni.storage` API，HTTP 请求通过 `uni.request` 封装。
+- 移动端页面位于 `xoassets-app/src/pages/`，底部 Tab 含首页、记账、账户、投资、我的。
+- 移动端开发启动：`cd xoassets-app && npm install && npx uni --host 127.0.0.1 --port 5174`。
+- 移动端构建：`cd xoassets-app && npx uni build`，产物在 `dist/build/h5/`。
 - 登录 token 统一由 `xoassets-web/src/services/token.ts` 管理，请求通过 `Authorization: Bearer <token>` 传递。
 - 未联调页面可以继续使用 `financeService` 和 `src/mock`，但已接后端页面不要回退到 mock。
 
