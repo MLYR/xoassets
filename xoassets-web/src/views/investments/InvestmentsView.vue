@@ -98,7 +98,7 @@ const typeStats = computed(() => ({
   CRYPTO: calcTypeStat('CRYPTO')
 }));
 const allocationOption = computed<EChartsOption>(() => ({
-  color: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#14b8a6', '#6366f1'],
+  color: ['#3b82f6', '#2dd4bf', '#8b5cf6', '#f6c453', '#fb7185', '#60a5fa', '#a78bfa'],
   tooltip: { trigger: 'item' },
   series: [{
     type: 'pie',
@@ -133,7 +133,7 @@ const profitOption = computed<EChartsOption>(() => ({
   xAxis: { type: 'category', data: contributionData.value.map((item) => item.name), axisLabel: { interval: 0, rotate: contributionData.value.length > 6 ? 25 : 0 } },
   yAxis: { type: 'value', axisLabel: { formatter: (value: number) => compactMoney(value) } },
   tooltip: { trigger: 'axis', valueFormatter: (value) => formatMoney(Number(value)) },
-  series: [{ type: 'bar', data: contributionData.value.map((item) => item.value), itemStyle: { color: '#3b82f6', borderRadius: [6, 6, 0, 0] } }]
+  series: [{ type: 'bar', data: contributionData.value.map((item) => item.value), itemStyle: { color: '#3b82f6', borderRadius: [10, 10, 0, 0] } }]
 }));
 const contributionData = computed(() => {
   const rows = contributionRows();
@@ -274,12 +274,14 @@ function typeLabel(type?: string | null) {
 .panel-head h3 {
   margin: 0;
   font-size: 18px;
+  font-weight: 800;
 }
 
 .header-actions {
   display: flex;
   gap: 10px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .currency-select {

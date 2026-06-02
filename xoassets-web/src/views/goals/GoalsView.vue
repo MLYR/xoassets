@@ -167,11 +167,34 @@ function resetForm() {
 </script>
 
 <style scoped>
-/* 目标卡片保留明确金额层级和进度条，适合长期目标追踪。 */
+/* 目标卡片延续金融 SaaS 卡片基线，强调金额、进度和长期状态。 */
 .goal-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 24px;
+}
+
+.goal-card {
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+
+.goal-card::after {
+  position: absolute;
+  right: -38px;
+  bottom: -48px;
+  width: 126px;
+  height: 126px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.08);
+  content: "";
+}
+
+.goal-card:hover {
+  border-color: rgba(37, 99, 235, 0.24);
+  box-shadow: var(--xo-shadow-hover);
+  transform: translateY(-2px);
 }
 
 .goal-head {
@@ -183,6 +206,8 @@ function resetForm() {
 
 .goal-head h3 {
   margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 800;
 }
 
 .goal-head p {
@@ -195,7 +220,7 @@ function resetForm() {
   align-items: baseline;
   gap: 8px;
   margin-bottom: 18px;
-  font-size: 22px;
+  font-size: 24px;
 }
 
 .goal-amounts span {
@@ -210,6 +235,12 @@ function resetForm() {
   margin-top: 14px;
   color: var(--xo-muted);
   font-size: 13px;
+}
+
+.goal-extra {
+  padding: 12px;
+  border-radius: var(--xo-radius-inner);
+  background: #f8fbff;
 }
 
 .goal-actions {

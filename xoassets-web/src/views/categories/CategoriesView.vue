@@ -15,13 +15,13 @@
         <el-tab-pane label="收入分类" name="INCOME" />
       </el-tabs>
 
-      <el-table v-loading="loading" :data="categories" stripe>
+      <el-table v-loading="loading" class="category-table" :data="categories" stripe>
         <template #empty>
           <el-empty description="暂无分类，新用户注册后会自动初始化默认分类，也可以手动新增" />
         </template>
         <el-table-column prop="name" label="分类名称" min-width="160" />
         <el-table-column prop="icon" label="图标" width="110">
-          <template #default="{ row }">{{ row.icon || '-' }}</template>
+          <template #default="{ row }"><span class="icon-cell">{{ row.icon || '-' }}</span></template>
         </el-table-column>
         <el-table-column label="颜色" width="120">
           <template #default="{ row }">
@@ -212,18 +212,36 @@ async function handleStatusChange(category: CategoryItem, status: number) {
 </script>
 
 <style scoped>
-/* 颜色列用色块辅助识别分类颜色。 */
+/* 分类页补齐视觉基线，色块和图标使用轻量卡片式细节。 */
+.category-table {
+  margin-top: 8px;
+}
+
 .color-cell {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  color: var(--xo-muted);
+  font-size: 13px;
 }
 
 .color-dot {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   border: 1px solid var(--xo-border);
-  border-radius: 50%;
+  border-radius: 7px;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+}
+
+.icon-cell {
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 12px;
+  background: #eff6ff;
+  color: var(--xo-primary);
+  font-weight: 800;
 }
 
 .full-width {

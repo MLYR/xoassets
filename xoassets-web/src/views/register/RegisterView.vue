@@ -139,11 +139,13 @@ async function handleRegister() {
 </script>
 
 <style scoped>
-/* 注册页采用与登录页一致的左右分屏和品牌信息布局。 */
+/* 注册页采用与登录页一致的左右分屏、城市氛围和玻璃表单卡片。 */
 .register-page {
   display: flex;
-  min-height: 100vh;
-  background: var(--xo-card);
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at 74% 18%, rgba(96, 165, 250, 0.16), transparent 26%),
+    linear-gradient(90deg, #eef6ff 0%, #f8fbff 52%, #ffffff 100%);
 }
 
 .register-brand {
@@ -153,15 +155,19 @@ async function handleRegister() {
   flex-direction: column;
   justify-content: space-between;
   overflow: hidden;
-  padding: 48px;
-  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  padding: 64px 64px 54px;
+  background:
+    linear-gradient(180deg, rgba(239, 246, 255, 0.16), rgba(219, 234, 254, 0.72)),
+    linear-gradient(135deg, #f8fbff 0%, #dbeafe 100%);
 }
 
 .register-brand::after {
   position: absolute;
-  inset: auto 0 0;
-  height: 48%;
-  background: linear-gradient(0deg, rgba(59, 130, 246, 0.18), rgba(59, 130, 246, 0));
+  inset: auto -10% 0 -8%;
+  height: 50%;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(219, 234, 254, 0.72)),
+    url("data:image/svg+xml,%3Csvg width='900' height='360' viewBox='0 0 900 360' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%232563eb' stroke-opacity='.18'%3E%3Cpath d='M28 330h844'/%3E%3Cpath d='M92 330V206h58v124M190 330V158h68v172M312 330V120h58v210M420 330V86h86v244M548 330V142h66v188M668 330V102h78v228M792 330V182h52v148'/%3E%3Cpath d='M0 260c118 14 196-14 292-10 108 5 190 42 314 32 112-8 176-54 294-42'/%3E%3C/g%3E%3C/svg%3E") bottom center / cover no-repeat;
   content: "";
 }
 
@@ -179,9 +185,10 @@ async function handleRegister() {
   height: 40px;
   place-items: center;
   border-radius: 12px;
-  background: var(--xo-primary);
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: #fff;
   font-weight: 700;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.22);
 }
 
 .register-logo strong,
@@ -211,30 +218,32 @@ async function handleRegister() {
 .register-copy h1 {
   margin: 0 0 16px;
   color: var(--xo-text);
-  font-size: 40px;
-  line-height: 1.25;
+  font-size: clamp(42px, 5vw, 62px);
+  line-height: 1.18;
+  font-weight: 900;
 }
 
 .register-copy p {
   margin: 0;
   color: var(--xo-muted);
   font-size: 18px;
-  line-height: 1.7;
+  line-height: 1.85;
 }
 
 .preview-cards {
   display: flex;
   gap: 16px;
-  margin-top: 32px;
+  margin-top: 38px;
 }
 
 .preview-card {
-  min-width: 180px;
-  padding: 16px;
+  min-width: 190px;
+  padding: 18px;
   border: 1px solid rgba(255, 255, 255, 0.7);
   border-radius: var(--xo-radius);
   background: rgba(255, 255, 255, 0.82);
   box-shadow: var(--xo-shadow);
+  backdrop-filter: var(--xo-blur);
 }
 
 .preview-card span,
@@ -257,21 +266,28 @@ async function handleRegister() {
 
 .register-form-panel {
   display: flex;
-  width: 480px;
+  width: min(48vw, 620px);
   align-items: center;
   justify-content: center;
-  padding: 32px;
+  padding: 48px;
 }
 
 .form-card {
   width: 100%;
-  max-width: 360px;
+  max-width: 430px;
+  padding: 46px;
+  border: 1px solid var(--xo-border);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.08);
+  backdrop-filter: var(--xo-blur);
 }
 
 .form-card h2 {
   margin: 0 0 8px;
   text-align: center;
-  font-size: 24px;
+  font-size: 30px;
+  font-weight: 800;
 }
 
 .form-card > p {
@@ -282,7 +298,9 @@ async function handleRegister() {
 
 .register-button {
   width: 100%;
-  height: 44px;
+  height: 48px;
+  border-radius: 14px;
+  font-size: 16px;
 }
 
 /* 注册页底部入口只负责回到登录页，避免和提交按钮混淆。 */

@@ -46,7 +46,11 @@
       </el-form-item>
       <el-form-item label="图片">
         <div class="image-upload">
-          <input type="file" accept="image/*" @change="handleImageChange" />
+          <label class="upload-trigger">
+            <input type="file" accept="image/*" @change="handleImageChange" />
+            <span>选择图片</span>
+            <small>支持 1MB 内图片</small>
+          </label>
           <el-button v-if="form.imageUrl" link type="danger" @click="form.imageUrl = null">移除图片</el-button>
         </div>
         <img v-if="form.imageUrl" class="preview-image" :src="form.imageUrl" alt="流水图片预览" />
@@ -213,7 +217,7 @@ function handleImageChange(event: Event) {
 </script>
 
 <style scoped>
-/* 表单控件保持通栏宽度，避免弹窗内容左右错位。 */
+/* 表单控件保持通栏宽度，弹窗内部也延续轻玻璃表单质感。 */
 .full-input {
   width: 100%;
 }
@@ -226,15 +230,50 @@ function handleImageChange(event: Event) {
   display: flex;
   align-items: center;
   gap: 12px;
+  width: 100%;
+}
+
+.upload-trigger {
+  display: grid;
+  flex: 1;
+  gap: 4px;
+  min-height: 74px;
+  place-items: center;
+  border: 1px dashed rgba(37, 99, 235, 0.32);
+  border-radius: var(--xo-radius-inner);
+  background: #f8fbff;
+  color: var(--xo-primary);
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.upload-trigger:hover {
+  border-color: var(--xo-primary);
+  background: #eff6ff;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.08);
+}
+
+.upload-trigger input {
+  display: none;
+}
+
+.upload-trigger span {
+  font-weight: 800;
+}
+
+.upload-trigger small {
+  color: var(--xo-muted);
 }
 
 .preview-image {
   display: block;
-  max-width: 160px;
-  max-height: 120px;
+  width: 168px;
+  max-width: 100%;
+  max-height: 124px;
   margin-top: 10px;
   border: 1px solid var(--xo-border);
-  border-radius: var(--xo-radius);
+  border-radius: var(--xo-radius-inner);
+  box-shadow: var(--xo-shadow);
   object-fit: cover;
 }
 </style>
