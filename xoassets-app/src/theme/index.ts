@@ -5,6 +5,7 @@ import { techDarkTheme } from './themes/tech-dark'
 import { cartoonSoftTheme } from './themes/cartoon-soft'
 
 export type { ThemeConfig, ThemeIcon, ThemeIconPair, ThemeName } from './types'
+export { themeIconMap } from './icon-map'
 
 export const DEFAULT_THEME_NAME: ThemeName = 'classic-blue'
 

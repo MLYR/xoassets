@@ -81,6 +81,12 @@ export interface ThemeConfig {
     amountHuge: string
   }
   components: {
+    page: {
+      background: string
+      paddingX: string
+      paddingY: string
+      sectionGap: string
+    }
     button: {
       height: string
       radius: string
@@ -89,6 +95,12 @@ export interface ThemeConfig {
       outlineBorder: string
       outlineText: string
       disabledBg: string
+      variants: Record<'primary' | 'secondary' | 'success' | 'danger' | 'purple', {
+        background: string
+        text: string
+        shadow?: string
+        border?: string
+      }>
     }
     card: {
       bg: string

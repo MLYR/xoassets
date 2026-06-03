@@ -7,20 +7,24 @@ import { applyTheme } from '@/theme/applyTheme'
 const THEME_KEY = 'xoassets_theme'
 
 export const useThemeStore = defineStore('theme', () => {
-  const currentThemeName = ref<ThemeName>((uni.getStorageSync(THEME_KEY) as ThemeName) || DEFAULT_THEME_NAME)
-  const currentTheme = computed(() => getTheme(currentThemeName.value))
+  const currentThemeKey = ref<ThemeName>((uni.getStorageSync(THEME_KEY) as ThemeName) || DEFAULT_THEME_NAME)
+  const currentTheme = computed(() => getTheme(currentThemeKey.value))
+
+  // 兼容已经接入 currentThemeName 的页面，后续页面统一使用 currentThemeKey。
+  const currentThemeName = computed(() => currentThemeKey.value)
 
   function initTheme() {
     applyTheme(currentTheme.value)
   }
 
   function setTheme(name: ThemeName) {
-    currentThemeName.value = name
+    currentThemeKey.value = name
     uni.setStorageSync(THEME_KEY, name)
     applyTheme(currentTheme.value)
   }
 
   return {
+    currentThemeKey,
     currentThemeName,
     currentTheme,
     themeOptions,

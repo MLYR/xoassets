@@ -1,5 +1,6 @@
 /* tech-dark：预留科技深色主题，先保证 token 完整。 */
 import type { ThemeConfig } from '../types'
+import { themeIconMap } from '../icon-map'
 
 export const techDarkTheme: ThemeConfig = {
   name: 'tech-dark',
@@ -58,6 +59,12 @@ export const techDarkTheme: ThemeConfig = {
     amountHuge: '64rpx'
   },
   components: {
+    page: {
+      background: '#0B1220',
+      paddingX: '24rpx',
+      paddingY: '24rpx',
+      sectionGap: '24rpx'
+    },
     button: {
       height: '88rpx',
       radius: '18rpx',
@@ -65,7 +72,34 @@ export const techDarkTheme: ThemeConfig = {
       primaryText: '#07101D',
       outlineBorder: '#44D7FF',
       outlineText: '#44D7FF',
-      disabledBg: '#3A465C'
+      disabledBg: '#3A465C',
+      variants: {
+        primary: {
+          background: 'linear-gradient(135deg, #1599C2 0%, #44D7FF 100%)',
+          text: '#07101D',
+          shadow: '0 12rpx 32rpx rgba(68, 215, 255, 0.22)'
+        },
+        secondary: {
+          background: '#172237',
+          text: '#44D7FF',
+          border: '#22304A'
+        },
+        success: {
+          background: 'linear-gradient(135deg, #0B6B52 0%, #18C987 100%)',
+          text: '#F5F8FF',
+          shadow: '0 12rpx 26rpx rgba(24, 201, 135, 0.22)'
+        },
+        danger: {
+          background: 'linear-gradient(135deg, #84213B 0%, #FF5F7E 100%)',
+          text: '#F5F8FF',
+          shadow: '0 12rpx 26rpx rgba(255, 95, 126, 0.22)'
+        },
+        purple: {
+          background: 'linear-gradient(135deg, #5A54F9 0%, #8A7CFF 100%)',
+          text: '#F5F8FF',
+          shadow: '0 12rpx 26rpx rgba(138, 124, 255, 0.22)'
+        }
+      }
     },
     card: {
       bg: '#121B2D',
@@ -75,39 +109,7 @@ export const techDarkTheme: ThemeConfig = {
     },
     tabBar: { color: '#7F8DA5', selectedColor: '#44D7FF', backgroundColor: '#0F1728', borderStyle: 'white' }
   },
-  icons: {
-    tabBar: {
-      home: { normal: { type: 'text', value: '⌂' }, active: { type: 'text', value: '⌂' } },
-      add: { normal: { type: 'text', value: '▤' }, active: { type: 'text', value: '▤' } },
-      accounts: { normal: { type: 'text', value: '▣' }, active: { type: 'text', value: '▣' } },
-      investments: { normal: { type: 'text', value: '↗' }, active: { type: 'text', value: '↗' } },
-      mine: { normal: { type: 'text', value: '○' }, active: { type: 'text', value: '●' } }
-    },
-    menu: {
-      categories: { type: 'text', value: '▦' },
-      budgets: { type: 'text', value: '◔' },
-      goals: { type: 'text', value: '◎' },
-      reports: { type: 'text', value: '▥' },
-      logout: { type: 'text', value: '↪' }
-    },
-    categoryFallback: {
-      INCOME: { type: 'text', value: '收' },
-      EXPENSE: { type: 'text', value: '支' },
-      TRANSFER: { type: 'text', value: '转' }
-    },
-    investmentActions: {
-      buy: { type: 'text', value: '买' },
-      sell: { type: 'text', value: '卖' },
-      convert: { type: 'text', value: '换' },
-      refresh: { type: 'text', value: '刷' }
-    },
-    quickActions: {
-      record: { type: 'text', value: '记' },
-      transfer: { type: 'text', value: '转' },
-      invest: { type: 'text', value: '投' },
-      budget: { type: 'text', value: '预' }
-    }
-  },
+  icons: themeIconMap['tech-dark'],
   backgrounds: {
     page: '#0B1220',
     homeAssetCard: 'linear-gradient(135deg, #122443 0%, #164C74 100%)',

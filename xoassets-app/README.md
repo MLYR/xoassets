@@ -14,6 +14,7 @@
 
 ```
 src/
+├── components/         # 通用 UI 组件
 ├── pages/              # 15 个页面
 │   ├── index/          # 首页仪表盘（Tab1）
 │   ├── add/            # 快速记账（Tab2）
@@ -84,6 +85,8 @@ npm run type-check
 src/theme/
 ├── index.ts                 # 主题注册和统一导出
 ├── types.ts                 # ThemeConfig 类型定义
+├── icon-map.ts              # 主题图标语义映射
+├── useTheme.ts              # 读取当前主题的 composable
 ├── applyTheme.ts            # 同步 CSS 变量、导航栏和 TabBar 样式
 ├── helpers.ts               # 读取主题颜色/图标的辅助方法
 └── themes/
@@ -93,6 +96,36 @@ src/theme/
 ```
 
 主题状态由 `src/stores/theme.ts` 管理，默认主题为 `classic-blue`，会持久化到 `uni.storage`。
+
+## 组件系统
+
+为后续复刻原型，当前已建立 `src/components/app/` 通用组件层，组件样式优先依赖 theme，不在页面里重复散落卡片、金额、按钮和图标样式。
+
+```text
+src/components/app/
+├── AppPage.vue             # 页面容器，统一背景、安全区和 padding
+├── AppCard.vue             # 统一卡片背景、圆角、阴影、间距
+├── AppAmount.vue           # 金额显示，支持尺寸和正负色
+├── AppIcon.vue             # 从 theme.icons 读取图标
+├── AppActionButton.vue     # 通用操作按钮，支持主题变体
+├── AppSectionHeader.vue    # 标题 + 右侧操作
+└── AppBottomTabs.vue       # 底部 Tab UI 能力层
+```
+
+按钮变体目前支持：
+- `primary`
+- `secondary`
+- `success`
+- `danger`
+- `purple`
+
+页面后续接入建议：
+1. 页面最外层优先使用 `AppPage`
+2. 业务区块优先使用 `AppCard`
+3. 金额统一使用 `AppAmount`
+4. 图标统一使用 `AppIcon`
+5. 操作按钮统一使用 `AppActionButton`
+6. 标题栏统一使用 `AppSectionHeader`
 
 新增主题时：
 1. 在 `src/theme/themes/` 新建主题配置文件，实现完整 `ThemeConfig`。
@@ -104,6 +137,7 @@ src/theme/
 - 启动时通过 `App.vue` 应用当前主题
 - 首页、账户、投资、登录、注册、记账、分类、我的页面的核心背景/卡片/图标 fallback
 - 原生导航栏和 TabBar 色彩通过 `applyTheme.ts` 运行时同步
+- 通用组件 `AppPage`、`AppCard`、`AppAmount`、`AppIcon`、`AppActionButton`、`AppSectionHeader`、`AppBottomTabs` 已直接依赖主题配置
 
 ## 接口
 

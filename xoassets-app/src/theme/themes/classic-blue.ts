@@ -1,5 +1,6 @@
 /* classic-blue：对齐当前原型图和 Web 端的浅蓝金融 SaaS 风格。 */
 import type { ThemeConfig } from '../types'
+import { themeIconMap } from '../icon-map'
 
 export const classicBlueTheme: ThemeConfig = {
   name: 'classic-blue',
@@ -70,6 +71,12 @@ export const classicBlueTheme: ThemeConfig = {
     amountHuge: '64rpx'
   },
   components: {
+    page: {
+      background: '#F3F7FC',
+      paddingX: '24rpx',
+      paddingY: '24rpx',
+      sectionGap: '24rpx'
+    },
     button: {
       height: '88rpx',
       radius: '16rpx',
@@ -77,7 +84,34 @@ export const classicBlueTheme: ThemeConfig = {
       primaryText: '#FFFFFF',
       outlineBorder: '#2F7BFF',
       outlineText: '#2F7BFF',
-      disabledBg: '#C7CFDB'
+      disabledBg: '#C7CFDB',
+      variants: {
+        primary: {
+          background: 'linear-gradient(135deg, #2F7BFF 0%, #1F64E8 100%)',
+          text: '#FFFFFF',
+          shadow: '0 12rpx 28rpx rgba(47, 123, 255, 0.24)'
+        },
+        secondary: {
+          background: '#EFF5FF',
+          text: '#2F7BFF',
+          border: '#CFE0FF'
+        },
+        success: {
+          background: 'linear-gradient(135deg, #12C46B 0%, #42D889 100%)',
+          text: '#FFFFFF',
+          shadow: '0 12rpx 24rpx rgba(18, 196, 107, 0.22)'
+        },
+        danger: {
+          background: 'linear-gradient(135deg, #FF6B6B 0%, #FF3B3F 100%)',
+          text: '#FFFFFF',
+          shadow: '0 12rpx 24rpx rgba(255, 59, 63, 0.22)'
+        },
+        purple: {
+          background: 'linear-gradient(135deg, #8E6BFF 0%, #6F42FF 100%)',
+          text: '#FFFFFF',
+          shadow: '0 12rpx 24rpx rgba(111, 66, 255, 0.22)'
+        }
+      }
     },
     card: {
       bg: '#FFFFFF',
@@ -92,39 +126,7 @@ export const classicBlueTheme: ThemeConfig = {
       borderStyle: 'black'
     }
   },
-  icons: {
-    tabBar: {
-      home: { normal: { type: 'text', value: '⌂' }, active: { type: 'text', value: '⌂' } },
-      add: { normal: { type: 'text', value: '▤' }, active: { type: 'text', value: '▤' } },
-      accounts: { normal: { type: 'text', value: '▣' }, active: { type: 'text', value: '▣' } },
-      investments: { normal: { type: 'text', value: '↗' }, active: { type: 'text', value: '↗' } },
-      mine: { normal: { type: 'text', value: '○' }, active: { type: 'text', value: '●' } }
-    },
-    menu: {
-      categories: { type: 'text', value: '▦' },
-      budgets: { type: 'text', value: '◔' },
-      goals: { type: 'text', value: '◎' },
-      reports: { type: 'text', value: '▥' },
-      logout: { type: 'text', value: '↪' }
-    },
-    categoryFallback: {
-      INCOME: { type: 'text', value: '收' },
-      EXPENSE: { type: 'text', value: '支' },
-      TRANSFER: { type: 'text', value: '转' }
-    },
-    investmentActions: {
-      buy: { type: 'text', value: '买' },
-      sell: { type: 'text', value: '卖' },
-      convert: { type: 'text', value: '换' },
-      refresh: { type: 'text', value: '刷' }
-    },
-    quickActions: {
-      record: { type: 'text', value: '记' },
-      transfer: { type: 'text', value: '转' },
-      invest: { type: 'text', value: '投' },
-      budget: { type: 'text', value: '预' }
-    }
-  },
+  icons: themeIconMap['classic-blue'],
   backgrounds: {
     page: '#F3F7FC',
     homeAssetCard: 'linear-gradient(135deg, #2F7BFF 0%, #1F74FF 54%, #3E8CFF 100%)',
