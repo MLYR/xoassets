@@ -72,6 +72,20 @@
       }
     },
     {
+      "path": "pages/investment-distribution/investment-distribution",
+      "style": {
+        "navigationBarTitleText": "资产分布",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/holding-analysis/holding-analysis",
+      "style": {
+        "navigationBarTitleText": "持仓分析",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/categories/categories",
       "style": {
         "navigationBarTitleText": "分类管理"

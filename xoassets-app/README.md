@@ -15,7 +15,7 @@
 ```
 src/
 ├── components/         # 通用 UI 组件
-├── pages/              # 15 个页面
+├── pages/              # 17 个页面
 │   ├── index/          # 首页仪表盘（Tab1）
 │   ├── add/            # 快速记账（Tab2）
 │   ├── accounts/       # 账户列表（Tab3）
@@ -27,6 +27,8 @@ src/
 │   ├── transaction-detail/ # 流水详情
 │   ├── account-detail/ # 账户明细
 │   ├── holding-detail/ # 持仓详情
+│   ├── investment-distribution/ # 资产分布
+│   ├── holding-analysis/ # 持仓分析
 │   ├── categories/     # 分类管理
 │   ├── budgets/        # 预算管理
 │   ├── goals/          # 资产目标
@@ -83,6 +85,10 @@ npm run type-check
 - 持仓三列表格
 - 买入 / 转换 / 卖出胶囊按钮
 - 行情模块不在投资首页展示
+
+投资子页面已补齐：
+- `资产分布` 页：总资产卡、资产分布 donut、资产变化趋势、分布洞察
+- `持仓分析` 页：持仓市值 / 成本 / 收益 / 收益率、收益贡献排行、持仓明细、风险分布
 
 当前记账页已按原型方向做了第一轮落地：
 - 顶部月份切换、搜索和筛选入口

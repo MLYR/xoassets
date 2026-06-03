@@ -127,6 +127,10 @@
           <text>暂无持仓</text>
         </view>
       </view>
+
+      <view class="holding-analysis-entry" @click="handleAllHoldings">
+        <text class="holding-analysis-text">持仓分析 ›</text>
+      </view>
     </AppCard>
 
     <!-- 底部交易入口：先保留视觉和交互位，后续单独接交易页。 -->
@@ -333,11 +337,11 @@ function goDetail(row: { raw: HoldingItem }) {
 }
 
 function handleDistributionMore() {
-  uni.showToast({ title: '资产分布详情待接入', icon: 'none' })
+  uni.navigateTo({ url: '/pages/investment-distribution/investment-distribution' })
 }
 
 function handleAllHoldings() {
-  uni.showToast({ title: '当前已展示全部持仓', icon: 'none' })
+  uni.navigateTo({ url: '/pages/holding-analysis/holding-analysis' })
 }
 
 function handleTradeAction(action: 'buy' | 'convert' | 'sell') {
@@ -542,6 +546,17 @@ function handleTradeAction(action: 'buy' | 'convert' | 'sell') {
 
 .holdings-card {
   overflow: hidden;
+}
+
+.holding-analysis-entry {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 18rpx;
+}
+
+.holding-analysis-text {
+  font-size: $font-sm;
+  color: var(--xo-primary);
 }
 
 .holding-header,

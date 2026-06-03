@@ -15,12 +15,12 @@
 
 ## 当前进度
 
-- 前端：已重建为 Vue3、Element Plus、ECharts、Pinia、Vue Router 项目；登录、注册、用户中心、账户管理、分类管理、记账流水、投资持仓、预算管理、首页、数据分析、资产目标和 AI 报告模板页已接入后端接口。
+- 前端：已重建为 Vue3、Element Plus、ECharts、Pinia、Vue Router 项目；登录、注册、用户中心、账户管理、分类管理、记账流水、投资持仓、投资子页面、预算管理、首页、数据分析、资产目标和 AI 报告模板页已接入后端接口。
 - 前端视觉：已按 `xoassets-web/原型图/` 统一为现代金融 SaaS 风格，重点页包括登录页、首页、账户、流水、投资、预算、统计和 AI 报告；当前主风格为浅灰蓝背景、蓝色主色、白色玻璃卡片、大圆角、柔和阴影和统一金额数字排版。
 - 后端：已创建 Spring Boot MVP，覆盖登录注册、账户、分类、流水、首页统计、基础图表统计、资产快照、投资持仓维护、行情刷新、预算管理、资产目标和 AI 报告模板生成。
 - 体验稳定性：核心业务页已补齐空状态、删除二次确认、金额输入大于 0 校验、后端错误 message 展示和统一 loading 状态。
 - 暂不做：自动同步银行卡 / 支付宝 / 微信、AI 报告真实调用、自动交易或投资建议；行情只在后端接入，前端不直连第三方。
-- 移动端：已创建 uni-app 独立项目，复用后端 API；包含登录注册、首页仪表盘、快速记账、流水列表、账户管理、投资持仓和我的页面共 15 个页面，5 个底部 Tab；延续 Web 浅蓝金融 SaaS 风格，卡片化 + 大圆角 + 适配手指点击。当前已补齐主题系统和通用 UI 组件层，投资页已开始按原型风格重做，记账页已切到日历驱动的流水列表 + 快速录入样式，后续页面可以基于 `AppPage`、`AppCard`、`AppAmount`、`AppIcon`、`AppActionButton`、`AppSectionHeader`、`AppBottomTabs` 继续复刻原型。
+- 移动端：已创建 uni-app 独立项目，复用后端 API；包含登录注册、首页仪表盘、快速记账、流水列表、账户管理、投资持仓、投资子页面和我的页面共 17 个页面，5 个底部 Tab；延续 Web 浅蓝金融 SaaS 风格，卡片化 + 大圆角 + 适配手指点击。当前已补齐主题系统和通用 UI 组件层，投资页已开始按原型风格重做，记账页已切到日历驱动的流水列表 + 快速录入样式，投资子页面已新增资产分布和持仓分析，后续页面可以基于 `AppPage`、`AppCard`、`AppAmount`、`AppIcon`、`AppActionButton`、`AppSectionHeader`、`AppBottomTabs` 继续复刻原型。
 
 ## 前后端联调状态
 
@@ -31,7 +31,7 @@
 - 分类管理：`GET /api/categories`、`POST /api/categories`、`PUT /api/categories/{id}`、`DELETE /api/categories/{id}`、`PUT /api/categories/{id}/status` 已接入分类页。
 - 记账流水：`GET /api/transactions`、`POST /api/transactions`、`PUT /api/transactions/{id}`、`DELETE /api/transactions/{id}` 已接入记账页，支持分页和流水图片。
 - 投资持仓：`GET /api/assets/lookup`、`GET /api/holdings`、`GET /api/holdings/summary`、`GET /api/holdings/{id}/detail`、`POST /api/holdings`、`PUT /api/holdings/{id}`、`DELETE /api/holdings/{id}`、`POST /api/investment-transactions`、`GET /api/investment-transactions`、`POST /api/quotes/manual`、`POST /api/quotes/refresh`、`POST /api/quotes/refresh-batch` 已接入投资页；前端只暴露持仓概念，`xo_asset` 作为后端内部行情基础表。
-- 投资展示：投资主页只展示总投资 / 基金 / 股票 / 虚拟货币统计和图表，投资分布按具体投资产品展示，并基于资产快照展示总投资资产曲线；收益贡献独占整行，支持总 / 当日 / 当月 / 当年切换且优先显示资产名称；持仓表格、买入卖出、编辑删除、价格刷新、收益分析等操作集中在 `/investments/details`；单个持仓的收益汇总、交易记录和总市值 / 价格走势在 `/investments/holdings/:id` 查看。
+- 投资展示：投资主页只展示总投资 / 基金 / 股票 / 虚拟货币统计和图表，投资分布按具体投资产品展示，并基于资产快照展示总投资资产曲线；收益贡献独占整行，支持总 / 当日 / 当月 / 当年切换且优先显示资产名称；持仓表格、买入卖出、编辑删除、价格刷新、收益分析等操作集中在 `/investments/details`；资产分布与持仓分析分别在移动端子页展示；单个持仓的收益汇总、交易记录和总市值 / 价格走势在 `/investments/holdings/:id` 查看。
 - 投资明细：类型筛选会同步影响顶部统计块；持仓表格支持选择显示字段，默认展示类型、总市值、总收益、总收益率、今日收益和昨日收益，数值列支持排序。
 - 投资交易：买入必须选择扣款账户并扣减余额，卖出必须选择到账账户并增加余额；买入 / 卖出不写入普通流水，不计入生活收支统计。
 - 投资撤销：`PUT /api/investment-transactions/{id}/revoke` 会反向恢复资金账户和持仓，撤销记录仍保留在投资交易中。
