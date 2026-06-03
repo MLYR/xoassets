@@ -118,6 +118,7 @@ export interface ThemeConfig {
   icons: {
     tabBar: Record<'home' | 'add' | 'accounts' | 'investments' | 'mine', ThemeIconPair>
     menu: Record<string, ThemeIcon>
+    category: Record<string, ThemeIcon>
     categoryFallback: Record<'INCOME' | 'EXPENSE' | 'TRANSFER', ThemeIcon>
     investmentActions: Record<'buy' | 'sell' | 'convert' | 'refresh', ThemeIcon>
     quickActions: Record<'record' | 'transfer' | 'invest' | 'budget', ThemeIcon>

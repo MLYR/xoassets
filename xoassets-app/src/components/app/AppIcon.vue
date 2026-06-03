@@ -47,6 +47,7 @@ function resolveIconByName(theme: ThemeConfig, name: string, active: boolean): T
   }
 
   if (group === 'menu' && key) return theme.icons.menu[key]
+  if (group === 'category' && key) return theme.icons.category[key]
   if (group === 'categoryFallback' && key) {
     return theme.icons.categoryFallback[key as keyof ThemeConfig['icons']['categoryFallback']]
   }

@@ -9,6 +9,21 @@ const sharedCategoryFallback: ThemeIconMap['categoryFallback'] = {
   TRANSFER: { type: 'text', value: '转' }
 }
 
+const sharedCategoryIcons: ThemeIconMap['category'] = {
+  dining: { type: 'text', value: '餐' },
+  transit: { type: 'text', value: '交' },
+  shopping: { type: 'text', value: '购' },
+  entertainment: { type: 'text', value: '娱' },
+  medical: { type: 'text', value: '医' },
+  bills: { type: 'text', value: '缴' },
+  education: { type: 'text', value: '教' },
+  other: { type: 'text', value: '其' },
+  salary: { type: 'text', value: '薪' },
+  bonus: { type: 'text', value: '奖' },
+  refund: { type: 'text', value: '退' },
+  transfer: { type: 'text', value: '转' }
+}
+
 const sharedInvestmentActions: ThemeIconMap['investmentActions'] = {
   buy: { type: 'text', value: '买' },
   sell: { type: 'text', value: '卖' },
@@ -51,8 +66,11 @@ export const themeIconMap: Record<ThemeName, ThemeIconMap> = {
       budgets: createMenuIcon('◔'),
       goals: createMenuIcon('◎'),
       reports: createMenuIcon('▥'),
-      logout: createMenuIcon('↪')
+      logout: createMenuIcon('↪'),
+      search: createMenuIcon('⌕'),
+      filter: createMenuIcon('☰')
     },
+    category: sharedCategoryIcons,
     categoryFallback: sharedCategoryFallback,
     investmentActions: sharedInvestmentActions,
     quickActions: sharedQuickActions
@@ -73,8 +91,11 @@ export const themeIconMap: Record<ThemeName, ThemeIconMap> = {
       budgets: createMenuIcon('◔'),
       goals: createMenuIcon('◎'),
       reports: createMenuIcon('▥'),
-      logout: createMenuIcon('↪')
+      logout: createMenuIcon('↪'),
+      search: createMenuIcon('⌕'),
+      filter: createMenuIcon('☰')
     },
+    category: sharedCategoryIcons,
     categoryFallback: sharedCategoryFallback,
     investmentActions: sharedInvestmentActions,
     quickActions: sharedQuickActions
@@ -95,8 +116,11 @@ export const themeIconMap: Record<ThemeName, ThemeIconMap> = {
       budgets: createMenuIcon('◔'),
       goals: createMenuIcon('◎'),
       reports: createMenuIcon('▥'),
-      logout: createMenuIcon('↪')
+      logout: createMenuIcon('↪'),
+      search: createMenuIcon('⌕'),
+      filter: createMenuIcon('☰')
     },
+    category: sharedCategoryIcons,
     categoryFallback: sharedCategoryFallback,
     investmentActions: sharedInvestmentActions,
     quickActions: sharedQuickActions
