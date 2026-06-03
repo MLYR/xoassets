@@ -110,6 +110,15 @@ export const cartoonSoftTheme: ThemeConfig = {
     tabBar: { color: '#8F849C', selectedColor: '#6C8CFF', backgroundColor: '#FFFFFF', borderStyle: 'black' }
   },
   icons: themeIconMap['cartoon-soft'],
+  charts: {
+    investmentDistribution: {
+      fund: '#6C8CFF',
+      stock: '#32C7D2',
+      crypto: '#FFA14E',
+      cash: '#4FD47C',
+      other: '#B47CFF'
+    }
+  },
   backgrounds: {
     page: '#FFF8F0',
     homeAssetCard: 'linear-gradient(135deg, #6C8CFF 0%, #8BA3FF 58%, #B7C6FF 100%)',

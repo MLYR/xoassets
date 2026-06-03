@@ -29,12 +29,14 @@ const props = withDefaults(defineProps<{
   iconSize?: string
   block?: boolean
   disabled?: boolean
+  radius?: string
 }>(), {
   type: 'primary',
   icon: '',
   iconSize: '28rpx',
   block: false,
-  disabled: false
+  disabled: false,
+  radius: ''
 })
 
 const emit = defineEmits<{
@@ -47,7 +49,7 @@ const variantConfig = computed(() => currentTheme.value.components.button.varian
 
 const buttonStyle = computed(() => ({
   height: currentTheme.value.components.button.height,
-  borderRadius: currentTheme.value.components.button.radius,
+  borderRadius: props.radius || currentTheme.value.components.button.radius,
   background: props.disabled ? currentTheme.value.components.button.disabledBg : variantConfig.value.background,
   color: variantConfig.value.text,
   border: variantConfig.value.border ? `2rpx solid ${variantConfig.value.border}` : 'none',

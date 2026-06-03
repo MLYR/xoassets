@@ -110,6 +110,15 @@ export const techDarkTheme: ThemeConfig = {
     tabBar: { color: '#7F8DA5', selectedColor: '#44D7FF', backgroundColor: '#0F1728', borderStyle: 'white' }
   },
   icons: themeIconMap['tech-dark'],
+  charts: {
+    investmentDistribution: {
+      fund: '#4E84FF',
+      stock: '#19C2C8',
+      crypto: '#FF9F43',
+      cash: '#32D48E',
+      other: '#9B7CFF'
+    }
+  },
   backgrounds: {
     page: '#0B1220',
     homeAssetCard: 'linear-gradient(135deg, #122443 0%, #164C74 100%)',

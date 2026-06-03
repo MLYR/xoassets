@@ -16,12 +16,14 @@ const props = withDefaults(defineProps<{
   signed?: boolean
   size?: AmountSize
   tone?: AmountTone
+  color?: string
 }>(), {
   prefix: '',
   decimals: 2,
   signed: false,
   size: 'md',
-  tone: 'auto'
+  tone: 'auto',
+  color: ''
 })
 
 const { currentTheme } = useTheme()
@@ -45,6 +47,7 @@ const displayValue = computed(() => {
 
 const resolvedColor = computed(() => {
   const theme = currentTheme.value
+  if (props.color) return props.color
   if (props.tone === 'positive') return theme.colors.positive
   if (props.tone === 'negative') return theme.colors.negative
   if (props.tone === 'neutral') return theme.colors.textPrimary

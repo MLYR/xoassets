@@ -122,6 +122,9 @@ export interface ThemeConfig {
     investmentActions: Record<'buy' | 'sell' | 'convert' | 'refresh', ThemeIcon>
     quickActions: Record<'record' | 'transfer' | 'invest' | 'budget', ThemeIcon>
   }
+  charts: {
+    investmentDistribution: Record<'fund' | 'stock' | 'crypto' | 'cash' | 'other', string>
+  }
   backgrounds: {
     page: string
     homeAssetCard: string

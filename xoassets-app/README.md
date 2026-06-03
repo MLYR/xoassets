@@ -77,6 +77,13 @@ npm run type-check
 - 金额数字加粗突出，按钮高度 88rpx 适配手指点击
 - 收入绿色 / 支出红色 / 转账蓝色
 
+当前投资页已按原型方向做了第一轮落地：
+- 顶部蓝色渐变资产卡
+- 资产分布 donut + 分类金额列表
+- 持仓三列表格
+- 买入 / 转换 / 卖出胶囊按钮
+- 行情模块不在投资首页展示
+
 ## 主题系统
 
 主题系统集中放在 `src/theme/`，用于统一管理颜色、图标、背景、圆角、阴影、字体和间距。
@@ -138,6 +145,7 @@ src/components/app/
 - 首页、账户、投资、登录、注册、记账、分类、我的页面的核心背景/卡片/图标 fallback
 - 原生导航栏和 TabBar 色彩通过 `applyTheme.ts` 运行时同步
 - 通用组件 `AppPage`、`AppCard`、`AppAmount`、`AppIcon`、`AppActionButton`、`AppSectionHeader`、`AppBottomTabs` 已直接依赖主题配置
+- 投资页已通过 `theme.charts.investmentDistribution`、`theme.backgrounds.investmentSummaryCard`、`theme.components.button.variants` 统一控制视觉
 
 ## 接口
 

@@ -127,6 +127,15 @@ export const classicBlueTheme: ThemeConfig = {
     }
   },
   icons: themeIconMap['classic-blue'],
+  charts: {
+    investmentDistribution: {
+      fund: '#2F7BFF',
+      stock: '#19C2C8',
+      crypto: '#FF8A34',
+      cash: '#34C96F',
+      other: '#8D4DFF'
+    }
+  },
   backgrounds: {
     page: '#F3F7FC',
     homeAssetCard: 'linear-gradient(135deg, #2F7BFF 0%, #1F74FF 54%, #3E8CFF 100%)',
