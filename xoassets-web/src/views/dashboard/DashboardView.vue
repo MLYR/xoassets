@@ -143,7 +143,7 @@ watch(range, () => {
 
 const dashboardMetrics = computed(() => [
   { title: '总资产', value: overview.totalAssets, trend: overview.assetTrendRate, description: '含投资市值', tone: 'primary' as const },
-  { title: '最新净资产', value: latestNetAsset(), trend: overview.balanceTrendRate, description: latestSnapshotDate(), tone: 'success' as const },
+  { title: '净资产', value: overview.netAssets, trend: overview.balanceTrendRate, description: '当前估算', tone: 'success' as const },
   { title: '较昨日变化', value: snapshotLatest.value?.netAssetChangeFromYesterday || 0, trend: 0, description: '基于资产快照', tone: changeTone(snapshotLatest.value?.netAssetChangeFromYesterday || 0) },
   { title: '较本月初变化', value: snapshotLatest.value?.netAssetChangeFromMonthStart || 0, trend: 0, description: '基于资产快照', tone: changeTone(snapshotLatest.value?.netAssetChangeFromMonthStart || 0) },
   { title: '今日支出', value: overview.todayExpense, trend: overview.expenseTrendRate, description: '不含转账', tone: 'warning' as const },
@@ -214,14 +214,6 @@ function signedTransactionAmount(row: TransactionItem) {
 
 function formatDateTime(value: string) {
   return value ? value.replace('T', ' ').slice(0, 16) : '-';
-}
-
-function latestNetAsset() {
-  return snapshotLatest.value?.latest?.netAsset ?? overview.netAssets;
-}
-
-function latestSnapshotDate() {
-  return snapshotLatest.value?.latest?.snapshotDate ? `快照 ${snapshotLatest.value.latest.snapshotDate}` : '当前估算';
 }
 
 function changeTone(value: number) {
