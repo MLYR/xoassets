@@ -6,7 +6,9 @@ export const classicBlueTheme: ThemeConfig = {
   name: 'classic-blue',
   label: '经典蓝白',
   assets: {
-    icons: {},
+    icons: {
+      root: 'src/assets/themes/classic-blue/icons'
+    },
     backgrounds: {}
   },
   pageTokens: {

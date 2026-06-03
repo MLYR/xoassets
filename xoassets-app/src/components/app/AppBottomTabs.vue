@@ -7,7 +7,7 @@
       @click="emit('change', tab.key)"
     >
       <AppIcon
-        :name="tab.icon || `tabBar.${tab.key}`"
+        :name="tab.icon || `tabBar.${resolveTabIconKey(tab.key)}`"
         :active="tab.key === currentKey"
         :color="tab.key === currentKey ? currentTheme.colors.primary : currentTheme.components.tabBar.color"
         size="36rpx"
@@ -52,6 +52,11 @@ function labelStyle(active: boolean) {
     color: active ? currentTheme.value.components.tabBar.selectedColor : currentTheme.value.components.tabBar.color,
     fontSize: currentTheme.value.typography.fontSizeXs
   }
+}
+
+function resolveTabIconKey(key: string) {
+  if (key === 'add') return 'record'
+  return key
 }
 </script>
 

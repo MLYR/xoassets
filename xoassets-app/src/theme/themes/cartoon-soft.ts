@@ -6,7 +6,9 @@ export const cartoonSoftTheme: ThemeConfig = {
   name: 'cartoon-soft',
   label: '柔和卡通',
   assets: {
-    icons: {},
+    icons: {
+      root: 'src/assets/themes/classic-blue/icons'
+    },
     backgrounds: {}
   },
   pageTokens: {

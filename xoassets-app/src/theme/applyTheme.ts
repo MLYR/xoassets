@@ -3,7 +3,7 @@ import type { ThemeConfig } from './types'
 
 const TAB_ITEMS: Array<keyof ThemeConfig['icons']['tabBar']> = [
   'home',
-  'add',
+  'record',
   'accounts',
   'investments',
   'mine'
@@ -158,8 +158,12 @@ export function applyUniChrome(theme: ThemeConfig): void {
     if (icon.normal.type !== 'image' || icon.active.type !== 'image') return
     uni.setTabBarItem({
       index,
-      iconPath: icon.normal.src,
-      selectedIconPath: icon.active.src
+      iconPath: normalizeTabBarPath(icon.normal.src),
+      selectedIconPath: normalizeTabBarPath(icon.active.src)
     })
   })
+}
+
+function normalizeTabBarPath(path: string): string {
+  return path.startsWith('/') ? path.slice(1) : path
 }

@@ -6,7 +6,9 @@ export const techDarkTheme: ThemeConfig = {
   name: 'tech-dark',
   label: '科技深色',
   assets: {
-    icons: {},
+    icons: {
+      root: 'src/assets/themes/classic-blue/icons'
+    },
     backgrounds: {}
   },
   pageTokens: {

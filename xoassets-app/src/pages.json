@@ -126,23 +126,33 @@
     "list": [
       {
         "pagePath": "pages/index/index",
-        "text": "首页"
+        "text": "首页",
+        "iconPath": "static/tabbar/tab-home.png",
+        "selectedIconPath": "static/tabbar/tab-home.png"
       },
       {
         "pagePath": "pages/add/add",
-        "text": "记账"
+        "text": "记账",
+        "iconPath": "static/tabbar/tab-record.png",
+        "selectedIconPath": "static/tabbar/tab-record.png"
       },
       {
         "pagePath": "pages/accounts/accounts",
-        "text": "账户"
+        "text": "账户",
+        "iconPath": "static/tabbar/tab-account.png",
+        "selectedIconPath": "static/tabbar/tab-account.png"
       },
       {
         "pagePath": "pages/investments/investments",
-        "text": "投资"
+        "text": "投资",
+        "iconPath": "static/tabbar/tab-invest.png",
+        "selectedIconPath": "static/tabbar/tab-invest.png"
       },
       {
         "pagePath": "pages/mine/mine",
-        "text": "我的"
+        "text": "我的",
+        "iconPath": "static/tabbar/tab-mine.png",
+        "selectedIconPath": "static/tabbar/tab-mine.png"
       }
     ]
   }

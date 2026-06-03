@@ -1,7 +1,10 @@
 <template>
   <view class="app-section-header" :style="wrapperStyle">
     <view class="app-section-header-main">
-      <text class="app-section-header-title" :style="titleStyle">{{ title }}</text>
+      <view class="app-section-header-title-row">
+        <slot name="prefix"></slot>
+        <text class="app-section-header-title" :style="titleStyle">{{ title }}</text>
+      </view>
       <text v-if="subtitle" class="app-section-header-subtitle" :style="subtitleStyle">{{ subtitle }}</text>
     </view>
 
@@ -12,7 +15,10 @@
     >
       <slot name="action">
         <text class="app-section-header-action-text" :style="actionStyle">
-          {{ actionText }}<text v-if="showArrow"> ›</text>
+          {{ actionText }}
+          <slot name="actionIcon">
+            <text v-if="showArrow"> ›</text>
+          </slot>
         </text>
       </slot>
     </view>
@@ -75,6 +81,12 @@ const actionStyle = computed(() => ({
   display: flex;
   flex-direction: column;
   row-gap: 4rpx;
+}
+
+.app-section-header-title-row {
+  display: flex;
+  align-items: center;
+  column-gap: 8rpx;
 }
 
 .app-section-header-action {

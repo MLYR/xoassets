@@ -54,6 +54,7 @@ export interface HomeActivity {
   amount: number
   displayAmount: string
   type: HomeActivityType
+  iconType: HomeActivityType | 'investment'
   raw: TransactionItem
 }
 
@@ -112,9 +113,9 @@ export function buildHomeDashboardModel(
 
 function buildStats(monthlyIncome: number, monthlyExpense: number, monthlyBalance: number): HomeStatCard[] {
   return [
-    { key: 'income', label: '本月收入', amount: monthlyIncome, icon: 'homeStats.income', tone: 'positive' },
-    { key: 'expense', label: '本月支出', amount: monthlyExpense, icon: 'homeStats.expense', tone: 'negative' },
-    { key: 'balance', label: '本月结余', amount: monthlyBalance, icon: 'homeStats.balance', tone: 'neutral' }
+    { key: 'income', label: '本月收入', amount: monthlyIncome, icon: 'home.income', tone: 'positive' },
+    { key: 'expense', label: '本月支出', amount: monthlyExpense, icon: 'home.expense', tone: 'negative' },
+    { key: 'balance', label: '本月结余', amount: monthlyBalance, icon: 'home.balance', tone: 'neutral' }
   ]
 }
 
@@ -243,6 +244,7 @@ function buildRecentActivities(transactions: TransactionItem[]): HomeActivity[] 
       amount: item.amount,
       displayAmount: formatSignedActivityAmount(item),
       type,
+      iconType: activityIconType(item, type),
       raw: item
     }
   })
@@ -285,6 +287,13 @@ function activityType(type: TransactionItem['type']): HomeActivityType {
   if (type === 'TRANSFER') return 'transfer'
   if (type === 'REFUND') return 'refund'
   return 'expense'
+}
+
+function activityIconType(item: TransactionItem, type: HomeActivityType): HomeActivity['iconType'] {
+  const text = `${item.categoryName || ''}${item.accountName || ''}`
+  // 首页最近动态暂由普通流水承接；投资聚合接口接入后可直接返回 investment 类型。
+  if (text.includes('投资') || text.includes('基金') || text.includes('股票')) return 'investment'
+  return type
 }
 
 function activityFallbackTitle(type: HomeActivityType): string {

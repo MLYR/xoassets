@@ -1,161 +1,194 @@
-/* 主题图标映射：集中维护各主题可复用的图标语义键。 */
+/* 主题图标映射：只暴露语义 key，页面不直接引用图片路径。 */
 import type { ThemeConfig, ThemeIcon, ThemeIconPair, ThemeName } from './types'
+
+import chartPie from '@/assets/themes/classic-blue/icons/chart-pie.svg'
+import chartTrend from '@/assets/themes/classic-blue/icons/chart-trend.svg'
+import commonAdd from '@/assets/themes/classic-blue/icons/common-add.svg'
+import commonArrowRight from '@/assets/themes/classic-blue/icons/common-arrow-right.svg'
+import commonBack from '@/assets/themes/classic-blue/icons/common-back.svg'
+import commonCalendar from '@/assets/themes/classic-blue/icons/common-calendar.svg'
+import commonCamera from '@/assets/themes/classic-blue/icons/common-camera.svg'
+import commonConvert from '@/assets/themes/classic-blue/icons/common-convert.svg'
+import commonDelete from '@/assets/themes/classic-blue/icons/common-delete.svg'
+import commonEdit from '@/assets/themes/classic-blue/icons/common-edit.svg'
+import commonExport from '@/assets/themes/classic-blue/icons/common-export.svg'
+import commonEye from '@/assets/themes/classic-blue/icons/common-eye.svg'
+import commonFilter from '@/assets/themes/classic-blue/icons/common-filter.svg'
+import commonMore from '@/assets/themes/classic-blue/icons/common-more.svg'
+import commonRefresh from '@/assets/themes/classic-blue/icons/common-refresh.svg'
+import commonSettings from '@/assets/themes/classic-blue/icons/common-settings.svg'
+import commonShield from '@/assets/themes/classic-blue/icons/common-shield.svg'
+import commonTag from '@/assets/themes/classic-blue/icons/common-tag.svg'
+import commonTime from '@/assets/themes/classic-blue/icons/common-time.svg'
+import categoryBills from '@/assets/themes/classic-blue/icons/category-bills.svg'
+import categoryBonus from '@/assets/themes/classic-blue/icons/category-bonus.svg'
+import categoryDining from '@/assets/themes/classic-blue/icons/category-dining.svg'
+import categoryEducation from '@/assets/themes/classic-blue/icons/category-education.svg'
+import categoryEntertainment from '@/assets/themes/classic-blue/icons/category-entertainment.svg'
+import categoryMedical from '@/assets/themes/classic-blue/icons/category-medical.svg'
+import categoryOther from '@/assets/themes/classic-blue/icons/category-other.svg'
+import categoryRefund from '@/assets/themes/classic-blue/icons/category-refund.svg'
+import categorySalary from '@/assets/themes/classic-blue/icons/category-salary.svg'
+import categoryShopping from '@/assets/themes/classic-blue/icons/category-shopping.svg'
+import categoryTransfer from '@/assets/themes/classic-blue/icons/category-transfer.svg'
+import categoryTransit from '@/assets/themes/classic-blue/icons/category-transit.svg'
+import homeBalance from '@/assets/themes/classic-blue/icons/home-balance.svg'
+import homeBudget from '@/assets/themes/classic-blue/icons/home-budget.svg'
+import homeExpense from '@/assets/themes/classic-blue/icons/home-expense.svg'
+import homeGoal from '@/assets/themes/classic-blue/icons/home-goal.svg'
+import homeIncome from '@/assets/themes/classic-blue/icons/home-income.svg'
+import homeNotification from '@/assets/themes/classic-blue/icons/home-notification.svg'
+import homeSearch from '@/assets/themes/classic-blue/icons/home-search.svg'
+import quickBudget from '@/assets/themes/classic-blue/icons/quick-budget.svg'
+import quickInvest from '@/assets/themes/classic-blue/icons/quick-invest.svg'
+import quickRecord from '@/assets/themes/classic-blue/icons/quick-record.svg'
+import quickTransfer from '@/assets/themes/classic-blue/icons/quick-transfer.svg'
+import reportAi from '@/assets/themes/classic-blue/icons/report-ai.svg'
+import reportDownload from '@/assets/themes/classic-blue/icons/report-download.svg'
 
 type ThemeIconMap = ThemeConfig['icons']
 
-const sharedCategoryFallback: ThemeIconMap['categoryFallback'] = {
-  INCOME: { type: 'text', value: '收' },
-  EXPENSE: { type: 'text', value: '支' },
-  TRANSFER: { type: 'text', value: '转' }
-}
+const image = (src: string): ThemeIcon => ({ type: 'image', src })
 
-const sharedCategoryIcons: ThemeIconMap['category'] = {
-  dining: { type: 'text', value: '餐' },
-  transit: { type: 'text', value: '交' },
-  shopping: { type: 'text', value: '购' },
-  entertainment: { type: 'text', value: '娱' },
-  medical: { type: 'text', value: '医' },
-  bills: { type: 'text', value: '缴' },
-  education: { type: 'text', value: '教' },
-  other: { type: 'text', value: '其' },
-  salary: { type: 'text', value: '薪' },
-  bonus: { type: 'text', value: '奖' },
-  refund: { type: 'text', value: '退' },
-  transfer: { type: 'text', value: '转' }
-}
-
-const sharedInvestmentActions: ThemeIconMap['investmentActions'] = {
-  buy: { type: 'text', value: '买' },
-  sell: { type: 'text', value: '卖' },
-  convert: { type: 'text', value: '换' },
-  refresh: { type: 'text', value: '刷' }
-}
-
-const sharedQuickActions: ThemeIconMap['quickActions'] = {
-  record: { type: 'text', value: '记' },
-  transfer: { type: 'text', value: '转' },
-  invest: { type: 'text', value: '投' },
-  budget: { type: 'text', value: '预' }
-}
-
-const sharedHomeIcons: ThemeIconMap['home'] = {
-  search: { type: 'class', className: 'xo-icon-search' },
-  notice: { type: 'class', className: 'xo-icon-bell' },
-  analysis: { type: 'class', className: 'xo-icon-chart' },
-  eye: { type: 'class', className: 'xo-icon-eye' },
-  eyeOff: { type: 'class', className: 'xo-icon-eye-off' },
-  trend: { type: 'text', value: '⌁' },
-  budget: { type: 'text', value: '◔' },
-  goal: { type: 'text', value: '◎' }
-}
-
-const sharedHomeStats: ThemeIconMap['homeStats'] = {
-  income: { type: 'text', value: '入' },
-  expense: { type: 'text', value: '出' },
-  balance: { type: 'text', value: '余' }
-}
-
-const sharedRecentActivities: ThemeIconMap['recentActivities'] = {
-  income: { type: 'text', value: '收' },
-  expense: { type: 'text', value: '支' },
-  transfer: { type: 'text', value: '转' },
-  refund: { type: 'text', value: '退' }
-}
-
-function createTabIcon(text: string): ThemeIconPair {
+function imagePair(src: string): ThemeIconPair {
   return {
-    normal: { type: 'text', value: text },
-    active: { type: 'text', value: text }
+    normal: image(src),
+    active: image(src)
   }
 }
 
-function createMenuIcon(text: string): ThemeIcon {
-  return { type: 'text', value: text }
+const tabBar: ThemeIconMap['tabBar'] = {
+  home: imagePair('/static/tabbar/tab-home.png'),
+  record: imagePair('/static/tabbar/tab-record.png'),
+  accounts: imagePair('/static/tabbar/tab-account.png'),
+  investments: imagePair('/static/tabbar/tab-invest.png'),
+  budget: imagePair(homeBudget),
+  mine: imagePair('/static/tabbar/tab-mine.png'),
+  add: imagePair('/static/tabbar/tab-record.png')
+}
+
+const home: ThemeIconMap['home'] = {
+  search: image(homeSearch),
+  notification: image(homeNotification),
+  more: image(commonMore),
+  assetAnalysis: image(commonArrowRight),
+  notice: image(homeNotification),
+  analysis: image(commonArrowRight),
+  eye: image(commonEye),
+  eyeOff: image(commonEye),
+  income: image(homeIncome),
+  expense: image(homeExpense),
+  balance: image(homeBalance),
+  trend: image(chartTrend),
+  budget: image(homeBudget),
+  goal: image(homeGoal)
+}
+
+const quickActions: ThemeIconMap['quickActions'] = {
+  record: image(quickRecord),
+  transfer: image(quickTransfer),
+  invest: image(quickInvest),
+  budget: image(quickBudget)
+}
+
+const common: ThemeIconMap['common'] = {
+  back: image(commonBack),
+  more: image(commonMore),
+  refresh: image(commonRefresh),
+  filter: image(commonFilter),
+  settings: image(commonSettings),
+  calendar: image(commonCalendar),
+  time: image(commonTime),
+  camera: image(commonCamera),
+  eye: image(commonEye),
+  add: image(commonAdd),
+  delete: image(commonDelete),
+  edit: image(commonEdit),
+  arrowRight: image(commonArrowRight),
+  convert: image(commonConvert)
+}
+
+const homeStats: ThemeIconMap['homeStats'] = {
+  income: home.income,
+  expense: home.expense,
+  balance: home.balance
+}
+
+const recentActivities: ThemeIconMap['recentActivities'] = {
+  income: home.income,
+  expense: home.expense,
+  transfer: quickActions.transfer,
+  investment: quickActions.invest,
+  refund: common.refresh
+}
+
+const categoryFallback: ThemeIconMap['categoryFallback'] = {
+  INCOME: home.income,
+  EXPENSE: home.expense,
+  TRANSFER: quickActions.transfer
+}
+
+const category: ThemeIconMap['category'] = {
+  dining: image(categoryDining),
+  transit: image(categoryTransit),
+  shopping: image(categoryShopping),
+  entertainment: image(categoryEntertainment),
+  medical: image(categoryMedical),
+  bills: image(categoryBills),
+  education: image(categoryEducation),
+  other: image(categoryOther),
+  salary: image(categorySalary),
+  bonus: image(categoryBonus),
+  refund: image(categoryRefund),
+  transfer: image(categoryTransfer)
+}
+
+const investmentActions: ThemeIconMap['investmentActions'] = {
+  buy: common.add,
+  sell: image(commonExport),
+  convert: quickActions.transfer,
+  refresh: common.refresh
+}
+
+const menu: ThemeIconMap['menu'] = {
+  categories: image(commonTag),
+  budgets: quickActions.budget,
+  goals: home.goal,
+  reports: image(reportAi),
+  logout: common.back,
+  search: home.search,
+  filter: common.filter
+}
+
+const chartIcons: ThemeIconMap['chartIcons'] = {
+  trend: image(chartTrend),
+  pie: image(chartPie)
+}
+
+const reports: ThemeIconMap['reports'] = {
+  download: image(reportDownload),
+  ai: image(reportAi)
+}
+
+function createIconMap(): ThemeIconMap {
+  return {
+    tabBar,
+    menu,
+    home,
+    homeStats,
+    recentActivities,
+    category,
+    categoryFallback,
+    investmentActions,
+    quickActions,
+    common,
+    chartIcons,
+    reports
+  }
 }
 
 export const themeIconMap: Record<ThemeName, ThemeIconMap> = {
-  'classic-blue': {
-    tabBar: {
-      home: createTabIcon('⌂'),
-      add: createTabIcon('▤'),
-      accounts: createTabIcon('▣'),
-      investments: createTabIcon('↗'),
-      mine: {
-        normal: { type: 'text', value: '○' },
-        active: { type: 'text', value: '●' }
-      }
-    },
-    menu: {
-      categories: createMenuIcon('▦'),
-      budgets: createMenuIcon('◔'),
-      goals: createMenuIcon('◎'),
-      reports: createMenuIcon('▥'),
-      logout: createMenuIcon('↪'),
-      search: createMenuIcon('⌕'),
-      filter: createMenuIcon('☰')
-    },
-    home: sharedHomeIcons,
-    homeStats: sharedHomeStats,
-    recentActivities: sharedRecentActivities,
-    category: sharedCategoryIcons,
-    categoryFallback: sharedCategoryFallback,
-    investmentActions: sharedInvestmentActions,
-    quickActions: sharedQuickActions
-  },
-  'tech-dark': {
-    tabBar: {
-      home: createTabIcon('⌂'),
-      add: createTabIcon('▤'),
-      accounts: createTabIcon('▣'),
-      investments: createTabIcon('↗'),
-      mine: {
-        normal: { type: 'text', value: '○' },
-        active: { type: 'text', value: '●' }
-      }
-    },
-    menu: {
-      categories: createMenuIcon('▦'),
-      budgets: createMenuIcon('◔'),
-      goals: createMenuIcon('◎'),
-      reports: createMenuIcon('▥'),
-      logout: createMenuIcon('↪'),
-      search: createMenuIcon('⌕'),
-      filter: createMenuIcon('☰')
-    },
-    home: sharedHomeIcons,
-    homeStats: sharedHomeStats,
-    recentActivities: sharedRecentActivities,
-    category: sharedCategoryIcons,
-    categoryFallback: sharedCategoryFallback,
-    investmentActions: sharedInvestmentActions,
-    quickActions: sharedQuickActions
-  },
-  'cartoon-soft': {
-    tabBar: {
-      home: createTabIcon('⌂'),
-      add: createTabIcon('▤'),
-      accounts: createTabIcon('▣'),
-      investments: createTabIcon('↗'),
-      mine: {
-        normal: { type: 'text', value: '○' },
-        active: { type: 'text', value: '●' }
-      }
-    },
-    menu: {
-      categories: createMenuIcon('▦'),
-      budgets: createMenuIcon('◔'),
-      goals: createMenuIcon('◎'),
-      reports: createMenuIcon('▥'),
-      logout: createMenuIcon('↪'),
-      search: createMenuIcon('⌕'),
-      filter: createMenuIcon('☰')
-    },
-    home: sharedHomeIcons,
-    homeStats: sharedHomeStats,
-    recentActivities: sharedRecentActivities,
-    category: sharedCategoryIcons,
-    categoryFallback: sharedCategoryFallback,
-    investmentActions: sharedInvestmentActions,
-    quickActions: sharedQuickActions
-  }
+  'classic-blue': createIconMap(),
+  'tech-dark': createIconMap(),
+  'cartoon-soft': createIconMap()
 }

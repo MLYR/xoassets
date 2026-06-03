@@ -10,7 +10,7 @@
           <AppIcon name="home.search" size="30rpx" :color="theme.colors.textPrimary" />
         </view>
         <view class="home-icon-button" @click="handleHeaderAction('notice')">
-          <AppIcon name="home.notice" size="24rpx" :color="theme.colors.primary" />
+          <AppIcon name="home.notification" size="30rpx" :color="theme.colors.primary" />
         </view>
       </view>
     </view>
@@ -36,7 +36,7 @@
             />
           </view>
           <view class="hero-link" @click="handleAssetAnalysis">
-            <AppIcon name="home.analysis" size="24rpx" :color="theme.colors.white" />
+            <AppIcon name="home.assetAnalysis" size="24rpx" :color="theme.colors.white" />
             <text class="hero-link-text">资产分析</text>
           </view>
         </view>
@@ -107,7 +107,11 @@
       </AppCard>
 
       <AppCard class="budget-card" :padding="theme.spacing.md" :radius="theme.radius.xl">
-        <AppSectionHeader title="预算进度" action-text="本月" @action="goBudgets" />
+        <AppSectionHeader title="预算进度" action-text="本月" @action="goBudgets">
+          <template #prefix>
+            <AppIcon name="home.budget" size="34rpx" />
+          </template>
+        </AppSectionHeader>
         <view class="budget-content">
           <view class="budget-ring" :style="budgetRingStyle">
             <view class="budget-ring-center">
@@ -136,7 +140,14 @@
       :background="theme.backgrounds.homeGoalCard"
       @click="handleGoalDetail"
     >
-      <AppSectionHeader title="目标进度" action-text="详情" margin-bottom="8rpx" @action="handleGoalDetail" />
+      <AppSectionHeader title="目标进度" action-text="详情" margin-bottom="8rpx" @action="handleGoalDetail">
+        <template #prefix>
+          <AppIcon name="home.goal" size="34rpx" />
+        </template>
+        <template #actionIcon>
+          <AppIcon name="common.arrowRight" size="28rpx" />
+        </template>
+      </AppSectionHeader>
       <view v-if="homeModel.goal" class="goal-main">
         <view class="goal-cover">
           <AppIcon name="home.goal" size="30rpx" :color="theme.colors.primary" />
@@ -187,7 +198,7 @@
           @click="goTransactionDetail(item.id)"
         >
           <view class="activity-icon" :class="`is-${item.type}`">
-            <AppIcon :name="`recentActivities.${item.type}`" size="28rpx" :color="activityIconColor(item.type)" />
+            <AppIcon :name="`recentActivities.${item.iconType}`" size="28rpx" :color="activityIconColor(item.type)" />
           </view>
           <view class="activity-main">
             <text class="activity-title">{{ item.title }}</text>

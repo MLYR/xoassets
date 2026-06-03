@@ -68,6 +68,9 @@ function resolveIconByName(theme: ThemeConfig, name: string, active: boolean): T
   if (group === 'quickActions' && key) {
     return theme.icons.quickActions[key as keyof ThemeConfig['icons']['quickActions']]
   }
+  if (group === 'common' && key) return theme.icons.common[key as keyof ThemeConfig['icons']['common']]
+  if (group === 'charts' && key) return theme.icons.chartIcons[key as keyof ThemeConfig['icons']['chartIcons']]
+  if (group === 'reports' && key) return theme.icons.reports[key as keyof ThemeConfig['icons']['reports']]
 
   return undefined
 }

@@ -10,10 +10,7 @@
         </view>
         <view class="header-actions">
           <view class="icon-button" @click="goSearch">
-            <AppIcon name="menu.search" size="28rpx" :color="theme.colors.textPrimary" />
-          </view>
-          <view class="icon-button" @click="openFilter">
-            <AppIcon name="menu.filter" size="28rpx" :color="theme.colors.textPrimary" />
+            <AppIcon name="home.search" size="34rpx" />
           </view>
         </view>
       </view>
@@ -24,7 +21,11 @@
         <text v-for="week in weekLabels" :key="week" class="week-label">{{ week }}</text>
       </view>
 
-      <view class="calendar-grid">
+      <view
+        class="calendar-grid"
+        @touchstart="onCalendarTouchStart"
+        @touchend="onCalendarTouchEnd"
+      >
         <view
           v-for="cell in calendarCells"
           :key="cell.dateKey"
@@ -37,7 +38,10 @@
           @click="selectCalendarDate(cell.fullDate)"
         >
           <text class="calendar-day">{{ cell.day }}</text>
-          <text v-if="cell.hasRecords" class="calendar-dot"></text>
+          <view class="calendar-amounts">
+            <text v-if="cell.incomeAmount > 0" class="calendar-amount income">+{{ formatCalendarAmount(cell.incomeAmount) }}</text>
+            <text v-if="cell.expenseAmount > 0" class="calendar-amount expense">-{{ formatCalendarAmount(cell.expenseAmount) }}</text>
+          </view>
         </view>
       </view>
     </AppCard>
@@ -72,8 +76,8 @@
           class="record-item"
           @click="goDetail(record.id)"
         >
-          <view class="record-icon" :style="{ background: record.iconBg }">
-            <text class="record-icon-text">{{ record.iconText }}</text>
+          <view class="record-icon">
+            <AppIcon :name="record.iconName" size="46rpx" />
           </view>
           <view class="record-main">
             <view class="record-title-row">
@@ -333,6 +337,8 @@ type CalendarCell = {
   isToday: boolean
   isSelected: boolean
   hasRecords: boolean
+  incomeAmount: number
+  expenseAmount: number
 }
 
 type CategoryPreset = {
@@ -412,6 +418,8 @@ const note = ref('')
 const dateStr = ref(formatDate(now))
 const timeStr = ref(formatTime(now))
 const localImageUrl = ref('')
+const calendarTouchStartX = ref(0)
+const calendarTouchStartY = ref(0)
 
 const showAccountPicker = ref(false)
 const showTargetPicker = ref(false)
@@ -475,7 +483,7 @@ const selectedDateRecords = computed(() => {
         ...record,
         title: record.categoryName || typeLabel(record.type),
         iconText,
-        iconBg: resolveRecordIconBg(record.type),
+        iconName: resolveRecordIconName(record),
         accountText: record.targetAccountName ? `${record.accountName || '未知账户'} → ${record.targetAccountName}` : (record.accountName || '未知账户'),
         timeText: formatRecordTime(record.transactionTime),
         amountText: formatAmountWithSign(record),
@@ -496,6 +504,17 @@ const selectedDateExpense = computed(() => {
     .reduce((sum, record) => sum + record.amount, 0)
 })
 
+const calendarDailyAmounts = computed(() => {
+  const amountMap: Record<string, { income: number; expense: number }> = {}
+  monthRecords.value.forEach((record) => {
+    const dateKey = extractDatePart(record.transactionTime)
+    if (!amountMap[dateKey]) amountMap[dateKey] = { income: 0, expense: 0 }
+    if (record.type === 'INCOME' || record.type === 'REFUND') amountMap[dateKey].income += record.amount
+    if (record.type === 'EXPENSE') amountMap[dateKey].expense += record.amount
+  })
+  return amountMap
+})
+
 const calendarCells = computed<CalendarCell[]>(() => {
   const firstDay = startOfMonth(displayMonth.value)
   const firstWeekday = getCalendarWeekday(firstDay)
@@ -508,6 +527,7 @@ const calendarCells = computed<CalendarCell[]>(() => {
     const cellDate = new Date(firstDay)
     cellDate.setDate(firstDay.getDate() + offset)
     const fullDate = formatDate(cellDate)
+    const dayAmounts = calendarDailyAmounts.value[fullDate] || { income: 0, expense: 0 }
     cells.push({
       dateKey: `${fullDate}-${index}`,
       fullDate,
@@ -515,7 +535,9 @@ const calendarCells = computed<CalendarCell[]>(() => {
       isCurrentMonth: cellDate.getMonth() === displayMonth.value.getMonth(),
       isToday: fullDate === formatDate(now),
       isSelected: fullDate === selectedDate.value,
-      hasRecords: monthRecords.value.some((record) => extractDatePart(record.transactionTime) === fullDate)
+      hasRecords: dayAmounts.income > 0 || dayAmounts.expense > 0,
+      incomeAmount: dayAmounts.income,
+      expenseAmount: dayAmounts.expense
     })
   }
 
@@ -574,23 +596,26 @@ function changeMonth(delta: number) {
   selectedDate.value = isSameYearMonth(displayMonth.value, now) ? todayText : formatDate(displayMonth.value)
 }
 
+function onCalendarTouchStart(event: TouchEvent) {
+  const touch = event.touches[0]
+  calendarTouchStartX.value = touch?.clientX || 0
+  calendarTouchStartY.value = touch?.clientY || 0
+}
+
+function onCalendarTouchEnd(event: TouchEvent) {
+  const touch = event.changedTouches[0]
+  const deltaX = (touch?.clientX || 0) - calendarTouchStartX.value
+  const deltaY = (touch?.clientY || 0) - calendarTouchStartY.value
+  if (Math.abs(deltaX) < 70 || Math.abs(deltaX) < Math.abs(deltaY) * 1.4) return
+  changeMonth(deltaX < 0 ? 1 : -1)
+}
+
 function selectCalendarDate(dateText: string) {
   selectedDate.value = dateText
   const date = parseDate(dateText)
   if (!isSameYearMonth(displayMonth.value, date)) {
     displayMonth.value = startOfMonth(date)
   }
-}
-
-function openFilter() {
-  uni.showActionSheet({
-    itemList: ['全部类型', '收入', '支出', '转账'],
-    success: async (res) => {
-      const mapping: Array<TransactionType | ''> = ['', 'INCOME', 'EXPENSE', 'TRANSFER']
-      activeFilter.value = mapping[res.tapIndex] || ''
-      await refreshTransactions()
-    }
-  })
 }
 
 function goSearch() {
@@ -808,10 +833,11 @@ function resetComposer() {
   showComposer.value = false
 }
 
-function resolveRecordIconBg(type: TransactionType) {
-  if (type === 'INCOME' || type === 'REFUND') return theme.value.colors.positive
-  if (type === 'EXPENSE') return theme.value.colors.negative
-  return theme.value.colors.transfer
+function resolveRecordIconName(record: TransactionItem) {
+  if (record.type === 'TRANSFER') return 'quickActions.transfer'
+  if (record.type === 'INCOME' || record.type === 'REFUND') return 'home.income'
+  const preset = expensePresets.find((item) => item.match.some((keyword) => record.categoryName?.includes(keyword)))
+  return preset ? `category.${preset.key}` : 'home.expense'
 }
 
 function formatAmountWithSign(record: TransactionItem) {
@@ -870,6 +896,12 @@ function getRecentCategoryStorageKey(type: TransactionType) {
 function fmtAmount(value: number | null | undefined) {
   if (value == null) return '--'
   return value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function formatCalendarAmount(value: number) {
+  if (value >= 10000) return `${Math.round(value / 1000) / 10}w`
+  if (value >= 1000) return `${Math.round(value)}`
+  return `${Math.round(value * 10) / 10}`.replace(/\.0$/, '')
 }
 
 function formatDate(date: Date) {
@@ -1004,21 +1036,22 @@ function isSameYearMonth(left: Date, right: Date) {
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 12rpx 0;
+  gap: 14rpx 0;
+  touch-action: pan-y;
 }
 
 .calendar-cell {
-  height: 88rpx;
+  min-height: 104rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  row-gap: 8rpx;
+  justify-content: flex-start;
+  row-gap: 4rpx;
 }
 
 .calendar-day {
-  width: 64rpx;
-  height: 64rpx;
+  width: 48rpx;
+  height: 48rpx;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
@@ -1027,17 +1060,40 @@ function isSameYearMonth(left: Date, right: Date) {
   color: var(--xo-text-primary);
 }
 
-.calendar-dot {
-  width: 10rpx;
-  height: 10rpx;
-  border-radius: 50%;
-  background: var(--xo-primary);
+.calendar-amounts {
+  min-height: 34rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  row-gap: 0;
+  transform: scale(0.86);
+  transform-origin: top center;
+}
+
+.calendar-amount {
+  max-width: 80rpx;
+  font-size: 18rpx;
+  line-height: 18rpx;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-amount.income {
+  color: var(--xo-positive);
+}
+
+.calendar-amount.expense {
+  color: var(--xo-negative);
 }
 
 .calendar-cell.is-selected .calendar-day {
-  background: var(--xo-gradient-home-asset-card);
+  background: var(--xo-gradient-asset-card);
   color: var(--xo-white);
-  box-shadow: var(--xo-shadow-floating);
+  box-shadow: 0 8rpx 18rpx rgba(47, 123, 255, 0.24);
 }
 
 .calendar-cell.is-muted .calendar-day {
@@ -1114,17 +1170,10 @@ function isSameYearMonth(left: Date, right: Date) {
 .record-icon {
   width: 72rpx;
   height: 72rpx;
-  border-radius: 22rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-}
-
-.record-icon-text {
-  color: var(--xo-white);
-  font-size: $font-sm;
-  font-weight: 700;
 }
 
 .record-main {

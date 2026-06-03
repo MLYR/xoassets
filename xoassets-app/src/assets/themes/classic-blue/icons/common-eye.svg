@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+  <defs>
+    <linearGradient id="blue" x1="20" y1="10" x2="110" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9ED7FF"/>
+      <stop offset="0.52" stop-color="#2F8CFF"/>
+      <stop offset="1" stop-color="#0B56E8"/>
+    </linearGradient>
+    <linearGradient id="green" x1="20" y1="10" x2="110" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#A9F6D4"/>
+      <stop offset="0.55" stop-color="#23D07D"/>
+      <stop offset="1" stop-color="#08A85E"/>
+    </linearGradient>
+    <linearGradient id="purple" x1="20" y1="10" x2="110" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#CDBBFF"/>
+      <stop offset="0.55" stop-color="#7B5CFF"/>
+      <stop offset="1" stop-color="#5632D6"/>
+    </linearGradient>
+    <linearGradient id="red" x1="20" y1="10" x2="110" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FF9B8C"/>
+      <stop offset="0.55" stop-color="#FF4D4F"/>
+      <stop offset="1" stop-color="#D92D20"/>
+    </linearGradient>
+    <linearGradient id="orange" x1="20" y1="10" x2="110" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFD28A"/>
+      <stop offset="0.55" stop-color="#FF9F1C"/>
+      <stop offset="1" stop-color="#FF6B00"/>
+    </linearGradient>
+    <linearGradient id="white" x1="20" y1="10" x2="100" y2="110" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#EAF3FF"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#0B56E8" flood-opacity="0.22"/>
+    </filter>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="150%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#0F172A" flood-opacity="0.16"/>
+    </filter>
+  </defs>
+  <path d="M16 64C27 42 45 31 64 31C83 31 101 42 112 64C101 86 83 97 64 97C45 97 27 86 16 64Z" fill="url(#white)" filter="url(#softShadow)"/>
+<circle cx="64" cy="64" r="25" fill="url(#blue)"/>
+<circle cx="64" cy="64" r="11" fill="url(#white)"/>
+<circle cx="71" cy="56" r="4" fill="#fff" opacity=".85"/>
+</svg>

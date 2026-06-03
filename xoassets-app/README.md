@@ -159,6 +159,16 @@ src/components/app/
 - 通用组件 `AppPage`、`AppCard`、`AppAmount`、`AppIcon`、`AppActionButton`、`AppSectionHeader`、`AppBottomTabs` 已直接依赖主题配置
 - 投资页已通过 `theme.charts.investmentDistribution`、`theme.backgrounds.investmentSummaryCard`、`theme.components.button.variants` 统一控制视觉
 
+## 图标资源
+
+classic-blue 使用 SVG 主题图标，资源统一位于：
+
+```text
+src/assets/themes/classic-blue/icons/
+```
+
+主题图标统一在 `src/theme/icon-map.ts` 注册，页面通过 `AppIcon` 或主题 helper 使用语义 key，不直接写图片路径。`tech-dark` 和 `cartoon-soft` 当前暂时复用 classic-blue 图标资源，后续替换主题文件和映射即可切换。
+
 ## 接口
 
 - 后端地址：开发时 Vite 代理 `/api` → `http://localhost:8080`

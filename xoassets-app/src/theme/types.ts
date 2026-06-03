@@ -146,15 +146,50 @@ export interface ThemeConfig {
     }
   }
   icons: {
-    tabBar: Record<'home' | 'add' | 'accounts' | 'investments' | 'mine', ThemeIconPair>
+    tabBar: Record<'home' | 'record' | 'accounts' | 'investments' | 'budget' | 'mine' | 'add', ThemeIconPair>
     menu: Record<string, ThemeIcon>
-    home: Record<'search' | 'notice' | 'analysis' | 'eye' | 'eyeOff' | 'trend' | 'budget' | 'goal', ThemeIcon>
+    home: Record<
+      | 'search'
+      | 'notification'
+      | 'more'
+      | 'assetAnalysis'
+      | 'notice'
+      | 'analysis'
+      | 'eye'
+      | 'eyeOff'
+      | 'income'
+      | 'expense'
+      | 'balance'
+      | 'trend'
+      | 'budget'
+      | 'goal',
+      ThemeIcon
+    >
     homeStats: Record<'income' | 'expense' | 'balance', ThemeIcon>
-    recentActivities: Record<'income' | 'expense' | 'transfer' | 'refund', ThemeIcon>
+    recentActivities: Record<'income' | 'expense' | 'transfer' | 'investment' | 'refund', ThemeIcon>
     category: Record<string, ThemeIcon>
     categoryFallback: Record<'INCOME' | 'EXPENSE' | 'TRANSFER', ThemeIcon>
     investmentActions: Record<'buy' | 'sell' | 'convert' | 'refresh', ThemeIcon>
     quickActions: Record<'record' | 'transfer' | 'invest' | 'budget', ThemeIcon>
+    common: Record<
+      | 'back'
+      | 'more'
+      | 'refresh'
+      | 'filter'
+      | 'settings'
+      | 'calendar'
+      | 'time'
+      | 'camera'
+      | 'eye'
+      | 'add'
+      | 'delete'
+      | 'edit'
+      | 'arrowRight'
+      | 'convert',
+      ThemeIcon
+    >
+    chartIcons: Record<'trend' | 'pie', ThemeIcon>
+    reports: Record<'download' | 'ai', ThemeIcon>
   }
   charts: {
     investmentDistribution: Record<'fund' | 'stock' | 'crypto' | 'cash' | 'other', string>
