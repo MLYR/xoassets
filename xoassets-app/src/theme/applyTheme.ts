@@ -112,9 +112,21 @@ export function setCssVariables(theme: ThemeConfig): void {
 
   setCssVar('--xo-bg-page', backgrounds.page)
   setCssVar('--xo-bg-home-asset-card', backgrounds.homeAssetCard)
+  setCssVar('--xo-bg-home-hero-card', backgrounds.homeHeroCard)
+  setCssVar('--xo-bg-home-goal-card', backgrounds.homeGoalCard)
+  setCssVar('--xo-bg-home-goal-cover', backgrounds.homeGoalCover)
   setCssVar('--xo-bg-investment-summary-card', backgrounds.investmentSummaryCard)
   setCssVar('--xo-bg-mine-profile-card', backgrounds.mineProfileCard)
   setCssVar('--xo-bg-login-page', backgrounds.loginPage)
+
+  // 首页 Dashboard 场景 token，承接原型卡片间距、图表高度和进度条尺寸。
+  setCssVar('--xo-home-hero-padding', pageTokens.home.heroPadding)
+  setCssVar('--xo-home-hero-radius', pageTokens.home.heroRadius)
+  setCssVar('--xo-home-stat-grid-gap', pageTokens.home.statGridGap)
+  setCssVar('--xo-home-chart-height', pageTokens.home.chartHeight)
+  setCssVar('--xo-home-progress-height', pageTokens.home.progressHeight)
+  setCssVar('--xo-home-quick-action-gap', pageTokens.home.quickActionGap)
+  setCssVar('--xo-home-activity-icon-size', pageTokens.home.activityIconSize)
 
   // 投资页复刻原型所需的场景级尺寸，跟随主题切换而不是写死在页面中。
   setCssVar('--xo-invest-summary-label-width', pageTokens.investments.summaryCompareLabelWidth)

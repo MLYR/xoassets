@@ -20,7 +20,7 @@
 - 后端：已创建 Spring Boot MVP，覆盖登录注册、账户、分类、流水、首页统计、基础图表统计、资产快照、投资持仓维护、行情刷新、预算管理、资产目标和 AI 报告模板生成。
 - 体验稳定性：核心业务页已补齐空状态、删除二次确认、金额输入大于 0 校验、后端错误 message 展示和统一 loading 状态。
 - 暂不做：自动同步银行卡 / 支付宝 / 微信、AI 报告真实调用、自动交易或投资建议；行情只在后端接入，前端不直连第三方。
-- 移动端：已创建 uni-app 独立项目，复用后端 API；包含登录注册、首页仪表盘、快速记账、流水列表、账户管理、投资持仓、投资子页面和我的页面共 17 个页面，5 个底部 Tab；延续 Web 浅蓝金融 SaaS 风格，卡片化 + 大圆角 + 适配手指点击。当前已补齐主题系统和通用 UI 组件层，投资页已开始按原型风格重做，记账页已切到日历驱动的流水列表 + 快速录入样式，投资子页面已新增资产分布和持仓分析，后续页面可以基于 `AppPage`、`AppCard`、`AppAmount`、`AppIcon`、`AppActionButton`、`AppSectionHeader`、`AppBottomTabs` 继续复刻原型。
+- 移动端：已创建 uni-app 独立项目，复用后端 API；包含登录注册、首页仪表盘、快速记账、流水列表、账户管理、投资持仓、投资子页面和我的页面共 17 个页面，5 个底部 Tab；延续 Web 浅蓝金融 SaaS 风格，卡片化 + 大圆角 + 适配手指点击。当前已补齐主题系统和通用 UI 组件层（`AppPage`、`AppCard`、`AppAmount`、`AppIcon`、`AppActionButton`、`AppSectionHeader`、`AppBottomTabs`）。首页已升级为卡片化 Dashboard，包含净资产主卡片（支持金额显隐）、本月收支结余统计、近 1 个月资产趋势折线图、预算进度环形图、目标进度卡片和快捷操作入口，样式全部通过 theme 系统驱动。记账页已切到日历驱动的流水列表 + 快速录入样式。投资页已开始按原型风格重做，投资子页面已新增资产分布和持仓分析。后续页面可基于通用 UI 组件继续复刻原型。
 
 ## 前后端联调状态
 
@@ -41,9 +41,9 @@
 - 资产查询日志：第三方资产查询失败时后端会记录行情源、代码 / 市场、响应摘要和原始异常堆栈，前端仍只展示可理解的失败提示。
 - 资产市场：`xo_asset.market` 用于区分 SH / SZ / BJ / US / CN_FUND / CRYPTO，资产唯一性按 `type + market + symbol + deleted` 判断。
 - 行情缓存：持仓列表优先使用 `xo_asset_price` 最近快照；CRYPTO 1 小时内、STOCK 15 分钟内、FUND 1 天内不重复刷新，MANUAL 价格不过期；股票只在 09:30-15:00 之间拉取第三方行情。USD/CNY 展示汇率由 `/api/exchange-rates/usd-cny` 返回后端日缓存，后续可替换为 Redis 缓存。行情失败时保留最近价格，页面可用手动价格兜底。
-- 预算管理：`GET /api/budgets`、`POST /api/budgets`、`PUT /api/budgets/{id}`、`DELETE /api/budgets/{id}`、`GET /api/budgets/summary` 已接入预算页。
-- 资产快照：`GET /api/snapshots/latest`、`GET /api/snapshots/trend`、`POST /api/snapshots/generate-today` 已接入首页和数据分析页；首页右上角可手动生成今日快照，同一用户同一天重复生成会更新当天快照。
-- 首页和统计：`GET /api/dashboard/overview` 返回账户、流水、投资和预算聚合指标；`/api/statistics/*` 返回收支趋势、分类支出、资产分布、投资盈亏和预算进度，净资产 / 总资产趋势优先使用资产快照。
+- 预算管理：`GET /api/budgets`、`POST /api/budgets`、`PUT /api/budgets/{id}`、`DELETE /api/budgets/{id}`、`GET /api/budgets/summary` 已接入预算页和移动端首页预算进度卡片。
+- 资产快照：`GET /api/snapshots/latest`（返回最新快照 + 今日净资产变化金额 / 变化率）、`GET /api/snapshots/trend`、`POST /api/snapshots/generate-today` 已接入首页和数据分析页；移动端首页净资产主卡片展示最新快照净资产 + 今日变化，资产趋势折线图基于 `GET /api/statistics/net-assets-trend` 近 1 个月数据绘制。
+- 首页和统计：`GET /api/dashboard/overview` 返回账户、流水、投资和预算聚合指标；`GET /api/statistics/net-assets-trend` 返回指定日期范围的净资产趋势数据（移动端首页使用近 1 个月范围）；`/api/statistics/*` 返回收支趋势、分类支出、资产分布、投资盈亏和预算进度，净资产 / 总资产趋势优先使用资产快照。
 - 资产目标：`GET /api/goals`、`POST /api/goals`、`PUT /api/goals/{id}`、`DELETE /api/goals/{id}`、`GET /api/goals/summary` 已接入目标页。
 - AI 报告：`GET /api/reports`、`GET /api/reports/{id}`、`POST /api/reports/generate-preview` 已接入报告页，当前只生成模板化财务复盘，不调用真实 AI，不提供投资买卖建议。
 - CSV 导出：`GET /api/export/account-ledger`、`/transactions`、`/investment-transactions` 已接入账户详情、流水页和投资明细页，导出文件带 UTF-8 BOM。

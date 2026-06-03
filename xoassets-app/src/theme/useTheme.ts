@@ -6,6 +6,7 @@ import { useThemeStore } from '@/stores/theme'
 export function useTheme() {
   const themeStore = useThemeStore()
   const { currentThemeKey, currentTheme } = storeToRefs(themeStore)
+  const homeTokens = computed(() => currentTheme.value.pageTokens.home)
   const investmentTokens = computed(() => currentTheme.value.pageTokens.investments)
 
   function getThemeAsset(key: string) {
@@ -16,6 +17,7 @@ export function useTheme() {
   return {
     currentThemeKey,
     currentTheme,
+    homeTokens,
     investmentTokens,
     getThemeAsset,
     themeOptions: computed(() => themeStore.themeOptions),

@@ -38,6 +38,30 @@ const sharedQuickActions: ThemeIconMap['quickActions'] = {
   budget: { type: 'text', value: '预' }
 }
 
+const sharedHomeIcons: ThemeIconMap['home'] = {
+  search: { type: 'class', className: 'xo-icon-search' },
+  notice: { type: 'class', className: 'xo-icon-bell' },
+  analysis: { type: 'class', className: 'xo-icon-chart' },
+  eye: { type: 'class', className: 'xo-icon-eye' },
+  eyeOff: { type: 'class', className: 'xo-icon-eye-off' },
+  trend: { type: 'text', value: '⌁' },
+  budget: { type: 'text', value: '◔' },
+  goal: { type: 'text', value: '◎' }
+}
+
+const sharedHomeStats: ThemeIconMap['homeStats'] = {
+  income: { type: 'text', value: '入' },
+  expense: { type: 'text', value: '出' },
+  balance: { type: 'text', value: '余' }
+}
+
+const sharedRecentActivities: ThemeIconMap['recentActivities'] = {
+  income: { type: 'text', value: '收' },
+  expense: { type: 'text', value: '支' },
+  transfer: { type: 'text', value: '转' },
+  refund: { type: 'text', value: '退' }
+}
+
 function createTabIcon(text: string): ThemeIconPair {
   return {
     normal: { type: 'text', value: text },
@@ -70,6 +94,9 @@ export const themeIconMap: Record<ThemeName, ThemeIconMap> = {
       search: createMenuIcon('⌕'),
       filter: createMenuIcon('☰')
     },
+    home: sharedHomeIcons,
+    homeStats: sharedHomeStats,
+    recentActivities: sharedRecentActivities,
     category: sharedCategoryIcons,
     categoryFallback: sharedCategoryFallback,
     investmentActions: sharedInvestmentActions,
@@ -95,6 +122,9 @@ export const themeIconMap: Record<ThemeName, ThemeIconMap> = {
       search: createMenuIcon('⌕'),
       filter: createMenuIcon('☰')
     },
+    home: sharedHomeIcons,
+    homeStats: sharedHomeStats,
+    recentActivities: sharedRecentActivities,
     category: sharedCategoryIcons,
     categoryFallback: sharedCategoryFallback,
     investmentActions: sharedInvestmentActions,
@@ -120,6 +150,9 @@ export const themeIconMap: Record<ThemeName, ThemeIconMap> = {
       search: createMenuIcon('⌕'),
       filter: createMenuIcon('☰')
     },
+    home: sharedHomeIcons,
+    homeStats: sharedHomeStats,
+    recentActivities: sharedRecentActivities,
     category: sharedCategoryIcons,
     categoryFallback: sharedCategoryFallback,
     investmentActions: sharedInvestmentActions,

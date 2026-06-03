@@ -10,6 +10,15 @@ export const techDarkTheme: ThemeConfig = {
     backgrounds: {}
   },
   pageTokens: {
+    home: {
+      heroPadding: '20rpx',
+      heroRadius: '34rpx',
+      statGridGap: '24rpx',
+      chartHeight: '154rpx',
+      progressHeight: '8rpx',
+      quickActionGap: '16rpx',
+      activityIconSize: '64rpx'
+    },
     investments: {
       summaryCompareLabelWidth: '86rpx',
       summaryCompareGap: '16rpx',
@@ -136,11 +145,25 @@ export const techDarkTheme: ThemeConfig = {
       crypto: '#FF9F43',
       cash: '#32D48E',
       other: '#9B7CFF'
+    },
+    assetTrend: {
+      line: '#44D7FF',
+      fill: 'rgba(68, 215, 255, 0.16)',
+      point: '#0B1220',
+      grid: '#22304A'
+    },
+    budgetProgress: {
+      used: '#44D7FF',
+      remaining: '#2BFFA1',
+      track: '#22304A'
     }
   },
   backgrounds: {
     page: '#0B1220',
     homeAssetCard: 'linear-gradient(135deg, #122443 0%, #164C74 100%)',
+    homeHeroCard: 'linear-gradient(135deg, #122443 0%, #164C74 58%, #223A81 100%)',
+    homeGoalCard: 'linear-gradient(135deg, #121B2D 0%, #172A46 100%)',
+    homeGoalCover: 'radial-gradient(circle at 28% 22%, rgba(255,255,255,0.34) 0 16%, transparent 17%), linear-gradient(150deg, #1E5A8A 0%, #253D68 42%, #1D7A73 43%, #183A43 64%, #8F6B3E 65%, #4F3420 100%)',
     investmentSummaryCard: 'linear-gradient(135deg, #141E35 0%, #1D4E74 60%, #223A81 100%)',
     mineProfileCard: 'linear-gradient(135deg, #121B2D 0%, #18243A 100%)',
     loginPage: 'linear-gradient(180deg, #111C31 0%, #0B1220 100%)'

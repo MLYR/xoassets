@@ -20,6 +20,15 @@ export interface ThemeAssets {
 }
 
 export interface ThemePageTokens {
+  home: {
+    heroPadding: string
+    heroRadius: string
+    statGridGap: string
+    chartHeight: string
+    progressHeight: string
+    quickActionGap: string
+    activityIconSize: string
+  }
   investments: {
     summaryCompareLabelWidth: string
     summaryCompareGap: string
@@ -139,6 +148,9 @@ export interface ThemeConfig {
   icons: {
     tabBar: Record<'home' | 'add' | 'accounts' | 'investments' | 'mine', ThemeIconPair>
     menu: Record<string, ThemeIcon>
+    home: Record<'search' | 'notice' | 'analysis' | 'eye' | 'eyeOff' | 'trend' | 'budget' | 'goal', ThemeIcon>
+    homeStats: Record<'income' | 'expense' | 'balance', ThemeIcon>
+    recentActivities: Record<'income' | 'expense' | 'transfer' | 'refund', ThemeIcon>
     category: Record<string, ThemeIcon>
     categoryFallback: Record<'INCOME' | 'EXPENSE' | 'TRANSFER', ThemeIcon>
     investmentActions: Record<'buy' | 'sell' | 'convert' | 'refresh', ThemeIcon>
@@ -146,10 +158,24 @@ export interface ThemeConfig {
   }
   charts: {
     investmentDistribution: Record<'fund' | 'stock' | 'crypto' | 'cash' | 'other', string>
+    assetTrend: {
+      line: string
+      fill: string
+      point: string
+      grid: string
+    }
+    budgetProgress: {
+      used: string
+      remaining: string
+      track: string
+    }
   }
   backgrounds: {
     page: string
     homeAssetCard: string
+    homeHeroCard: string
+    homeGoalCard: string
+    homeGoalCover: string
     investmentSummaryCard: string
     mineProfileCard: string
     loginPage: string

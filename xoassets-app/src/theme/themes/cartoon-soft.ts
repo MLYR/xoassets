@@ -10,6 +10,15 @@ export const cartoonSoftTheme: ThemeConfig = {
     backgrounds: {}
   },
   pageTokens: {
+    home: {
+      heroPadding: '20rpx',
+      heroRadius: '40rpx',
+      statGridGap: '24rpx',
+      chartHeight: '154rpx',
+      progressHeight: '8rpx',
+      quickActionGap: '18rpx',
+      activityIconSize: '64rpx'
+    },
     investments: {
       summaryCompareLabelWidth: '88rpx',
       summaryCompareGap: '16rpx',
@@ -136,11 +145,25 @@ export const cartoonSoftTheme: ThemeConfig = {
       crypto: '#FFA14E',
       cash: '#4FD47C',
       other: '#B47CFF'
+    },
+    assetTrend: {
+      line: '#6C8CFF',
+      fill: 'rgba(108, 140, 255, 0.16)',
+      point: '#FFFFFF',
+      grid: '#F1E7DD'
+    },
+    budgetProgress: {
+      used: '#6C8CFF',
+      remaining: '#22C983',
+      track: '#F1E7DD'
     }
   },
   backgrounds: {
     page: '#FFF8F0',
     homeAssetCard: 'linear-gradient(135deg, #6C8CFF 0%, #8BA3FF 58%, #B7C6FF 100%)',
+    homeHeroCard: 'linear-gradient(135deg, #6C8CFF 0%, #8BA3FF 56%, #B7C6FF 100%)',
+    homeGoalCard: 'linear-gradient(135deg, #FFFFFF 0%, #FFF1E1 100%)',
+    homeGoalCover: 'radial-gradient(circle at 28% 22%, rgba(255,255,255,0.86) 0 16%, transparent 17%), linear-gradient(150deg, #8AD9FF 0%, #D7F4FF 42%, #8DE7C7 43%, #EBFFF3 64%, #FFE6A8 65%, #FFBE7A 100%)',
     investmentSummaryCard: 'linear-gradient(135deg, #7C8DFF 0%, #9B7CFF 100%)',
     mineProfileCard: 'linear-gradient(135deg, #FFFFFF 0%, #FFF1E1 100%)',
     loginPage: 'linear-gradient(180deg, #6C8CFF 0%, #AFC0FF 40%, #FFF8F0 40%)'

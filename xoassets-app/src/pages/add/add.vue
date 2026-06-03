@@ -537,6 +537,7 @@ const recentCategoryOptions = computed(() => {
 })
 
 onShow(async () => {
+  applyPendingComposerType()
   await Promise.all([accountStore.fetchAccounts(), loadCategories(), refreshTransactions()])
 })
 
@@ -612,6 +613,20 @@ function switchTab(type: TransactionType) {
   localImageUrl.value = ''
   amountInput.value = ''
   loadCategories()
+}
+
+function applyPendingComposerType() {
+  const pendingType = uni.getStorageSync('xoassets:add:pending-type') as TransactionType | ''
+  if (!pendingType) return
+  uni.removeStorageSync('xoassets:add:pending-type')
+  // Tab 页无法携带 query 参数，首页快捷入口通过一次性 storage 指定默认记账类型。
+  if (['EXPENSE', 'INCOME', 'TRANSFER'].includes(pendingType)) {
+    tab.value = pendingType
+    selectedCategory.value = null
+    targetAccount.value = null
+    localImageUrl.value = ''
+    amountInput.value = ''
+  }
 }
 
 async function loadCategories() {

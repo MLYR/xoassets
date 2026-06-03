@@ -16,6 +16,13 @@ export interface BudgetItem {
   status: number
 }
 
+export interface BudgetSummary {
+  month: string
+  totalBudget: number
+  totalUsed: number
+  usageRate: number
+}
+
 export const budgetApi = {
   list(month: string) {
     return request<BudgetItem[]>({
@@ -25,7 +32,7 @@ export const budgetApi = {
     })
   },
   summary(month: string) {
-    return request<{ month: string; totalBudget: number; totalUsed: number; usageRate: number }>({
+    return request<BudgetSummary>({
       url: '/budgets/summary',
       method: 'GET',
       data: { month }

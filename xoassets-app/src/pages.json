@@ -6,7 +6,9 @@
     {
       "path": "pages/index/index",
       "style": {
-        "navigationBarTitleText": "小〇财迹"
+        "navigationBarTitleText": "小〇财迹",
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true
       }
     },
     {
