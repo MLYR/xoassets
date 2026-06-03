@@ -30,7 +30,7 @@ export function applyTheme(theme: ThemeConfig): void {
 }
 
 export function setCssVariables(theme: ThemeConfig): void {
-  const { colors, gradients, radius, shadow, spacing, typography, components, backgrounds } = theme
+  const { colors, gradients, radius, shadow, spacing, typography, components, backgrounds, pageTokens } = theme
 
   setCssVar('--xo-primary', colors.primary)
   setCssVar('--xo-primary-light', colors.primaryLight)
@@ -115,6 +115,14 @@ export function setCssVariables(theme: ThemeConfig): void {
   setCssVar('--xo-bg-investment-summary-card', backgrounds.investmentSummaryCard)
   setCssVar('--xo-bg-mine-profile-card', backgrounds.mineProfileCard)
   setCssVar('--xo-bg-login-page', backgrounds.loginPage)
+
+  // 投资页复刻原型所需的场景级尺寸，跟随主题切换而不是写死在页面中。
+  setCssVar('--xo-invest-summary-label-width', pageTokens.investments.summaryCompareLabelWidth)
+  setCssVar('--xo-invest-summary-gap', pageTokens.investments.summaryCompareGap)
+  setCssVar('--xo-invest-summary-row-gap', pageTokens.investments.summaryCompareRowGap)
+  setCssVar('--xo-invest-action-height', pageTokens.investments.actionCapsuleHeight)
+  setCssVar('--xo-invest-action-gap', pageTokens.investments.actionCapsuleGap)
+  setCssVar('--xo-invest-holding-grid', pageTokens.investments.holdingGridTemplate)
 }
 
 export function applyUniChrome(theme: ThemeConfig): void {

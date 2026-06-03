@@ -5,6 +5,20 @@ import { themeIconMap } from '../icon-map'
 export const techDarkTheme: ThemeConfig = {
   name: 'tech-dark',
   label: '科技深色',
+  assets: {
+    icons: {},
+    backgrounds: {}
+  },
+  pageTokens: {
+    investments: {
+      summaryCompareLabelWidth: '86rpx',
+      summaryCompareGap: '16rpx',
+      summaryCompareRowGap: '10rpx',
+      actionCapsuleHeight: '88rpx',
+      actionCapsuleGap: '18rpx',
+      holdingGridTemplate: 'minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 0.82fr)'
+    }
+  },
   colors: {
     primary: '#44D7FF',
     primaryLight: '#7AE6FF',
@@ -98,6 +112,11 @@ export const techDarkTheme: ThemeConfig = {
           background: 'linear-gradient(135deg, #5A54F9 0%, #8A7CFF 100%)',
           text: '#F5F8FF',
           shadow: '0 12rpx 26rpx rgba(138, 124, 255, 0.22)'
+        },
+        sell: {
+          background: 'linear-gradient(135deg, #C86C1B 0%, #FF9F43 100%)',
+          text: '#07101D',
+          shadow: '0 12rpx 28rpx rgba(255, 159, 67, 0.24)'
         }
       }
     },

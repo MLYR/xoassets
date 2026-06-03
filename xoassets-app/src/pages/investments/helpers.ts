@@ -89,8 +89,8 @@ export function buildSummaryMetrics(summary: HoldingSummary | null) {
   const accumulatedRate = summary?.floatingProfitRate ?? 0
   const vsYesterdayAmount = summary?.todayProfit ?? 0
 
-  // TODO: 投资汇总接口暂缺“较上月”字段，当前先用昨日收益或累计浮盈兜底结构位。
-  const vsLastMonthAmount = summary?.yesterdayProfit ?? accumulatedProfit
+  // 较上月优先使用后端口径；旧接口缺字段时保留昨日收益/累计浮盈兜底，避免页面空洞。
+  const vsLastMonthAmount = summary?.lastMonthProfit ?? summary?.yesterdayProfit ?? accumulatedProfit
 
   return {
     totalAsset,
@@ -99,7 +99,7 @@ export function buildSummaryMetrics(summary: HoldingSummary | null) {
     vsYesterdayAmount,
     vsYesterdayRate: calcRelativeRate(vsYesterdayAmount, totalAsset),
     vsLastMonthAmount,
-    vsLastMonthRate: calcRelativeRate(vsLastMonthAmount, totalAsset)
+    vsLastMonthRate: summary?.lastMonthProfitRate ?? calcRelativeRate(vsLastMonthAmount, totalAsset)
   }
 }
 
@@ -137,8 +137,8 @@ export function buildHoldingRows(holdings: HoldingItem[]): HoldingRow[] {
     name: item.assetName || item.symbol || '未知资产',
     code: item.symbol || '--',
     marketValue: item.marketValue ?? 0,
-    // TODO: 持仓列表接口暂无昨日收益字段，当前页面先用占位，避免伪造业务数字。
-    yesterdayProfit: null,
+    // 昨日收益由后端同一组价格快照计算，缺失时展示占位，不在前端反算。
+    yesterdayProfit: item.yesterdayProfit ?? null,
     todayProfit: item.todayProfit ?? null,
     floatingProfit: item.floatingProfit ?? 0,
     floatingProfitRate: item.floatingProfitRate ?? 0,

@@ -15,6 +15,8 @@ public class HoldingSummaryVO {
     private BigDecimal totalCost;
     private BigDecimal todayProfit;
     private BigDecimal yesterdayProfit;
+    private BigDecimal lastMonthProfit;
+    private BigDecimal lastMonthProfitRate;
     private BigDecimal floatingProfit;
     private BigDecimal floatingProfitRate;
     private Integer holdingCount;

@@ -5,6 +5,20 @@ import { themeIconMap } from '../icon-map'
 export const cartoonSoftTheme: ThemeConfig = {
   name: 'cartoon-soft',
   label: '柔和卡通',
+  assets: {
+    icons: {},
+    backgrounds: {}
+  },
+  pageTokens: {
+    investments: {
+      summaryCompareLabelWidth: '88rpx',
+      summaryCompareGap: '16rpx',
+      summaryCompareRowGap: '12rpx',
+      actionCapsuleHeight: '90rpx',
+      actionCapsuleGap: '18rpx',
+      holdingGridTemplate: 'minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 0.82fr)'
+    }
+  },
   colors: {
     primary: '#6C8CFF',
     primaryLight: '#AFC0FF',
@@ -98,6 +112,11 @@ export const cartoonSoftTheme: ThemeConfig = {
           background: 'linear-gradient(135deg, #9B7CFF 0%, #7C8DFF 100%)',
           text: '#FFFFFF',
           shadow: '0 12rpx 24rpx rgba(155, 124, 255, 0.22)'
+        },
+        sell: {
+          background: 'linear-gradient(135deg, #FFC06F 0%, #FF8C42 100%)',
+          text: '#FFFFFF',
+          shadow: '0 12rpx 26rpx rgba(255, 140, 66, 0.24)'
         }
       }
     },

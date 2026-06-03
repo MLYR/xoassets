@@ -2,6 +2,8 @@
 
 export type ThemeName = 'classic-blue' | 'tech-dark' | 'cartoon-soft'
 
+export type ButtonVariant = 'primary' | 'secondary' | 'success' | 'danger' | 'purple' | 'sell'
+
 export type ThemeIcon =
   | { type: 'image'; src: string }
   | { type: 'text'; value: string }
@@ -12,9 +14,28 @@ export interface ThemeIconPair {
   active: ThemeIcon
 }
 
+export interface ThemeAssets {
+  icons: Record<string, string>
+  backgrounds: Record<string, string>
+}
+
+export interface ThemePageTokens {
+  investments: {
+    summaryCompareLabelWidth: string
+    summaryCompareGap: string
+    summaryCompareRowGap: string
+    actionCapsuleHeight: string
+    actionCapsuleGap: string
+    holdingGridTemplate: string
+  }
+}
+
 export interface ThemeConfig {
   name: ThemeName
   label: string
+  // assets/pageTokens 作为主题扩展层，避免页面级素材和布局口径散落在单页样式中。
+  assets: ThemeAssets
+  pageTokens: ThemePageTokens
   colors: {
     primary: string
     primaryLight: string
@@ -95,7 +116,7 @@ export interface ThemeConfig {
       outlineBorder: string
       outlineText: string
       disabledBg: string
-      variants: Record<'primary' | 'secondary' | 'success' | 'danger' | 'purple', {
+      variants: Record<ButtonVariant, {
         background: string
         text: string
         shadow?: string

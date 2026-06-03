@@ -170,6 +170,8 @@ com.xoassets
 - 图表优先使用 ECharts，表单和基础组件优先使用 Element Plus。
 - 前端视觉变量和组件皮肤统一收敛在 `xoassets-web/src/styles/variables.css`、`global.css`、`layout.css`；按钮、输入框、表格、弹窗、分段控件、卡片阴影和圆角优先走全局样式，不要在单页重复造一套。
 - 登录页和业务页视觉参考统一以 `xoassets-web/原型图/` 下的设计图为准；做 UI 调整时优先复用现有布局骨架和自定义 CSS，不引入新的重型 UI 框架。
+- 移动端主题系统统一维护在 `xoassets-app/src/theme/`，主题配置必须保持 `colors`、`components`、`icons`、`assets`、`pageTokens` 等 schema 完整；页面级布局 token 和素材入口不要硬编码散落在业务页面。
+- 移动端投资页等原型复刻页面要优先使用主题 token、语义按钮变体和局部组件承载复杂区域；新增/调整后需核对原型关键视觉、字段口径和移动端首屏表现。
 
 ## 9. 安全要求
 - 使用 JWT 登录认证，Token 放在 `Authorization` Header。

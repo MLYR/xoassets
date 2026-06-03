@@ -58,7 +58,7 @@ src/
 npm install
 
 # 启动开发服务器（H5 模式）
-npx uni --host 127.0.0.1 --port 5174
+npx uni --host 0.0.0.0 --port 5174 
 # 手机浏览器访问 http://<你的IP>:5174
 
 # 生产构建

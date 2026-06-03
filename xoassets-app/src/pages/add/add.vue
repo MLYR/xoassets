@@ -764,7 +764,7 @@ async function handleSubmit() {
       accountId: selectedAccount.value.id,
       targetAccountId: tab.value === 'TRANSFER' ? targetAccount.value?.id : null,
       categoryId: tab.value !== 'TRANSFER' ? selectedCategory.value?.id : null,
-      transactionTime: `${dateStr.value} ${timeStr.value}`,
+      transactionTime: formatTransactionDateTime(dateStr.value, timeStr.value),
       // TODO: 后端交易接口当前未接图片字段，先只在本地录入层保留预览状态。
       note: note.value || undefined
     })
@@ -863,6 +863,11 @@ function formatDate(date: Date) {
 
 function formatTime(date: Date) {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+}
+
+function formatTransactionDateTime(date: string, time: string) {
+  // uni-app time picker 只提供 HH:mm，提交接口时补秒，避免后端 LocalDateTime 解析失败。
+  return `${date} ${time}:00`
 }
 
 function parseDate(text: string) {

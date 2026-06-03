@@ -13,18 +13,7 @@
         <view class="summary-left">
           <text class="summary-title">投资总资产</text>
           <AppAmount :value="summaryMetrics.totalAsset" prefix="¥ " size="lg" :color="theme.colors.white" />
-          <view class="summary-compare-list">
-            <view class="summary-compare-row">
-              <text class="summary-compare-label">较昨日</text>
-              <text class="summary-compare-value">{{ fmtSigned(summaryMetrics.vsYesterdayAmount) }}</text>
-              <text class="summary-compare-rate">{{ fmtPercent(summaryMetrics.vsYesterdayRate) }}</text>
-            </view>
-            <view class="summary-compare-row">
-              <text class="summary-compare-label">较上月</text>
-              <text class="summary-compare-value">{{ fmtSigned(summaryMetrics.vsLastMonthAmount) }}</text>
-              <text class="summary-compare-rate">{{ fmtPercent(summaryMetrics.vsLastMonthRate) }}</text>
-            </view>
-          </view>
+          <InvestmentSummaryCompare :metrics="summaryMetrics" />
         </view>
 
         <view class="summary-divider"></view>
@@ -90,37 +79,12 @@
         </view>
 
         <view v-if="holdingRows.length" class="holding-body">
-          <view
+          <InvestmentHoldingRow
             v-for="row in holdingRows"
             :key="row.id"
-            class="holding-row"
+            :row="row"
             @click="goDetail(row)"
-          >
-            <view class="holding-cell holding-name-cell">
-              <text class="holding-name">{{ row.name }}</text>
-              <text class="holding-code">{{ row.code }}</text>
-            </view>
-
-            <view class="holding-cell holding-amount-cell">
-              <text class="holding-market-value">¥ {{ fmtAmount(row.marketValue) }}</text>
-              <view class="holding-daily-line">
-                <text class="holding-daily-value" :class="profitClass(row.yesterdayProfit)">
-                  {{ fmtSignedOrFallback(row.yesterdayProfit) }}
-                </text>
-                <text class="holding-daily-separator">/</text>
-                <text class="holding-daily-value" :class="profitClass(row.todayProfit)">
-                  {{ fmtSignedOrFallback(row.todayProfit) }}
-                </text>
-              </view>
-            </view>
-
-            <view class="holding-cell holding-profit-cell">
-              <AppAmount :value="row.floatingProfit" signed size="sm" />
-              <text class="holding-profit-rate" :class="profitClass(row.floatingProfitRate)">
-                {{ fmtPercent(row.floatingProfitRate) }}
-              </text>
-            </view>
-          </view>
+          />
         </view>
 
         <view v-else-if="!loading" class="empty-state">
@@ -141,6 +105,7 @@
         type="primary"
         icon="investmentActions.buy"
         :radius="theme.radius.round"
+        :height="investmentTokens.actionCapsuleHeight"
         block
         @click="handleTradeAction('buy')"
       />
@@ -150,15 +115,17 @@
         type="purple"
         icon="investmentActions.convert"
         :radius="theme.radius.round"
+        :height="investmentTokens.actionCapsuleHeight"
         block
         @click="handleTradeAction('convert')"
       />
       <AppActionButton
         class="trade-action-button"
         text="卖出"
-        type="danger"
+        type="sell"
         icon="investmentActions.sell"
         :radius="theme.radius.round"
+        :height="investmentTokens.actionCapsuleHeight"
         block
         @click="handleTradeAction('sell')"
       />
@@ -174,24 +141,21 @@ import AppAmount from '@/components/app/AppAmount.vue'
 import AppCard from '@/components/app/AppCard.vue'
 import AppPage from '@/components/app/AppPage.vue'
 import AppSectionHeader from '@/components/app/AppSectionHeader.vue'
-import type { HoldingItem } from '@/services/investmentApi'
+import InvestmentHoldingRow from './components/InvestmentHoldingRow.vue'
+import InvestmentSummaryCompare from './components/InvestmentSummaryCompare.vue'
 import { useInvestmentStore } from '@/stores/investment'
 import { useTheme } from '@/theme/useTheme'
-
-type DistributionKey = 'fund' | 'stock' | 'crypto' | 'cash' | 'other'
-
-const distributionOrder: DistributionKey[] = ['fund', 'stock', 'crypto', 'cash', 'other']
-
-const distributionMeta: Record<DistributionKey, { label: string }> = {
-  fund: { label: '基金' },
-  stock: { label: '股票' },
-  crypto: { label: '加密货币' },
-  cash: { label: '现金' },
-  other: { label: '其他' }
-}
+import {
+  buildDistributionItems,
+  buildHoldingRows,
+  buildSummaryMetrics,
+  fmtAmount,
+  fmtPercentNumber,
+  type HoldingRow
+} from './helpers'
 
 const store = useInvestmentStore()
-const { currentTheme } = useTheme()
+const { currentTheme, investmentTokens } = useTheme()
 
 const holdings = computed(() => store.holdings)
 const summary = computed(() => store.summary)
@@ -202,49 +166,10 @@ onShow(() => {
   store.fetchHoldings()
 })
 
-const summaryMetrics = computed(() => {
-  const totalAsset = summary.value?.totalMarketValue ?? 0
-  const accumulatedProfit = summary.value?.floatingProfit ?? 0
-  const accumulatedRate = summary.value?.floatingProfitRate ?? 0
-  const vsYesterdayAmount = summary.value?.todayProfit ?? 0
-
-  // TODO: 投资汇总接口暂缺“较上月”字段，当前先用昨日收益或累计浮盈兜底结构位。
-  const vsLastMonthAmount = summary.value?.yesterdayProfit ?? accumulatedProfit
-
-  return {
-    totalAsset,
-    accumulatedProfit,
-    accumulatedRate,
-    vsYesterdayAmount,
-    vsYesterdayRate: calcRelativeRate(vsYesterdayAmount, totalAsset),
-    vsLastMonthAmount,
-    vsLastMonthRate: calcRelativeRate(vsLastMonthAmount, totalAsset)
-  }
-})
+const summaryMetrics = computed(() => buildSummaryMetrics(summary.value))
 
 const distributionItems = computed(() => {
-  const palette = theme.value.charts.investmentDistribution
-  const grouped = holdings.value.reduce<Record<DistributionKey, number>>((acc, item) => {
-    const key = resolveDistributionKey(item)
-    acc[key] += Number(item.marketValue || 0)
-    return acc
-  }, {
-    fund: 0,
-    stock: 0,
-    crypto: 0,
-    cash: 0,
-    other: 0
-  })
-
-  const total = (summary.value?.totalMarketValue ?? 0) || Object.values(grouped).reduce((acc, cur) => acc + cur, 0)
-
-  return distributionOrder.map((key) => ({
-    key,
-    label: distributionMeta[key].label,
-    amount: grouped[key],
-    percent: total > 0 ? (grouped[key] / total) * 100 : 0,
-    color: palette[key]
-  }))
+  return buildDistributionItems(holdings.value, theme.value.charts.investmentDistribution, summary.value?.totalMarketValue)
 })
 
 const distributionTotalAmount = computed(() => summary.value?.totalMarketValue ?? 0)
@@ -270,68 +195,9 @@ const distributionRingStyle = computed(() => {
   }
 })
 
-const holdingRows = computed(() => {
-  return holdings.value.map((item) => ({
-    id: item.id,
-    name: item.assetName || item.symbol || '未知资产',
-    code: item.symbol || '--',
-    marketValue: item.marketValue ?? 0,
-    // TODO: 持仓列表接口暂无昨日收益字段，当前页面先用占位，避免伪造业务数字。
-    yesterdayProfit: null as number | null,
-    todayProfit: item.todayProfit ?? null,
-    floatingProfit: item.floatingProfit ?? 0,
-    floatingProfitRate: item.floatingProfitRate ?? 0,
-    raw: item
-  }))
-})
+const holdingRows = computed(() => buildHoldingRows(holdings.value))
 
-function fmtAmount(v: number | null | undefined) {
-  if (v == null || v === undefined) return '--'
-  return v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-function fmtSigned(v: number | null | undefined) {
-  if (v == null || v === undefined) return '--'
-  const prefix = v >= 0 ? '+' : ''
-  return prefix + v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-function fmtPercent(v: number | null | undefined) {
-  if (v == null || v === undefined) return '--'
-  return `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`
-}
-
-function fmtPercentNumber(v: number | null | undefined) {
-  if (v == null || v === undefined) return '--'
-  return `${v.toFixed(1)}%`
-}
-
-function fmtSignedOrFallback(v: number | null | undefined) {
-  if (v == null || v === undefined) return '--'
-  return fmtSigned(v)
-}
-
-function profitClass(v: number | null | undefined) {
-  if (v == null || v === undefined) return ''
-  return v >= 0 ? 'income' : 'expense'
-}
-
-function calcRelativeRate(delta: number, total: number) {
-  const base = total - delta
-  if (!base) return 0
-  return (delta / base) * 100
-}
-
-function resolveDistributionKey(item: HoldingItem): DistributionKey {
-  const assetType = String(item.assetType || '').toUpperCase()
-  if (assetType.includes('FUND')) return 'fund'
-  if (assetType.includes('STOCK')) return 'stock'
-  if (assetType.includes('CRYPTO') || assetType.includes('COIN')) return 'crypto'
-  if (assetType.includes('CASH')) return 'cash'
-  return 'other'
-}
-
-function goDetail(row: { raw: HoldingItem }) {
+function goDetail(row: HoldingRow) {
   const h = row.raw
   uni.navigateTo({ url: `/pages/holding-detail/holding-detail?id=${h.id}&name=${encodeURIComponent(h.assetName || h.symbol || '')}` })
 }
@@ -406,10 +272,7 @@ function handleTradeAction(action: 'buy' | 'convert' | 'sell') {
 
 .summary-title,
 .summary-side-label,
-.summary-side-profit-label,
-.summary-compare-label,
-.summary-compare-value,
-.summary-compare-rate {
+.summary-side-profit-label {
   color: rgba(255, 255, 255, 0.94);
 }
 
@@ -421,29 +284,6 @@ function handleTradeAction(action: 'buy' | 'convert' | 'sell') {
 .summary-divider {
   width: 2rpx;
   background: rgba(255, 255, 255, 0.24);
-}
-
-.summary-compare-list {
-  display: flex;
-  flex-direction: column;
-  row-gap: 10rpx;
-}
-
-.summary-compare-row {
-  display: flex;
-  align-items: center;
-  column-gap: 16rpx;
-  font-size: $font-sm;
-}
-
-.summary-compare-label {
-  width: 86rpx;
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.summary-compare-value,
-.summary-compare-rate {
-  font-variant-numeric: tabular-nums;
 }
 
 .summary-side-profit {
@@ -559,14 +399,10 @@ function handleTradeAction(action: 'buy' | 'convert' | 'sell') {
   color: var(--xo-primary);
 }
 
-.holding-header,
-.holding-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 0.82fr);
-  column-gap: 16rpx;
-}
-
 .holding-header {
+  display: grid;
+  grid-template-columns: var(--xo-invest-holding-grid);
+  column-gap: 16rpx;
   padding: 8rpx 0 18rpx;
   border-bottom: 1rpx solid var(--xo-border-color);
 }
@@ -586,78 +422,10 @@ function handleTradeAction(action: 'buy' | 'convert' | 'sell') {
   flex-direction: column;
 }
 
-.holding-row {
-  align-items: center;
-  padding: 24rpx 0;
-  border-bottom: 1rpx solid var(--xo-border-color);
-}
-
-.holding-row:last-child {
-  border-bottom: none;
-}
-
-.holding-cell {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  row-gap: 8rpx;
-}
-
-.holding-name {
-  font-size: $font-lg;
-  color: var(--xo-text-primary);
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.holding-code {
-  font-size: $font-sm;
-  color: var(--xo-text-secondary);
-}
-
-.holding-market-value {
-  font-size: $amount-sm;
-  color: var(--xo-text-primary);
-  font-weight: 700;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.holding-daily-line {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  column-gap: 10rpx;
-}
-
-.holding-daily-value,
-.holding-daily-separator,
-.holding-profit-rate {
-  font-size: $font-sm;
-  color: var(--xo-text-regular);
-  font-variant-numeric: tabular-nums;
-}
-
-.holding-profit-cell {
-  align-items: flex-end;
-}
-
-.holding-daily-value.income,
-.holding-profit-rate.income {
-  color: var(--xo-positive);
-}
-
-.holding-daily-value.expense,
-.holding-profit-rate.expense {
-  color: var(--xo-negative);
-}
-
 .action-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  column-gap: 18rpx;
+  column-gap: var(--xo-invest-action-gap);
   padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8rpx);
 }
 

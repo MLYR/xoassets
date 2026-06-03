@@ -5,6 +5,20 @@ import { themeIconMap } from '../icon-map'
 export const classicBlueTheme: ThemeConfig = {
   name: 'classic-blue',
   label: '经典蓝白',
+  assets: {
+    icons: {},
+    backgrounds: {}
+  },
+  pageTokens: {
+    investments: {
+      summaryCompareLabelWidth: '86rpx',
+      summaryCompareGap: '16rpx',
+      summaryCompareRowGap: '10rpx',
+      actionCapsuleHeight: '88rpx',
+      actionCapsuleGap: '18rpx',
+      holdingGridTemplate: 'minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 0.82fr)'
+    }
+  },
   colors: {
     primary: '#2F7BFF',
     primaryLight: '#6BA5E7',
@@ -110,6 +124,11 @@ export const classicBlueTheme: ThemeConfig = {
           background: 'linear-gradient(135deg, #8E6BFF 0%, #6F42FF 100%)',
           text: '#FFFFFF',
           shadow: '0 12rpx 24rpx rgba(111, 66, 255, 0.22)'
+        },
+        sell: {
+          background: 'linear-gradient(135deg, #FF9D47 0%, #FF6A3D 100%)',
+          text: '#FFFFFF',
+          shadow: '0 12rpx 28rpx rgba(255, 122, 69, 0.28)'
         }
       }
     },

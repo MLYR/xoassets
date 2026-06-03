@@ -18,9 +18,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import AppIcon from './AppIcon.vue'
+import type { ButtonVariant } from '@/theme'
 import { useTheme } from '@/theme/useTheme'
-
-type ButtonVariant = 'primary' | 'secondary' | 'success' | 'danger' | 'purple'
 
 const props = withDefaults(defineProps<{
   text: string
@@ -30,25 +29,28 @@ const props = withDefaults(defineProps<{
   block?: boolean
   disabled?: boolean
   radius?: string
+  height?: string
 }>(), {
   type: 'primary',
   icon: '',
   iconSize: '28rpx',
   block: false,
   disabled: false,
-  radius: ''
+  radius: '',
+  height: ''
 })
 
 const emit = defineEmits<{
   click: []
 }>()
 
-const { currentTheme } = useTheme()
+const { currentTheme, investmentTokens } = useTheme()
 
 const variantConfig = computed(() => currentTheme.value.components.button.variants[props.type])
 
 const buttonStyle = computed(() => ({
-  height: currentTheme.value.components.button.height,
+  // 投资页三枚交易按钮按原型使用胶囊高度，其它按钮继续走组件默认高度。
+  height: props.height || (props.type === 'sell' ? investmentTokens.value.actionCapsuleHeight : currentTheme.value.components.button.height),
   borderRadius: props.radius || currentTheme.value.components.button.radius,
   background: props.disabled ? currentTheme.value.components.button.disabledBg : variantConfig.value.background,
   color: variantConfig.value.text,

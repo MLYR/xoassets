@@ -16,6 +16,8 @@ export interface HoldingItem {
   marketValue: number
   todayProfit?: number | null
   todayChangeRate?: number | null
+  yesterdayProfit?: number | null
+  yesterdayChangeRate?: number | null
   floatingProfit: number
   floatingProfitRate: number
   breakEvenRate?: number | null
@@ -29,6 +31,8 @@ export interface HoldingSummary {
   totalCost: number
   todayProfit: number
   yesterdayProfit: number
+  lastMonthProfit?: number | null
+  lastMonthProfitRate?: number | null
   floatingProfit: number
   floatingProfitRate: number
   holdingCount: number

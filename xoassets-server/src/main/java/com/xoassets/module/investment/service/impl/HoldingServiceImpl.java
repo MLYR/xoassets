@@ -19,11 +19,13 @@ import com.xoassets.module.investment.vo.InvestmentTransactionVO;
 import com.xoassets.persistence.entity.Account;
 import com.xoassets.persistence.entity.Asset;
 import com.xoassets.persistence.entity.AssetPrice;
+import com.xoassets.persistence.entity.AssetSnapshot;
 import com.xoassets.persistence.entity.Holding;
 import com.xoassets.persistence.entity.InvestmentTransaction;
 import com.xoassets.persistence.mapper.AccountMapper;
 import com.xoassets.persistence.mapper.AssetMapper;
 import com.xoassets.persistence.mapper.AssetPriceMapper;
+import com.xoassets.persistence.mapper.AssetSnapshotMapper;
 import com.xoassets.persistence.mapper.HoldingMapper;
 import com.xoassets.persistence.mapper.InvestmentTransactionMapper;
 import java.math.BigDecimal;
@@ -52,6 +54,7 @@ public class HoldingServiceImpl implements HoldingService {
     private final HoldingMapper holdingMapper;
     private final AssetMapper assetMapper;
     private final AssetPriceMapper assetPriceMapper;
+    private final AssetSnapshotMapper assetSnapshotMapper;
     private final InvestmentTransactionMapper investmentTransactionMapper;
     private final AccountMapper accountMapper;
     private final AssetService assetService;
@@ -61,6 +64,7 @@ public class HoldingServiceImpl implements HoldingService {
             HoldingMapper holdingMapper,
             AssetMapper assetMapper,
             AssetPriceMapper assetPriceMapper,
+            AssetSnapshotMapper assetSnapshotMapper,
             InvestmentTransactionMapper investmentTransactionMapper,
             AccountMapper accountMapper,
             AssetService assetService,
@@ -68,6 +72,7 @@ public class HoldingServiceImpl implements HoldingService {
         this.holdingMapper = holdingMapper;
         this.assetMapper = assetMapper;
         this.assetPriceMapper = assetPriceMapper;
+        this.assetSnapshotMapper = assetSnapshotMapper;
         this.investmentTransactionMapper = investmentTransactionMapper;
         this.accountMapper = accountMapper;
         this.assetService = assetService;
@@ -91,6 +96,7 @@ public class HoldingServiceImpl implements HoldingService {
      */
     @Override
     public HoldingSummaryVO summary() {
+        Long userId = LoginUserContext.getUserId();
         List<HoldingVO> holdings = list();
         BigDecimal totalMarketValue = holdings.stream().map(HoldingVO::getMarketValue).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalCost = holdings.stream().map(HoldingVO::getTotalCost).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -100,11 +106,16 @@ public class HoldingServiceImpl implements HoldingService {
         BigDecimal floatingProfitRate = totalCost.compareTo(BigDecimal.ZERO) == 0
                 ? BigDecimal.ZERO
                 : floatingProfit.multiply(BigDecimal.valueOf(100)).divide(totalCost, 4, RoundingMode.HALF_UP);
+        AssetSnapshot monthStartSnapshot = firstMonthSnapshot(userId, LocalDate.now());
+        BigDecimal lastMonthProfit = monthStartSnapshot == null ? null : totalMarketValue.subtract(scale4(monthStartSnapshot.getInvestmentAsset())).setScale(4, RoundingMode.HALF_UP);
+        BigDecimal lastMonthProfitRate = monthStartSnapshot == null ? null : rate(lastMonthProfit, scale4(monthStartSnapshot.getInvestmentAsset()));
         return HoldingSummaryVO.builder()
                 .totalMarketValue(totalMarketValue.setScale(4, RoundingMode.HALF_UP))
                 .totalCost(totalCost.setScale(4, RoundingMode.HALF_UP))
                 .todayProfit(todayProfit.setScale(4, RoundingMode.HALF_UP))
                 .yesterdayProfit(yesterdayProfit.setScale(4, RoundingMode.HALF_UP))
+                .lastMonthProfit(lastMonthProfit)
+                .lastMonthProfitRate(lastMonthProfitRate)
                 .floatingProfit(floatingProfit.setScale(4, RoundingMode.HALF_UP))
                 .floatingProfitRate(floatingProfitRate)
                 .holdingCount(holdings.size())
@@ -360,6 +371,31 @@ public class HoldingServiceImpl implements HoldingService {
      */
     private BigDecimal scale4(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value.setScale(4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 投资页较本月初收益率按月初投资资产做分母，缺少月初快照时由调用方返回空值。
+     */
+    private BigDecimal rate(BigDecimal numerator, BigDecimal denominator) {
+        if (denominator == null || denominator.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        return scale4(numerator).multiply(BigDecimal.valueOf(100)).divide(denominator, 4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 查询本月首个资产快照，作为投资页“较上月/本月初”对比基准。
+     */
+    private AssetSnapshot firstMonthSnapshot(Long userId, LocalDate date) {
+        LocalDate startDate = date.withDayOfMonth(1);
+        return assetSnapshotMapper.selectList(new LambdaQueryWrapper<AssetSnapshot>()
+                        .eq(AssetSnapshot::getUserId, userId)
+                        .between(AssetSnapshot::getSnapshotDate, startDate, date)
+                        .orderByAsc(AssetSnapshot::getSnapshotDate)
+                        .last("limit 1"))
+                .stream()
+                .findFirst()
+                .orElse(null);
     }
 
     /**
