@@ -130,11 +130,12 @@ function goTransactionDetail(id: string) {
 
 .home-page {
   padding-bottom: 40rpx;
+  background: var(--xo-page-bg);
 }
 
 /* 顶部 */
 .header-section {
-  background: linear-gradient(135deg, #4A90D9, #6BA5E7);
+  background: var(--xo-bg-home-asset-card);
   padding: 40rpx $spacing-lg 60rpx;
   border-radius: 0 0 40rpx 40rpx;
 }
@@ -143,24 +144,24 @@ function goTransactionDetail(id: string) {
 }
 .greeting {
   font-size: $font-md;
-  color: rgba(255,255,255,0.85);
+  color: var(--xo-white-85);
 }
 .username {
   font-size: $font-xl;
-  color: #fff;
+  color: var(--xo-white);
   font-weight: 700;
   margin-left: 12rpx;
 }
 .net-assets-label {
   font-size: $font-sm;
-  color: rgba(255,255,255,0.75);
+  color: var(--xo-white-75);
   display: block;
   margin-bottom: 8rpx;
 }
 .net-assets-value {
   font-size: $amount-huge;
   font-weight: 800;
-  color: #fff;
+  color: var(--xo-white);
   font-variant-numeric: tabular-nums;
 }
 
@@ -172,9 +173,9 @@ function goTransactionDetail(id: string) {
 }
 .overview-card {
   width: calc(33.33% - 24rpx);
-  background: #fff;
-  border-radius: $border-radius;
-  box-shadow: $card-shadow;
+  background: var(--xo-component-card-bg);
+  border-radius: var(--xo-component-card-radius);
+  box-shadow: var(--xo-component-card-shadow);
   padding: $spacing-md $spacing-sm;
   margin: 0 12rpx 16rpx;
   display: flex;
@@ -183,23 +184,23 @@ function goTransactionDetail(id: string) {
 }
 .oc-label {
   font-size: $font-xs;
-  color: $text-secondary;
+  color: var(--xo-text-secondary);
   margin-bottom: 8rpx;
 }
 .oc-value {
   font-size: $amount-sm;
   font-weight: 700;
-  color: $text-primary;
+  color: var(--xo-text-primary);
   font-variant-numeric: tabular-nums;
-  &.income { color: $income-color; }
-  &.expense { color: $expense-color; }
+  &.income { color: var(--xo-positive); }
+  &.expense { color: var(--xo-negative); }
 }
 
 /* 流水列表 */
 .section-card {
-  background: #fff;
-  border-radius: $border-radius;
-  box-shadow: $card-shadow;
+  background: var(--xo-component-card-bg);
+  border-radius: var(--xo-component-card-radius);
+  box-shadow: var(--xo-component-card-shadow);
   margin: 0 $spacing-sm;
   padding: $spacing-md;
 }
@@ -212,18 +213,18 @@ function goTransactionDetail(id: string) {
 .section-title {
   font-size: $font-lg;
   font-weight: 700;
-  color: $text-primary;
+  color: var(--xo-text-primary);
 }
 .section-link {
   font-size: $font-sm;
-  color: $primary-color;
+  color: var(--xo-primary);
 }
 .txn-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 20rpx 0;
-  border-bottom: 1rpx solid $border-color;
+  border-bottom: 1rpx solid var(--xo-border-color);
   &:last-child { border-bottom: none; }
 }
 .txn-left {
@@ -232,19 +233,19 @@ function goTransactionDetail(id: string) {
 }
 .txn-category {
   font-size: $font-md;
-  color: $text-primary;
+  color: var(--xo-text-primary);
   margin-bottom: 4rpx;
 }
 .txn-time {
   font-size: $font-xs;
-  color: $text-secondary;
+  color: var(--xo-text-secondary);
 }
 .txn-amount {
   font-size: $amount-sm;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  &.income { color: $income-color; }
-  &.expense { color: $expense-color; }
-  &.transfer { color: $transfer-color; }
+  &.income { color: var(--xo-positive); }
+  &.expense { color: var(--xo-negative); }
+  &.transfer { color: var(--xo-transfer); }
 }
 </style>

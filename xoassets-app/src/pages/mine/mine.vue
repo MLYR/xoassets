@@ -14,22 +14,22 @@
     <!-- 功能入口 -->
     <view class="menu-section">
       <view class="menu-item" @click="goPage('/pages/categories/categories')">
-        <text class="menu-icon">📂</text>
+        <text class="menu-icon">{{ menuIcon('categories') }}</text>
         <text class="menu-label">分类管理</text>
         <text class="menu-arrow">›</text>
       </view>
       <view class="menu-item" @click="goPage('/pages/budgets/budgets')">
-        <text class="menu-icon">💰</text>
+        <text class="menu-icon">{{ menuIcon('budgets') }}</text>
         <text class="menu-label">预算管理</text>
         <text class="menu-arrow">›</text>
       </view>
       <view class="menu-item" @click="goPage('/pages/goals/goals')">
-        <text class="menu-icon">🎯</text>
+        <text class="menu-icon">{{ menuIcon('goals') }}</text>
         <text class="menu-label">资产目标</text>
         <text class="menu-arrow">›</text>
       </view>
       <view class="menu-item" @click="goPage('/pages/reports/reports')">
-        <text class="menu-icon">📊</text>
+        <text class="menu-icon">{{ menuIcon('reports') }}</text>
         <text class="menu-label">AI 报告</text>
         <text class="menu-arrow">›</text>
       </view>
@@ -47,8 +47,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useThemeStore } from '@/stores/theme'
+import { getMenuIcon, getThemeIconText } from '@/theme/helpers'
 
 const authStore = useAuthStore()
+const themeStore = useThemeStore()
 
 const initial = computed(() => {
   const name = authStore.user?.nickname || authStore.user?.username || '?'
@@ -57,6 +60,11 @@ const initial = computed(() => {
 
 function goPage(url: string) {
   uni.navigateTo({ url })
+}
+
+function menuIcon(key: string) {
+  // 菜单图标从主题读取，避免 emoji 或资源路径散落在页面里。
+  return getThemeIconText(getMenuIcon(themeStore.currentThemeName, key), '•')
 }
 
 function handleLogout() {
@@ -74,9 +82,9 @@ function handleLogout() {
 
 <style lang="scss" scoped>
 @import '@/styles/variables.scss';
-.mine-page { min-height: 100vh; background: $bg-color; }
+.mine-page { min-height: 100vh; background: var(--xo-page-bg); }
 .user-section {
-  background: linear-gradient(135deg, #4A90D9, #6BA5E7);
+  background: var(--xo-gradient-page-header);
   padding: 60rpx $spacing-lg 48rpx;
   display: flex;
   align-items: center;
@@ -85,20 +93,20 @@ function handleLogout() {
 .avatar {
   width: 96rpx; height: 96rpx;
   border-radius: 50%;
-  background: rgba(255,255,255,0.25);
+  background: var(--xo-white-25);
   display: flex;
   align-items: center;
   justify-content: center;
   margin-right: 24rpx;
 }
-.avatar-text { font-size: 40rpx; font-weight: 700; color: #fff; }
+.avatar-text { font-size: 40rpx; font-weight: 700; color: var(--xo-white); }
 .user-info { display: flex; flex-direction: column; }
-.user-name { font-size: $font-xl; font-weight: 700; color: #fff; }
-.user-id { font-size: $font-sm; color: rgba(255,255,255,0.75); margin-top: 4rpx; }
+.user-name { font-size: $font-xl; font-weight: 700; color: var(--xo-white); }
+.user-id { font-size: $font-sm; color: var(--xo-white-75); margin-top: 4rpx; }
 
 .menu-section {
-  background: #fff;
-  border-radius: $border-radius;
+  background: var(--xo-component-card-bg);
+  border-radius: var(--xo-component-card-radius);
   margin: 0 $spacing-sm $spacing-lg;
   overflow: hidden;
 }
@@ -106,13 +114,25 @@ function handleLogout() {
   display: flex;
   align-items: center;
   padding: 32rpx $spacing-md;
-  border-bottom: 1rpx solid $border-color;
+  border-bottom: 1rpx solid var(--xo-border-color);
   &:last-child { border-bottom: none; }
 }
-.menu-icon { font-size: 36rpx; margin-right: 20rpx; }
-.menu-label { flex: 1; font-size: $font-md; color: $text-primary; font-weight: 500; }
-.menu-arrow { font-size: 32rpx; color: $text-placeholder; }
+.menu-icon {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: var(--xo-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 20rpx;
+  color: var(--xo-primary);
+  background: var(--xo-primary-soft);
+  font-size: 24rpx;
+  font-weight: 700;
+}
+.menu-label { flex: 1; font-size: $font-md; color: var(--xo-text-primary); font-weight: 500; }
+.menu-arrow { font-size: 32rpx; color: var(--xo-text-placeholder); }
 
 .logout-area { padding: $spacing-xl $spacing-lg; }
-.danger { border-color: $danger-color; color: $danger-color; }
+.danger { border-color: var(--xo-negative); color: var(--xo-negative); }
 </style>

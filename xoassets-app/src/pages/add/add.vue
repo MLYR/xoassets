@@ -126,8 +126,8 @@
             class="picker-item"
             @click="selectCategory(c)"
           >
-            <view class="cat-icon" :style="{ background: c.color || '#4A90D9' }">
-              <text>{{ c.icon || c.name[0] }}</text>
+            <view class="cat-icon" :style="{ background: c.color || fallbackCategoryColor }">
+              <text>{{ c.icon || fallbackCategoryIcon }}</text>
             </view>
             <text>{{ c.name }}</text>
           </view>
@@ -141,11 +141,14 @@
 import { ref, computed, onMounted } from 'vue'
 import { useAccountStore } from '@/stores/account'
 import { useTransactionStore } from '@/stores/transaction'
+import { useThemeStore } from '@/stores/theme'
+import { getCategoryFallbackIcon, getThemeIconText } from '@/theme/helpers'
 import { categoryApi, type CategoryItem } from '@/services/categoryApi'
 import type { TransactionType } from '@/services/transactionApi'
 
 const accountStore = useAccountStore()
 const txnStore = useTransactionStore()
+const themeStore = useThemeStore()
 
 // tab 状态
 const tab = ref<TransactionType>('EXPENSE')
@@ -175,6 +178,12 @@ const canSubmit = computed(() => {
   if (tab.value === 'TRANSFER' && !targetAccount.value) return false
   if (tab.value !== 'TRANSFER' && !selectedCategory.value) return false
   return true
+})
+
+const fallbackCategoryColor = computed(() => themeStore.currentTheme.colors.primary)
+const fallbackCategoryIcon = computed(() => {
+  const key = tab.value === 'INCOME' ? 'INCOME' : tab.value === 'EXPENSE' ? 'EXPENSE' : 'TRANSFER'
+  return getThemeIconText(getCategoryFallbackIcon(themeStore.currentThemeName, key), '类')
 })
 
 onMounted(() => {
@@ -268,13 +277,13 @@ function formatTime(d: Date) {
 
 .add-page {
   min-height: 100vh;
-  background: $bg-color;
+  background: var(--xo-page-bg);
 }
 
 /* 类型切换 */
 .type-tabs {
   display: flex;
-  background: #fff;
+  background: var(--xo-component-card-bg);
   padding: $spacing-sm;
   margin-bottom: $spacing-sm;
 }
@@ -282,22 +291,22 @@ function formatTime(d: Date) {
   flex: 1;
   text-align: center;
   padding: 20rpx 0;
-  border-radius: $border-radius-sm;
+  border-radius: var(--xo-radius-sm);
   font-size: $font-md;
-  color: $text-secondary;
-  background: $bg-color;
+  color: var(--xo-text-secondary);
+  background: var(--xo-page-bg);
   margin: 0 8rpx;
   transition: all 0.2s;
   &.active {
-    background: $primary-color;
-    color: #fff;
+    background: var(--xo-primary);
+    color: var(--xo-white);
     font-weight: 600;
   }
 }
 
 /* 金额 */
 .amount-section {
-  background: #fff;
+  background: var(--xo-component-card-bg);
   padding: 48rpx $spacing-lg;
   display: flex;
   align-items: center;
@@ -307,28 +316,28 @@ function formatTime(d: Date) {
 .currency-symbol {
   font-size: 56rpx;
   font-weight: 700;
-  color: $text-primary;
+  color: var(--xo-text-primary);
   margin-right: 16rpx;
 }
 .amount-input {
   font-size: 72rpx;
   font-weight: 800;
-  color: $text-primary;
+  color: var(--xo-text-primary);
   min-width: 200rpx;
   text-align: left;
 }
 
 /* 表单 */
 .form-section {
-  background: #fff;
-  border-radius: $border-radius;
+  background: var(--xo-component-card-bg);
+  border-radius: var(--xo-component-card-radius);
   margin: 0 $spacing-sm $spacing-lg;
 }
 .form-row {
   display: flex;
   align-items: center;
   padding: 28rpx $spacing-md;
-  border-bottom: 1rpx solid $border-color;
+  border-bottom: 1rpx solid var(--xo-border-color);
   &:last-child { border-bottom: none; }
 }
 .form-row-note {
@@ -337,19 +346,19 @@ function formatTime(d: Date) {
 .form-label {
   width: 140rpx;
   font-size: $font-md;
-  color: $text-primary;
+  color: var(--xo-text-primary);
   font-weight: 500;
   flex-shrink: 0;
 }
 .form-value {
   flex: 1;
   font-size: $font-md;
-  color: $text-primary;
-  &.placeholder { color: $text-placeholder; }
+  color: var(--xo-text-primary);
+  &.placeholder { color: var(--xo-text-placeholder); }
 }
 .form-arrow {
   font-size: 36rpx;
-  color: $text-placeholder;
+  color: var(--xo-text-placeholder);
 }
 .time-value {
   margin-left: 16rpx;
@@ -357,29 +366,29 @@ function formatTime(d: Date) {
 .note-input {
   flex: 1;
   font-size: $font-md;
-  color: $text-primary;
+  color: var(--xo-text-primary);
 }
 
 /* 提交 */
 .submit-area {
   padding: 0 $spacing-lg;
   margin-top: 40rpx;
-  .disabled { background: #C0C4CC; }
+  .disabled { background: var(--xo-button-disabled-bg); }
 }
 
 /* Picker */
 .picker-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.4);
+  background: var(--xo-mask);
   z-index: 999;
   display: flex;
   align-items: flex-end;
 }
 .picker-sheet {
   width: 100%;
-  background: #fff;
-  border-radius: 32rpx 32rpx 0 0;
+  background: var(--xo-component-card-bg);
+  border-radius: var(--xo-radius-xl) var(--xo-radius-xl) 0 0;
   max-height: 60vh;
 }
 .picker-title {
@@ -387,7 +396,7 @@ function formatTime(d: Date) {
   font-size: $font-lg;
   font-weight: 600;
   padding: 28rpx;
-  border-bottom: 1rpx solid $border-color;
+  border-bottom: 1rpx solid var(--xo-border-color);
 }
 .picker-list { max-height: 50vh; }
 .picker-item {
@@ -395,10 +404,10 @@ function formatTime(d: Date) {
   justify-content: space-between;
   align-items: center;
   padding: 28rpx $spacing-md;
-  border-bottom: 1rpx solid $border-color;
+  border-bottom: 1rpx solid var(--xo-border-color);
   font-size: $font-md;
 }
-.picker-balance { color: $text-secondary; font-size: $font-sm; }
+.picker-balance { color: var(--xo-text-secondary); font-size: $font-sm; }
 .cat-icon {
   width: 48rpx; height: 48rpx;
   border-radius: 12rpx;

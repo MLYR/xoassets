@@ -3,9 +3,9 @@
 
 /* 通用卡片 */
 .card {
-  background: $bg-card;
-  border-radius: $border-radius;
-  box-shadow: $card-shadow;
+  background: var(--xo-component-card-bg);
+  border-radius: var(--xo-component-card-radius);
+  box-shadow: var(--xo-component-card-shadow);
   padding: $spacing-md;
   margin: $spacing-sm;
 }
@@ -15,9 +15,9 @@
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
-.amount.income { color: $income-color; }
-.amount.expense { color: $expense-color; }
-.amount.transfer { color: $transfer-color; }
+.amount.income { color: var(--xo-positive); }
+.amount.expense { color: var(--xo-negative); }
+.amount.transfer { color: var(--xo-transfer); }
 
 .amount-lg { font-size: $amount-lg; }
 .amount-md { font-size: $amount-md; }
@@ -32,27 +32,37 @@
   font-size: $font-xs;
   font-weight: 500;
 }
-.tag-income { background: rgba($income-color, 0.1); color: $income-color; }
-.tag-expense { background: rgba($expense-color, 0.1); color: $expense-color; }
-.tag-transfer { background: rgba($transfer-color, 0.1); color: $transfer-color; }
+.tag-income {
+  background: var(--xo-positive-soft);
+  color: var(--xo-positive);
+}
+.tag-expense {
+  background: var(--xo-negative-soft);
+  color: var(--xo-negative);
+}
+.tag-transfer {
+  background: var(--xo-transfer-soft);
+  color: var(--xo-transfer);
+}
 
 /* 按钮 */
 .btn-primary {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 88rpx;
-  border-radius: $border-radius;
-  background: $primary-color;
-  color: $text-white;
+  height: var(--xo-button-height);
+  border-radius: var(--xo-button-radius);
+  background: var(--xo-button-primary-bg);
+  color: var(--xo-button-primary-text);
   font-size: $font-lg;
   font-weight: 600;
   border: none;
+  box-shadow: var(--xo-shadow-button);
   &:active {
-    background: $primary-dark;
+    background: var(--xo-primary-dark);
   }
   &[disabled] {
-    background: #C0C4CC;
+    background: var(--xo-button-disabled-bg);
   }
 }
 
@@ -60,21 +70,21 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 88rpx;
-  border-radius: $border-radius;
+  height: var(--xo-button-height);
+  border-radius: var(--xo-button-radius);
   background: transparent;
-  color: $primary-color;
+  color: var(--xo-button-outline-text);
   font-size: $font-lg;
-  border: 2rpx solid $primary-color;
+  border: 2rpx solid var(--xo-button-outline-border);
   &:active {
-    background: rgba($primary-color, 0.05);
+    background: var(--xo-primary-soft);
   }
 }
 
 /* 分割线 */
 .divider {
   height: 1rpx;
-  background: $border-color;
+  background: var(--xo-border-color);
   margin: $spacing-md 0;
 }
 
@@ -85,7 +95,7 @@
   align-items: center;
   justify-content: center;
   padding: $spacing-xl * 2;
-  color: $text-secondary;
+  color: var(--xo-text-secondary);
   font-size: $font-md;
 }
 

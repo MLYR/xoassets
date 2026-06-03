@@ -78,7 +78,7 @@ function goLogin() {
 <style lang="scss" scoped>
 .register-page {
   min-height: 100vh;
-  background: linear-gradient(180deg, #4A90D9 0%, #6BA5E7 40%, #F0F4F8 40%);
+  background: var(--xo-bg-login-page);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -90,25 +90,25 @@ function goLogin() {
   align-items: center;
   margin-bottom: 48rpx;
 }
-.brand-logo { font-size: 72rpx; color: #fff; font-weight: 700; margin-bottom: 12rpx; }
-.brand-name { font-size: 38rpx; color: #fff; font-weight: 700; }
+.brand-logo { font-size: 72rpx; color: var(--xo-white); font-weight: 700; margin-bottom: 12rpx; }
+.brand-name { font-size: 38rpx; color: var(--xo-white); font-weight: 700; }
 .form-card {
   width: 630rpx;
-  background: #fff;
-  border-radius: 24rpx;
+  background: var(--xo-component-card-bg);
+  border-radius: var(--xo-component-card-radius);
   padding: 48rpx 40rpx;
-  box-shadow: 0 8rpx 40rpx rgba(0,0,0,0.08);
+  box-shadow: var(--xo-component-card-shadow);
 }
 .form-group { margin-bottom: 28rpx; }
-.form-label { font-size: 28rpx; color: #303133; margin-bottom: 12rpx; display: block; }
+.form-label { font-size: 28rpx; color: var(--xo-text-primary); margin-bottom: 12rpx; display: block; }
 .form-input {
-  height: 88rpx; background: #F5F7FA; border-radius: 16rpx;
-  padding: 0 24rpx; font-size: 30rpx; color: #303133;
+  height: 88rpx; background: var(--xo-card-bg-elevated); border-radius: var(--xo-radius-md);
+  padding: 0 24rpx; font-size: 30rpx; color: var(--xo-text-primary);
 }
-.register-btn { margin-top: 40rpx; border-radius: 16rpx;
-  &.disabled { background: #C0C4CC; }
+.register-btn { margin-top: 40rpx; border-radius: var(--xo-button-radius);
+  &.disabled { background: var(--xo-button-disabled-bg); }
 }
-.error-msg { display: block; text-align: center; margin-top: 24rpx; color: #FF4D4F; font-size: 26rpx; }
+.error-msg { display: block; text-align: center; margin-top: 24rpx; color: var(--xo-negative); font-size: 26rpx; }
 .form-footer { margin-top: 32rpx; text-align: center; }
-.link { color: #4A90D9; font-size: 26rpx; }
+.link { color: var(--xo-primary); font-size: 26rpx; }
 </style>

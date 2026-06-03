@@ -78,7 +78,7 @@ function goRegister() {
 <style lang="scss" scoped>
 .login-page {
   min-height: 100vh;
-  background: linear-gradient(180deg, #4A90D9 0%, #6BA5E7 40%, #F0F4F8 40%);
+  background: var(--xo-bg-login-page);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -93,27 +93,27 @@ function goRegister() {
 }
 .brand-logo {
   font-size: 80rpx;
-  color: #fff;
+  color: var(--xo-white);
   font-weight: 700;
   margin-bottom: 16rpx;
 }
 .brand-name {
   font-size: 44rpx;
-  color: #fff;
+  color: var(--xo-white);
   font-weight: 700;
   margin-bottom: 12rpx;
 }
 .brand-desc {
   font-size: 26rpx;
-  color: rgba(255,255,255,0.8);
+  color: var(--xo-white-80);
 }
 
 .form-card {
   width: 630rpx;
-  background: #fff;
-  border-radius: 24rpx;
+  background: var(--xo-component-card-bg);
+  border-radius: var(--xo-component-card-radius);
   padding: 48rpx 40rpx;
-  box-shadow: 0 8rpx 40rpx rgba(0,0,0,0.08);
+  box-shadow: var(--xo-component-card-shadow);
 }
 
 .form-group {
@@ -121,24 +121,24 @@ function goRegister() {
 }
 .form-label {
   font-size: 28rpx;
-  color: #303133;
+  color: var(--xo-text-primary);
   margin-bottom: 12rpx;
   display: block;
 }
 .form-input {
   height: 88rpx;
-  background: #F5F7FA;
-  border-radius: 16rpx;
+  background: var(--xo-card-bg-elevated);
+  border-radius: var(--xo-radius-md);
   padding: 0 24rpx;
   font-size: 30rpx;
-  color: #303133;
+  color: var(--xo-text-primary);
 }
 
 .login-btn {
   margin-top: 40rpx;
-  border-radius: 16rpx;
+  border-radius: var(--xo-button-radius);
   &.disabled {
-    background: #C0C4CC;
+    background: var(--xo-button-disabled-bg);
   }
 }
 
@@ -146,7 +146,7 @@ function goRegister() {
   display: block;
   text-align: center;
   margin-top: 24rpx;
-  color: #FF4D4F;
+  color: var(--xo-negative);
   font-size: 26rpx;
 }
 
@@ -155,7 +155,7 @@ function goRegister() {
   text-align: center;
 }
 .link {
-  color: #4A90D9;
+  color: var(--xo-primary);
   font-size: 26rpx;
 }
 </style>

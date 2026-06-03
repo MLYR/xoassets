@@ -3,6 +3,7 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 
 // uni-app 全局样式
+import './styles/theme.scss'
 import './styles/global.scss'
 
 export function createApp() {

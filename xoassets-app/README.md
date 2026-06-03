@@ -32,6 +32,7 @@ src/
 │   └── reports/        # AI 报告
 ├── services/           # API 封装（复用后端接口契约）
 ├── stores/             # Pinia 状态管理
+├── theme/              # 主题配置、图标映射和运行时应用
 ├── styles/             # 全局样式和设计变量
 ├── pages.json          # 路由 + Tab 配置
 └── manifest.json       # uni-app 多端配置
@@ -74,6 +75,35 @@ npm run type-check
 - 柔和阴影 `0 4rpx 20rpx rgba(0,0,0,0.06)`
 - 金额数字加粗突出，按钮高度 88rpx 适配手指点击
 - 收入绿色 / 支出红色 / 转账蓝色
+
+## 主题系统
+
+主题系统集中放在 `src/theme/`，用于统一管理颜色、图标、背景、圆角、阴影、字体和间距。
+
+```text
+src/theme/
+├── index.ts                 # 主题注册和统一导出
+├── types.ts                 # ThemeConfig 类型定义
+├── applyTheme.ts            # 同步 CSS 变量、导航栏和 TabBar 样式
+├── helpers.ts               # 读取主题颜色/图标的辅助方法
+└── themes/
+    ├── classic-blue.ts      # 当前蓝白金融风
+    ├── tech-dark.ts         # 预留科技深色风
+    └── cartoon-soft.ts      # 预留卡通柔和风
+```
+
+主题状态由 `src/stores/theme.ts` 管理，默认主题为 `classic-blue`，会持久化到 `uni.storage`。
+
+新增主题时：
+1. 在 `src/theme/themes/` 新建主题配置文件，实现完整 `ThemeConfig`。
+2. 在 `src/theme/index.ts` 注册主题。
+3. 页面优先使用 CSS 变量或 `src/theme/helpers.ts` 读取语义化配置，不要直接写死颜色或图标路径。
+
+已接入主题变量的范围：
+- 全局 `page`、`.card`、`.btn-primary`、`.btn-outline`、`.tag-*`、`.amount.*`
+- 启动时通过 `App.vue` 应用当前主题
+- 首页、账户、投资、登录、注册、记账、分类、我的页面的核心背景/卡片/图标 fallback
+- 原生导航栏和 TabBar 色彩通过 `applyTheme.ts` 运行时同步
 
 ## 接口
 
