@@ -37,6 +37,14 @@ export interface ThemePageTokens {
     actionCapsuleGap: string
     holdingGridTemplate: string
   }
+  accounts: {
+    summaryCardMinHeight: string
+    heroIllustrationSize: string
+    categoryTabHeight: string
+    accountRowMinHeight: string
+    distributionBarHeight: string
+    bottomActionHeight: string
+  }
 }
 
 export interface ThemeConfig {
@@ -169,6 +177,24 @@ export interface ThemeConfig {
     recentActivities: Record<'income' | 'expense' | 'transfer' | 'investment' | 'refund', ThemeIcon>
     category: Record<string, ThemeIcon>
     categoryFallback: Record<'INCOME' | 'EXPENSE' | 'TRANSFER', ThemeIcon>
+    accounts: Record<
+      | 'search'
+      | 'add'
+      | 'eye'
+      | 'arrowRight'
+      | 'bankCard'
+      | 'creditCard'
+      | 'cash'
+      | 'wallet'
+      | 'alipay'
+      | 'wechat'
+      | 'cmb'
+      | 'icbc'
+      | 'ccb'
+      | 'summary'
+      | 'distribution',
+      ThemeIcon
+    >
     investmentActions: Record<'buy' | 'sell' | 'convert' | 'refresh', ThemeIcon>
     quickActions: Record<'record' | 'transfer' | 'invest' | 'budget', ThemeIcon>
     common: Record<
@@ -214,6 +240,7 @@ export interface ThemeConfig {
       remaining: string
       track: string
     }
+    accountDistribution: Record<'bankCard' | 'cash' | 'thirdParty', string>
   }
   backgrounds: {
     page: string
@@ -224,5 +251,7 @@ export interface ThemeConfig {
     investmentSummaryCard: string
     mineProfileCard: string
     loginPage: string
+    accountsPage: string
+    accountsSummaryCard: string
   }
 }

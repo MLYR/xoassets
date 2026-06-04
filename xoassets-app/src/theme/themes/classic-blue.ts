@@ -28,6 +28,14 @@ export const classicBlueTheme: ThemeConfig = {
       actionCapsuleHeight: '88rpx',
       actionCapsuleGap: '18rpx',
       holdingGridTemplate: 'minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 0.82fr)'
+    },
+    accounts: {
+      summaryCardMinHeight: '270rpx',
+      heroIllustrationSize: '220rpx',
+      categoryTabHeight: '72rpx',
+      accountRowMinHeight: '128rpx',
+      distributionBarHeight: '18rpx',
+      bottomActionHeight: '96rpx'
     }
   },
   colors: {
@@ -175,6 +183,11 @@ export const classicBlueTheme: ThemeConfig = {
       used: '#2F7BFF',
       remaining: '#12C46B',
       track: '#E8EEF6'
+    },
+    accountDistribution: {
+      bankCard: '#2F7BFF',
+      cash: '#FF991F',
+      thirdParty: '#18C786'
     }
   },
   backgrounds: {
@@ -185,6 +198,8 @@ export const classicBlueTheme: ThemeConfig = {
     homeGoalCover: 'radial-gradient(circle at 28% 22%, rgba(255,255,255,0.8) 0 16%, transparent 17%), linear-gradient(150deg, #6FCBFF 0%, #B7E9FF 42%, #6ED5BE 43%, #DFF6EA 64%, #FFE1A8 65%, #F8C57C 100%)',
     investmentSummaryCard: 'linear-gradient(135deg, #2F7BFF 0%, #2787FF 62%, #5CA9FF 100%)',
     mineProfileCard: 'linear-gradient(135deg, #F9FBFF 0%, #FFFFFF 100%)',
-    loginPage: 'linear-gradient(180deg, #2F7BFF 0%, #6BA5E7 40%, #F3F7FC 40%)'
+    loginPage: 'linear-gradient(180deg, #2F7BFF 0%, #6BA5E7 40%, #F3F7FC 40%)',
+    accountsPage: '#F7FAFE',
+    accountsSummaryCard: 'linear-gradient(135deg, #FFFFFF 0%, #F6FAFF 45%, #EAF3FF 100%)'
   }
 }

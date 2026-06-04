@@ -118,6 +118,8 @@ export function setCssVariables(theme: ThemeConfig): void {
   setCssVar('--xo-bg-investment-summary-card', backgrounds.investmentSummaryCard)
   setCssVar('--xo-bg-mine-profile-card', backgrounds.mineProfileCard)
   setCssVar('--xo-bg-login-page', backgrounds.loginPage)
+  setCssVar('--xo-bg-accounts-page', backgrounds.accountsPage)
+  setCssVar('--xo-bg-accounts-summary-card', backgrounds.accountsSummaryCard)
 
   // 首页 Dashboard 场景 token，承接原型卡片间距、图表高度和进度条尺寸。
   setCssVar('--xo-home-hero-padding', pageTokens.home.heroPadding)
@@ -135,6 +137,14 @@ export function setCssVariables(theme: ThemeConfig): void {
   setCssVar('--xo-invest-action-height', pageTokens.investments.actionCapsuleHeight)
   setCssVar('--xo-invest-action-gap', pageTokens.investments.actionCapsuleGap)
   setCssVar('--xo-invest-holding-grid', pageTokens.investments.holdingGridTemplate)
+
+  // 账户页原型复刻场景 token，集中控制资产卡、分类栏和底部 CTA 尺寸。
+  setCssVar('--xo-accounts-summary-card-min-height', pageTokens.accounts.summaryCardMinHeight)
+  setCssVar('--xo-accounts-hero-illustration-size', pageTokens.accounts.heroIllustrationSize)
+  setCssVar('--xo-accounts-category-tab-height', pageTokens.accounts.categoryTabHeight)
+  setCssVar('--xo-accounts-row-min-height', pageTokens.accounts.accountRowMinHeight)
+  setCssVar('--xo-accounts-distribution-bar-height', pageTokens.accounts.distributionBarHeight)
+  setCssVar('--xo-accounts-bottom-action-height', pageTokens.accounts.bottomActionHeight)
 }
 
 export function applyUniChrome(theme: ThemeConfig): void {

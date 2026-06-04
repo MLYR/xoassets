@@ -205,3 +205,36 @@ src/assets/themes/classic-blue/icons/
 ## 原生 App 打包
 
 当前 H5 模式可直接在手机浏览器使用。如需打包 iOS / Android 原生 App，需使用 HBuilderX 导入本项目。
+
+## 账户页面改造（2026-06-04）
+
+账户页面已按原型图 `账户.png` 复刻：
+
+**后端新增接口：**
+- `GET /api/accounts/overview`：一次性返回账户页聚合数据
+  - `totalAsset`、`lastMonthChangeAmount/Rate`、`nonCreditAssetTotal`
+  - `categories`：银行卡/电子钱包/现金三类汇总（金额、占比、数量）
+  - `accounts`：含 `displayType`、`maskedNo`、`group`、`isDefault`、`tagText`、`availableCredit`
+- 新增 `AccountOverviewVO`、`AccountCategorySummaryVO`、`AccountDisplayVO`、`AccountOverviewService`
+- 上月变化优先取 `xo_asset_snapshot` 最新快照，无快照返回 0 并标记 `compareAvailable=false`
+
+**前端账户页改造：**
+- 自定义导航：标题、搜索、加号图标
+- 顶部资产卡：总资产、眼睛切换显示/隐藏、较上月变化
+- 底部分类：银行卡（含储蓄卡/信用卡）、电子钱包、现金 → 前端强制按此顺序渲染
+- 账户列表：品牌图标、名称（文字图标兜底）、标签/账单日、余额、可用额度
+- 账户明细行右侧箭头已删除
+- 分类筛选：全部 / 银行卡 / 电子钱包 / 现金
+- 排序：默认（录入顺序）、名称、金额
+- 眼睛开关覆盖整个账户页面全部金额
+
+**图标资源：**
+- 新增 SVG：`account-bank-card.svg`、`account-credit-card.svg`、`account-cash.svg`、`account-stock.svg`、`account-fund.svg`、`account-crypto.svg`、`account-other.svg`、`account-wechat.svg`
+- 分类 SVG：`category-food.svg`、`category-rent.svg`、`category-transport.svg`、`category-travel.svg`
+
+**主题扩展：**
+- `ThemeConfig.icons.accounts`：search、add、eye、arrowRight、bankCard、creditCard、cash、wallet、alipay、wechat、summary、distribution
+- `ThemeConfig.backgrounds.accountsPage`
+- `ThemeConfig.pageTokens.accounts`：资产卡尺寸、分类栏高度、列表行高、分布条高度
+
+**TabBar 保持不变：** 使用 `src/static/tabbar/*.png`，避免 uni-app 原生 TabBar 图标丢失。

@@ -1,6 +1,11 @@
 /* 主题图标映射：只暴露语义 key，页面不直接引用图片路径。 */
 import type { ThemeConfig, ThemeIcon, ThemeIconPair, ThemeName } from './types'
 
+import accountAlipay from '@/assets/themes/classic-blue/icons/account-alipay.svg'
+import accountBankCard from '@/assets/themes/classic-blue/icons/account-bank-card.svg'
+import accountCash from '@/assets/themes/classic-blue/icons/account-cash.svg'
+import accountCreditCard from '@/assets/themes/classic-blue/icons/account-credit-card.svg'
+import accountWechat from '@/assets/themes/classic-blue/icons/account-wechat.svg'
 import accountWallet from '@/assets/themes/classic-blue/icons/account-wallet.svg'
 import actionConvert from '@/assets/themes/classic-blue/icons/action-convert.svg'
 import actionDeposit from '@/assets/themes/classic-blue/icons/action-deposit.svg'
@@ -10,6 +15,7 @@ import chartAnalysis from '@/assets/themes/classic-blue/icons/chart-analysis.svg
 import chartPie from '@/assets/themes/classic-blue/icons/chart-pie.svg'
 import chartTrend from '@/assets/themes/classic-blue/icons/chart-trend.svg'
 import commonAdd from '@/assets/themes/classic-blue/icons/common-add.svg'
+import commonAddCircle from '@/assets/themes/classic-blue/icons/common-add-circle.svg'
 import commonAlbum from '@/assets/themes/classic-blue/icons/common-album.svg'
 import commonArrowRight from '@/assets/themes/classic-blue/icons/common-arrow-right.svg'
 import commonBack from '@/assets/themes/classic-blue/icons/common-back.svg'
@@ -27,6 +33,7 @@ import commonImport from '@/assets/themes/classic-blue/icons/common-import.svg'
 import commonLogout from '@/assets/themes/classic-blue/icons/common-logout.svg'
 import commonMore from '@/assets/themes/classic-blue/icons/common-more.svg'
 import commonRefresh from '@/assets/themes/classic-blue/icons/common-refresh.svg'
+import commonSearch from '@/assets/themes/classic-blue/icons/common-search.svg'
 import commonSettings from '@/assets/themes/classic-blue/icons/common-settings.svg'
 import commonShield from '@/assets/themes/classic-blue/icons/common-shield.svg'
 import commonTag from '@/assets/themes/classic-blue/icons/common-tag.svg'
@@ -70,6 +77,7 @@ import recordNotebook from '@/assets/themes/classic-blue/icons/record-notebook.s
 type ThemeIconMap = ThemeConfig['icons']
 
 const image = (src: string): ThemeIcon => ({ type: 'image', src })
+const text = (value: string): ThemeIcon => ({ type: 'text', value })
 
 function imagePair(src: string): ThemeIconPair {
   return {
@@ -159,6 +167,24 @@ const categoryFallback: ThemeIconMap['categoryFallback'] = {
   TRANSFER: quickActions.transfer
 }
 
+const accounts: ThemeIconMap['accounts'] = {
+  search: image(commonSearch),
+  add: image(commonAddCircle),
+  eye: image(commonEye),
+  arrowRight: image(commonArrowRight),
+  bankCard: image(accountBankCard),
+  creditCard: image(accountCreditCard),
+  cash: image(accountCash),
+  wallet: image(accountWallet),
+  alipay: image(accountAlipay),
+  wechat: image(accountWechat),
+  cmb: text('招'),
+  icbc: text('工'),
+  ccb: text('建'),
+  summary: image(accountWallet),
+  distribution: image(chartPie)
+}
+
 const category: ThemeIconMap['category'] = {
   dining: image(categoryDining),
   transit: image(categoryTransit),
@@ -219,6 +245,7 @@ function createIconMap(): ThemeIconMap {
     recentActivities,
     category,
     categoryFallback,
+    accounts,
     investmentActions,
     quickActions,
     common,

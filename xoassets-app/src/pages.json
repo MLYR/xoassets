@@ -20,7 +20,8 @@
     {
       "path": "pages/accounts/accounts",
       "style": {
-        "navigationBarTitleText": "账户"
+        "navigationBarTitleText": "账户",
+        "navigationStyle": "custom"
       }
     },
     {

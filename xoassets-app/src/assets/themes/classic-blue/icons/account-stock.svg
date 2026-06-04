@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="Stock icon">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0AA84F"/>
+      <stop offset="100%" stop-color="#0AA84F"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#000000" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="url(#bg)"/>
+  <g filter="url(#softShadow)">
+
+    <path d="M54 178l41-39 32 25 72-75" stroke="#FFFFFF" stroke-width="13" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M169 88h31v31" stroke="#FFFFFF" stroke-width="13" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M75 71v78M105 54v78M141 84v78M177 49v78" stroke="#B8FFD0" stroke-width="8" stroke-linecap="round"/>
+    <rect x="66" y="92" width="18" height="35" rx="4" fill="#B8FFD0"/>
+    <rect x="96" y="75" width="18" height="35" rx="4" fill="#FFFFFF"/>
+    <rect x="132" y="105" width="18" height="35" rx="4" fill="#FF5C7A"/>
+    <rect x="168" y="70" width="18" height="35" rx="4" fill="#B8FFD0"/>
+
+  </g>
+</svg>

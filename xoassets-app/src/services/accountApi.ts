@@ -13,6 +13,38 @@ export interface AccountItem {
   remark?: string | null
 }
 
+export interface AccountDisplayItem extends AccountItem {
+  displayType: string
+  maskedNo?: string | null
+  group: AccountGroup
+  isDefault: boolean
+  tagText?: string | null
+  availableCredit?: number | null
+}
+
+export type AccountGroup = 'BANK_CARD' | 'CASH' | 'THIRD_PARTY'
+
+export interface AccountCategorySummary {
+  group: AccountGroup
+  label: string
+  amount: number
+  ratio: number
+  count: number
+  colorKey: 'bankCard' | 'cash' | 'thirdParty' | string
+}
+
+export interface AccountOverview {
+  totalAsset: number
+  lastMonthChangeAmount: number
+  lastMonthChangeRate: number
+  compareAvailable: boolean
+  accountCount: number
+  nonCreditAssetTotal: number
+  nonZeroAccountCount: number
+  categories: AccountCategorySummary[]
+  accounts: AccountDisplayItem[]
+}
+
 export type AccountLedgerBizType = 'INCOME' | 'EXPENSE' | 'TRANSFER_OUT' | 'TRANSFER_IN' | 'REFUND' | 'INVEST_BUY' | 'INVEST_SELL'
 
 export interface AccountLedgerItem {
@@ -55,6 +87,9 @@ export interface PageResult<T> {
 export const accountApi = {
   list() {
     return request<AccountItem[]>({ url: '/accounts', method: 'GET' })
+  },
+  overview() {
+    return request<AccountOverview>({ url: '/accounts/overview', method: 'GET' })
   },
   ledger(id: string, params: {
     pageNo?: number

@@ -62,6 +62,7 @@ function resolveIconByName(theme: ThemeConfig, name: string, active: boolean): T
   if (group === 'categoryFallback' && key) {
     return theme.icons.categoryFallback[key as keyof ThemeConfig['icons']['categoryFallback']]
   }
+  if (group === 'accounts' && key) return theme.icons.accounts[key as keyof ThemeConfig['icons']['accounts']]
   if (group === 'investmentActions' && key) {
     return theme.icons.investmentActions[key as keyof ThemeConfig['icons']['investmentActions']]
   }

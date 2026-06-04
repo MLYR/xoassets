@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="Fund icon">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#6C4DD9"/>
+      <stop offset="100%" stop-color="#6C4DD9"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#000000" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="url(#bg)"/>
+  <g filter="url(#softShadow)">
+
+    <path d="M124 57a67 67 0 1 1-65 83h65z" fill="#FFFFFF"/>
+    <path d="M124 57a67 67 0 0 1 67 67h-67z" fill="#55D6FF"/>
+    <path d="M124 57v83H59a67 67 0 0 1 65-83z" fill="#FFD15A"/>
+    <rect x="68" y="168" width="25" height="39" rx="5" fill="#FFFFFF" opacity=".7"/>
+    <rect x="111" y="146" width="25" height="61" rx="5" fill="#FFFFFF" opacity=".82"/>
+    <rect x="154" y="121" width="25" height="86" rx="5" fill="#FFFFFF"/>
+
+  </g>
+</svg>
