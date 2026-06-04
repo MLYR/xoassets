@@ -14,12 +14,12 @@
       @click="emit('action')"
     >
       <slot name="action">
-        <text class="app-section-header-action-text" :style="actionStyle">
-          {{ actionText }}
+        <view class="app-section-header-action-content" :style="actionStyle">
+          <text class="app-section-header-action-text">{{ actionText }}</text>
           <slot name="actionIcon">
-            <text v-if="showArrow"> ›</text>
+            <AppIcon v-if="showArrow" name="common.arrowRight" size="24rpx" />
           </slot>
-        </text>
+        </view>
       </slot>
     </view>
   </view>
@@ -27,6 +27,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import AppIcon from './AppIcon.vue'
 import { useTheme } from '@/theme/useTheme'
 
 const props = withDefaults(defineProps<{
@@ -91,5 +92,11 @@ const actionStyle = computed(() => ({
 
 .app-section-header-action {
   flex-shrink: 0;
+}
+
+.app-section-header-action-content {
+  display: inline-flex;
+  align-items: center;
+  column-gap: 4rpx;
 }
 </style>

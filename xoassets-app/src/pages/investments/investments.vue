@@ -34,11 +34,7 @@
 
     <!-- 资产分布：使用持仓实时聚合，现金类在当前接口缺失时显示 0。 -->
     <AppCard :padding="theme.spacing.lg" :radius="theme.radius.xl" class="distribution-card">
-      <AppSectionHeader title="资产分布" @action="handleDistributionMore">
-        <template #action>
-          <text class="section-action-text">更多 ›</text>
-        </template>
-      </AppSectionHeader>
+      <AppSectionHeader title="资产分布" action-text="更多" @action="handleDistributionMore" />
 
       <view class="distribution-layout">
         <view class="distribution-donut" :style="distributionRingStyle">
@@ -65,11 +61,7 @@
 
     <!-- 持仓卡片：保留现有持仓详情入口，只提升结构和视觉。 -->
     <AppCard :padding="theme.spacing.lg" :radius="theme.radius.xl" class="holdings-card">
-      <AppSectionHeader title="持仓" @action="handleAllHoldings">
-        <template #action>
-          <text class="section-action-text">全部持仓 ›</text>
-        </template>
-      </AppSectionHeader>
+      <AppSectionHeader title="持仓" action-text="全部持仓" @action="handleAllHoldings" />
 
       <view class="holding-table">
         <view class="holding-header">
@@ -93,7 +85,8 @@
       </view>
 
       <view class="holding-analysis-entry" @click="handleAllHoldings">
-        <text class="holding-analysis-text">持仓分析 ›</text>
+        <text class="holding-analysis-text">持仓分析</text>
+        <AppIcon name="common.arrowRight" size="24rpx" />
       </view>
     </AppCard>
 
@@ -139,6 +132,7 @@ import { onShow } from '@dcloudio/uni-app'
 import AppActionButton from '@/components/app/AppActionButton.vue'
 import AppAmount from '@/components/app/AppAmount.vue'
 import AppCard from '@/components/app/AppCard.vue'
+import AppIcon from '@/components/app/AppIcon.vue'
 import AppPage from '@/components/app/AppPage.vue'
 import AppSectionHeader from '@/components/app/AppSectionHeader.vue'
 import InvestmentHoldingRow from './components/InvestmentHoldingRow.vue'

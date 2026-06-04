@@ -1,9 +1,16 @@
 /* 主题图标映射：只暴露语义 key，页面不直接引用图片路径。 */
 import type { ThemeConfig, ThemeIcon, ThemeIconPair, ThemeName } from './types'
 
+import accountWallet from '@/assets/themes/classic-blue/icons/account-wallet.svg'
+import actionConvert from '@/assets/themes/classic-blue/icons/action-convert.svg'
+import actionDeposit from '@/assets/themes/classic-blue/icons/action-deposit.svg'
+import actionWithdraw from '@/assets/themes/classic-blue/icons/action-withdraw.svg'
+
+import chartAnalysis from '@/assets/themes/classic-blue/icons/chart-analysis.svg'
 import chartPie from '@/assets/themes/classic-blue/icons/chart-pie.svg'
 import chartTrend from '@/assets/themes/classic-blue/icons/chart-trend.svg'
 import commonAdd from '@/assets/themes/classic-blue/icons/common-add.svg'
+import commonAlbum from '@/assets/themes/classic-blue/icons/common-album.svg'
 import commonArrowRight from '@/assets/themes/classic-blue/icons/common-arrow-right.svg'
 import commonBack from '@/assets/themes/classic-blue/icons/common-back.svg'
 import commonCalendar from '@/assets/themes/classic-blue/icons/common-calendar.svg'
@@ -13,7 +20,11 @@ import commonDelete from '@/assets/themes/classic-blue/icons/common-delete.svg'
 import commonEdit from '@/assets/themes/classic-blue/icons/common-edit.svg'
 import commonExport from '@/assets/themes/classic-blue/icons/common-export.svg'
 import commonEye from '@/assets/themes/classic-blue/icons/common-eye.svg'
+import commonEyeOff from '@/assets/themes/classic-blue/icons/common-eye-off.svg'
 import commonFilter from '@/assets/themes/classic-blue/icons/common-filter.svg'
+import commonHelp from '@/assets/themes/classic-blue/icons/common-help.svg'
+import commonImport from '@/assets/themes/classic-blue/icons/common-import.svg'
+import commonLogout from '@/assets/themes/classic-blue/icons/common-logout.svg'
 import commonMore from '@/assets/themes/classic-blue/icons/common-more.svg'
 import commonRefresh from '@/assets/themes/classic-blue/icons/common-refresh.svg'
 import commonSettings from '@/assets/themes/classic-blue/icons/common-settings.svg'
@@ -21,15 +32,24 @@ import commonShield from '@/assets/themes/classic-blue/icons/common-shield.svg'
 import commonTag from '@/assets/themes/classic-blue/icons/common-tag.svg'
 import commonTime from '@/assets/themes/classic-blue/icons/common-time.svg'
 import categoryBills from '@/assets/themes/classic-blue/icons/category-bills.svg'
+import categoryBook from '@/assets/themes/classic-blue/icons/category-book.svg'
 import categoryBonus from '@/assets/themes/classic-blue/icons/category-bonus.svg'
+import categoryBus from '@/assets/themes/classic-blue/icons/category-bus.svg'
+import categoryCar from '@/assets/themes/classic-blue/icons/category-car.svg'
+import categoryCoffee from '@/assets/themes/classic-blue/icons/category-coffee.svg'
 import categoryDining from '@/assets/themes/classic-blue/icons/category-dining.svg'
 import categoryEducation from '@/assets/themes/classic-blue/icons/category-education.svg'
 import categoryEntertainment from '@/assets/themes/classic-blue/icons/category-entertainment.svg'
+import categoryGame from '@/assets/themes/classic-blue/icons/category-game.svg'
+import categoryHotel from '@/assets/themes/classic-blue/icons/category-hotel.svg'
+import categoryInternet from '@/assets/themes/classic-blue/icons/category-internet.svg'
 import categoryMedical from '@/assets/themes/classic-blue/icons/category-medical.svg'
+import categoryMovie from '@/assets/themes/classic-blue/icons/category-movie.svg'
 import categoryOther from '@/assets/themes/classic-blue/icons/category-other.svg'
 import categoryRefund from '@/assets/themes/classic-blue/icons/category-refund.svg'
 import categorySalary from '@/assets/themes/classic-blue/icons/category-salary.svg'
 import categoryShopping from '@/assets/themes/classic-blue/icons/category-shopping.svg'
+import categorySubway from '@/assets/themes/classic-blue/icons/category-subway.svg'
 import categoryTransfer from '@/assets/themes/classic-blue/icons/category-transfer.svg'
 import categoryTransit from '@/assets/themes/classic-blue/icons/category-transit.svg'
 import homeBalance from '@/assets/themes/classic-blue/icons/home-balance.svg'
@@ -45,6 +65,7 @@ import quickRecord from '@/assets/themes/classic-blue/icons/quick-record.svg'
 import quickTransfer from '@/assets/themes/classic-blue/icons/quick-transfer.svg'
 import reportAi from '@/assets/themes/classic-blue/icons/report-ai.svg'
 import reportDownload from '@/assets/themes/classic-blue/icons/report-download.svg'
+import recordNotebook from '@/assets/themes/classic-blue/icons/record-notebook.svg'
 
 type ThemeIconMap = ThemeConfig['icons']
 
@@ -71,11 +92,11 @@ const home: ThemeIconMap['home'] = {
   search: image(homeSearch),
   notification: image(homeNotification),
   more: image(commonMore),
-  assetAnalysis: image(commonArrowRight),
+  assetAnalysis: image(chartAnalysis),
   notice: image(homeNotification),
-  analysis: image(commonArrowRight),
+  analysis: image(chartAnalysis),
   eye: image(commonEye),
-  eyeOff: image(commonEye),
+  eyeOff: image(commonEyeOff),
   income: image(homeIncome),
   expense: image(homeExpense),
   balance: image(homeBalance),
@@ -96,16 +117,26 @@ const common: ThemeIconMap['common'] = {
   more: image(commonMore),
   refresh: image(commonRefresh),
   filter: image(commonFilter),
+  search: image(homeSearch),
   settings: image(commonSettings),
   calendar: image(commonCalendar),
   time: image(commonTime),
   camera: image(commonCamera),
+  album: image(commonAlbum),
   eye: image(commonEye),
+  eyeOff: image(commonEyeOff),
   add: image(commonAdd),
   delete: image(commonDelete),
   edit: image(commonEdit),
+  account: image(accountWallet),
+  note: image(recordNotebook),
   arrowRight: image(commonArrowRight),
-  convert: image(commonConvert)
+  convert: image(commonConvert),
+  import: image(commonImport),
+  export: image(commonExport),
+  logout: image(commonLogout),
+  help: image(commonHelp),
+  shield: image(commonShield)
 }
 
 const homeStats: ThemeIconMap['homeStats'] = {
@@ -119,7 +150,7 @@ const recentActivities: ThemeIconMap['recentActivities'] = {
   expense: home.expense,
   transfer: quickActions.transfer,
   investment: quickActions.invest,
-  refund: common.refresh
+  refund: image(categoryRefund)
 }
 
 const categoryFallback: ThemeIconMap['categoryFallback'] = {
@@ -131,11 +162,20 @@ const categoryFallback: ThemeIconMap['categoryFallback'] = {
 const category: ThemeIconMap['category'] = {
   dining: image(categoryDining),
   transit: image(categoryTransit),
+  bus: image(categoryBus),
+  car: image(categoryCar),
+  subway: image(categorySubway),
   shopping: image(categoryShopping),
   entertainment: image(categoryEntertainment),
+  movie: image(categoryMovie),
+  game: image(categoryGame),
   medical: image(categoryMedical),
   bills: image(categoryBills),
   education: image(categoryEducation),
+  book: image(categoryBook),
+  coffee: image(categoryCoffee),
+  hotel: image(categoryHotel),
+  internet: image(categoryInternet),
   other: image(categoryOther),
   salary: image(categorySalary),
   bonus: image(categoryBonus),
@@ -144,9 +184,9 @@ const category: ThemeIconMap['category'] = {
 }
 
 const investmentActions: ThemeIconMap['investmentActions'] = {
-  buy: common.add,
-  sell: image(commonExport),
-  convert: quickActions.transfer,
+  buy: image(actionDeposit),
+  sell: image(actionWithdraw),
+  convert: image(actionConvert),
   refresh: common.refresh
 }
 
@@ -155,7 +195,7 @@ const menu: ThemeIconMap['menu'] = {
   budgets: quickActions.budget,
   goals: home.goal,
   reports: image(reportAi),
-  logout: common.back,
+  logout: image(commonLogout),
   search: home.search,
   filter: common.filter
 }

@@ -176,16 +176,26 @@ export interface ThemeConfig {
       | 'more'
       | 'refresh'
       | 'filter'
+      | 'search'
       | 'settings'
       | 'calendar'
       | 'time'
       | 'camera'
+      | 'album'
       | 'eye'
+      | 'eyeOff'
       | 'add'
       | 'delete'
       | 'edit'
+      | 'account'
+      | 'note'
       | 'arrowRight'
-      | 'convert',
+      | 'convert'
+      | 'import'
+      | 'export'
+      | 'logout'
+      | 'help'
+      | 'shield',
       ThemeIcon
     >
     chartIcons: Record<'trend' | 'pie', ThemeIcon>

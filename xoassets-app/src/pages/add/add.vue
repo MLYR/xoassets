@@ -4,9 +4,13 @@
       <text class="page-title">记账</text>
       <view class="page-toolbar">
         <view class="month-switch">
-          <text class="month-arrow" @click="changeMonth(-1)">‹</text>
+          <view class="month-arrow" @click="changeMonth(-1)">
+            <AppIcon name="common.back" size="28rpx" />
+          </view>
           <text class="month-text">{{ currentMonthLabel }}</text>
-          <text class="month-arrow" @click="changeMonth(1)">›</text>
+          <view class="month-arrow" @click="changeMonth(1)">
+            <AppIcon name="common.arrowRight" size="28rpx" />
+          </view>
         </view>
         <view class="header-actions">
           <view class="icon-button" @click="goSearch">
@@ -102,7 +106,7 @@
     </AppCard>
 
     <view class="floating-add-button" @click="openComposer">
-      <text class="floating-add-icon">+</text>
+      <AppIcon name="common.add" size="44rpx" />
     </view>
 
     <view v-if="showComposer" class="composer-overlay">
@@ -110,7 +114,9 @@
         <view class="composer-safe-top"></view>
 
         <view class="composer-topbar">
-          <text class="topbar-back" @click="closeComposer">‹</text>
+          <view class="topbar-back" @click="closeComposer">
+            <AppIcon name="common.back" size="34rpx" />
+          </view>
           <text class="topbar-title">流水录入</text>
           <text class="topbar-spacer"></text>
         </view>
@@ -131,7 +137,7 @@
             <view class="composer-amount-row">
               <text class="composer-amount-text">¥{{ amountDisplay }}</text>
               <view class="ocr-entry" @click="handleOcrEntry">
-                <text class="ocr-icon">⌕</text>
+                <AppIcon name="common.camera" size="24rpx" />
                 <text class="ocr-text">拍照识别</text>
               </view>
             </view>
@@ -183,33 +189,39 @@
           <AppCard :padding="theme.spacing.lg" :radius="theme.radius.xl" class="composer-form-card">
             <view class="composer-form-row" @click="showAccountPicker = true">
               <view class="form-row-label">
-                <text class="form-row-icon">卡</text>
+                <view class="form-row-icon">
+                  <AppIcon name="common.account" size="30rpx" />
+                </view>
                 <text class="form-row-name">账户</text>
               </view>
               <view class="form-row-value-group">
                 <text class="form-row-value" :class="{ placeholder: !selectedAccount }">
                   {{ selectedAccount ? selectedAccount.name : '选择账户' }}
                 </text>
-                <text class="form-row-arrow">›</text>
+                <AppIcon name="common.arrowRight" size="26rpx" />
               </view>
             </view>
 
             <view v-if="tab === 'TRANSFER'" class="composer-form-row" @click="showTargetPicker = true">
               <view class="form-row-label">
-                <text class="form-row-icon">转</text>
+                <view class="form-row-icon">
+                  <AppIcon name="quickActions.transfer" size="30rpx" />
+                </view>
                 <text class="form-row-name">目标账户</text>
               </view>
               <view class="form-row-value-group">
                 <text class="form-row-value" :class="{ placeholder: !targetAccount }">
                   {{ targetAccount ? targetAccount.name : '选择目标账户' }}
                 </text>
-                <text class="form-row-arrow">›</text>
+                <AppIcon name="common.arrowRight" size="26rpx" />
               </view>
             </view>
 
             <view class="composer-form-row">
               <view class="form-row-label">
-                <text class="form-row-icon">时</text>
+                <view class="form-row-icon">
+                  <AppIcon name="common.time" size="30rpx" />
+                </view>
                 <text class="form-row-name">日期时间</text>
               </view>
               <view class="form-row-value-group">
@@ -219,13 +231,15 @@
                 <picker mode="time" :value="timeStr" @change="onTimeChange">
                   <text class="form-row-value form-row-time">{{ timeStr }}</text>
                 </picker>
-                <text class="form-row-arrow">›</text>
+                <AppIcon name="common.arrowRight" size="26rpx" />
               </view>
             </view>
 
             <view class="composer-form-row">
               <view class="form-row-label">
-                <text class="form-row-icon">注</text>
+                <view class="form-row-icon">
+                  <AppIcon name="common.note" size="30rpx" />
+                </view>
                 <text class="form-row-name">备注</text>
               </view>
               <view class="form-row-note-group">
@@ -242,7 +256,9 @@
 
             <view class="composer-form-row image-row" @click="openImageActionSheet">
               <view class="form-row-label">
-                <text class="form-row-icon">图</text>
+                <view class="form-row-icon">
+                  <AppIcon name="common.album" size="30rpx" />
+                </view>
                 <text class="form-row-name">图片</text>
               </view>
               <view class="image-row-content">
@@ -253,9 +269,11 @@
                   mode="aspectFill"
                 />
                 <view v-else class="image-placeholder">
-                  <text class="image-placeholder-icon">▣</text>
+                  <AppIcon name="common.album" size="38rpx" />
                 </view>
-                <text class="image-camera-icon" @click.stop="openImageActionSheet">⌔</text>
+                <view class="image-camera-icon" @click.stop="openImageActionSheet">
+                  <AppIcon name="common.camera" size="40rpx" />
+                </view>
               </view>
             </view>
           </AppCard>
@@ -325,8 +343,6 @@ import { categoryApi, type CategoryItem } from '@/services/categoryApi'
 import { transactionApi, type TransactionItem, type TransactionType } from '@/services/transactionApi'
 import { useAccountStore } from '@/stores/account'
 import { useTransactionStore } from '@/stores/transaction'
-import { useThemeStore } from '@/stores/theme'
-import { getCategoryFallbackIcon, getThemeIconText } from '@/theme/helpers'
 import { useTheme } from '@/theme/useTheme'
 
 type CalendarCell = {
@@ -397,7 +413,6 @@ const incomePresets = [
 const now = new Date()
 const accountStore = useAccountStore()
 const txnStore = useTransactionStore()
-const themeStore = useThemeStore()
 const { currentTheme } = useTheme()
 
 const theme = computed(() => currentTheme.value)
@@ -442,10 +457,6 @@ const dateDisplay = computed(() => {
 const amountDisplay = computed(() => (amountInput.value || '0').replace(/^\+/, ''))
 
 const fallbackCategoryColor = computed(() => theme.value.colors.primary)
-const fallbackCategoryIcon = computed(() => {
-  const key = tab.value === 'INCOME' ? 'INCOME' : tab.value === 'EXPENSE' ? 'EXPENSE' : 'TRANSFER'
-  return getThemeIconText(getCategoryFallbackIcon(themeStore.currentThemeName, key), '类')
-})
 
 const canSubmit = computed(() => {
   const amount = getNormalizedAmount()
@@ -477,12 +488,9 @@ const selectedDateRecords = computed(() => {
     .filter((record) => extractDatePart(record.transactionTime) === selectedDate.value)
     .sort((a, b) => normalizeTransactionDate(b.transactionTime).getTime() - normalizeTransactionDate(a.transactionTime).getTime())
     .map((record) => {
-      const typeKey = record.type === 'INCOME' ? 'INCOME' : record.type === 'EXPENSE' ? 'EXPENSE' : 'TRANSFER'
-      const iconText = record.categoryName?.slice(0, 1) || getThemeIconText(getCategoryFallbackIcon(themeStore.currentThemeName, typeKey), typeLabel(record.type).slice(0, 1))
       return {
         ...record,
         title: record.categoryName || typeLabel(record.type),
-        iconText,
         iconName: resolveRecordIconName(record),
         accountText: record.targetAccountName ? `${record.accountName || '未知账户'} → ${record.targetAccountName}` : (record.accountName || '未知账户'),
         timeText: formatRecordTime(record.transactionTime),
@@ -1249,13 +1257,6 @@ function isSameYearMonth(left: Date, right: Date) {
   z-index: 20;
 }
 
-.floating-add-icon {
-  color: var(--xo-white);
-  font-size: 56rpx;
-  line-height: 1;
-  font-weight: 500;
-}
-
 .composer-overlay,
 .picker-overlay {
   position: fixed;
@@ -1375,7 +1376,6 @@ function isSameYearMonth(left: Date, right: Date) {
   color: var(--xo-primary);
 }
 
-.ocr-icon,
 .ocr-text {
   font-size: $font-sm;
 }

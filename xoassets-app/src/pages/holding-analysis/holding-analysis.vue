@@ -2,7 +2,9 @@
   <AppPage class="analysis-page" :padding="false" safe-bottom gap="24rpx">
     <view class="safe-top"></view>
     <view class="topbar">
-      <text class="topbar-back" @click="goBack">‹</text>
+      <view class="topbar-back" @click="goBack">
+        <AppIcon name="common.back" size="34rpx" />
+      </view>
       <text class="topbar-title">持仓分析</text>
       <text class="topbar-spacer"></text>
     </view>
@@ -99,6 +101,7 @@ import { computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import AppAmount from '@/components/app/AppAmount.vue'
 import AppCard from '@/components/app/AppCard.vue'
+import AppIcon from '@/components/app/AppIcon.vue'
 import AppPage from '@/components/app/AppPage.vue'
 import type { HoldingItem } from '@/services/investmentApi'
 import { useInvestmentStore } from '@/stores/investment'

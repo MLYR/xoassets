@@ -4,7 +4,7 @@
     <view class="cat-grid">
       <view v-for="c in expenseCategories" :key="c.id" class="cat-item">
         <view class="cat-icon-small" :style="{ background: c.color || themeStore.currentTheme.colors.primary }">
-          <text>{{ c.icon || expenseFallbackIcon }}</text>
+          <AppIcon :name="categoryIconName(c, 'EXPENSE')" size="40rpx" />
         </view>
         <text class="cat-name">{{ c.name }}</text>
       </view>
@@ -14,7 +14,7 @@
     <view class="cat-grid">
       <view v-for="c in incomeCategories" :key="c.id" class="cat-item">
         <view class="cat-icon-small" :style="{ background: c.color || themeStore.currentTheme.colors.positive }">
-          <text>{{ c.icon || incomeFallbackIcon }}</text>
+          <AppIcon :name="categoryIconName(c, 'INCOME')" size="40rpx" />
         </view>
         <text class="cat-name">{{ c.name }}</text>
       </view>
@@ -28,15 +28,39 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import AppIcon from '@/components/app/AppIcon.vue'
 import { categoryApi, type CategoryItem } from '@/services/categoryApi'
 import { useThemeStore } from '@/stores/theme'
-import { getCategoryFallbackIcon, getThemeIconText } from '@/theme/helpers'
 
 const expenseCategories = ref<CategoryItem[]>([])
 const incomeCategories = ref<CategoryItem[]>([])
 const themeStore = useThemeStore()
-const expenseFallbackIcon = getThemeIconText(getCategoryFallbackIcon(themeStore.currentThemeName, 'EXPENSE'), '支')
-const incomeFallbackIcon = getThemeIconText(getCategoryFallbackIcon(themeStore.currentThemeName, 'INCOME'), '收')
+
+const categoryIconRules = [
+  { key: 'dining', match: ['餐饮', '吃饭', '外卖'] },
+  { key: 'coffee', match: ['咖啡', '奶茶'] },
+  { key: 'shopping', match: ['购物', '日用'] },
+  { key: 'bus', match: ['公交'] },
+  { key: 'subway', match: ['地铁'] },
+  { key: 'transit', match: ['交通', '打车', '出行'] },
+  { key: 'entertainment', match: ['娱乐'] },
+  { key: 'movie', match: ['电影'] },
+  { key: 'game', match: ['游戏'] },
+  { key: 'medical', match: ['医疗', '药', '医院'] },
+  { key: 'education', match: ['教育', '学习', '培训'] },
+  { key: 'book', match: ['书'] },
+  { key: 'bills', match: ['生活', '缴费', '水电'] },
+  { key: 'internet', match: ['网络', '宽带'] },
+  { key: 'salary', match: ['工资', '薪资'] },
+  { key: 'bonus', match: ['奖金', '奖励'] },
+  { key: 'refund', match: ['退款'] }
+]
+
+function categoryIconName(category: CategoryItem, type: 'EXPENSE' | 'INCOME') {
+  const rule = categoryIconRules.find((item) => item.match.some((keyword) => category.name.includes(keyword)))
+  if (rule) return `category.${rule.key}`
+  return type === 'INCOME' ? 'home.income' : 'home.expense'
+}
 
 onMounted(async () => {
   try {

@@ -14,24 +14,32 @@
     <!-- 功能入口 -->
     <view class="menu-section">
       <view class="menu-item" @click="goPage('/pages/categories/categories')">
-        <text class="menu-icon">{{ menuIcon('categories') }}</text>
+        <view class="menu-icon">
+          <AppIcon name="menu.categories" size="34rpx" />
+        </view>
         <text class="menu-label">分类管理</text>
-        <text class="menu-arrow">›</text>
+        <AppIcon name="common.arrowRight" size="26rpx" />
       </view>
       <view class="menu-item" @click="goPage('/pages/budgets/budgets')">
-        <text class="menu-icon">{{ menuIcon('budgets') }}</text>
+        <view class="menu-icon">
+          <AppIcon name="menu.budgets" size="34rpx" />
+        </view>
         <text class="menu-label">预算管理</text>
-        <text class="menu-arrow">›</text>
+        <AppIcon name="common.arrowRight" size="26rpx" />
       </view>
       <view class="menu-item" @click="goPage('/pages/goals/goals')">
-        <text class="menu-icon">{{ menuIcon('goals') }}</text>
+        <view class="menu-icon">
+          <AppIcon name="menu.goals" size="34rpx" />
+        </view>
         <text class="menu-label">资产目标</text>
-        <text class="menu-arrow">›</text>
+        <AppIcon name="common.arrowRight" size="26rpx" />
       </view>
       <view class="menu-item" @click="goPage('/pages/reports/reports')">
-        <text class="menu-icon">{{ menuIcon('reports') }}</text>
+        <view class="menu-icon">
+          <AppIcon name="menu.reports" size="34rpx" />
+        </view>
         <text class="menu-label">AI 报告</text>
-        <text class="menu-arrow">›</text>
+        <AppIcon name="common.arrowRight" size="26rpx" />
       </view>
     </view>
 
@@ -46,12 +54,10 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import AppIcon from '@/components/app/AppIcon.vue'
 import { useAuthStore } from '@/stores/auth'
-import { useThemeStore } from '@/stores/theme'
-import { getMenuIcon, getThemeIconText } from '@/theme/helpers'
 
 const authStore = useAuthStore()
-const themeStore = useThemeStore()
 
 const initial = computed(() => {
   const name = authStore.user?.nickname || authStore.user?.username || '?'
@@ -60,11 +66,6 @@ const initial = computed(() => {
 
 function goPage(url: string) {
   uni.navigateTo({ url })
-}
-
-function menuIcon(key: string) {
-  // 菜单图标从主题读取，避免 emoji 或资源路径散落在页面里。
-  return getThemeIconText(getMenuIcon(themeStore.currentThemeName, key), '•')
 }
 
 function handleLogout() {
