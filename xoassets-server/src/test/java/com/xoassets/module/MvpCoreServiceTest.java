@@ -176,7 +176,8 @@ class MvpCoreServiceTest {
                 holdingMapper, assetMapper, assetPriceMapper, mock(AssetPriceCurrentMapper.class), mock(AssetPriceDailyMapper.class),
                 mock(InvestmentDailySnapshotMapper.class), transactionMapper, accountMapper, assetService, mock(QuoteService.class));
         InvestmentTransactionServiceImpl transactionService = new InvestmentTransactionServiceImpl(
-                transactionMapper, assetMapper, accountMapper, assetService, holdingService, accountService);
+                transactionMapper, assetMapper, mock(AssetPriceMapper.class), mock(AssetPriceDailyMapper.class),
+                accountMapper, assetService, holdingService, accountService, mock(com.xoassets.module.snapshot.service.SnapshotService.class));
 
         when(accountMapper.selectOne(any())).thenReturn(bank);
         when(assetService.findAsset(10L)).thenReturn(asset(10L, "FUND-A", "基金 A", "FUND", "CNY"));
@@ -216,7 +217,8 @@ class MvpCoreServiceTest {
                 holdingMapper, assetMapper, mock(AssetPriceMapper.class), mock(AssetPriceCurrentMapper.class), mock(AssetPriceDailyMapper.class),
                 mock(InvestmentDailySnapshotMapper.class), transactionMapper, accountMapper, mock(AssetService.class), mock(QuoteService.class));
         InvestmentTransactionServiceImpl transactionService = new InvestmentTransactionServiceImpl(
-                transactionMapper, assetMapper, accountMapper, mock(AssetService.class), holdingService, accountService);
+                transactionMapper, assetMapper, mock(AssetPriceMapper.class), mock(AssetPriceDailyMapper.class),
+                accountMapper, mock(AssetService.class), holdingService, accountService, mock(com.xoassets.module.snapshot.service.SnapshotService.class));
         InvestmentTransaction sell = investmentRecord(99L, "SELL", "50.0000", "12.0000", "600.0000", "2.0000", "451.0000");
 
         when(transactionMapper.selectOne(any())).thenReturn(sell);
@@ -369,6 +371,58 @@ class MvpCoreServiceTest {
                 .thenReturn(List.of());
 
         assertEquals(bd("100.0000"), service.summary().getTodayProfit());
+    }
+
+    @Test
+    void holdingYesterdayProfitShouldFallbackToAuditSnapshotsWhenDailyIsMissing() {
+        Holding holding = holding(1L, USER_ID, 10L, "100.0000", "10.0000", "1000.0000");
+        HoldingMapper holdingMapper = mock(HoldingMapper.class);
+        AssetMapper assetMapper = mock(AssetMapper.class);
+        AssetPriceMapper assetPriceMapper = mock(AssetPriceMapper.class);
+        AssetPriceDailyMapper assetPriceDailyMapper = mock(AssetPriceDailyMapper.class);
+        QuoteService quoteService = mock(QuoteService.class);
+        HoldingServiceImpl service = new HoldingServiceImpl(
+                holdingMapper, assetMapper, assetPriceMapper, mock(AssetPriceCurrentMapper.class), assetPriceDailyMapper,
+                mock(InvestmentDailySnapshotMapper.class), mock(InvestmentTransactionMapper.class), mock(AccountMapper.class), mock(AssetService.class), quoteService);
+
+        when(holdingMapper.selectList(any())).thenReturn(List.of(holding));
+        when(assetMapper.selectBatchIds(Set.of(10L))).thenReturn(List.of(asset(10L, "FUND-A", "基金 A", "FUND", "CNY")));
+        when(quoteService.latestPriceMap(Set.of(10L))).thenReturn(Map.of(10L, price(10L, "11.00000000", "CNY", LocalDateTime.now())));
+        when(assetPriceDailyMapper.selectList(any())).thenReturn(List.of());
+        when(assetPriceMapper.selectList(any())).thenReturn(List.of(
+                price(10L, "9.00000000", "CNY", LocalDate.now().minusDays(1).atTime(15, 0)),
+                price(10L, "8.00000000", "CNY", LocalDate.now().minusDays(2).atTime(15, 0))));
+
+        HoldingVO vo = service.list().get(0);
+        assertEquals(bd("100.0000"), vo.getYesterdayProfit());
+        assertEquals(bd("12.5000"), vo.getYesterdayChangeRate());
+    }
+
+    @Test
+    void holdingYesterdayProfitShouldFallbackToAuditSnapshotsWhenDailyWasBackfilledFlat() {
+        Holding holding = holding(1L, USER_ID, 10L, "100.0000", "10.0000", "1000.0000");
+        HoldingMapper holdingMapper = mock(HoldingMapper.class);
+        AssetMapper assetMapper = mock(AssetMapper.class);
+        AssetPriceMapper assetPriceMapper = mock(AssetPriceMapper.class);
+        AssetPriceDailyMapper assetPriceDailyMapper = mock(AssetPriceDailyMapper.class);
+        QuoteService quoteService = mock(QuoteService.class);
+        HoldingServiceImpl service = new HoldingServiceImpl(
+                holdingMapper, assetMapper, assetPriceMapper, mock(AssetPriceCurrentMapper.class), assetPriceDailyMapper,
+                mock(InvestmentDailySnapshotMapper.class), mock(InvestmentTransactionMapper.class), mock(AccountMapper.class), mock(AssetService.class), quoteService);
+
+        when(holdingMapper.selectList(any())).thenReturn(List.of(holding));
+        when(assetMapper.selectBatchIds(Set.of(10L))).thenReturn(List.of(asset(10L, "FUND-A", "基金 A", "FUND", "CNY")));
+        when(quoteService.latestPriceMap(Set.of(10L))).thenReturn(Map.of(10L, price(10L, "11.00000000", "CNY", LocalDateTime.now())));
+        when(assetPriceDailyMapper.selectList(any())).thenReturn(List.of(
+                dailyPrice(10L, LocalDate.now().minusDays(1), "11.00000000", "CNY"),
+                dailyPrice(10L, LocalDate.now().minusDays(2), "11.00000000", "CNY")));
+        when(assetPriceMapper.selectList(any())).thenReturn(List.of(
+                price(10L, "9.00000000", "CNY", LocalDate.now().minusDays(1).atTime(15, 0)),
+                price(10L, "8.00000000", "CNY", LocalDate.now().minusDays(2).atTime(15, 0))));
+
+        HoldingVO vo = service.list().get(0);
+        assertEquals(bd("100.0000"), vo.getYesterdayProfit());
+        assertEquals(bd("12.5000"), vo.getYesterdayChangeRate());
     }
 
     @Test

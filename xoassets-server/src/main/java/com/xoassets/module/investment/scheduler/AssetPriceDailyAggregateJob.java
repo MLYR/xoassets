@@ -116,6 +116,10 @@ public class AssetPriceDailyAggregateJob {
         if (current == null || current.getPrice() == null) {
             return null;
         }
+        if (current.getQuoteTime() == null || !current.getQuoteTime().toLocalDate().equals(tradeDate)) {
+            // 不能用今天的 current 反向补昨天/前天，否则最近两个交易日收盘价会被写成同一个值，昨日收益恒为 0。
+            return null;
+        }
         AssetPriceDaily daily = new AssetPriceDaily();
         daily.setAssetId(assetId);
         daily.setTradeDate(tradeDate);

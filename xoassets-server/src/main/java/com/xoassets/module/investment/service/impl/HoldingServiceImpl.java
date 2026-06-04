@@ -35,7 +35,9 @@ import com.xoassets.persistence.mapper.InvestmentTransactionMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -516,12 +518,15 @@ public class HoldingServiceImpl implements HoldingService {
         AssetPrice matchedPrice = priceContext == null || !priceMatchesAssetCurrency(asset, priceContext.currentPrice()) ? null : priceContext.currentPrice();
         AssetPriceDaily previousDaily = priceContext == null || !priceMatchesAssetCurrency(asset, priceContext.previousDaily()) ? null : priceContext.previousDaily();
         AssetPriceDaily beforePreviousDaily = priceContext == null || !priceMatchesAssetCurrency(asset, priceContext.beforePreviousDaily()) ? null : priceContext.beforePreviousDaily();
+        AssetPrice previousAudit = priceContext == null || !priceMatchesAssetCurrency(asset, priceContext.previousAudit()) ? null : priceContext.previousAudit();
+        AssetPrice beforePreviousAudit = priceContext == null || !priceMatchesAssetCurrency(asset, priceContext.beforePreviousAudit()) ? null : priceContext.beforePreviousAudit();
         BigDecimal latestPrice = matchedPrice == null ? holding.getAvgCost() : matchedPrice.getPrice();
         // 今日收益按“当前价 - 最近交易日日收盘价”计算，不能用自然日 yesterday 推断交易日。
         BigDecimal previous = matchedPrice != null && matchedPrice.getPreviousClose() != null
                 ? matchedPrice.getPreviousClose()
-                : previousDaily == null ? null : previousDaily.getClosePrice();
-        BigDecimal beforePrevious = beforePreviousDaily == null ? null : beforePreviousDaily.getClosePrice();
+                : previousDaily != null ? previousDaily.getClosePrice() : previousAudit == null ? null : previousAudit.getPrice();
+        BigDecimal yesterdayPrevious = yesterdayPreviousPrice(previousDaily, beforePreviousDaily, previousAudit, beforePreviousAudit);
+        BigDecimal beforePrevious = yesterdayBeforePreviousPrice(previousDaily, beforePreviousDaily, previousAudit, beforePreviousAudit);
         BigDecimal marketValue = holding.getQuantity().multiply(latestPrice).setScale(4, RoundingMode.HALF_UP);
         BigDecimal profit = marketValue.subtract(holding.getTotalCost());
         BigDecimal profitRate = holding.getTotalCost().compareTo(BigDecimal.ZERO) == 0
@@ -529,8 +534,8 @@ public class HoldingServiceImpl implements HoldingService {
                 : profit.multiply(BigDecimal.valueOf(100)).divide(holding.getTotalCost(), 4, RoundingMode.HALF_UP);
         BigDecimal todayProfit = priceDiffProfit(holding.getQuantity(), latestPrice, previous);
         BigDecimal todayChangeRate = changeRate(latestPrice, previous);
-        BigDecimal yesterdayProfit = priceDiffProfit(holding.getQuantity(), previous, beforePrevious);
-        BigDecimal yesterdayChangeRate = changeRate(previous, beforePrevious);
+        BigDecimal yesterdayProfit = priceDiffProfit(holding.getQuantity(), yesterdayPrevious, beforePrevious);
+        BigDecimal yesterdayChangeRate = changeRate(yesterdayPrevious, beforePrevious);
         BigDecimal breakEvenRate = matchedPrice == null ? null : breakEvenRate(holding.getAvgCost(), latestPrice);
         return HoldingVO.builder()
                 .id(holding.getId())
@@ -549,7 +554,7 @@ public class HoldingServiceImpl implements HoldingService {
                 .beforePreviousPrice(beforePrevious)
                 .priceScale(priceScale(asset))
                 .latestPriceTime(matchedPrice == null ? null : matchedPrice.getQuoteTime())
-                .previousPriceTime(previousDaily == null ? null : previousDaily.getTradeDate().atStartOfDay())
+                .previousPriceTime(previousDaily != null ? previousDaily.getTradeDate().atStartOfDay() : previousAudit == null ? null : previousAudit.getQuoteTime())
                 .latestPriceSource(matchedPrice == null ? null : matchedPrice.getSource())
                 .marketStatus(matchedPrice == null ? null : matchedPrice.getMarketStatus())
                 .marketValue(marketValue)
@@ -717,13 +722,48 @@ public class HoldingServiceImpl implements HoldingService {
         Map<Long, List<AssetPriceDaily>> dailyPriceMap = (dailyRows == null ? List.<AssetPriceDaily>of() : dailyRows)
                 .stream()
                 .collect(Collectors.groupingBy(AssetPriceDaily::getAssetId));
+        Map<Long, List<AssetPrice>> auditPriceMap = auditPriceHistoryMap(assetIds);
         return assetIds.stream().collect(Collectors.toMap(assetId -> assetId, assetId -> {
             List<AssetPriceDaily> prices = dailyPriceMap.getOrDefault(assetId, List.of());
+            List<AssetPrice> auditPrices = auditPriceMap.getOrDefault(assetId, List.of());
             return new HoldingPriceContext(
                     safeCurrentPriceMap.get(assetId),
                     prices.isEmpty() ? null : prices.get(0),
-                    prices.size() < 2 ? null : prices.get(1));
+                    prices.size() < 2 ? null : prices.get(1),
+                    auditPrices.isEmpty() ? null : auditPrices.get(0),
+                    auditPrices.size() < 2 ? null : auditPrices.get(1));
         }));
+    }
+
+    /**
+     * daily 迁移数据不足时，用旧审计快照按不同报价日兜底，避免历史真实价格存在但昨日收益被展示为 0。
+     */
+    private Map<Long, List<AssetPrice>> auditPriceHistoryMap(Set<Long> assetIds) {
+        List<AssetPrice> rows = assetPriceMapper.selectList(new LambdaQueryWrapper<AssetPrice>()
+                .in(AssetPrice::getAssetId, assetIds)
+                .lt(AssetPrice::getQuoteTime, LocalDate.now().atStartOfDay())
+                .orderByDesc(AssetPrice::getQuoteTime)
+                .orderByDesc(AssetPrice::getCreatedAt));
+        return (rows == null ? List.<AssetPrice>of() : rows)
+                .stream()
+                .collect(Collectors.groupingBy(AssetPrice::getAssetId))
+                .entrySet()
+                .stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> distinctDailyAuditPrices(entry.getValue())));
+    }
+
+    private List<AssetPrice> distinctDailyAuditPrices(List<AssetPrice> prices) {
+        Map<LocalDate, AssetPrice> byDate = new LinkedHashMap<>();
+        for (AssetPrice price : prices) {
+            if (price.getQuoteTime() == null) {
+                continue;
+            }
+            byDate.putIfAbsent(price.getQuoteTime().toLocalDate(), price);
+            if (byDate.size() >= 2) {
+                break;
+            }
+        }
+        return new ArrayList<>(byDate.values());
     }
 
     /**
@@ -731,6 +771,36 @@ public class HoldingServiceImpl implements HoldingService {
      */
     private HoldingPriceContext priceContext(Long assetId) {
         return priceContextMap(Set.of(assetId)).get(assetId);
+    }
+
+    /**
+     * 若迁移期 daily 被 current 反向兜底成连续相同价格，优先使用旧审计快照恢复昨日收益口径。
+     */
+    private BigDecimal yesterdayPreviousPrice(AssetPriceDaily previousDaily, AssetPriceDaily beforePreviousDaily, AssetPrice previousAudit, AssetPrice beforePreviousAudit) {
+        if (isFlatDailyWithUsefulAudit(previousDaily, beforePreviousDaily, previousAudit, beforePreviousAudit)) {
+            return previousAudit.getPrice();
+        }
+        return previousDaily != null ? previousDaily.getClosePrice() : previousAudit == null ? null : previousAudit.getPrice();
+    }
+
+    private BigDecimal yesterdayBeforePreviousPrice(AssetPriceDaily previousDaily, AssetPriceDaily beforePreviousDaily, AssetPrice previousAudit, AssetPrice beforePreviousAudit) {
+        if (isFlatDailyWithUsefulAudit(previousDaily, beforePreviousDaily, previousAudit, beforePreviousAudit)) {
+            return beforePreviousAudit.getPrice();
+        }
+        return beforePreviousDaily != null ? beforePreviousDaily.getClosePrice() : beforePreviousAudit == null ? null : beforePreviousAudit.getPrice();
+    }
+
+    private boolean isFlatDailyWithUsefulAudit(AssetPriceDaily previousDaily, AssetPriceDaily beforePreviousDaily, AssetPrice previousAudit, AssetPrice beforePreviousAudit) {
+        return previousDaily != null
+                && beforePreviousDaily != null
+                && previousDaily.getClosePrice() != null
+                && beforePreviousDaily.getClosePrice() != null
+                && previousDaily.getClosePrice().compareTo(beforePreviousDaily.getClosePrice()) == 0
+                && previousAudit != null
+                && beforePreviousAudit != null
+                && previousAudit.getPrice() != null
+                && beforePreviousAudit.getPrice() != null
+                && previousAudit.getPrice().compareTo(beforePreviousAudit.getPrice()) != 0;
     }
 
     /**
@@ -875,7 +945,7 @@ public class HoldingServiceImpl implements HoldingService {
         return Objects.equals(asset.getCurrency(), price.getCurrency());
     }
 
-    private record HoldingPriceContext(AssetPrice currentPrice, AssetPriceDaily previousDaily, AssetPriceDaily beforePreviousDaily) {
+    private record HoldingPriceContext(AssetPrice currentPrice, AssetPriceDaily previousDaily, AssetPriceDaily beforePreviousDaily, AssetPrice previousAudit, AssetPrice beforePreviousAudit) {
     }
 
     /**
