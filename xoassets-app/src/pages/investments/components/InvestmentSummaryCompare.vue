@@ -2,19 +2,19 @@
   <view class="summary-compare-list">
     <view class="summary-compare-row">
       <text class="summary-compare-label">昨日收益</text>
-      <text class="summary-compare-value">{{ fmtOptionalSigned(metrics.vsYesterdayAmount) }}</text>
-      <text class="summary-compare-rate">{{ fmtOptionalPercent(metrics.vsYesterdayRate) }}</text>
+      <text class="summary-compare-value" :class="profitClass(metrics.vsYesterdayAmount)">{{ fmtOptionalSigned(metrics.vsYesterdayAmount) }}</text>
+      <text class="summary-compare-rate" :class="profitClass(metrics.vsYesterdayRate)">{{ fmtOptionalPercent(metrics.vsYesterdayRate) }}</text>
     </view>
     <view class="summary-compare-row">
       <text class="summary-compare-label">今日收益</text>
-      <text class="summary-compare-value">{{ fmtOptionalSigned(metrics.vsLastMonthAmount) }}</text>
-      <text class="summary-compare-rate">{{ fmtOptionalPercent(metrics.vsLastMonthRate) }}</text>
+      <text class="summary-compare-value" :class="profitClass(metrics.vsLastMonthAmount)">{{ fmtOptionalSigned(metrics.vsLastMonthAmount) }}</text>
+      <text class="summary-compare-rate" :class="profitClass(metrics.vsLastMonthRate)">{{ fmtOptionalPercent(metrics.vsLastMonthRate) }}</text>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { fmtPercent, fmtSigned } from '../helpers'
+import { fmtPercent, fmtSigned, profitClass } from '../helpers'
 
 type SummaryCompareMetrics = {
   vsYesterdayAmount: number | null
@@ -69,5 +69,15 @@ function fmtOptionalPercent(value: number | null) {
 .summary-compare-rate {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+.summary-compare-value.profit-positive,
+.summary-compare-rate.profit-positive {
+  color: var(--xo-profit-positive);
+}
+
+.summary-compare-value.profit-negative,
+.summary-compare-rate.profit-negative {
+  color: var(--xo-profit-negative);
 }
 </style>

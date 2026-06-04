@@ -1,17 +1,20 @@
 <template>
-  <AppPage class="home-page" safe-top safe-bottom gap="20rpx">
-    <view class="home-header">
-      <view class="home-header-copy">
-        <text class="home-greeting">你好，{{ displayName }} 👋</text>
-        <text class="home-month">{{ currentMonthText }} ▼</text>
-      </view>
-      <view class="home-header-actions">
+  <AppPage class="home-page" safe-bottom gap="20rpx">
+    <AppNavBar title="小〇财迹">
+      <template #right>
         <view class="home-icon-button" @click="handleHeaderAction('search')">
           <AppIcon name="home.search" size="30rpx" :color="theme.colors.textPrimary" />
         </view>
         <view class="home-icon-button" @click="handleHeaderAction('notice')">
           <AppIcon name="home.notification" size="30rpx" :color="theme.colors.primary" />
         </view>
+      </template>
+    </AppNavBar>
+
+    <view class="home-header">
+      <view class="home-header-copy">
+        <text class="home-greeting">你好，{{ displayName }} 👋</text>
+        <text class="home-month">{{ currentMonthText }} ▼</text>
       </view>
     </view>
 
@@ -81,7 +84,12 @@
       <AppCard class="trend-card" :padding="theme.spacing.md" :radius="theme.radius.xl">
         <AppSectionHeader title="资产趋势" action-text="更多" @action="handleTrendMore" />
         <text class="card-subtitle">近1个月净资产变化（元）</text>
-        <view class="trend-chart" :style="{ height: homeTokens.chartHeight }">
+        <view
+          class="trend-chart"
+          :style="{ height: homeTokens.chartHeight }"
+          @touchstart="onTrendTouchStart"
+          @touchend="onTrendTouchEnd"
+        >
           <text class="trend-y-label is-top">{{ visibleText(trendYAxisLabels.top) }}</text>
           <text class="trend-y-label is-mid">{{ visibleText(trendYAxisLabels.mid) }}</text>
           <text class="trend-y-label is-bottom">{{ visibleText(trendYAxisLabels.bottom) }}</text>
@@ -102,7 +110,7 @@
           <text v-if="!homeModel.trend.length" class="trend-empty">暂无趋势数据</text>
         </view>
         <view class="trend-axis">
-          <text v-for="point in homeModel.trend" :key="point.label" class="trend-axis-label">{{ point.label }}</text>
+          <text v-for="point in visibleTrendData" :key="point.label" class="trend-axis-label">{{ point.label }}</text>
         </view>
       </AppCard>
 
@@ -222,6 +230,7 @@ import { onPullDownRefresh, onShow } from '@dcloudio/uni-app'
 import AppAmount from '@/components/app/AppAmount.vue'
 import AppCard from '@/components/app/AppCard.vue'
 import AppIcon from '@/components/app/AppIcon.vue'
+import AppNavBar from '@/components/app/AppNavBar.vue'
 import AppPage from '@/components/app/AppPage.vue'
 import AppSectionHeader from '@/components/app/AppSectionHeader.vue'
 import { budgetApi, type BudgetSummary } from '@/services/budgetApi'
@@ -252,6 +261,10 @@ const goals = ref<GoalItem[] | null>(null)
 const latestSnapshot = ref<AssetSnapshotLatest | null>(null)
 const netAssetsTrend = ref<AssetTrendPoint[] | null>(null)
 const isAmountVisible = ref(uni.getStorageSync(PRIVACY_STORAGE_KEY) !== 'hidden')
+const trendWindowStart = ref(Number.MAX_SAFE_INTEGER)
+const trendTouchStartX = ref(0)
+const trendTouchStartY = ref(0)
+const trendWindowSize = 6
 
 const theme = computed(() => currentTheme.value)
 const displayName = computed(() => authStore.user?.nickname || authStore.user?.username || 'Mo')
@@ -266,14 +279,22 @@ const homeModel = computed(() => buildHomeDashboardModel(store.overview, {
   netAssetsTrend: netAssetsTrend.value
 }))
 
+const visibleTrendData = computed(() => {
+  const list = homeModel.value.trend
+  if (list.length <= trendWindowSize) return list
+  const maxStart = Math.max(list.length - trendWindowSize, 0)
+  const start = Math.min(trendWindowStart.value, maxStart)
+  return list.slice(start, start + trendWindowSize)
+})
+
 const trendPositions = computed<TrendPosition[]>(() => {
-  const values = homeModel.value.trend.map((item) => item.value)
+  const values = visibleTrendData.value.map((item) => item.value)
   const max = Math.max(...values, 1)
   const min = Math.min(...values, 0)
   const range = Math.max(max - min, 1)
-  const lastIndex = Math.max(homeModel.value.trend.length - 1, 1)
+  const lastIndex = Math.max(visibleTrendData.value.length - 1, 1)
 
-  return homeModel.value.trend.map((item, index) => ({
+  return visibleTrendData.value.map((item, index) => ({
     label: item.label,
     x: (index / lastIndex) * 100,
     y: 18 + ((max - item.value) / range) * 64
@@ -431,6 +452,27 @@ function toggleAmountVisible() {
   uni.setStorageSync(PRIVACY_STORAGE_KEY, isAmountVisible.value ? 'visible' : 'hidden')
 }
 
+function onTrendTouchStart(event: TouchEvent) {
+  const touch = event.touches[0]
+  trendTouchStartX.value = touch?.clientX || 0
+  trendTouchStartY.value = touch?.clientY || 0
+}
+
+function onTrendTouchEnd(event: TouchEvent) {
+  const touch = event.changedTouches[0]
+  const deltaX = (touch?.clientX || 0) - trendTouchStartX.value
+  const deltaY = (touch?.clientY || 0) - trendTouchStartY.value
+  if (Math.abs(deltaX) < 40 || Math.abs(deltaX) < Math.abs(deltaY)) return
+  shiftTrendWindow(deltaX < 0 ? 1 : -1)
+}
+
+function shiftTrendWindow(delta: number) {
+  const list = homeModel.value.trend
+  const maxStart = Math.max(list.length - trendWindowSize, 0)
+  const current = Math.min(trendWindowStart.value, maxStart)
+  trendWindowStart.value = Math.max(0, Math.min(current + delta, maxStart))
+}
+
 function currentMonthValue(): string {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
@@ -462,7 +504,7 @@ function formatShortAmount(value: number): string {
 
 function profitClass(v: number | undefined | null): string {
   if (v == null || v === undefined) return ''
-  return v >= 0 ? 'income' : 'expense'
+  return v >= 0 ? 'profit-positive' : 'profit-negative'
 }
 
 function statIconColor(tone: HomeStatCard['tone']): string {
@@ -484,17 +526,18 @@ function activityAmountClass(type: HomeActivityType): string {
 }
 
 function handleHeaderAction(type: 'search' | 'notice') {
-  // TODO: 搜索和通知页待接入，当前首页先保留原型入口。
-  uni.showToast({ title: type === 'search' ? '搜索待接入' : '通知待接入', icon: 'none' })
+  if (type === 'search') {
+    uni.navigateTo({ url: '/pages/transactions/transactions' })
+    return
+  }
+  uni.navigateTo({ url: '/pages/reports/reports' })
 }
 
 function handleAssetAnalysis() {
-  // TODO: 资产分析独立页待接入，当前跳转到账户页承接资产查看。
   uni.switchTab({ url: '/pages/accounts/accounts' })
 }
 
 function handleTrendMore() {
-  // TODO: 资产趋势详情页待接入，当前跳转到账户页查看资产。
   uni.switchTab({ url: '/pages/accounts/accounts' })
 }
 
@@ -716,14 +759,14 @@ function goTransactionDetail(id: string) {
   font-variant-numeric: tabular-nums;
 }
 
-.hero-change-value.income,
-.hero-change-rate.income {
-  color: var(--xo-white);
+.hero-change-value.profit-positive,
+.hero-change-rate.profit-positive {
+  color: var(--xo-profit-positive);
 }
 
-.hero-change-value.expense,
-.hero-change-rate.expense {
-  color: var(--xo-white);
+.hero-change-value.profit-negative,
+.hero-change-rate.profit-negative {
+  color: var(--xo-profit-negative);
 }
 
 .monthly-stat-grid {
@@ -822,6 +865,7 @@ function goTransactionDetail(id: string) {
   border-radius: var(--xo-radius-lg);
   background: linear-gradient(180deg, var(--xo-primary-soft), transparent);
   overflow: hidden;
+  touch-action: pan-y;
 }
 
 .trend-chart::before,

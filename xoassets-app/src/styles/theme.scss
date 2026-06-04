@@ -15,6 +15,8 @@ page {
   --xo-border-color: #E8EEF6;
   --xo-positive: #12C46B;
   --xo-negative: #FF3B3F;
+  --xo-profit-positive: #FF3B3F;
+  --xo-profit-negative: #12C46B;
   --xo-transfer: #2F7BFF;
   --xo-warning: #FA9D2A;
   --xo-info: #7C8798;
@@ -25,6 +27,8 @@ page {
   --xo-positive-soft: rgba(18, 196, 107, 0.1);
   --xo-negative-soft: rgba(255, 59, 63, 0.1);
   --xo-transfer-soft: rgba(47, 123, 255, 0.1);
+  --xo-warning-soft: rgba(250, 157, 42, 0.1);
+  --xo-info-soft: rgba(124, 135, 152, 0.1);
   --xo-white-25: rgba(255, 255, 255, 0.25);
   --xo-white-75: rgba(255, 255, 255, 0.75);
   --xo-white-80: rgba(255, 255, 255, 0.8);
@@ -78,6 +82,13 @@ page {
   --xo-component-card-elevated-bg: #FFFFFF;
   --xo-component-card-radius: 24rpx;
   --xo-component-card-shadow: 0 8rpx 28rpx rgba(32, 88, 166, 0.08);
+  --xo-nav-height: 96rpx;
+  --xo-nav-bg: rgba(243, 247, 252, 0.96);
+  --xo-nav-text: #161A22;
+  --xo-nav-icon: #161A22;
+  --xo-nav-shadow: 0 8rpx 24rpx rgba(32, 88, 166, 0.06);
+  --xo-nav-blur: 18rpx;
+  --xo-nav-z-index: 20;
 
   --xo-bg-page: #F3F7FC;
   --xo-bg-home-asset-card: linear-gradient(135deg, #2F7BFF 0%, #1F74FF 54%, #3E8CFF 100%);

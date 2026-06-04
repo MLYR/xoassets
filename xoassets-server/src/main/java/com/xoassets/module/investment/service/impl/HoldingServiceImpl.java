@@ -16,6 +16,7 @@ import com.xoassets.module.investment.vo.HoldingDetailSummaryVO;
 import com.xoassets.module.investment.vo.HoldingDetailVO;
 import com.xoassets.module.investment.vo.HoldingSummaryVO;
 import com.xoassets.module.investment.vo.HoldingVO;
+import com.xoassets.module.investment.vo.InvestmentTrendPointVO;
 import com.xoassets.module.investment.vo.InvestmentTransactionVO;
 import com.xoassets.persistence.entity.Account;
 import com.xoassets.persistence.entity.Asset;
@@ -152,6 +153,27 @@ public class HoldingServiceImpl implements HoldingService {
                 .floatingProfitRate(floatingProfitRate)
                 .holdingCount(holdings.size())
                 .build();
+    }
+
+    /**
+     * 查询投资资产真实趋势，直接读取投资日快照，不用前端静态回推点位。
+     */
+    @Override
+    public List<InvestmentTrendPointVO> trend(LocalDate startDate, LocalDate endDate) {
+        Long userId = LoginUserContext.getUserId();
+        LocalDate end = endDate == null ? LocalDate.now() : endDate;
+        LocalDate start = startDate == null ? end.minusDays(30) : startDate;
+        return investmentDailySnapshotMapper.selectList(new LambdaQueryWrapper<InvestmentDailySnapshot>()
+                        .eq(InvestmentDailySnapshot::getUserId, userId)
+                        .between(InvestmentDailySnapshot::getSnapshotDate, start, end)
+                        .orderByAsc(InvestmentDailySnapshot::getSnapshotDate))
+                .stream()
+                .map(item -> InvestmentTrendPointVO.builder()
+                        .date(item.getSnapshotDate())
+                        .marketValue(scale4(item.getMarketValue()))
+                        .totalProfit(scale4(nullToZero(item.getRealizedProfit()).add(nullToZero(item.getFloatingProfit()))))
+                        .build())
+                .toList();
     }
 
     /**

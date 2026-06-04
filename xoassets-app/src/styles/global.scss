@@ -14,10 +14,16 @@
 .amount {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .amount.income { color: var(--xo-positive); }
 .amount.expense { color: var(--xo-negative); }
 .amount.transfer { color: var(--xo-transfer); }
+.profit-positive { color: var(--xo-profit-positive); }
+.profit-negative { color: var(--xo-profit-negative); }
 
 .amount-lg { font-size: $amount-lg; }
 .amount-md { font-size: $amount-md; }

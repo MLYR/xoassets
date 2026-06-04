@@ -53,6 +53,8 @@ export const cartoonSoftTheme: ThemeConfig = {
     border: '#F1E7DD',
     positive: '#22C983',
     negative: '#FF6B7C',
+    profitPositive: '#FF6B7C',
+    profitNegative: '#22C983',
     transfer: '#6C8CFF',
     warning: '#FFB15F',
     info: '#9B91A8',
@@ -145,7 +147,16 @@ export const cartoonSoftTheme: ThemeConfig = {
       radius: '30rpx',
       shadow: '0 10rpx 28rpx rgba(108, 140, 255, 0.10)'
     },
-    tabBar: { color: '#8F849C', selectedColor: '#6C8CFF', backgroundColor: '#FFFFFF', borderStyle: 'black' }
+    tabBar: { color: '#8F849C', selectedColor: '#6C8CFF', backgroundColor: '#FFFFFF', borderStyle: 'black' },
+    navBar: {
+      height: '96rpx',
+      background: 'rgba(255, 248, 240, 0.96)',
+      textColor: '#2D2A32',
+      iconColor: '#2D2A32',
+      shadow: '0 8rpx 24rpx rgba(108, 140, 255, 0.08)',
+      blur: '18rpx',
+      zIndex: 20
+    }
   },
   icons: themeIconMap['cartoon-soft'],
   charts: {

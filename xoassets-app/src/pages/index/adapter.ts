@@ -77,10 +77,6 @@ export interface HomeDashboardExternalData {
   netAssetsTrend?: AssetTrendPoint[] | null
 }
 
-const FALLBACK_NET_ASSETS = 188768.5
-const FALLBACK_MONTHLY_INCOME = 12430
-const FALLBACK_MONTHLY_EXPENSE = 6752.3
-
 const QUICK_ACTIONS: HomeQuickAction[] = [
   { key: 'record', label: '记账', icon: 'quickActions.record' },
   { key: 'transfer', label: '转账', icon: 'quickActions.transfer' },
@@ -92,10 +88,10 @@ export function buildHomeDashboardModel(
   overview: DashboardOverview | null,
   externalData: HomeDashboardExternalData = {}
 ): HomeDashboardModel {
-  const monthlyIncome = overview?.monthlyIncome ?? FALLBACK_MONTHLY_INCOME
-  const monthlyExpense = overview?.monthlyExpense ?? FALLBACK_MONTHLY_EXPENSE
+  const monthlyIncome = overview?.monthlyIncome ?? 0
+  const monthlyExpense = overview?.monthlyExpense ?? 0
   const monthlyBalance = monthlyIncome - monthlyExpense
-  const netAssets = overview?.netAssets ?? FALLBACK_NET_ASSETS
+  const netAssets = overview?.netAssets ?? 0
   const todayChangeAmount = resolveTodayChangeAmount(overview, externalData.latestSnapshot)
 
   return {
@@ -107,7 +103,7 @@ export function buildHomeDashboardModel(
     budget: buildBudgetFallback(overview, externalData.budgetSummary),
     goal: buildGoalModel(overview, externalData.goals),
     quickActions: QUICK_ACTIONS,
-    activities: buildRecentActivities(overview?.recentTransactions || fallbackRecentTransactions(overview))
+    activities: buildRecentActivities(overview?.recentTransactions || [])
   }
 }
 
@@ -174,10 +170,9 @@ function buildBudgetFallback(overview: DashboardOverview | null, budgetSummary?:
     budgetUsedAmount?: number | null
     budgetTotalAmount?: number | null
   }) | null
-  const used = budgetSummary?.totalUsed ?? extended?.budgetUsedAmount ?? overview?.monthlyExpense ?? 4591.6
+  const used = budgetSummary?.totalUsed ?? extended?.budgetUsedAmount ?? overview?.monthlyExpense ?? 0
 
-  // TODO: 首页 overview 未聚合预算总额；当前优先读取 /budgets/summary，失败时保留原型占位。
-  const total = budgetSummary?.totalBudget ?? extended?.budgetTotalAmount ?? 6800
+  const total = budgetSummary?.totalBudget ?? extended?.budgetTotalAmount ?? 0
   const remaining = Math.max(total - used, 0)
   return {
     used,
@@ -248,38 +243,6 @@ function buildRecentActivities(transactions: TransactionItem[]): HomeActivity[] 
       raw: item
     }
   })
-}
-
-function fallbackRecentTransactions(overview: DashboardOverview | null): TransactionItem[] {
-  if (overview) return []
-
-  // TODO: /dashboard/overview 未返回跨模块最近动态；离线预览使用原型数据，接入真实聚合后删除。
-  return [
-    {
-      id: 'mock-activity-income',
-      type: 'INCOME',
-      amount: 8650,
-      accountName: '工商银行 储蓄卡 (1234)',
-      categoryName: '工资收入',
-      transactionTime: '2026-06-03T09:30:00'
-    },
-    {
-      id: 'mock-activity-expense',
-      type: 'EXPENSE',
-      amount: 128.6,
-      accountName: '招商银行 信用卡 (5678)',
-      categoryName: '盒马鲜生',
-      transactionTime: '2026-06-03T08:45:00'
-    },
-    {
-      id: 'mock-activity-investment',
-      type: 'INCOME',
-      amount: 356.3,
-      accountName: '投资',
-      categoryName: '沪深300指数基金',
-      transactionTime: '2026-06-02T15:20:00'
-    }
-  ]
 }
 
 function activityType(type: TransactionItem['type']): HomeActivityType {

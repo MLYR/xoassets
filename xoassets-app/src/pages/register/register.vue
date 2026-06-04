@@ -1,5 +1,7 @@
 <template>
   <view class="register-page">
+    <AppNavBar title="注册" detail />
+
     <view class="brand-section">
       <text class="brand-logo">〇</text>
       <text class="brand-name">创建账号</text>
@@ -38,6 +40,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import AppNavBar from '@/components/app/AppNavBar.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const authStore = useAuthStore()
@@ -82,7 +85,7 @@ function goLogin() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-top: 16vh;
+  padding-top: 10vh;
 }
 .brand-section {
   display: flex;

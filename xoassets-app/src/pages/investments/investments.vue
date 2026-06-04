@@ -1,8 +1,6 @@
 <template>
-  <AppPage class="invest-page" safe-top safe-bottom gap="24rpx">
-    <view class="invest-header">
-      <text class="invest-title">投资</text>
-    </view>
+  <AppPage class="invest-page" safe-bottom gap="24rpx">
+    <AppNavBar title="投资" />
 
     <!-- 顶部资产卡片：优先走真实汇总字段，缺口字段仅做受控兜底。 -->
     <AppCard
@@ -25,12 +23,12 @@
         <view class="summary-right">
           <text class="summary-side-label">累计收益率</text>
           <view class="summary-rate-line">
-            <AppAmount class="summary-rate-amount" :value="summaryMetrics.accumulatedRate" signed size="md" :color="theme.colors.white" />
+            <AppAmount class="summary-rate-amount" :value="summaryMetrics.accumulatedRate" signed size="md" semantic="profit" />
             <text class="summary-rate-unit">%</text>
           </view>
           <view class="summary-side-profit">
             <text class="summary-side-profit-label">累计收益</text>
-            <AppAmount class="summary-profit-amount" :value="summaryMetrics.accumulatedProfit" prefix="¥ " signed size="sm" :color="theme.colors.white" />
+            <AppAmount class="summary-profit-amount" :value="summaryMetrics.accumulatedProfit" prefix="¥ " signed size="sm" semantic="profit" />
           </view>
         </view>
       </view>
@@ -40,16 +38,16 @@
     <AppCard :padding="theme.spacing.lg" :radius="theme.radius.xl" class="distribution-card">
       <AppSectionHeader title="资产分布" action-text="更多" @action="handleDistributionMore" />
 
-      <view class="distribution-layout">
+      <view class="distribution-layout" @touchstart="onDistributionTouchStart" @touchend="onDistributionTouchEnd">
         <view class="distribution-donut" :style="distributionRingStyle">
           <view class="distribution-donut-center">
-            <text class="distribution-center-label">总资产</text>
-            <AppAmount class="distribution-center-amount" :value="distributionTotalAmount" prefix="¥ " size="sm" tone="neutral" />
+            <text class="distribution-center-label">{{ selectedDistributionItem?.label || '总资产' }}</text>
+            <AppAmount class="distribution-center-amount" :value="selectedDistributionItem?.amount ?? distributionTotalAmount" prefix="¥ " size="sm" tone="neutral" />
           </view>
         </view>
 
         <view class="distribution-list">
-          <view v-for="item in distributionItems" :key="item.key" class="distribution-item">
+          <view v-for="item in distributionItems" :key="item.key" class="distribution-item" :class="{ active: item.key === selectedDistributionKey }">
             <view class="distribution-item-main">
               <view class="distribution-item-name">
                 <text class="distribution-dot" :style="{ background: item.color }"></text>
@@ -94,7 +92,7 @@
       </view>
     </AppCard>
 
-    <!-- 底部交易入口：先保留视觉和交互位，后续单独接交易页。 -->
+    <!-- 底部交易入口：提交到投资交易接口，转换由后端在同一事务中拆成卖出和买入。 -->
     <view class="action-row">
       <AppActionButton
         class="trade-action-button"
@@ -127,21 +125,79 @@
         @click="handleTradeAction('sell')"
       />
     </view>
+
+    <view v-if="tradeVisible" class="trade-mask" @click="closeTradeSheet">
+      <view class="trade-sheet" @click.stop>
+        <view class="trade-sheet-head">
+          <text class="trade-sheet-title">{{ tradeTitle }}</text>
+          <text class="trade-sheet-close" @click="closeTradeSheet">关闭</text>
+        </view>
+
+        <view class="trade-selector" @click="selectHolding('source')">
+          <text class="trade-label">{{ tradeMode === 'convert' ? '转出持仓' : '持仓' }}</text>
+          <text class="trade-value">{{ selectedSourceHolding?.assetName || selectedSourceHolding?.symbol || '请选择' }}</text>
+        </view>
+
+        <view v-if="tradeMode === 'convert'" class="trade-selector" @click="selectHolding('target')">
+          <text class="trade-label">转入持仓</text>
+          <text class="trade-value">{{ selectedTargetHolding?.assetName || selectedTargetHolding?.symbol || '请选择' }}</text>
+        </view>
+
+        <view class="trade-selector" @click="selectAccount">
+          <text class="trade-label">资金账户</text>
+          <text class="trade-value">{{ selectedTradeAccount?.name || '请选择' }}</text>
+        </view>
+
+        <view class="trade-grid">
+          <view class="trade-field">
+            <text class="trade-label">{{ tradeMode === 'convert' ? '转出份额' : '份额' }}</text>
+            <input v-model="tradeForm.quantity" class="trade-input" type="digit" placeholder="0" placeholder-class="trade-placeholder" />
+          </view>
+          <view class="trade-field">
+            <text class="trade-label">{{ tradeMode === 'convert' ? '转出价格' : '价格' }}</text>
+            <input v-model="tradeForm.price" class="trade-input" type="digit" placeholder="0.0000" placeholder-class="trade-placeholder" />
+          </view>
+          <view v-if="tradeMode === 'convert'" class="trade-field">
+            <text class="trade-label">转入份额</text>
+            <input v-model="tradeForm.targetQuantity" class="trade-input" type="digit" placeholder="0" placeholder-class="trade-placeholder" />
+          </view>
+          <view v-if="tradeMode === 'convert'" class="trade-field">
+            <text class="trade-label">转入价格</text>
+            <input v-model="tradeForm.targetPrice" class="trade-input" type="digit" placeholder="0.0000" placeholder-class="trade-placeholder" />
+          </view>
+          <view class="trade-field">
+            <text class="trade-label">手续费</text>
+            <input v-model="tradeForm.fee" class="trade-input" type="digit" placeholder="0.00" placeholder-class="trade-placeholder" />
+          </view>
+        </view>
+
+        <view class="trade-note-row">
+          <text class="trade-label">备注</text>
+          <input v-model="tradeForm.note" class="trade-note-input" placeholder="可选" placeholder-class="trade-placeholder" />
+        </view>
+
+        <view class="trade-submit" :class="{ disabled: tradeSaving }" @click="submitTrade">
+          {{ tradeSaving ? '提交中' : '确认提交' }}
+        </view>
+      </view>
+    </view>
   </AppPage>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import AppActionButton from '@/components/app/AppActionButton.vue'
 import AppAmount from '@/components/app/AppAmount.vue'
 import AppCard from '@/components/app/AppCard.vue'
 import AppIcon from '@/components/app/AppIcon.vue'
+import AppNavBar from '@/components/app/AppNavBar.vue'
 import AppPage from '@/components/app/AppPage.vue'
 import AppSectionHeader from '@/components/app/AppSectionHeader.vue'
 import InvestmentHoldingRow from './components/InvestmentHoldingRow.vue'
 import InvestmentSummaryCompare from './components/InvestmentSummaryCompare.vue'
 import { useInvestmentStore } from '@/stores/investment'
+import { accountApi, type AccountItem } from '@/services/accountApi'
 import { useTheme } from '@/theme/useTheme'
 import {
   buildDistributionItems,
@@ -159,6 +215,24 @@ const holdings = computed(() => store.holdings)
 const summary = computed(() => store.summary)
 const loading = computed(() => store.loading)
 const theme = computed(() => currentTheme.value)
+const selectedDistributionIndex = ref(0)
+const distributionTouchStartX = ref(0)
+const distributionTouchStartY = ref(0)
+const tradeVisible = ref(false)
+const tradeSaving = ref(false)
+const tradeMode = ref<'buy' | 'convert' | 'sell'>('buy')
+const tradeAccounts = ref<AccountItem[]>([])
+const tradeForm = ref({
+  holdingId: '',
+  targetHoldingId: '',
+  accountId: '',
+  quantity: '',
+  price: '',
+  targetQuantity: '',
+  targetPrice: '',
+  fee: '0',
+  note: ''
+})
 
 onShow(() => {
   store.fetchHoldings()
@@ -171,6 +245,8 @@ const distributionItems = computed(() => {
 })
 
 const distributionTotalAmount = computed(() => summary.value?.totalMarketValue ?? 0)
+const selectedDistributionItem = computed(() => distributionItems.value[selectedDistributionIndex.value] || distributionItems.value[0] || null)
+const selectedDistributionKey = computed(() => selectedDistributionItem.value?.key || '')
 
 const distributionRingStyle = computed(() => {
   const hasValue = distributionItems.value.some((item) => item.percent > 0)
@@ -194,6 +270,14 @@ const distributionRingStyle = computed(() => {
 })
 
 const holdingRows = computed(() => buildHoldingRows(holdings.value))
+const selectedSourceHolding = computed(() => holdings.value.find((item) => item.id === tradeForm.value.holdingId) || null)
+const selectedTargetHolding = computed(() => holdings.value.find((item) => item.id === tradeForm.value.targetHoldingId) || null)
+const selectedTradeAccount = computed(() => tradeAccounts.value.find((item) => item.id === tradeForm.value.accountId) || null)
+const tradeTitle = computed(() => {
+  if (tradeMode.value === 'buy') return '买入'
+  if (tradeMode.value === 'sell') return '卖出'
+  return '转换'
+})
 
 function goDetail(row: HoldingRow) {
   const h = row.raw
@@ -208,13 +292,167 @@ function handleAllHoldings() {
   uni.navigateTo({ url: '/pages/holding-analysis/holding-analysis' })
 }
 
-function handleTradeAction(action: 'buy' | 'convert' | 'sell') {
-  const actionMap = {
-    buy: '买入入口待接入',
-    convert: '转换入口待接入',
-    sell: '卖出入口待接入'
+function onDistributionTouchStart(event: TouchEvent) {
+  const touch = event.touches[0]
+  distributionTouchStartX.value = touch?.clientX || 0
+  distributionTouchStartY.value = touch?.clientY || 0
+}
+
+function onDistributionTouchEnd(event: TouchEvent) {
+  const touch = event.changedTouches[0]
+  const deltaX = (touch?.clientX || 0) - distributionTouchStartX.value
+  const deltaY = (touch?.clientY || 0) - distributionTouchStartY.value
+  if (Math.abs(deltaX) < 40 || Math.abs(deltaX) < Math.abs(deltaY)) return
+  const total = distributionItems.value.length
+  if (!total) return
+  const next = selectedDistributionIndex.value + (deltaX < 0 ? 1 : -1)
+  selectedDistributionIndex.value = (next + total) % total
+}
+
+async function handleTradeAction(action: 'buy' | 'convert' | 'sell') {
+  if (!holdings.value.length) {
+    uni.showToast({ title: '请先新增持仓', icon: 'none' })
+    return
   }
-  uni.showToast({ title: actionMap[action], icon: 'none' })
+  if (action === 'convert' && holdings.value.length < 2) {
+    uni.showToast({ title: '转换至少需要两个持仓', icon: 'none' })
+    return
+  }
+  tradeMode.value = action
+  try {
+    await ensureTradeAccounts()
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : '账户加载失败', icon: 'none' })
+    return
+  }
+  if (!tradeAccounts.value.length) {
+    uni.showToast({ title: '请先新增资金账户', icon: 'none' })
+    return
+  }
+  resetTradeForm(action)
+  tradeVisible.value = true
+}
+
+async function ensureTradeAccounts() {
+  if (tradeAccounts.value.length) return
+  tradeAccounts.value = await accountApi.list()
+}
+
+function resetTradeForm(action: 'buy' | 'convert' | 'sell') {
+  const source = holdings.value[0]
+  const target = action === 'convert' ? holdings.value.find((item) => item.id !== source?.id) : null
+  tradeForm.value = {
+    holdingId: source?.id || '',
+    targetHoldingId: target?.id || '',
+    accountId: tradeAccounts.value[0]?.id || '',
+    quantity: action === 'sell' ? String(source?.quantity || '') : '',
+    price: source?.latestPrice ? String(source.latestPrice) : '',
+    targetQuantity: '',
+    targetPrice: target?.latestPrice ? String(target.latestPrice) : '',
+    fee: '0',
+    note: ''
+  }
+}
+
+function closeTradeSheet() {
+  if (tradeSaving.value) return
+  tradeVisible.value = false
+}
+
+function selectHolding(role: 'source' | 'target') {
+  const options = holdings.value.filter((item) => role === 'source' || item.id !== tradeForm.value.holdingId)
+  if (!options.length) return
+  uni.showActionSheet({
+    itemList: options.map((item) => item.assetName || item.symbol || '未命名持仓'),
+    success: (res) => {
+      const selected = options[res.tapIndex]
+      if (!selected) return
+      if (role === 'source') {
+        tradeForm.value.holdingId = selected.id
+        tradeForm.value.price = selected.latestPrice ? String(selected.latestPrice) : tradeForm.value.price
+        if (tradeMode.value === 'sell') tradeForm.value.quantity = String(selected.quantity || '')
+        if (tradeMode.value === 'convert' && tradeForm.value.targetHoldingId === selected.id) {
+          const nextTarget = holdings.value.find((item) => item.id !== selected.id)
+          tradeForm.value.targetHoldingId = nextTarget?.id || ''
+          tradeForm.value.targetPrice = nextTarget?.latestPrice ? String(nextTarget.latestPrice) : ''
+        }
+      } else {
+        tradeForm.value.targetHoldingId = selected.id
+        tradeForm.value.targetPrice = selected.latestPrice ? String(selected.latestPrice) : tradeForm.value.targetPrice
+      }
+    }
+  })
+}
+
+function selectAccount() {
+  if (!tradeAccounts.value.length) return
+  uni.showActionSheet({
+    itemList: tradeAccounts.value.map((item) => item.name),
+    success: (res) => {
+      tradeForm.value.accountId = tradeAccounts.value[res.tapIndex]?.id || tradeForm.value.accountId
+    }
+  })
+}
+
+async function submitTrade() {
+  if (tradeSaving.value) return
+  const source = selectedSourceHolding.value
+  const accountId = tradeForm.value.accountId
+  const quantity = Number(tradeForm.value.quantity)
+  const price = Number(tradeForm.value.price)
+  const fee = Number(tradeForm.value.fee || 0)
+  if (!source || !accountId || quantity <= 0 || price <= 0 || fee < 0) {
+    uni.showToast({ title: '请完整填写交易信息', icon: 'none' })
+    return
+  }
+  tradeSaving.value = true
+  try {
+    if (tradeMode.value === 'convert') {
+      const target = selectedTargetHolding.value
+      const targetQuantity = Number(tradeForm.value.targetQuantity)
+      const targetPrice = Number(tradeForm.value.targetPrice)
+      if (!target || targetQuantity <= 0 || targetPrice <= 0) {
+        uni.showToast({ title: '请完整填写转换信息', icon: 'none' })
+        return
+      }
+      await store.convertTransaction({
+        sourceHoldingId: source.id,
+        targetHoldingId: target.id,
+        accountId,
+        sourceQuantity: quantity,
+        sourcePrice: price,
+        targetQuantity,
+        targetPrice,
+        fee,
+        transactionTime: formatLocalDateTime(new Date()),
+        note: tradeForm.value.note.trim() || undefined
+      })
+    } else {
+      await store.createTransaction({
+        holdingId: source.id,
+        assetId: source.assetId,
+        accountId,
+        type: tradeMode.value === 'buy' ? 'BUY' : 'SELL',
+        quantity,
+        price,
+        fee,
+        transactionTime: formatLocalDateTime(new Date()),
+        note: tradeForm.value.note.trim() || undefined
+      })
+    }
+    await store.fetchHoldings()
+    tradeVisible.value = false
+    uni.showToast({ title: '交易已提交', icon: 'success' })
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : '提交失败', icon: 'none' })
+  } finally {
+    tradeSaving.value = false
+  }
+}
+
+function formatLocalDateTime(date: Date) {
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
 }
 </script>
 
@@ -223,19 +461,6 @@ function handleTradeAction(action: 'buy' | 'convert' | 'sell') {
 
 .invest-page {
   min-height: 100vh;
-}
-
-.invest-header {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 56rpx;
-}
-
-.invest-title {
-  font-size: $font-xl;
-  font-weight: 700;
-  color: var(--xo-text-primary);
 }
 
 .summary-card {
@@ -339,6 +564,7 @@ function handleTradeAction(action: 'buy' | 'convert' | 'sell') {
   display: flex;
   align-items: center;
   column-gap: 28rpx;
+  touch-action: pan-y;
 }
 
 .section-action-text {
@@ -390,6 +616,12 @@ function handleTradeAction(action: 'buy' | 'convert' | 'sell') {
 
 .distribution-item + .distribution-item {
   margin-top: 18rpx;
+}
+
+.distribution-item.active .distribution-name-text,
+.distribution-item.active .distribution-amount,
+.distribution-item.active .distribution-percent {
+  color: var(--xo-primary);
 }
 
 .distribution-item-main {
@@ -472,6 +704,137 @@ function handleTradeAction(action: 'buy' | 'convert' | 'sell') {
 
 .trade-action-button {
   border-radius: 999rpx;
+}
+
+.trade-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 80;
+  display: flex;
+  align-items: flex-end;
+  background: var(--xo-mask);
+}
+
+.trade-sheet {
+  width: 100%;
+  padding: 30rpx 30rpx calc(36rpx + env(safe-area-inset-bottom, 0px));
+  border-radius: 34rpx 34rpx 0 0;
+  background: var(--xo-component-card-bg);
+  box-shadow: var(--xo-shadow-floating);
+  box-sizing: border-box;
+}
+
+.trade-sheet-head,
+.trade-selector,
+.trade-note-row,
+.trade-submit {
+  display: flex;
+  align-items: center;
+}
+
+.trade-sheet-head {
+  justify-content: space-between;
+  margin-bottom: 24rpx;
+}
+
+.trade-sheet-title {
+  color: var(--xo-text-primary);
+  font-size: 34rpx;
+  font-weight: 800;
+}
+
+.trade-sheet-close {
+  color: var(--xo-text-secondary);
+  font-size: 26rpx;
+}
+
+.trade-selector,
+.trade-note-row,
+.trade-field {
+  border: 1rpx solid var(--xo-border-color);
+  border-radius: var(--xo-radius-lg);
+  background: var(--xo-card-bg);
+}
+
+.trade-selector {
+  justify-content: space-between;
+  min-height: 86rpx;
+  margin-top: 14rpx;
+  padding: 0 22rpx;
+}
+
+.trade-label {
+  flex-shrink: 0;
+  color: var(--xo-text-regular);
+  font-size: 25rpx;
+}
+
+.trade-value {
+  overflow: hidden;
+  margin-left: 24rpx;
+  color: var(--xo-text-primary);
+  font-size: 28rpx;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trade-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14rpx;
+  margin-top: 14rpx;
+}
+
+.trade-field {
+  min-width: 0;
+  padding: 18rpx 20rpx;
+}
+
+.trade-input {
+  width: 100%;
+  margin-top: 10rpx;
+  color: var(--xo-text-primary);
+  font-size: 30rpx;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.trade-note-row {
+  min-height: 86rpx;
+  gap: 20rpx;
+  margin-top: 14rpx;
+  padding: 0 22rpx;
+}
+
+.trade-note-input {
+  flex: 1;
+  min-width: 0;
+  color: var(--xo-text-primary);
+  font-size: 28rpx;
+}
+
+.trade-placeholder {
+  color: var(--xo-text-placeholder);
+}
+
+.trade-submit {
+  justify-content: center;
+  height: 88rpx;
+  margin-top: 26rpx;
+  border-radius: var(--xo-radius-round);
+  background: var(--xo-gradient-button-primary);
+  color: var(--xo-white);
+  font-size: 30rpx;
+  font-weight: 800;
+  box-shadow: var(--xo-shadow-button);
+}
+
+.trade-submit.disabled {
+  opacity: 0.68;
 }
 
 .empty-state {

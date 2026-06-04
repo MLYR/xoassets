@@ -130,6 +130,12 @@ export interface HoldingDetail {
   chartPoints: HoldingChartPoint[];
 }
 
+export interface InvestmentTrendPoint {
+  date: string;
+  marketValue: number;
+  totalProfit: number;
+}
+
 export interface HoldingRequest {
   assetId?: string | null;
   assetName?: string;
@@ -247,6 +253,13 @@ export const investmentApi = {
     return request<HoldingDetail>({
       url: `/holdings/${id}/detail`,
       method: 'GET'
+    });
+  },
+  trendHoldings(params: { startDate?: string; endDate?: string }) {
+    return request<InvestmentTrendPoint[]>({
+      url: '/holdings/trend',
+      method: 'GET',
+      params
     });
   },
   createHolding(data: HoldingRequest) {

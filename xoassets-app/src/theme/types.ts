@@ -68,6 +68,8 @@ export interface ThemeConfig {
     border: string
     positive: string
     negative: string
+    profitPositive: string
+    profitNegative: string
     transfer: string
     warning: string
     info: string
@@ -151,6 +153,15 @@ export interface ThemeConfig {
       selectedColor: string
       backgroundColor: string
       borderStyle: 'black' | 'white'
+    }
+    navBar: {
+      height: string
+      background: string
+      textColor: string
+      iconColor: string
+      shadow: string
+      blur: string
+      zIndex: number
     }
   }
   icons: {

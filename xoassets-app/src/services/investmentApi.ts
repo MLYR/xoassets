@@ -110,6 +110,40 @@ export interface HoldingDetail {
   chartPoints: HoldingChartPoint[]
 }
 
+export interface InvestmentTrendPoint {
+  date: string
+  marketValue: number
+  totalProfit: number
+}
+
+export interface InvestmentTransactionRequest {
+  holdingId?: string | null
+  assetId: string
+  accountId: string
+  type: 'BUY' | 'SELL'
+  inputMode?: 'QUANTITY_PRICE' | 'AMOUNT_NAV'
+  tradeAmount?: number
+  quantity?: number
+  price?: number
+  confirmedDate?: string
+  fee: number
+  transactionTime: string
+  note?: string
+}
+
+export interface InvestmentConvertRequest {
+  sourceHoldingId: string
+  targetHoldingId: string
+  accountId: string
+  sourceQuantity: number
+  sourcePrice: number
+  targetQuantity: number
+  targetPrice: number
+  fee: number
+  transactionTime: string
+  note?: string
+}
+
 export const investmentApi = {
   listHoldings() {
     return request<HoldingItem[]>({ url: '/holdings', method: 'GET' })
@@ -119,5 +153,22 @@ export const investmentApi = {
   },
   detailHolding(id: string) {
     return request<HoldingDetail>({ url: `/holdings/${id}/detail`, method: 'GET' })
+  },
+  trend(params: { startDate?: string; endDate?: string }) {
+    return request<InvestmentTrendPoint[]>({ url: '/holdings/trend', method: 'GET', data: params })
+  },
+  createTransaction(data: InvestmentTransactionRequest) {
+    return request<InvestmentTransactionItem>({
+      url: '/investment-transactions',
+      method: 'POST',
+      data
+    })
+  },
+  convertTransaction(data: InvestmentConvertRequest) {
+    return request<InvestmentTransactionItem[]>({
+      url: '/investment-transactions/convert',
+      method: 'POST',
+      data
+    })
   }
 }

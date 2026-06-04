@@ -43,5 +43,11 @@ export const useAccountStore = defineStore('account', () => {
     return updated
   }
 
-  return { accounts, overview, loading, fetchAccounts, fetchOverview, fetchLedger, fetchFlowStatistics, updateAccount }
+  async function createAccount(data: AccountRequest) {
+    const created = await accountApi.create(data)
+    accounts.value = [created, ...accounts.value]
+    return created
+  }
+
+  return { accounts, overview, loading, fetchAccounts, fetchOverview, fetchLedger, fetchFlowStatistics, updateAccount, createAccount }
 })

@@ -53,6 +53,8 @@ export const techDarkTheme: ThemeConfig = {
     border: '#22304A',
     positive: '#2BFFA1',
     negative: '#FF5F7E',
+    profitPositive: '#FF5F7E',
+    profitNegative: '#2BFFA1',
     transfer: '#44D7FF',
     warning: '#FFC857',
     info: '#7F8DA5',
@@ -145,7 +147,16 @@ export const techDarkTheme: ThemeConfig = {
       radius: '26rpx',
       shadow: '0 10rpx 32rpx rgba(0, 0, 0, 0.26)'
     },
-    tabBar: { color: '#7F8DA5', selectedColor: '#44D7FF', backgroundColor: '#0F1728', borderStyle: 'white' }
+    tabBar: { color: '#7F8DA5', selectedColor: '#44D7FF', backgroundColor: '#0F1728', borderStyle: 'white' },
+    navBar: {
+      height: '96rpx',
+      background: 'rgba(11, 18, 32, 0.96)',
+      textColor: '#F5F8FF',
+      iconColor: '#F5F8FF',
+      shadow: '0 10rpx 28rpx rgba(0, 0, 0, 0.24)',
+      blur: '18rpx',
+      zIndex: 20
+    }
   },
   icons: themeIconMap['tech-dark'],
   charts: {

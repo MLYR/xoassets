@@ -23,7 +23,16 @@ export const useTransactionStore = defineStore('transaction', () => {
   }) {
     loading.value = true
     try {
-      page.value = await transactionApi.page(params)
+      const result = await transactionApi.page(params)
+      // 翻页加载需要保留已读记录，避免移动端列表加载更多时覆盖第一页。
+      if ((params.pageNo || 1) > 1) {
+        page.value = {
+          ...result,
+          records: [...page.value.records, ...result.records]
+        }
+      } else {
+        page.value = result
+      }
     } finally {
       loading.value = false
     }

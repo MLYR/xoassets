@@ -1,5 +1,7 @@
 <template>
   <view class="reports-page safe-bottom">
+    <AppNavBar title="AI 报告" detail />
+
     <view v-if="reports.length" class="report-list">
       <view v-for="r in reports" :key="r.id" class="report-card card" @click="viewReport(r)">
         <view class="rc-top">
@@ -17,6 +19,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import AppNavBar from '@/components/app/AppNavBar.vue'
 import { reportApi, type AiReportItem } from '@/services/reportApi'
 
 const reports = ref<AiReportItem[]>([])

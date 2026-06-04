@@ -1,12 +1,6 @@
 <template>
-  <AppPage class="holding-page" safe-top safe-bottom gap="24rpx" :background="theme.backgrounds.accountsPage || theme.colors.pageBg">
-    <view class="detail-nav">
-      <view class="nav-icon" @click="goBack">
-        <AppIcon name="common.back" size="40rpx" />
-      </view>
-      <text class="nav-title">持仓详情</text>
-      <view class="nav-icon"></view>
-    </view>
+  <AppPage class="holding-page" safe-bottom gap="24rpx" :background="theme.backgrounds.accountsPage || theme.colors.pageBg">
+    <AppNavBar title="持仓详情" detail />
 
     <AppCard
       class="hero-card"
@@ -57,7 +51,7 @@
         </view>
       </view>
 
-      <view class="line-chart">
+      <view class="line-chart" @touchstart="onChartTouchStart" @touchend="onChartTouchEnd">
         <view class="chart-grid-line top"></view>
         <view class="chart-grid-line middle"></view>
         <view class="chart-grid-line bottom"></view>
@@ -65,7 +59,7 @@
           v-for="(point, index) in chartPoints"
           :key="point.key"
           class="chart-point"
-          :class="chartMode === 'profit' && point.raw < 0 ? 'negative-dot' : 'positive-dot'"
+          :class="chartMode === 'profit' ? (point.raw < 0 ? 'negative-dot' : 'positive-dot') : 'asset-dot'"
           :style="{ left: point.left + '%', bottom: point.bottom + '%' }"
         >
           <view v-if="index > 0" class="chart-segment" :style="segmentStyle(index)"></view>
@@ -132,6 +126,7 @@ import { computed, ref } from 'vue'
 import { onMounted } from 'vue'
 import AppCard from '@/components/app/AppCard.vue'
 import AppIcon from '@/components/app/AppIcon.vue'
+import AppNavBar from '@/components/app/AppNavBar.vue'
 import AppPage from '@/components/app/AppPage.vue'
 import { useInvestmentStore } from '@/stores/investment'
 import { useTheme } from '@/theme/useTheme'
@@ -145,11 +140,21 @@ const routeName = ref('')
 const routeId = ref('')
 const loading = ref(false)
 const chartMode = ref<'amount' | 'profit'>('amount')
+const chartWindowStart = ref(Number.MAX_SAFE_INTEGER)
+const chartTouchStartX = ref(0)
+const chartTouchStartY = ref(0)
+const chartWindowSize = 7
 const theme = computed(() => currentTheme.value)
 const holding = computed(() => detail.value?.holding)
 const summary = computed(() => detail.value?.summary)
 const transactions = computed(() => detail.value?.transactions || [])
-const backendChartRows = computed(() => (detail.value?.chartPoints || []).slice(-7))
+const backendChartRows = computed(() => {
+  const rows = detail.value?.chartPoints || []
+  if (rows.length <= chartWindowSize) return rows
+  const maxStart = Math.max(rows.length - chartWindowSize, 0)
+  const start = Math.min(chartWindowStart.value, maxStart)
+  return rows.slice(start, start + chartWindowSize)
+})
 
 const holdingName = computed(() => holding.value?.assetName || routeName.value || holding.value?.symbol || '--')
 const holdingCode = computed(() => holding.value?.symbol ? `${holding.value.symbol} · ${holding.value.currency || 'CNY'}` : holding.value?.currency || '')
@@ -215,10 +220,6 @@ async function reload() {
   }
 }
 
-function goBack() {
-  uni.navigateBack()
-}
-
 function segmentStyle(index: number) {
   const prev = chartPoints.value[index - 1]
   const cur = chartPoints.value[index]
@@ -232,6 +233,27 @@ function segmentStyle(index: number) {
     transformOrigin: 'left center',
     left: `-${length}%`
   }
+}
+
+function onChartTouchStart(event: TouchEvent) {
+  const touch = event.touches[0]
+  chartTouchStartX.value = touch?.clientX || 0
+  chartTouchStartY.value = touch?.clientY || 0
+}
+
+function onChartTouchEnd(event: TouchEvent) {
+  const touch = event.changedTouches[0]
+  const deltaX = (touch?.clientX || 0) - chartTouchStartX.value
+  const deltaY = (touch?.clientY || 0) - chartTouchStartY.value
+  if (Math.abs(deltaX) < 40 || Math.abs(deltaX) < Math.abs(deltaY)) return
+  shiftChartWindow(deltaX < 0 ? 1 : -1)
+}
+
+function shiftChartWindow(delta: number) {
+  const rows = detail.value?.chartPoints || []
+  const maxStart = Math.max(rows.length - chartWindowSize, 0)
+  const current = Math.min(chartWindowStart.value, maxStart)
+  chartWindowStart.value = Math.max(0, Math.min(current + delta, maxStart))
 }
 
 function resolveTxQuantity(tx: InvestmentTransactionItem) {
@@ -300,7 +322,7 @@ function statusLabel(status?: string | null) {
 
 function toneClass(value: number | string | null | undefined) {
   if (value == null) return ''
-  return toNumber(value) >= 0 ? 'positive' : 'negative'
+  return toNumber(value) >= 0 ? 'profit-positive' : 'profit-negative'
 }
 
 function toNumber(value: number | string | null | undefined) {
@@ -316,31 +338,12 @@ function toNumber(value: number | string | null | undefined) {
   min-height: 100vh;
 }
 
-.detail-nav,
 .asset-head,
 .section-head,
 .tx-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-}
-
-.detail-nav {
-  min-height: 64rpx;
-}
-
-.nav-icon {
-  width: 64rpx;
-  height: 64rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.nav-title {
-  font-size: $font-xl;
-  font-weight: 800;
-  color: var(--xo-text-primary);
 }
 
 .hero-card {
@@ -410,6 +413,14 @@ function toNumber(value: number | string | null | undefined) {
   font-size: 30rpx;
   font-weight: 800;
   color: var(--xo-white);
+}
+
+.profit-positive {
+  color: var(--xo-profit-positive);
+}
+
+.profit-negative {
+  color: var(--xo-profit-negative);
 }
 
 .positive {
@@ -502,6 +513,7 @@ function toNumber(value: number | string | null | undefined) {
   border-radius: var(--xo-radius-xl);
   background: linear-gradient(180deg, rgba(47, 123, 255, 0.08), rgba(255, 255, 255, 0));
   overflow: hidden;
+  touch-action: pan-y;
 }
 
 .chart-grid-line {
@@ -527,12 +539,16 @@ function toNumber(value: number | string | null | undefined) {
   z-index: 2;
 }
 
-.positive-dot {
+.asset-dot {
   background: var(--xo-primary);
 }
 
+.positive-dot {
+  background: var(--xo-profit-positive);
+}
+
 .negative-dot {
-  background: var(--xo-negative);
+  background: var(--xo-profit-negative);
 }
 
 .chart-segment {
@@ -544,8 +560,12 @@ function toNumber(value: number | string | null | undefined) {
   z-index: 1;
 }
 
+.positive-dot .chart-segment {
+  background: var(--xo-profit-positive);
+}
+
 .negative-dot .chart-segment {
-  background: var(--xo-negative);
+  background: var(--xo-profit-negative);
 }
 
 .chart-labels {

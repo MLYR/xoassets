@@ -8,6 +8,7 @@ import { useTheme } from '@/theme/useTheme'
 
 type AmountSize = 'sm' | 'md' | 'lg'
 type AmountTone = 'auto' | 'positive' | 'negative' | 'neutral'
+type AmountSemantic = 'amount' | 'profit'
 
 const props = withDefaults(defineProps<{
   value: number | string
@@ -16,6 +17,7 @@ const props = withDefaults(defineProps<{
   signed?: boolean
   size?: AmountSize
   tone?: AmountTone
+  semantic?: AmountSemantic
   color?: string
 }>(), {
   prefix: '',
@@ -23,6 +25,7 @@ const props = withDefaults(defineProps<{
   signed: false,
   size: 'md',
   tone: 'auto',
+  semantic: 'amount',
   color: ''
 })
 
@@ -51,6 +54,11 @@ const resolvedColor = computed(() => {
   if (props.tone === 'positive') return theme.colors.positive
   if (props.tone === 'negative') return theme.colors.negative
   if (props.tone === 'neutral') return theme.colors.textPrimary
+  if (props.semantic === 'profit') {
+    if (numericValue.value > 0) return theme.colors.profitPositive
+    if (numericValue.value < 0) return theme.colors.profitNegative
+    return theme.colors.textPrimary
+  }
   if (numericValue.value > 0) return theme.colors.positive
   if (numericValue.value < 0) return theme.colors.negative
   return theme.colors.textPrimary
@@ -75,5 +83,9 @@ const amountStyle = computed(() => ({
 .app-amount {
   display: inline-flex;
   align-items: baseline;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

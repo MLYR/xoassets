@@ -35,7 +35,8 @@
     {
       "path": "pages/mine/mine",
       "style": {
-        "navigationBarTitleText": "我的"
+        "navigationBarTitleText": "我的",
+        "navigationStyle": "custom"
       }
     },
     {
@@ -55,19 +56,22 @@
     {
       "path": "pages/transactions/transactions",
       "style": {
-        "navigationBarTitleText": "流水"
+        "navigationBarTitleText": "流水",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/transaction-detail/transaction-detail",
       "style": {
-        "navigationBarTitleText": "流水详情"
+        "navigationBarTitleText": "流水详情",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/account-detail/account-detail",
       "style": {
-        "navigationBarTitleText": "账户明细"
+        "navigationBarTitleText": "账户明细",
+        "navigationStyle": "custom"
       }
     },
     {
@@ -94,32 +98,36 @@
     {
       "path": "pages/categories/categories",
       "style": {
-        "navigationBarTitleText": "分类管理"
+        "navigationBarTitleText": "分类管理",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/budgets/budgets",
       "style": {
-        "navigationBarTitleText": "预算管理"
+        "navigationBarTitleText": "预算管理",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/goals/goals",
       "style": {
-        "navigationBarTitleText": "资产目标"
+        "navigationBarTitleText": "资产目标",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/reports/reports",
       "style": {
-        "navigationBarTitleText": "AI 报告"
+        "navigationBarTitleText": "AI 报告",
+        "navigationStyle": "custom"
       }
     }
   ],
   "globalStyle": {
-    "navigationBarTextStyle": "white",
+    "navigationBarTextStyle": "black",
     "navigationBarTitleText": "小〇财迹",
-    "navigationBarBackgroundColor": "#4A90D9",
+    "navigationBarBackgroundColor": "#F3F7FC",
     "backgroundColor": "#F0F4F8"
   },
   "tabBar": {

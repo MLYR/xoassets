@@ -1,5 +1,7 @@
 <template>
   <view class="mine-page safe-bottom">
+    <AppNavBar title="我的" />
+
     <!-- 用户信息 -->
     <view class="user-section">
       <view class="avatar">
@@ -55,6 +57,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import AppIcon from '@/components/app/AppIcon.vue'
+import AppNavBar from '@/components/app/AppNavBar.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const authStore = useAuthStore()

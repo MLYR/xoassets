@@ -1,5 +1,7 @@
 <template>
   <view class="budget-page safe-bottom">
+    <AppNavBar title="预算管理" detail />
+
     <view class="summary-card card" v-if="summary">
       <view class="budget-progress">
         <text class="bp-label">本月预算使用</text>
@@ -33,6 +35,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import AppNavBar from '@/components/app/AppNavBar.vue'
 import { budgetApi, type BudgetItem } from '@/services/budgetApi'
 
 const budgets = ref<BudgetItem[]>([])

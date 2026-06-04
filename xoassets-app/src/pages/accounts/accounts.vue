@@ -1,17 +1,27 @@
 <!-- 账户页：按移动端原型展示账户总览、分类筛选、账户列表和账户小结。 -->
 <template>
   <view class="accounts-page safe-bottom">
-    <view class="accounts-nav">
-      <view class="nav-spacer"></view>
-      <text class="nav-title">账户</text>
-      <view class="nav-actions">
+    <AppNavBar title="账户">
+      <template #right>
         <view class="nav-icon" @click="handleSearch">
           <AppIcon name="accounts.search" size="52rpx" :color="theme.colors.textPrimary" />
         </view>
         <view class="nav-icon" @click="handleAdd">
           <AppIcon name="accounts.add" size="52rpx" :color="theme.colors.textPrimary" />
         </view>
-      </view>
+      </template>
+    </AppNavBar>
+
+    <view v-if="searchActive" class="search-panel">
+      <AppIcon name="accounts.search" size="30rpx" :color="theme.colors.textSecondary" />
+      <input
+        v-model="searchKeyword"
+        class="search-input"
+        placeholder="搜索账户名称或类型"
+        placeholder-class="search-placeholder"
+        confirm-type="search"
+      />
+      <view v-if="searchKeyword" class="search-clear" @click="searchKeyword = ''">清除</view>
     </view>
 
     <view class="summary-card">
@@ -144,6 +154,48 @@
         </view>
       </view>
     </view>
+
+    <view v-if="addVisible" class="sheet-mask" @click="closeAddSheet">
+      <view class="account-sheet" @click.stop>
+        <view class="sheet-head">
+          <text class="sheet-title">新增账户</text>
+          <text class="sheet-close" @click="closeAddSheet">关闭</text>
+        </view>
+
+        <view class="type-grid">
+          <view
+            v-for="item in accountTypeOptions"
+            :key="item.value"
+            class="type-option"
+            :class="{ active: addForm.type === item.value }"
+            @click="addForm.type = item.value"
+          >
+            <AppIcon :name="item.icon" size="36rpx" :color="addForm.type === item.value ? theme.colors.primary : theme.colors.textSecondary" />
+            <text>{{ item.label }}</text>
+          </view>
+        </view>
+
+        <view class="form-row">
+          <text class="form-label">账户名称</text>
+          <input v-model="addForm.name" class="form-input" placeholder="例如 招商银行" placeholder-class="form-placeholder" />
+        </view>
+        <view class="form-row">
+          <text class="form-label">初始余额</text>
+          <input v-model="addForm.initialBalance" class="form-input amount-input" type="digit" placeholder="0.00" placeholder-class="form-placeholder" />
+        </view>
+        <view class="form-row remark-row">
+          <text class="form-label">备注</text>
+          <textarea v-model="addForm.remark" class="form-textarea" placeholder="卡号后四位、用途等" placeholder-class="form-placeholder" />
+        </view>
+
+        <view class="sheet-actions">
+          <view class="sheet-button secondary" @click="closeAddSheet">取消</view>
+          <view class="sheet-button primary" :class="{ disabled: savingAccount }" @click="submitAccount">
+            {{ savingAccount ? '保存中' : '保存' }}
+          </view>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -151,6 +203,7 @@
 import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import AppIcon from '@/components/app/AppIcon.vue'
+import AppNavBar from '@/components/app/AppNavBar.vue'
 import { useAccountStore } from '@/stores/account'
 import type { AccountDisplayItem, AccountGroup, AccountCategorySummary } from '@/services/accountApi'
 import { useTheme } from '@/theme/useTheme'
@@ -163,6 +216,16 @@ const { currentTheme } = useTheme()
 const selectedGroup = ref<AccountTabKey>('ALL')
 const sortKey = ref<AccountSortKey>('DEFAULT')
 const assetVisible = ref(true)
+const searchActive = ref(false)
+const searchKeyword = ref('')
+const addVisible = ref(false)
+const savingAccount = ref(false)
+const addForm = ref({
+  name: '',
+  type: 'BANK_CARD',
+  initialBalance: '',
+  remark: ''
+})
 
 const theme = computed(() => currentTheme.value)
 const overview = computed(() => store.overview)
@@ -200,13 +263,20 @@ const filteredAccounts = computed(() => {
   const list = selectedGroup.value === 'ALL'
     ? [...accounts.value]
     : accounts.value.filter((account) => account.group === selectedGroup.value)
+  const keyword = searchKeyword.value.trim().toLowerCase()
+  const searched = keyword
+    ? list.filter((account) => {
+        return [account.name, account.displayType, account.type, account.remark || '']
+          .some((value) => String(value || '').toLowerCase().includes(keyword))
+      })
+    : list
   if (sortKey.value === 'NAME') {
-    return list.sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
+    return searched.sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
   }
   if (sortKey.value === 'BALANCE') {
-    return list.sort((a, b) => Number(b.balance || 0) - Number(a.balance || 0))
+    return searched.sort((a, b) => Number(b.balance || 0) - Number(a.balance || 0))
   }
-  return list
+  return searched
 })
 
 const sortLabel = computed(() => {
@@ -225,6 +295,13 @@ const compareTone = computed(() => {
   if (!overview.value?.compareAvailable) return ''
   return value >= 0 ? 'positive' : 'negative'
 })
+
+const accountTypeOptions = [
+  { label: '银行卡', value: 'BANK_CARD', icon: 'accounts.bankCard' },
+  { label: '信用卡', value: 'CREDIT_CARD', icon: 'accounts.creditCard' },
+  { label: '电子钱包', value: 'THIRD_PARTY', icon: 'accounts.wallet' },
+  { label: '现金', value: 'CASH', icon: 'accounts.cash' }
+]
 
 onShow(() => {
   loadOverview()
@@ -305,12 +382,61 @@ function goDetail(account: AccountDisplayItem) {
 }
 
 function handleSearch() {
-  uni.showToast({ title: '账户搜索稍后开放', icon: 'none' })
+  searchActive.value = !searchActive.value
+  if (!searchActive.value) searchKeyword.value = ''
 }
 
 function handleAdd() {
-  // 移动端账户表单尚未建立，本入口先保留为后续新增账户页面的稳定入口。
-  uni.showToast({ title: '新增账户稍后开放', icon: 'none' })
+  addVisible.value = true
+}
+
+function closeAddSheet() {
+  if (savingAccount.value) return
+  addVisible.value = false
+}
+
+function resetAddForm() {
+  addForm.value = {
+    name: '',
+    type: 'BANK_CARD',
+    initialBalance: '',
+    remark: ''
+  }
+}
+
+async function submitAccount() {
+  if (savingAccount.value) return
+  const name = addForm.value.name.trim()
+  const amount = Number(addForm.value.initialBalance || 0)
+  if (!name) {
+    uni.showToast({ title: '账户名称不能为空', icon: 'none' })
+    return
+  }
+  if (!Number.isFinite(amount)) {
+    uni.showToast({ title: '请输入有效余额', icon: 'none' })
+    return
+  }
+  savingAccount.value = true
+  try {
+    await store.createAccount({
+      name,
+      type: addForm.value.type,
+      initialBalance: amount,
+      balance: amount,
+      currency: 'CNY',
+      status: 1,
+      sortOrder: accounts.value.length + 1,
+      remark: addForm.value.remark.trim() || null
+    })
+    await loadOverview()
+    resetAddForm()
+    addVisible.value = false
+    uni.showToast({ title: '账户已新增', icon: 'success' })
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : '新增失败', icon: 'none' })
+  } finally {
+    savingAccount.value = false
+  }
 }
 </script>
 
@@ -322,41 +448,42 @@ function handleAdd() {
   box-sizing: border-box;
 }
 
-.accounts-nav {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 132rpx;
-  padding-top: 30rpx;
-}
-
-.nav-spacer,
-.nav-actions {
-  width: 180rpx;
-}
-
-.nav-title {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  color: var(--xo-text-primary);
-  font-size: 40rpx;
-  font-weight: 700;
-}
-
-.nav-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 26rpx;
-}
-
 .nav-icon {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 58rpx;
   height: 58rpx;
+}
+
+.search-panel {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  min-height: 78rpx;
+  margin-bottom: 18rpx;
+  padding: 0 22rpx;
+  border: 1rpx solid var(--xo-border-color);
+  border-radius: var(--xo-radius-round);
+  background: var(--xo-component-card-bg);
+  box-shadow: var(--xo-component-card-shadow);
+}
+
+.search-input {
+  flex: 1;
+  min-width: 0;
+  color: var(--xo-text-primary);
+  font-size: 28rpx;
+}
+
+.search-placeholder {
+  color: var(--xo-text-placeholder);
+}
+
+.search-clear {
+  flex-shrink: 0;
+  color: var(--xo-primary);
+  font-size: 24rpx;
 }
 
 .summary-card {
@@ -401,12 +528,15 @@ function handleAdd() {
 
 .summary-amount {
   display: block;
+  overflow: hidden;
   margin-top: 22rpx;
   color: var(--xo-text-primary);
   font-size: 58rpx;
   font-weight: 800;
   line-height: 1;
   font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .compare-pill {
@@ -423,11 +553,11 @@ function handleAdd() {
 }
 
 .compare-pill.positive {
-  color: var(--xo-negative);
+  color: var(--xo-profit-positive);
 }
 
 .compare-pill.negative {
-  color: var(--xo-positive);
+  color: var(--xo-profit-negative);
 }
 
 .summary-right {
@@ -530,11 +660,14 @@ function handleAdd() {
 }
 
 .breakdown-amount {
+  overflow: hidden;
   margin-top: 12rpx;
   color: var(--xo-text-primary);
   font-size: 28rpx;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .category-row {
@@ -650,6 +783,7 @@ function handleAdd() {
   font-size: 30rpx;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .account-balance.negative {
@@ -660,6 +794,7 @@ function handleAdd() {
   margin-top: 8rpx;
   color: var(--xo-text-secondary);
   font-size: 22rpx;
+  white-space: nowrap;
 }
 
 .summary-section {
@@ -726,6 +861,7 @@ function handleAdd() {
   font-size: 32rpx;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .distribution-block {
@@ -782,6 +918,151 @@ function handleAdd() {
   padding: 80rpx 0;
   color: var(--xo-text-secondary);
   font-size: 28rpx;
+}
+
+.sheet-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 80;
+  display: flex;
+  align-items: flex-end;
+  background: var(--xo-mask);
+}
+
+.account-sheet {
+  width: 100%;
+  padding: 30rpx 30rpx calc(36rpx + env(safe-area-inset-bottom, 0px));
+  border-radius: 34rpx 34rpx 0 0;
+  background: var(--xo-component-card-bg);
+  box-shadow: var(--xo-shadow-floating);
+  box-sizing: border-box;
+}
+
+.sheet-head,
+.sheet-actions,
+.type-option,
+.form-row {
+  display: flex;
+  align-items: center;
+}
+
+.sheet-head {
+  justify-content: space-between;
+}
+
+.sheet-title {
+  color: var(--xo-text-primary);
+  font-size: 34rpx;
+  font-weight: 800;
+}
+
+.sheet-close {
+  color: var(--xo-text-secondary);
+  font-size: 26rpx;
+}
+
+.type-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14rpx;
+  margin-top: 28rpx;
+}
+
+.type-option {
+  flex-direction: column;
+  justify-content: center;
+  gap: 10rpx;
+  min-height: 118rpx;
+  border: 1rpx solid var(--xo-border-color);
+  border-radius: var(--xo-radius-lg);
+  color: var(--xo-text-regular);
+  font-size: 24rpx;
+  background: var(--xo-card-bg);
+}
+
+.type-option.active {
+  border-color: var(--xo-primary);
+  color: var(--xo-primary);
+  background: var(--xo-primary-soft);
+  font-weight: 700;
+}
+
+.form-row {
+  min-height: 92rpx;
+  margin-top: 18rpx;
+  padding: 0 22rpx;
+  border: 1rpx solid var(--xo-border-color);
+  border-radius: var(--xo-radius-lg);
+  background: var(--xo-card-bg);
+}
+
+.form-row.remark-row {
+  align-items: flex-start;
+  padding-top: 22rpx;
+  padding-bottom: 22rpx;
+}
+
+.form-label {
+  flex-shrink: 0;
+  width: 150rpx;
+  color: var(--xo-text-regular);
+  font-size: 26rpx;
+}
+
+.form-input,
+.form-textarea {
+  flex: 1;
+  min-width: 0;
+  color: var(--xo-text-primary);
+  font-size: 28rpx;
+}
+
+.amount-input {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.form-textarea {
+  height: 112rpx;
+  line-height: 1.45;
+}
+
+.form-placeholder {
+  color: var(--xo-text-placeholder);
+}
+
+.sheet-actions {
+  gap: 18rpx;
+  margin-top: 28rpx;
+}
+
+.sheet-button {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  height: 88rpx;
+  border-radius: var(--xo-radius-round);
+  font-size: 30rpx;
+  font-weight: 800;
+}
+
+.sheet-button.secondary {
+  background: var(--xo-primary-soft);
+  color: var(--xo-primary);
+}
+
+.sheet-button.primary {
+  background: var(--xo-gradient-button-primary);
+  color: var(--xo-white);
+  box-shadow: var(--xo-shadow-button);
+}
+
+.sheet-button.disabled {
+  opacity: 0.68;
 }
 
 .skeleton-card {

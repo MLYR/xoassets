@@ -127,6 +127,13 @@ export const accountApi = {
   overview() {
     return request<AccountOverview>({ url: '/accounts/overview', method: 'GET' })
   },
+  create(data: AccountRequest) {
+    return request<AccountItem>({
+      url: '/accounts',
+      method: 'POST',
+      data
+    })
+  },
   update(id: string, data: AccountRequest) {
     return request<AccountItem>({
       url: `/accounts/${id}`,

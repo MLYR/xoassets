@@ -27,6 +27,7 @@ export interface TransactionRequest {
   categoryId?: string | null
   transactionTime: string
   note?: string
+  imageUrl?: string | null
 }
 
 export interface PageResult<T> {
@@ -56,6 +57,12 @@ export const transactionApi = {
       url: '/transactions',
       method: 'POST',
       data
+    })
+  },
+  detail(id: string) {
+    return request<TransactionItem>({
+      url: `/transactions/${id}`,
+      method: 'GET'
     })
   },
   update(id: string, data: TransactionRequest) {

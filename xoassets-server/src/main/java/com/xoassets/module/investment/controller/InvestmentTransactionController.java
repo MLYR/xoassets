@@ -1,6 +1,7 @@
 package com.xoassets.module.investment.controller;
 
 import com.xoassets.common.api.Result;
+import com.xoassets.module.investment.dto.InvestmentTransactionConvertRequest;
 import com.xoassets.module.investment.dto.InvestmentTransactionRequest;
 import com.xoassets.module.investment.dto.InvestmentTransactionRevokeRequest;
 import com.xoassets.module.investment.service.InvestmentTransactionService;
@@ -35,6 +36,14 @@ public class InvestmentTransactionController {
     @PostMapping
     public Result<InvestmentTransactionVO> create(@Valid @RequestBody InvestmentTransactionRequest request) {
         return Result.success(transactionService.create(request));
+    }
+
+    /**
+     * 转换持仓，生成一笔卖出和一笔买入交易。
+     */
+    @PostMapping("/convert")
+    public Result<List<InvestmentTransactionVO>> convert(@Valid @RequestBody InvestmentTransactionConvertRequest request) {
+        return Result.success(transactionService.convert(request));
     }
 
     /**

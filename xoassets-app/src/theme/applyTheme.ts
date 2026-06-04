@@ -46,6 +46,8 @@ export function setCssVariables(theme: ThemeConfig): void {
   setCssVar('--xo-border-color', colors.border)
   setCssVar('--xo-positive', colors.positive)
   setCssVar('--xo-negative', colors.negative)
+  setCssVar('--xo-profit-positive', colors.profitPositive)
+  setCssVar('--xo-profit-negative', colors.profitNegative)
   setCssVar('--xo-transfer', colors.transfer)
   setCssVar('--xo-warning', colors.warning)
   setCssVar('--xo-info', colors.info)
@@ -56,6 +58,8 @@ export function setCssVariables(theme: ThemeConfig): void {
   setCssVar('--xo-positive-soft', hexToRgba(colors.positive, 0.1))
   setCssVar('--xo-negative-soft', hexToRgba(colors.negative, 0.1))
   setCssVar('--xo-transfer-soft', hexToRgba(colors.transfer, 0.1))
+  setCssVar('--xo-warning-soft', hexToRgba(colors.warning, 0.1))
+  setCssVar('--xo-info-soft', hexToRgba(colors.info, 0.1))
   setCssVar('--xo-white-25', hexToRgba(colors.white, 0.25))
   setCssVar('--xo-white-75', hexToRgba(colors.white, 0.75))
   setCssVar('--xo-white-80', hexToRgba(colors.white, 0.8))
@@ -109,6 +113,13 @@ export function setCssVariables(theme: ThemeConfig): void {
   setCssVar('--xo-component-card-elevated-bg', components.card.elevatedBg)
   setCssVar('--xo-component-card-radius', components.card.radius)
   setCssVar('--xo-component-card-shadow', components.card.shadow)
+  setCssVar('--xo-nav-height', components.navBar.height)
+  setCssVar('--xo-nav-bg', components.navBar.background)
+  setCssVar('--xo-nav-text', components.navBar.textColor)
+  setCssVar('--xo-nav-icon', components.navBar.iconColor)
+  setCssVar('--xo-nav-shadow', components.navBar.shadow)
+  setCssVar('--xo-nav-blur', components.navBar.blur)
+  setCssVar('--xo-nav-z-index', String(components.navBar.zIndex))
 
   setCssVar('--xo-bg-page', backgrounds.page)
   setCssVar('--xo-bg-home-asset-card', backgrounds.homeAssetCard)
@@ -151,8 +162,8 @@ export function applyUniChrome(theme: ThemeConfig): void {
   const { colors, components } = theme
 
   uni.setNavigationBarColor({
-    frontColor: colors.white === '#FFFFFF' ? '#ffffff' : '#000000',
-    backgroundColor: colors.primary
+    frontColor: components.navBar.textColor.toUpperCase() === '#FFFFFF' ? '#ffffff' : '#000000',
+    backgroundColor: colors.pageBg
   })
 
   uni.setTabBarStyle({

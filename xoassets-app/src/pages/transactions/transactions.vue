@@ -1,5 +1,19 @@
 <template>
   <view class="txns-page">
+    <AppNavBar title="流水" />
+
+    <view class="search-panel">
+      <input
+        v-model="keyword"
+        class="search-input"
+        placeholder="搜索备注关键词"
+        placeholder-class="search-placeholder"
+        confirm-type="search"
+        @confirm="fetchData"
+      />
+      <view class="search-action" @click="fetchData">搜索</view>
+    </view>
+
     <!-- 类型筛选 -->
     <view class="filter-bar">
       <view class="filter-tab" :class="{ active: filter === '' }" @click="setFilter('')">全部</view>
@@ -40,15 +54,22 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
+import AppNavBar from '@/components/app/AppNavBar.vue'
 import { useTransactionStore } from '@/stores/transaction'
 import type { TransactionType, TransactionItem } from '@/services/transactionApi'
 
 const store = useTransactionStore()
 const filter = ref<TransactionType | ''>('')
+const keyword = ref('')
 const loadingMore = ref(false)
 
 const records = computed(() => store.page.records)
 const hasMore = computed(() => store.page.records.length < store.page.total)
+
+onLoad((options) => {
+  keyword.value = typeof options?.keyword === 'string' ? decodeURIComponent(options.keyword) : ''
+})
 
 onMounted(() => {
   fetchData()
@@ -58,7 +79,8 @@ async function fetchData() {
   await store.fetchPage({
     pageNo: 1,
     pageSize: 20,
-    type: filter.value || undefined
+    type: filter.value || undefined,
+    keyword: keyword.value.trim() || undefined
   })
 }
 
@@ -74,7 +96,8 @@ async function loadMore() {
     await store.fetchPage({
       pageNo: store.page.pageNo + 1,
       pageSize: 20,
-      type: filter.value || undefined
+      type: filter.value || undefined,
+      keyword: keyword.value.trim() || undefined
     })
   } finally {
     loadingMore.value = false
@@ -114,16 +137,48 @@ function typeLabel(type: string) {
 
 .txns-page {
   min-height: 100vh;
-  background: $bg-color;
+  padding-bottom: 60rpx;
+  background: var(--xo-page-bg);
+}
+
+.search-panel {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin: 0 $spacing-sm $spacing-sm;
+  padding: 0 22rpx;
+  min-height: 78rpx;
+  border: 1rpx solid var(--xo-border-color);
+  border-radius: var(--xo-radius-round);
+  background: var(--xo-component-card-bg);
+  box-shadow: var(--xo-component-card-shadow);
+}
+
+.search-input {
+  flex: 1;
+  min-width: 0;
+  color: var(--xo-text-primary);
+  font-size: $font-sm;
+}
+
+.search-placeholder {
+  color: var(--xo-text-placeholder);
+}
+
+.search-action {
+  flex-shrink: 0;
+  color: var(--xo-primary);
+  font-size: $font-sm;
+  font-weight: 700;
 }
 
 .filter-bar {
   display: flex;
-  background: #fff;
+  background: var(--xo-component-card-bg);
   padding: $spacing-sm $spacing-md;
   margin-bottom: $spacing-sm;
   position: sticky;
-  top: 0;
+  top: calc(var(--xo-nav-height) + env(safe-area-inset-top, 0px));
   z-index: 10;
 }
 .filter-tab {
@@ -144,7 +199,7 @@ function typeLabel(type: string) {
   padding: 0 $spacing-sm;
 }
 .txn-card {
-  background: #fff;
+  background: var(--xo-component-card-bg);
   border-radius: $border-radius;
   padding: $spacing-md;
   margin-bottom: $spacing-sm;
@@ -177,8 +232,9 @@ function typeLabel(type: string) {
   font-weight: 700;
   flex-shrink: 0;
   margin-left: $spacing-sm;
-  &.income { color: $income-color; }
-  &.expense { color: $expense-color; }
+  white-space: nowrap;
+  &.income { color: var(--xo-profit-positive); }
+  &.expense { color: var(--xo-profit-negative); }
 }
 .txn-meta {
   display: flex;

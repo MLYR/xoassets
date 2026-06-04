@@ -19,7 +19,7 @@
     </view>
 
     <view class="holding-cell holding-profit-cell">
-      <AppAmount :value="row.floatingProfit" signed size="sm" />
+      <AppAmount :value="row.floatingProfit" signed size="sm" semantic="profit" />
       <text class="holding-profit-rate" :class="profitClass(row.floatingProfitRate)">
         {{ fmtPercent(row.floatingProfitRate) }}
       </text>
@@ -105,13 +105,13 @@ const emit = defineEmits<{
   align-items: flex-end;
 }
 
-.holding-daily-value.income,
-.holding-profit-rate.income {
-  color: var(--xo-positive);
+.holding-daily-value.profit-positive,
+.holding-profit-rate.profit-positive {
+  color: var(--xo-profit-positive);
 }
 
-.holding-daily-value.expense,
-.holding-profit-rate.expense {
-  color: var(--xo-negative);
+.holding-daily-value.profit-negative,
+.holding-profit-rate.profit-negative {
+  color: var(--xo-profit-negative);
 }
 </style>

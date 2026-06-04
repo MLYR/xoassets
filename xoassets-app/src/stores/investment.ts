@@ -5,12 +5,16 @@ import {
   investmentApi,
   type HoldingItem,
   type HoldingSummary,
-  type HoldingDetail
+  type HoldingDetail,
+  type InvestmentTrendPoint,
+  type InvestmentTransactionRequest,
+  type InvestmentConvertRequest
 } from '@/services/investmentApi'
 
 export const useInvestmentStore = defineStore('investment', () => {
   const holdings = ref<HoldingItem[]>([])
   const summary = ref<HoldingSummary | null>(null)
+  const trend = ref<InvestmentTrendPoint[]>([])
   const loading = ref(false)
 
   async function fetchHoldings() {
@@ -31,5 +35,18 @@ export const useInvestmentStore = defineStore('investment', () => {
     return investmentApi.detailHolding(id)
   }
 
-  return { holdings, summary, loading, fetchHoldings, fetchDetail }
+  async function fetchTrend(params: { startDate?: string; endDate?: string }) {
+    trend.value = await investmentApi.trend(params)
+    return trend.value
+  }
+
+  async function createTransaction(data: InvestmentTransactionRequest) {
+    return investmentApi.createTransaction(data)
+  }
+
+  async function convertTransaction(data: InvestmentConvertRequest) {
+    return investmentApi.convertTransaction(data)
+  }
+
+  return { holdings, summary, trend, loading, fetchHoldings, fetchDetail, fetchTrend, createTransaction, convertTransaction }
 })

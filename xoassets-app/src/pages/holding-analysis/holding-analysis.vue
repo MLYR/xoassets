@@ -1,13 +1,6 @@
 <template>
   <AppPage class="analysis-page" :padding="false" safe-bottom gap="24rpx">
-    <view class="safe-top"></view>
-    <view class="topbar">
-      <view class="topbar-back" @click="goBack">
-        <AppIcon name="common.back" size="34rpx" />
-      </view>
-      <text class="topbar-title">持仓分析</text>
-      <text class="topbar-spacer"></text>
-    </view>
+    <AppNavBar title="持仓分析" detail />
 
     <view class="page-body">
       <AppCard :padding="theme.spacing.lg" :radius="theme.radius.xl">
@@ -22,11 +15,11 @@
           </view>
           <view class="summary-item">
             <text class="summary-label">持有收益</text>
-            <AppAmount :value="summaryMetrics.accumulatedProfit" prefix="¥ " signed size="md" />
+            <AppAmount :value="summaryMetrics.accumulatedProfit" prefix="¥ " signed size="md" semantic="profit" />
           </view>
           <view class="summary-item">
             <text class="summary-label">收益率</text>
-            <AppAmount :value="summaryMetrics.accumulatedRate" signed size="md" />
+            <AppAmount :value="summaryMetrics.accumulatedRate" signed size="md" semantic="profit" />
           </view>
         </view>
       </AppCard>
@@ -101,7 +94,7 @@ import { computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import AppAmount from '@/components/app/AppAmount.vue'
 import AppCard from '@/components/app/AppCard.vue'
-import AppIcon from '@/components/app/AppIcon.vue'
+import AppNavBar from '@/components/app/AppNavBar.vue'
 import AppPage from '@/components/app/AppPage.vue'
 import type { HoldingItem } from '@/services/investmentApi'
 import { useInvestmentStore } from '@/stores/investment'
@@ -157,10 +150,6 @@ const distributionItems = computed(() => {
 
 const riskDistribution = computed(() => buildRiskDistribution(distributionItems.value))
 
-function goBack() {
-  uni.navigateBack()
-}
-
 function goHoldingDetail(item: HoldingItem) {
   uni.navigateTo({ url: `/pages/holding-detail/holding-detail?id=${item.id}&name=${encodeURIComponent(item.assetName || item.symbol || '')}` })
 }
@@ -171,30 +160,6 @@ function goHoldingDetail(item: HoldingItem) {
 
 .analysis-page {
   min-height: 100vh;
-}
-
-.safe-top {
-  height: env(safe-area-inset-top, 0px);
-}
-
-.topbar {
-  display: grid;
-  grid-template-columns: 56rpx 1fr 56rpx;
-  align-items: center;
-  padding: 20rpx 24rpx 8rpx;
-}
-
-.topbar-back,
-.topbar-spacer {
-  font-size: 48rpx;
-  color: var(--xo-text-primary);
-}
-
-.topbar-title {
-  text-align: center;
-  font-size: $font-xl;
-  font-weight: 700;
-  color: var(--xo-text-primary);
 }
 
 .page-body {
@@ -263,6 +228,21 @@ function goHoldingDetail(item: HoldingItem) {
 .rank-rate {
   font-size: $font-sm;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rank-profit.profit-positive,
+.rank-rate.profit-positive,
+.detail-main-value.profit-positive,
+.detail-sub-value.profit-positive {
+  color: var(--xo-profit-positive);
+}
+
+.rank-profit.profit-negative,
+.rank-rate.profit-negative,
+.detail-main-value.profit-negative,
+.detail-sub-value.profit-negative {
+  color: var(--xo-profit-negative);
 }
 
 .rank-code {

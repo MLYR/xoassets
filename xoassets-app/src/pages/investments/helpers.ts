@@ -65,7 +65,7 @@ export function fmtSignedOrFallback(v: number | null | undefined) {
 
 export function profitClass(v: number | null | undefined) {
   if (v == null || v === undefined) return ''
-  return v >= 0 ? 'income' : 'expense'
+  return v >= 0 ? 'profit-positive' : 'profit-negative'
 }
 
 export function calcRelativeRate(delta: number, total: number) {
@@ -145,20 +145,6 @@ export function buildHoldingRows(holdings: HoldingItem[]): HoldingRow[] {
   }))
 }
 
-export function buildTrendSeries(summary: HoldingSummary | null): TrendPoint[] {
-  const total = summary?.totalMarketValue ?? 0
-  const step = Math.max(total * 0.04, 1200)
-
-  // TODO: 资产变化趋势当前投资接口缺少历史序列，先用静态回推点位做结构占位。
-  return [
-    { label: '2月', value: Math.max(total - step * 4, 0) },
-    { label: '3月', value: Math.max(total - step * 3.2, 0) },
-    { label: '4月', value: Math.max(total - step * 2.1, 0) },
-    { label: '5月', value: Math.max(total - step * 1.1, 0) },
-    { label: '6月', value: total }
-  ]
-}
-
 export function buildDistributionInsights(items: DistributionItem[]): string[] {
   const sorted = [...items].sort((a, b) => b.amount - a.amount)
   const top = sorted[0]
@@ -179,18 +165,21 @@ export function buildRiskDistribution(items: DistributionItem[]) {
   const stock = items.find((item) => item.key === 'stock')?.amount || 0
   const crypto = items.find((item) => item.key === 'crypto')?.amount || 0
   const other = items.find((item) => item.key === 'other')?.amount || 0
+  const fundColor = items.find((item) => item.key === 'fund')?.color || ''
+  const stockColor = items.find((item) => item.key === 'stock')?.color || ''
+  const cryptoColor = items.find((item) => item.key === 'crypto')?.color || ''
 
   if (!total) {
     return [
-      { label: '稳健', percent: 0, color: '#2F7BFF' },
-      { label: '均衡', percent: 0, color: '#19C2C8' },
-      { label: '高波动', percent: 0, color: '#FF8A34' }
+      { label: '稳健', percent: 0, color: fundColor },
+      { label: '均衡', percent: 0, color: stockColor },
+      { label: '高波动', percent: 0, color: cryptoColor }
     ]
   }
 
   return [
-    { label: '稳健', percent: (fund / total) * 100, color: '#2F7BFF' },
-    { label: '均衡', percent: ((stock + other) / total) * 100, color: '#19C2C8' },
-    { label: '高波动', percent: (crypto / total) * 100, color: '#FF8A34' }
+    { label: '稳健', percent: (fund / total) * 100, color: fundColor },
+    { label: '均衡', percent: ((stock + other) / total) * 100, color: stockColor },
+    { label: '高波动', percent: (crypto / total) * 100, color: cryptoColor }
   ]
 }

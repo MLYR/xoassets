@@ -1,7 +1,14 @@
 <template>
-  <AppPage class="add-page" safe-top safe-bottom gap="24rpx">
+  <AppPage class="add-page" safe-bottom gap="24rpx">
+    <AppNavBar title="记账">
+      <template #right>
+        <view class="icon-button" @click="goSearch">
+          <AppIcon name="home.search" size="34rpx" />
+        </view>
+      </template>
+    </AppNavBar>
+
     <view class="page-header">
-      <text class="page-title">记账</text>
       <view class="page-toolbar">
         <view class="month-switch">
           <view class="month-arrow" @click="changeMonth(-1)">
@@ -10,11 +17,6 @@
           <text class="month-text">{{ currentMonthLabel }}</text>
           <view class="month-arrow" @click="changeMonth(1)">
             <AppIcon name="common.arrowRight" size="28rpx" />
-          </view>
-        </view>
-        <view class="header-actions">
-          <view class="icon-button" @click="goSearch">
-            <AppIcon name="home.search" size="34rpx" />
           </view>
         </view>
       </view>
@@ -248,7 +250,7 @@
                   maxlength="50"
                   class="form-row-note-input"
                   placeholder="请输入备注（可选）"
-                  placeholder-style="color:#C0C7D2"
+                  placeholder-class="form-placeholder"
                 />
                 <text class="form-row-note-count">{{ note.length }}/50</text>
               </view>
@@ -338,6 +340,7 @@ import { onShow } from '@dcloudio/uni-app'
 import AppAmount from '@/components/app/AppAmount.vue'
 import AppCard from '@/components/app/AppCard.vue'
 import AppIcon from '@/components/app/AppIcon.vue'
+import AppNavBar from '@/components/app/AppNavBar.vue'
 import AppPage from '@/components/app/AppPage.vue'
 import { categoryApi, type CategoryItem } from '@/services/categoryApi'
 import { transactionApi, type TransactionItem, type TransactionType } from '@/services/transactionApi'
@@ -679,15 +682,16 @@ function createCategoryPreset(
   index: number
 ): CategoryPreset {
   const category = categories.value.find((item) => preset.match.some((keyword) => item.name.includes(keyword))) || null
+  // 分类预设色板从主题语义色派生，后续切换主题时页面无需改图标或颜色路径。
   const palette = [
-    { color: theme.value.colors.primary, background: 'rgba(47,123,255,0.10)', softBackground: 'rgba(47,123,255,0.08)' },
-    { color: '#47D7A8', background: 'rgba(71,215,168,0.10)', softBackground: 'rgba(71,215,168,0.08)' },
-    { color: '#8D68FF', background: 'rgba(141,104,255,0.10)', softBackground: 'rgba(141,104,255,0.08)' },
-    { color: '#FF9A44', background: 'rgba(255,154,68,0.10)', softBackground: 'rgba(255,154,68,0.08)' },
-    { color: '#FF6F7A', background: 'rgba(255,111,122,0.10)', softBackground: 'rgba(255,111,122,0.08)' },
-    { color: '#57A7FF', background: 'rgba(87,167,255,0.10)', softBackground: 'rgba(87,167,255,0.08)' },
-    { color: '#41D2A1', background: 'rgba(65,210,161,0.10)', softBackground: 'rgba(65,210,161,0.08)' },
-    { color: '#A7AFBF', background: 'rgba(167,175,191,0.10)', softBackground: 'rgba(167,175,191,0.08)' }
+    { color: theme.value.colors.primary, background: 'var(--xo-primary-soft)', softBackground: 'var(--xo-primary-soft)' },
+    { color: theme.value.colors.secondary, background: 'var(--xo-positive-soft)', softBackground: 'var(--xo-positive-soft)' },
+    { color: theme.value.colors.transfer, background: 'var(--xo-transfer-soft)', softBackground: 'var(--xo-transfer-soft)' },
+    { color: theme.value.colors.warning, background: 'var(--xo-warning-soft)', softBackground: 'var(--xo-warning-soft)' },
+    { color: theme.value.colors.negative, background: 'var(--xo-negative-soft)', softBackground: 'var(--xo-negative-soft)' },
+    { color: theme.value.colors.primaryLight, background: 'var(--xo-primary-soft)', softBackground: 'var(--xo-primary-soft)' },
+    { color: theme.value.colors.positive, background: 'var(--xo-positive-soft)', softBackground: 'var(--xo-positive-soft)' },
+    { color: theme.value.colors.info, background: 'var(--xo-info-soft)', softBackground: 'var(--xo-info-soft)' }
   ]
   const tone = palette[index % palette.length]
   return {
@@ -778,7 +782,8 @@ function getNormalizedAmount() {
 }
 
 function handleOcrEntry() {
-  uni.showToast({ title: '拍照识别待接入', icon: 'none' })
+  // 第一版先把拍照入口接到图片选择，后端 OCR 识别能力独立建设时再替换上传识别流程。
+  openImageActionSheet()
 }
 
 function openImageActionSheet() {
@@ -813,8 +818,8 @@ async function handleSubmit() {
       targetAccountId: tab.value === 'TRANSFER' ? targetAccount.value?.id : null,
       categoryId: tab.value !== 'TRANSFER' ? selectedCategory.value?.id : null,
       transactionTime: formatTransactionDateTime(dateStr.value, timeStr.value),
-      // TODO: 后端交易接口当前未接图片字段，先只在本地录入层保留预览状态。
-      note: note.value || undefined
+      note: note.value || undefined,
+      imageUrl: localImageUrl.value || null
     })
 
     if (tab.value !== 'TRANSFER' && selectedCategory.value) {
@@ -1361,7 +1366,7 @@ function isSameYearMonth(left: Date, right: Date) {
   min-width: 0;
   font-size: 84rpx;
   line-height: 1.05;
-  color: #13254B;
+  color: var(--xo-text-primary);
   font-weight: 800;
   letter-spacing: 0;
 }
@@ -1512,7 +1517,7 @@ function isSameYearMonth(left: Date, right: Date) {
 
 .form-row-value {
   font-size: $font-lg;
-  color: #7A84A1;
+  color: var(--xo-text-regular);
   text-align: right;
 }
 
@@ -1543,7 +1548,11 @@ function isSameYearMonth(left: Date, right: Date) {
   flex: 1;
   text-align: right;
   font-size: $font-lg;
-  color: #7A84A1;
+  color: var(--xo-text-regular);
+}
+
+.form-placeholder {
+  color: var(--xo-text-placeholder);
 }
 
 .form-row-note-count {
@@ -1583,7 +1592,7 @@ function isSameYearMonth(left: Date, right: Date) {
 }
 
 .image-camera-icon {
-  color: #707070;
+  color: var(--xo-text-regular);
   font-size: 40rpx;
 }
 

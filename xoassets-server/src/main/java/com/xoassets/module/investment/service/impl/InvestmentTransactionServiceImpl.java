@@ -6,6 +6,7 @@ import com.xoassets.common.api.ErrorCode;
 import com.xoassets.common.exception.BusinessException;
 import com.xoassets.common.security.LoginUserContext;
 import com.xoassets.module.account.service.AccountService;
+import com.xoassets.module.investment.dto.InvestmentTransactionConvertRequest;
 import com.xoassets.module.investment.dto.InvestmentTransactionRequest;
 import com.xoassets.module.investment.dto.InvestmentTransactionRevokeRequest;
 import com.xoassets.module.investment.service.AssetService;
@@ -151,6 +152,46 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
         transaction.setDeleted(0);
         transactionMapper.insert(transaction);
         return toVO(transaction, assetMapper.selectById(transaction.getAssetId()), account);
+    }
+
+    /**
+     * 转换持仓使用“先卖出源持仓、再买入目标持仓”的真实交易链路，保证账户余额和持仓成本仍由原业务规则维护。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public List<InvestmentTransactionVO> convert(InvestmentTransactionConvertRequest request) {
+        Long userId = LoginUserContext.getUserId();
+        if (request.getSourceHoldingId().equals(request.getTargetHoldingId())) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "源持仓和目标持仓不能相同");
+        }
+        Holding sourceHolding = holdingService.findOwnedHolding(request.getSourceHoldingId(), userId);
+        Holding targetHolding = holdingService.findOwnedHolding(request.getTargetHoldingId(), userId);
+
+        InvestmentTransactionRequest sellRequest = new InvestmentTransactionRequest();
+        sellRequest.setHoldingId(sourceHolding.getId());
+        sellRequest.setAssetId(sourceHolding.getAssetId());
+        sellRequest.setAccountId(request.getAccountId());
+        sellRequest.setType(TYPE_SELL);
+        sellRequest.setQuantity(request.getSourceQuantity());
+        sellRequest.setPrice(request.getSourcePrice());
+        sellRequest.setFee(BigDecimal.ZERO);
+        sellRequest.setTransactionTime(request.getTransactionTime());
+        sellRequest.setNote(convertNote(request.getNote(), "转换转出"));
+
+        InvestmentTransactionRequest buyRequest = new InvestmentTransactionRequest();
+        buyRequest.setHoldingId(targetHolding.getId());
+        buyRequest.setAssetId(targetHolding.getAssetId());
+        buyRequest.setAccountId(request.getAccountId());
+        buyRequest.setType(TYPE_BUY);
+        buyRequest.setQuantity(request.getTargetQuantity());
+        buyRequest.setPrice(request.getTargetPrice());
+        buyRequest.setFee(request.getFee());
+        buyRequest.setTransactionTime(request.getTransactionTime());
+        buyRequest.setNote(convertNote(request.getNote(), "转换转入"));
+
+        InvestmentTransactionVO sell = create(sellRequest);
+        InvestmentTransactionVO buy = create(buyRequest);
+        return List.of(sell, buy);
     }
 
     /**
@@ -373,6 +414,13 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
         return TYPE_BUY.equals(request.getType())
                 && ASSET_TYPE_FUND.equals(asset.getType())
                 && (INPUT_MODE_AMOUNT_NAV.equals(request.getInputMode()) || request.getTradeAmount() != null);
+    }
+
+    private String convertNote(String note, String prefix) {
+        if (note == null || note.isBlank()) {
+            return prefix;
+        }
+        return prefix + "：" + note;
     }
 
     /**

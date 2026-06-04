@@ -1,13 +1,15 @@
 <template>
-  <view class="detail-page" v-if="txn">
+  <view class="detail-page">
+    <AppNavBar title="流水详情" detail />
+
     <!-- 金额区 -->
-    <view class="amount-section" :class="'bg-' + txn.type.toLowerCase()">
+    <view v-if="txn" class="amount-section" :class="'bg-' + txn.type.toLowerCase()">
       <text class="detail-label">{{ typeLabel }}</text>
       <text class="detail-amount">{{ fmtSigned }}</text>
     </view>
 
     <!-- 信息区 -->
-    <view class="info-section card">
+    <view v-if="txn" class="info-section card">
       <view class="info-row">
         <text class="info-label">类型</text>
         <text class="info-value">{{ typeLabel }}</text>
@@ -35,19 +37,25 @@
     </view>
 
     <!-- 删除 -->
-    <view class="action-area">
+    <view v-if="txn" class="action-area">
       <view class="btn-outline danger" @click="handleDelete">
         <text>删除此流水</text>
       </view>
+    </view>
+
+    <view v-else class="empty-state">
+      <text>{{ loading ? '加载中…' : '未找到流水详情' }}</text>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import AppNavBar from '@/components/app/AppNavBar.vue'
 import { transactionApi, type TransactionItem } from '@/services/transactionApi'
 
 const txn = ref<TransactionItem | null>(null)
+const loading = ref(false)
 
 const typeLabel = computed(() => {
   if (!txn.value) return ''
@@ -64,18 +72,22 @@ const fmtSigned = computed(() => {
   return '¥' + v
 })
 
-onMounted(async () => {
-  // 从分页结果中拿当前数据，简化版：由列表传入或查后端
-  // uni-app 页面间传参较复杂，这里从 store/page 中找
+onMounted(() => {
   const pages = getCurrentPages()
   const id = (pages[pages.length - 1] as any).options?.id
-  if (id) {
-    try {
-      // 后端没有单独查询流水的接口，从分页数据匹配
-      // 简化处理：从列表页传入的数据不在了就显示空
-    } catch {}
-  }
+  if (id) fetchDetail(id)
 })
+
+async function fetchDetail(id: string) {
+  loading.value = true
+  try {
+    txn.value = await transactionApi.detail(id)
+  } catch (e: any) {
+    uni.showToast({ title: e.message || '流水详情加载失败', icon: 'none' })
+  } finally {
+    loading.value = false
+  }
+}
 
 async function handleDelete() {
   if (!txn.value) return
@@ -99,18 +111,18 @@ async function handleDelete() {
 
 <style lang="scss" scoped>
 @import '@/styles/variables.scss';
-.detail-page { min-height: 100vh; background: $bg-color; }
+.detail-page { min-height: 100vh; background: var(--xo-page-bg); }
 .amount-section {
   padding: 64rpx $spacing-lg;
   text-align: center;
   margin-bottom: $spacing-md;
-  &.bg-expense { background: linear-gradient(135deg, #FF6B6B, #FF4D4F); }
-  &.bg-income { background: linear-gradient(135deg, #52C41A, #73D13D); }
-  &.bg-transfer { background: linear-gradient(135deg, #4A90D9, #6BA5E7); }
-  &.bg-refund { background: linear-gradient(135deg, #FAAD14, #FFC53D); }
+  &.bg-expense { background: var(--xo-gradient-expense-card); }
+  &.bg-income { background: var(--xo-gradient-income-card); }
+  &.bg-transfer { background: var(--xo-gradient-transfer-card); }
+  &.bg-refund { background: linear-gradient(135deg, var(--xo-warning), var(--xo-warning)); }
 }
-.detail-label { font-size: $font-md; color: rgba(255,255,255,0.85); display: block; margin-bottom: 12rpx; }
-.detail-amount { font-size: 64rpx; font-weight: 800; color: #fff; }
+.detail-label { font-size: $font-md; color: var(--xo-white-85); display: block; margin-bottom: 12rpx; }
+.detail-amount { font-size: 64rpx; font-weight: 800; color: var(--xo-white); white-space: nowrap; }
 .info-section { margin: 0 $spacing-sm; }
 .info-row {
   display: flex; justify-content: space-between; align-items: center;

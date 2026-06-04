@@ -4,8 +4,10 @@ import com.xoassets.module.investment.dto.HoldingRequest;
 import com.xoassets.module.investment.vo.HoldingDetailVO;
 import com.xoassets.module.investment.vo.HoldingSummaryVO;
 import com.xoassets.module.investment.vo.HoldingVO;
+import com.xoassets.module.investment.vo.InvestmentTrendPointVO;
 import com.xoassets.persistence.entity.Holding;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -22,6 +24,11 @@ public interface HoldingService {
      * 查询当前用户持仓汇总。
      */
     HoldingSummaryVO summary();
+
+    /**
+     * 查询当前用户投资资产趋势。
+     */
+    List<InvestmentTrendPointVO> trend(LocalDate startDate, LocalDate endDate);
 
     /**
      * 查询当前用户某个持仓的详情。

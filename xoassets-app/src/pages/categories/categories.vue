@@ -1,5 +1,7 @@
 <template>
   <view class="cat-page safe-bottom">
+    <AppNavBar title="分类管理" detail />
+
     <view class="section-title">支出分类</view>
     <view class="cat-grid">
       <view v-for="c in expenseCategories" :key="c.id" class="cat-item">
@@ -29,6 +31,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import AppIcon from '@/components/app/AppIcon.vue'
+import AppNavBar from '@/components/app/AppNavBar.vue'
 import { categoryApi, type CategoryItem } from '@/services/categoryApi'
 import { useThemeStore } from '@/stores/theme'
 

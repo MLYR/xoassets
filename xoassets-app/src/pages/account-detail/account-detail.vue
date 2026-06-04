@@ -1,14 +1,12 @@
 <template>
   <view class="detail-page safe-bottom" :style="pageStyle">
-    <view class="nav-bar">
-      <view class="nav-icon" @click="goBack">
-        <AppIcon name="common.back" size="40rpx" />
-      </view>
-      <text class="nav-title">{{ account?.name || accName || '账户明细' }}</text>
-      <view class="nav-icon" @click="openEditModal">
-        <AppIcon name="common.edit" size="38rpx" />
-      </view>
-    </view>
+    <AppNavBar :title="account?.name || accName || '账户明细'" detail>
+      <template #right>
+        <view class="nav-icon" @click="openEditModal">
+          <AppIcon name="common.edit" size="38rpx" />
+        </view>
+      </template>
+    </AppNavBar>
 
     <view class="balance-card">
       <view class="balance-top">
@@ -75,7 +73,7 @@
         <view class="flow-bar-out" :style="{ width: outflowRatio + '%' }"></view>
       </view>
 
-      <view class="trend-row">
+      <view class="trend-row" @touchstart="onFlowTrendTouchStart" @touchend="onFlowTrendTouchEnd">
         <view
           v-for="item in trendBars"
           :key="item.date"
@@ -214,6 +212,7 @@
 import { computed, reactive, ref, onMounted } from 'vue'
 import { onReachBottom } from '@dcloudio/uni-app'
 import AppIcon from '@/components/app/AppIcon.vue'
+import AppNavBar from '@/components/app/AppNavBar.vue'
 import { useAccountStore } from '@/stores/account'
 import { useTheme } from '@/theme/useTheme'
 import type {
@@ -241,6 +240,10 @@ const loading = ref(false)
 const loadingMore = ref(false)
 const saving = ref(false)
 const visibleAmount = ref(true)
+const flowTrendWindowStart = ref(Number.MAX_SAFE_INTEGER)
+const flowTrendTouchStartX = ref(0)
+const flowTrendTouchStartY = ref(0)
+const flowTrendWindowSize = 14
 const showEditModal = ref(false)
 const showCorrectionModal = ref(false)
 const correctionBalance = ref('')
@@ -310,7 +313,9 @@ const outflowRatio = computed(() => totalFlow.value <= 0 ? 0 : Math.round(monthO
 const trendBars = computed(() => {
   const trend = flowStatistics.value?.dailyFlowTrend || []
   const max = Math.max(...trend.map(item => Math.abs(toNumber(item.netFlow))), 1)
-  return trend.slice(-14).map(item => ({
+  const maxStart = Math.max(trend.length - flowTrendWindowSize, 0)
+  const start = Math.min(flowTrendWindowStart.value, maxStart)
+  return trend.slice(start, start + flowTrendWindowSize).map(item => ({
     ...item,
     day: item.date.slice(8, 10),
     height: Math.max(10, Math.round(Math.abs(toNumber(item.netFlow)) / max * 100))
@@ -416,11 +421,29 @@ async function loadMore() {
 
 function changeMonth(delta: number) {
   currentMonth.value = new Date(currentMonth.value.getFullYear(), currentMonth.value.getMonth() + delta, 1)
+  flowTrendWindowStart.value = Number.MAX_SAFE_INTEGER
   reload()
 }
 
-function goBack() {
-  uni.navigateBack()
+function onFlowTrendTouchStart(event: TouchEvent) {
+  const touch = event.touches[0]
+  flowTrendTouchStartX.value = touch?.clientX || 0
+  flowTrendTouchStartY.value = touch?.clientY || 0
+}
+
+function onFlowTrendTouchEnd(event: TouchEvent) {
+  const touch = event.changedTouches[0]
+  const deltaX = (touch?.clientX || 0) - flowTrendTouchStartX.value
+  const deltaY = (touch?.clientY || 0) - flowTrendTouchStartY.value
+  if (Math.abs(deltaX) < 40 || Math.abs(deltaX) < Math.abs(deltaY)) return
+  shiftFlowTrendWindow(deltaX < 0 ? 1 : -1)
+}
+
+function shiftFlowTrendWindow(delta: number) {
+  const trend = flowStatistics.value?.dailyFlowTrend || []
+  const maxStart = Math.max(trend.length - flowTrendWindowSize, 0)
+  const current = Math.min(flowTrendWindowStart.value, maxStart)
+  flowTrendWindowStart.value = Math.max(0, Math.min(current + delta, maxStart))
 }
 
 function openEditModal() {
@@ -626,30 +649,12 @@ function toNumber(value: number | string | undefined | null) {
   box-sizing: border-box;
 }
 
-.nav-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 72rpx;
-  margin-bottom: 18rpx;
-}
-
 .nav-icon {
   width: 64rpx;
   height: 64rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.nav-title {
-  max-width: 480rpx;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 34rpx;
-  font-weight: 700;
-  color: var(--xo-text-primary);
 }
 
 .balance-card {
@@ -876,6 +881,7 @@ function toNumber(value: number | string | undefined | null) {
   gap: 12rpx;
   margin-top: 24rpx;
   overflow: hidden;
+  touch-action: pan-y;
 }
 
 .trend-item {

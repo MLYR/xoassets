@@ -1,13 +1,6 @@
 <template>
   <AppPage class="distribution-page" :padding="false" safe-bottom gap="24rpx">
-    <view class="safe-top"></view>
-    <view class="topbar">
-      <view class="topbar-back" @click="goBack">
-        <AppIcon name="common.back" size="34rpx" />
-      </view>
-      <text class="topbar-title">资产分布</text>
-      <text class="topbar-spacer"></text>
-    </view>
+    <AppNavBar title="资产分布" detail />
 
     <view class="page-body">
       <AppCard
@@ -62,11 +55,11 @@
           <text class="section-subtitle">总资产（元）</text>
         </view>
 
-        <view class="trend-card">
+        <view class="trend-card" @touchstart="onTrendTouchStart" @touchend="onTrendTouchEnd">
           <svg class="trend-svg" viewBox="0 0 320 180" preserveAspectRatio="none">
             <defs>
               <linearGradient id="trendFill" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stop-color="rgba(47,123,255,0.28)" />
+                <stop offset="0%" :stop-color="theme.charts.assetTrend.fill" />
                 <stop offset="100%" stop-color="rgba(47,123,255,0.03)" />
               </linearGradient>
             </defs>
@@ -80,7 +73,7 @@
               class="trend-line"
               :points="trendLinePoints"
               fill="none"
-              stroke="#2F7BFF"
+              :stroke="theme.charts.assetTrend.line"
               stroke-width="3"
               stroke-linecap="round"
               stroke-linejoin="round"
@@ -91,8 +84,8 @@
               :cx="point.x"
               :cy="point.y"
               r="4"
-              fill="#FFFFFF"
-              stroke="#2F7BFF"
+              :fill="theme.charts.assetTrend.point"
+              :stroke="theme.charts.assetTrend.line"
               stroke-width="2"
             />
           </svg>
@@ -117,11 +110,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import AppAmount from '@/components/app/AppAmount.vue'
 import AppCard from '@/components/app/AppCard.vue'
-import AppIcon from '@/components/app/AppIcon.vue'
+import AppNavBar from '@/components/app/AppNavBar.vue'
 import AppPage from '@/components/app/AppPage.vue'
 import { useInvestmentStore } from '@/stores/investment'
 import { useTheme } from '@/theme/useTheme'
@@ -129,7 +122,6 @@ import {
   buildDistributionInsights,
   buildDistributionItems,
   buildSummaryMetrics,
-  buildTrendSeries,
   fmtAmount,
   fmtPercent,
   fmtPercentNumber,
@@ -142,9 +134,14 @@ const { currentTheme } = useTheme()
 const holdings = computed(() => store.holdings)
 const summary = computed(() => store.summary)
 const theme = computed(() => currentTheme.value)
+const trendWindowStart = ref(Number.MAX_SAFE_INTEGER)
+const trendTouchStartX = ref(0)
+const trendTouchStartY = ref(0)
+const trendWindowSize = 5
 
 onShow(() => {
   store.fetchHoldings()
+  store.fetchTrend(investmentTrendDateRange())
 })
 
 const summaryMetrics = computed(() => buildSummaryMetrics(summary.value))
@@ -178,7 +175,18 @@ const distributionRingStyle = computed(() => {
   }
 })
 
-const trendSeries = computed(() => buildTrendSeries(summary.value))
+const rawTrendSeries = computed(() => store.trend.map((point) => ({
+  label: point.date?.slice(5).replace('-', '/') || '',
+  value: Number(point.marketValue || 0)
+})))
+
+const trendSeries = computed(() => {
+  const list = rawTrendSeries.value
+  if (list.length <= trendWindowSize) return list
+  const maxStart = Math.max(list.length - trendWindowSize, 0)
+  const start = Math.min(trendWindowStart.value, maxStart)
+  return list.slice(start, start + trendWindowSize)
+})
 
 const trendPlotPoints = computed(() => {
   const values = trendSeries.value.map((point) => point.value)
@@ -209,9 +217,40 @@ const trendAreaPoints = computed(() => {
 
 const insights = computed(() => buildDistributionInsights(distributionItems.value))
 
-function goBack() {
-  uni.navigateBack()
+function investmentTrendDateRange() {
+  const end = new Date()
+  const start = new Date(end.getFullYear(), end.getMonth() - 5, end.getDate())
+  return {
+    startDate: formatDate(start),
+    endDate: formatDate(end)
+  }
 }
+
+function onTrendTouchStart(event: TouchEvent) {
+  const touch = event.touches[0]
+  trendTouchStartX.value = touch?.clientX || 0
+  trendTouchStartY.value = touch?.clientY || 0
+}
+
+function onTrendTouchEnd(event: TouchEvent) {
+  const touch = event.changedTouches[0]
+  const deltaX = (touch?.clientX || 0) - trendTouchStartX.value
+  const deltaY = (touch?.clientY || 0) - trendTouchStartY.value
+  if (Math.abs(deltaX) < 40 || Math.abs(deltaX) < Math.abs(deltaY)) return
+  shiftTrendWindow(deltaX < 0 ? 1 : -1)
+}
+
+function shiftTrendWindow(delta: number) {
+  const list = rawTrendSeries.value
+  const maxStart = Math.max(list.length - trendWindowSize, 0)
+  const current = Math.min(trendWindowStart.value, maxStart)
+  trendWindowStart.value = Math.max(0, Math.min(current + delta, maxStart))
+}
+
+function formatDate(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
 </script>
 
 <style lang="scss" scoped>
@@ -219,30 +258,6 @@ function goBack() {
 
 .distribution-page {
   min-height: 100vh;
-}
-
-.safe-top {
-  height: env(safe-area-inset-top, 0px);
-}
-
-.topbar {
-  display: grid;
-  grid-template-columns: 56rpx 1fr 56rpx;
-  align-items: center;
-  padding: 20rpx 24rpx 8rpx;
-}
-
-.topbar-back,
-.topbar-spacer {
-  font-size: 48rpx;
-  color: var(--xo-text-primary);
-}
-
-.topbar-title {
-  text-align: center;
-  font-size: $font-xl;
-  font-weight: 700;
-  color: var(--xo-text-primary);
 }
 
 .page-body {
@@ -399,6 +414,7 @@ function goBack() {
   background: linear-gradient(180deg, rgba(47,123,255,0.06) 0%, rgba(47,123,255,0.01) 100%);
   border-radius: 24rpx;
   padding: 18rpx 18rpx 12rpx;
+  touch-action: pan-y;
 }
 
 .trend-svg {

@@ -53,6 +53,8 @@ export const classicBlueTheme: ThemeConfig = {
     border: '#E8EEF6',
     positive: '#12C46B',
     negative: '#FF3B3F',
+    profitPositive: '#FF3B3F',
+    profitNegative: '#12C46B',
     transfer: '#2F7BFF',
     warning: '#FA9D2A',
     info: '#7C8798',
@@ -162,6 +164,15 @@ export const classicBlueTheme: ThemeConfig = {
       selectedColor: '#2F7BFF',
       backgroundColor: '#FFFFFF',
       borderStyle: 'black'
+    },
+    navBar: {
+      height: '96rpx',
+      background: 'rgba(243, 247, 252, 0.96)',
+      textColor: '#161A22',
+      iconColor: '#161A22',
+      shadow: '0 8rpx 24rpx rgba(32, 88, 166, 0.06)',
+      blur: '18rpx',
+      zIndex: 20
     }
   },
   icons: themeIconMap['classic-blue'],

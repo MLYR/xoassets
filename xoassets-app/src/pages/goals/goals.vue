@@ -1,5 +1,7 @@
 <template>
   <view class="goals-page safe-bottom">
+    <AppNavBar title="资产目标" detail />
+
     <view v-if="goals.length" class="goal-list">
       <view v-for="g in goals" :key="g.id" class="goal-card card">
         <view class="gc-top">
@@ -28,6 +30,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import AppNavBar from '@/components/app/AppNavBar.vue'
 import { goalApi, type GoalItem } from '@/services/goalApi'
 
 const goals = ref<GoalItem[]>([])

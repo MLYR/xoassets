@@ -238,3 +238,34 @@ src/assets/themes/classic-blue/icons/
 - `ThemeConfig.pageTokens.accounts`：资产卡尺寸、分类栏高度、列表行高、分布条高度
 
 **TabBar 保持不变：** 使用 `src/static/tabbar/*.png`，避免 uni-app 原生 TabBar 图标丢失。
+
+## 标题栏与主题收敛（2026-06-05）
+
+**统一标题栏：**
+- 新增 `src/components/app/AppNavBar.vue`：跨页面统一标题栏组件
+- 所有页面切换为 `navigationStyle: custom`，标题栏固定不随页面滚动
+- 明细页标题栏不显示左上返回按钮
+- 标题栏高度统一，不使用蓝色背景
+
+**主题收敛：**
+- 收益色统一进入 theme 配置：正收益红色、负收益绿色
+- `AppAmount` 新增 `semantic="profit"` 支持自动正负色
+- 页面硬编码颜色已收敛到 CSS 变量和主题 token
+- 关键页面占位文案已清理（`待接入/稍后开放` 等无命中）
+
+**功能联通：**
+- 账户页搜索接 `/api/accounts` 关键字查询，新增账户弹层接真实接口
+- 流水列表搜索接后端 `keyword` 参数，修复加载更多覆盖第一页问题
+- 投资页买入/卖出接 `/api/investment-transactions`
+- 转账已接入真实接口
+
+**后端新增：**
+- `POST /api/investment-transactions/convert`：同一事务内生成卖出 + 买入两笔真实交易
+  - 新增 `InvestmentTransactionConvertRequest` DTO
+- 持仓详情趋势图接 `/api/holdings/{id}/trend`，返回 `InvestmentTrendPointVO` 列表
+  - 数据来源：`xo_investment_daily_snapshot`
+
+**验证：**
+- `npm run type-check` 通过
+- `npx uni build` 通过（Sass `@import` / legacy JS API 警告为既有）
+- 后端建议编译命令：`JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn test`
