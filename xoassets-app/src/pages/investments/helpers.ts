@@ -87,19 +87,18 @@ export function buildSummaryMetrics(summary: HoldingSummary | null) {
   const totalAsset = summary?.totalMarketValue ?? 0
   const accumulatedProfit = summary?.floatingProfit ?? 0
   const accumulatedRate = summary?.floatingProfitRate ?? 0
-  const vsYesterdayAmount = summary?.todayProfit ?? null
-
-  // 较上月必须来自后端投资日快照；快照不存在时展示 --，不要用累计收益冒充。
-  const vsLastMonthAmount = summary?.lastMonthProfit ?? null
+  // 投资首页的“昨日收益 / 今日收益”直接取后端总收益字段，不用月度快照或前端反算冒充。
+  const vsYesterdayAmount = summary?.yesterdayProfit ?? null
+  const vsTodayAmount = summary?.todayProfit ?? null
 
   return {
     totalAsset,
     accumulatedProfit,
     accumulatedRate,
     vsYesterdayAmount,
-    vsYesterdayRate: vsYesterdayAmount == null ? null : calcRelativeRate(vsYesterdayAmount, totalAsset),
-    vsLastMonthAmount,
-    vsLastMonthRate: summary?.lastMonthProfitRate ?? null
+    vsYesterdayRate: summary?.yesterdayProfitRate ?? null,
+    vsLastMonthAmount: vsTodayAmount,
+    vsLastMonthRate: summary?.todayProfitRate ?? null
   }
 }
 

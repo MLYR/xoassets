@@ -22,7 +22,7 @@ export const techDarkTheme: ThemeConfig = {
       activityIconSize: '64rpx'
     },
     investments: {
-      summaryCompareLabelWidth: '86rpx',
+      summaryCompareLabelWidth: '104rpx',
       summaryCompareGap: '16rpx',
       summaryCompareRowGap: '10rpx',
       actionCapsuleHeight: '88rpx',

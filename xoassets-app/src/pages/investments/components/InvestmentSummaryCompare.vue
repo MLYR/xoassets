@@ -1,12 +1,12 @@
 <template>
   <view class="summary-compare-list">
     <view class="summary-compare-row">
-      <text class="summary-compare-label">较昨日</text>
+      <text class="summary-compare-label">昨日收益</text>
       <text class="summary-compare-value">{{ fmtOptionalSigned(metrics.vsYesterdayAmount) }}</text>
       <text class="summary-compare-rate">{{ fmtOptionalPercent(metrics.vsYesterdayRate) }}</text>
     </view>
     <view class="summary-compare-row">
-      <text class="summary-compare-label">较上月</text>
+      <text class="summary-compare-label">今日收益</text>
       <text class="summary-compare-value">{{ fmtOptionalSigned(metrics.vsLastMonthAmount) }}</text>
       <text class="summary-compare-rate">{{ fmtOptionalPercent(metrics.vsLastMonthRate) }}</text>
     </view>
@@ -50,7 +50,8 @@ function fmtOptionalPercent(value: number | null) {
   display: flex;
   align-items: center;
   column-gap: var(--xo-invest-summary-gap);
-  font-size: $font-sm;
+  font-size: 24rpx;
+  white-space: nowrap;
 }
 
 .summary-compare-label,
@@ -67,5 +68,6 @@ function fmtOptionalPercent(value: number | null) {
 .summary-compare-value,
 .summary-compare-rate {
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 </style>

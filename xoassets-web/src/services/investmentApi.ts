@@ -78,7 +78,9 @@ export interface HoldingSummary {
   totalMarketValue: number;
   totalCost: number;
   todayProfit?: number | null;
+  todayProfitRate?: number | null;
   yesterdayProfit: number;
+  yesterdayProfitRate?: number | null;
   lastMonthProfit?: number | null;
   lastMonthProfitRate?: number | null;
   floatingProfit: number;
@@ -90,6 +92,7 @@ export interface HoldingDetailSummary {
   totalBuyAmount: number;
   totalSellAmount: number;
   totalFee: number;
+  pendingConfirmAmount?: number | null;
   realizedProfit: number;
   floatingProfit: number;
   totalProfit: number;
@@ -113,11 +116,18 @@ export interface AssetPriceItem {
   marketStatus?: string | null;
 }
 
+export interface HoldingChartPoint {
+  quoteTime: string;
+  totalAssetAmount: number;
+  totalProfitAmount: number;
+}
+
 export interface HoldingDetail {
   holding: HoldingItem;
   summary: HoldingDetailSummary;
   transactions: InvestmentTransactionItem[];
   priceSnapshots: AssetPriceItem[];
+  chartPoints: HoldingChartPoint[];
 }
 
 export interface HoldingRequest {

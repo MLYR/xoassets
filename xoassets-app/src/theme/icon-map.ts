@@ -54,6 +54,7 @@ import categoryMedical from '@/assets/themes/classic-blue/icons/category-medical
 import categoryMovie from '@/assets/themes/classic-blue/icons/category-movie.svg'
 import categoryOther from '@/assets/themes/classic-blue/icons/category-other.svg'
 import categoryRefund from '@/assets/themes/classic-blue/icons/category-refund.svg'
+import categoryRent from '@/assets/themes/classic-blue/icons/category-rent.svg'
 import categorySalary from '@/assets/themes/classic-blue/icons/category-salary.svg'
 import categoryShopping from '@/assets/themes/classic-blue/icons/category-shopping.svg'
 import categorySubway from '@/assets/themes/classic-blue/icons/category-subway.svg'
@@ -206,6 +207,7 @@ const category: ThemeIconMap['category'] = {
   salary: image(categorySalary),
   bonus: image(categoryBonus),
   refund: image(categoryRefund),
+  rent: image(categoryRent),
   transfer: image(categoryTransfer)
 }
 

@@ -13,6 +13,17 @@ export interface AccountItem {
   remark?: string | null
 }
 
+export interface AccountRequest {
+  name: string
+  type: string
+  initialBalance: number
+  balance?: number
+  currency?: string
+  status?: number
+  sortOrder?: number
+  remark?: string | null
+}
+
 export interface AccountDisplayItem extends AccountItem {
   displayType: string
   maskedNo?: string | null
@@ -71,6 +82,31 @@ export interface AccountLedgerSummary {
   transactionCount: number
 }
 
+export interface AccountFlowNameAmountItem {
+  name: string
+  amount: number
+}
+
+export interface AccountDailyFlowItem {
+  date: string
+  inflow: number
+  outflow: number
+  netFlow: number
+}
+
+export interface AccountFlowStatistics {
+  incomeAmount: number
+  expenseAmount: number
+  transferInAmount: number
+  transferOutAmount: number
+  investmentBuyAmount: number
+  investmentSellAmount: number
+  netFlowAmount: number
+  categoryExpenseStats: AccountFlowNameAmountItem[]
+  investmentFlowStats: AccountFlowNameAmountItem[]
+  dailyFlowTrend: AccountDailyFlowItem[]
+}
+
 export interface AccountLedgerPage {
   account: AccountItem
   summary: AccountLedgerSummary
@@ -91,6 +127,13 @@ export const accountApi = {
   overview() {
     return request<AccountOverview>({ url: '/accounts/overview', method: 'GET' })
   },
+  update(id: string, data: AccountRequest) {
+    return request<AccountItem>({
+      url: `/accounts/${id}`,
+      method: 'PUT',
+      data
+    })
+  },
   ledger(id: string, params: {
     pageNo?: number
     pageSize?: number
@@ -101,6 +144,17 @@ export const accountApi = {
   }) {
     return request<AccountLedgerPage>({
       url: `/accounts/${id}/ledger`,
+      method: 'GET',
+      data: params
+    })
+  },
+  flowStatistics(id: string, params: {
+    month?: string
+    startDate?: string
+    endDate?: string
+  }) {
+    return request<AccountFlowStatistics>({
+      url: `/accounts/${id}/flow-statistics`,
       method: 'GET',
       data: params
     })

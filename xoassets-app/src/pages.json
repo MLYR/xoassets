@@ -14,7 +14,8 @@
     {
       "path": "pages/add/add",
       "style": {
-        "navigationBarTitleText": "记账"
+        "navigationBarTitleText": "记账",
+        "navigationStyle": "custom"
       }
     },
     {
@@ -27,7 +28,8 @@
     {
       "path": "pages/investments/investments",
       "style": {
-        "navigationBarTitleText": "投资"
+        "navigationBarTitleText": "投资",
+        "navigationStyle": "custom"
       }
     },
     {
@@ -71,7 +73,8 @@
     {
       "path": "pages/holding-detail/holding-detail",
       "style": {
-        "navigationBarTitleText": "持仓详情"
+        "navigationBarTitleText": "持仓详情",
+        "navigationStyle": "custom"
       }
     },
     {

@@ -1,5 +1,9 @@
 <template>
-  <AppPage class="invest-page" safe-bottom gap="24rpx">
+  <AppPage class="invest-page" safe-top safe-bottom gap="24rpx">
+    <view class="invest-header">
+      <text class="invest-title">投资</text>
+    </view>
+
     <!-- 顶部资产卡片：优先走真实汇总字段，缺口字段仅做受控兜底。 -->
     <AppCard
       class="summary-card"
@@ -12,7 +16,7 @@
       <view class="summary-main">
         <view class="summary-left">
           <text class="summary-title">投资总资产</text>
-          <AppAmount :value="summaryMetrics.totalAsset" prefix="¥ " size="lg" :color="theme.colors.white" />
+          <AppAmount class="summary-total-amount" :value="summaryMetrics.totalAsset" prefix="¥ " size="lg" :color="theme.colors.white" />
           <InvestmentSummaryCompare :metrics="summaryMetrics" />
         </view>
 
@@ -21,12 +25,12 @@
         <view class="summary-right">
           <text class="summary-side-label">累计收益率</text>
           <view class="summary-rate-line">
-            <AppAmount :value="summaryMetrics.accumulatedRate" signed size="lg" :color="theme.colors.white" />
+            <AppAmount class="summary-rate-amount" :value="summaryMetrics.accumulatedRate" signed size="md" :color="theme.colors.white" />
             <text class="summary-rate-unit">%</text>
           </view>
           <view class="summary-side-profit">
             <text class="summary-side-profit-label">累计收益</text>
-            <AppAmount :value="summaryMetrics.accumulatedProfit" prefix="¥ " signed size="sm" :color="theme.colors.white" />
+            <AppAmount class="summary-profit-amount" :value="summaryMetrics.accumulatedProfit" prefix="¥ " signed size="sm" :color="theme.colors.white" />
           </view>
         </view>
       </view>
@@ -40,7 +44,7 @@
         <view class="distribution-donut" :style="distributionRingStyle">
           <view class="distribution-donut-center">
             <text class="distribution-center-label">总资产</text>
-            <AppAmount :value="distributionTotalAmount" prefix="¥ " size="md" tone="neutral" />
+            <AppAmount class="distribution-center-amount" :value="distributionTotalAmount" prefix="¥ " size="sm" tone="neutral" />
           </view>
         </view>
 
@@ -66,7 +70,7 @@
       <view class="holding-table">
         <view class="holding-header">
           <text class="holding-col holding-col-name">名称/代码</text>
-          <text class="holding-col holding-col-amount">总金额/昨日/今日收益</text>
+          <text class="holding-col holding-col-amount">总/昨/今日收益</text>
           <text class="holding-col holding-col-profit">持有收益 / 率</text>
         </view>
 
@@ -221,6 +225,19 @@ function handleTradeAction(action: 'buy' | 'convert' | 'sell') {
   min-height: 100vh;
 }
 
+.invest-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 56rpx;
+}
+
+.invest-title {
+  font-size: $font-xl;
+  font-weight: 700;
+  color: var(--xo-text-primary);
+}
+
 .summary-card {
   position: relative;
   overflow: hidden;
@@ -244,7 +261,7 @@ function handleTradeAction(action: 'buy' | 'convert' | 'sell') {
   z-index: 1;
   display: flex;
   align-items: stretch;
-  column-gap: 24rpx;
+  column-gap: 16rpx;
 }
 
 .summary-left,
@@ -254,14 +271,16 @@ function handleTradeAction(action: 'buy' | 'convert' | 'sell') {
 }
 
 .summary-left {
-  flex: 1.3;
+  flex: 1.6;
+  min-width: 0;
   row-gap: 16rpx;
 }
 
 .summary-right {
-  flex: 0.9;
+  flex: 0.72;
+  min-width: 168rpx;
   justify-content: center;
-  row-gap: 20rpx;
+  row-gap: 16rpx;
 }
 
 .summary-title,
@@ -289,14 +308,31 @@ function handleTradeAction(action: 'buy' | 'convert' | 'sell') {
 .summary-rate-line {
   display: flex;
   align-items: flex-end;
-  column-gap: 8rpx;
+  column-gap: 4rpx;
+  white-space: nowrap;
 }
 
 .summary-rate-unit {
-  padding-bottom: 8rpx;
-  font-size: $font-xl;
+  padding-bottom: 4rpx;
+  font-size: $font-sm;
   color: rgba(255, 255, 255, 0.94);
   font-weight: 600;
+}
+
+.summary-total-amount,
+.summary-rate-amount,
+.summary-profit-amount {
+  white-space: nowrap;
+}
+
+.summary-right :deep(.summary-rate-amount.app-amount) {
+  font-size: 38rpx !important;
+  line-height: 1.1;
+}
+
+.summary-right :deep(.summary-profit-amount.app-amount) {
+  font-size: 24rpx !important;
+  line-height: 1.2;
 }
 
 .distribution-layout {
@@ -329,11 +365,22 @@ function handleTradeAction(action: 'buy' | 'convert' | 'sell') {
   align-items: center;
   justify-content: center;
   row-gap: 8rpx;
+  overflow: hidden;
 }
 
 .distribution-center-label {
-  font-size: $font-sm;
+  font-size: $font-xs;
   color: var(--xo-text-secondary);
+}
+
+.distribution-donut-center :deep(.distribution-center-amount.app-amount) {
+  max-width: 138rpx;
+  display: block;
+  overflow: hidden;
+  text-align: center;
+  white-space: nowrap;
+  font-size: 24rpx !important;
+  line-height: 1.15;
 }
 
 .distribution-list {

@@ -15,4 +15,5 @@ public class HoldingDetailVO {
     private HoldingDetailSummaryVO summary;
     private List<InvestmentTransactionVO> transactions;
     private List<AssetPriceVO> priceSnapshots;
+    private List<HoldingChartPointVO> chartPoints;
 }

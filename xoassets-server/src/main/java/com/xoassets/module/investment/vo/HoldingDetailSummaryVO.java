@@ -15,6 +15,7 @@ public class HoldingDetailSummaryVO {
     private BigDecimal totalBuyAmount;
     private BigDecimal totalSellAmount;
     private BigDecimal totalFee;
+    private BigDecimal pendingConfirmAmount;
     private BigDecimal realizedProfit;
     private BigDecimal floatingProfit;
     private BigDecimal totalProfit;

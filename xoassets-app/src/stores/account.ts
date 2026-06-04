@@ -1,7 +1,7 @@
 /* 账户 Store */
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { accountApi, type AccountItem, type AccountLedgerPage, type AccountOverview } from '@/services/accountApi'
+import { accountApi, type AccountItem, type AccountLedgerPage, type AccountOverview, type AccountRequest } from '@/services/accountApi'
 
 export const useAccountStore = defineStore('account', () => {
   const accounts = ref<AccountItem[]>([])
@@ -32,5 +32,16 @@ export const useAccountStore = defineStore('account', () => {
     return accountApi.ledger(id, params)
   }
 
-  return { accounts, overview, loading, fetchAccounts, fetchOverview, fetchLedger }
+  async function fetchFlowStatistics(id: string, params: any) {
+    return accountApi.flowStatistics(id, params)
+  }
+
+  async function updateAccount(id: string, data: AccountRequest) {
+    const updated = await accountApi.update(id, data)
+    const index = accounts.value.findIndex(item => item.id === id)
+    if (index >= 0) accounts.value[index] = updated
+    return updated
+  }
+
+  return { accounts, overview, loading, fetchAccounts, fetchOverview, fetchLedger, fetchFlowStatistics, updateAccount }
 })

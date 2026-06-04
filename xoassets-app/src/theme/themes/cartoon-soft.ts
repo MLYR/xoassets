@@ -22,7 +22,7 @@ export const cartoonSoftTheme: ThemeConfig = {
       activityIconSize: '64rpx'
     },
     investments: {
-      summaryCompareLabelWidth: '88rpx',
+      summaryCompareLabelWidth: '104rpx',
       summaryCompareGap: '16rpx',
       summaryCompareRowGap: '12rpx',
       actionCapsuleHeight: '90rpx',

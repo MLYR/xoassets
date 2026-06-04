@@ -1,5 +1,5 @@
 <template>
-  <AppPage class="add-page" safe-bottom gap="24rpx">
+  <AppPage class="add-page" safe-top safe-bottom gap="24rpx">
     <view class="page-header">
       <text class="page-title">记账</text>
       <view class="page-toolbar">
@@ -973,6 +973,7 @@ function isSameYearMonth(left: Date, right: Date) {
   font-size: $font-xl;
   font-weight: 700;
   color: var(--xo-text-primary);
+  text-align: center;
 }
 
 .page-toolbar {

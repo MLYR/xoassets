@@ -11,6 +11,7 @@ import com.xoassets.module.investment.service.HoldingService;
 import com.xoassets.module.investment.service.HoldingTradeResult;
 import com.xoassets.module.investment.service.QuoteService;
 import com.xoassets.module.investment.vo.AssetPriceVO;
+import com.xoassets.module.investment.vo.HoldingChartPointVO;
 import com.xoassets.module.investment.vo.HoldingDetailSummaryVO;
 import com.xoassets.module.investment.vo.HoldingDetailVO;
 import com.xoassets.module.investment.vo.HoldingSummaryVO;
@@ -114,8 +115,21 @@ public class HoldingServiceImpl implements HoldingService {
         BigDecimal totalCost = holdings.stream().map(HoldingVO::getTotalCost).reduce(BigDecimal.ZERO, BigDecimal::add);
         InvestmentDailySnapshot previousSnapshot = previousInvestmentSnapshot(userId, LocalDate.now());
         // 投资总资产较昨日使用用户投资日快照，而不是单持仓今日收益求和，避免用户入金/调仓被误解为价格收益。
-        BigDecimal todayProfit = previousSnapshot == null ? null : totalMarketValue.subtract(scale4(previousSnapshot.getMarketValue())).subtract(todayNetInflow()).setScale(4, RoundingMode.HALF_UP);
+        BigDecimal fallbackTodayProfit = holdings.stream().map(item -> nullToZero(item.getTodayProfit())).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal fallbackTodayProfitBase = holdings.stream()
+                .filter(item -> item.getPreviousPrice() != null)
+                .map(item -> item.getQuantity().multiply(item.getPreviousPrice()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal todayProfit = previousSnapshot == null ? fallbackTodayProfit.setScale(4, RoundingMode.HALF_UP) : totalMarketValue.subtract(scale4(previousSnapshot.getMarketValue())).subtract(todayNetInflow()).setScale(4, RoundingMode.HALF_UP);
+        BigDecimal todayProfitRate = previousSnapshot == null
+                ? (fallbackTodayProfitBase.compareTo(BigDecimal.ZERO) <= 0 ? null : rate(todayProfit, fallbackTodayProfitBase))
+                : rate(todayProfit, scale4(previousSnapshot.getMarketValue()));
         BigDecimal yesterdayProfit = holdings.stream().map(item -> nullToZero(item.getYesterdayProfit())).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal yesterdayProfitBase = holdings.stream()
+                .filter(item -> item.getBeforePreviousPrice() != null)
+                .map(item -> item.getQuantity().multiply(item.getBeforePreviousPrice()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal yesterdayProfitRate = yesterdayProfitBase.compareTo(BigDecimal.ZERO) <= 0 ? null : rate(yesterdayProfit, yesterdayProfitBase);
         BigDecimal floatingProfit = holdings.stream().map(HoldingVO::getFloatingProfit).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal floatingProfitRate = totalCost.compareTo(BigDecimal.ZERO) == 0
                 ? BigDecimal.ZERO
@@ -129,7 +143,9 @@ public class HoldingServiceImpl implements HoldingService {
                 .totalMarketValue(totalMarketValue.setScale(4, RoundingMode.HALF_UP))
                 .totalCost(totalCost.setScale(4, RoundingMode.HALF_UP))
                 .todayProfit(todayProfit)
+                .todayProfitRate(todayProfitRate)
                 .yesterdayProfit(yesterdayProfit.setScale(4, RoundingMode.HALF_UP))
+                .yesterdayProfitRate(yesterdayProfitRate)
                 .lastMonthProfit(lastMonthProfit)
                 .lastMonthProfitRate(lastMonthProfitRate)
                 .floatingProfit(floatingProfit.setScale(4, RoundingMode.HALF_UP))
@@ -157,11 +173,13 @@ public class HoldingServiceImpl implements HoldingService {
         List<InvestmentTransactionVO> transactionVOList = transactions.stream()
                 .map(transaction -> toTransactionVO(transaction, asset, accountMap.get(transaction.getAccountId())))
                 .toList();
+        HoldingDetailSummaryVO detailSummary = detailSummary(holdingVO, transactions);
         return HoldingDetailVO.builder()
                 .holding(holdingVO)
-                .summary(detailSummary(holdingVO, transactions))
+                .summary(detailSummary)
                 .transactions(transactionVOList)
                 .priceSnapshots(priceSnapshots.stream().map(this::toAssetPriceVO).toList())
+                .chartPoints(holdingChartPoints(holdingVO, detailSummary, priceSnapshots))
                 .build();
     }
 
@@ -593,18 +611,54 @@ public class HoldingServiceImpl implements HoldingService {
     }
 
     /**
+     * 生成持仓详情金额曲线：总资产和总收益都由后端基于真实价格快照、当前份额和成本口径计算。
+     */
+    private List<HoldingChartPointVO> holdingChartPoints(HoldingVO holding, HoldingDetailSummaryVO summary, List<AssetPrice> priceSnapshots) {
+        List<AssetPrice> points = priceSnapshots == null ? List.of() : priceSnapshots.stream()
+                .filter(price -> price.getPrice() != null)
+                .sorted(java.util.Comparator.comparing(AssetPrice::getQuoteTime))
+                .toList();
+        if (points.isEmpty()) {
+            BigDecimal assetAmount = scale4(holding.getMarketValue());
+            return List.of(HoldingChartPointVO.builder()
+                    .quoteTime(holding.getLatestPriceTime() == null ? java.time.LocalDateTime.now() : holding.getLatestPriceTime())
+                    .totalAssetAmount(assetAmount)
+                    .totalProfitAmount(scale4(summary.getTotalProfit()))
+                    .build());
+        }
+        BigDecimal quantity = nullToZero(holding.getQuantity());
+        BigDecimal totalCost = scale4(holding.getTotalCost());
+        BigDecimal realizedProfit = scale4(summary.getRealizedProfit());
+        return points.stream()
+                .map(price -> {
+                    BigDecimal assetAmount = quantity.multiply(price.getPrice()).setScale(4, RoundingMode.HALF_UP);
+                    BigDecimal profitAmount = realizedProfit.add(assetAmount.subtract(totalCost)).setScale(4, RoundingMode.HALF_UP);
+                    return HoldingChartPointVO.builder()
+                            .quoteTime(price.getQuoteTime())
+                            .totalAssetAmount(assetAmount)
+                            .totalProfitAmount(profitAmount)
+                            .build();
+                })
+                .toList();
+    }
+
+    /**
      * 计算单个持仓详情汇总，撤销交易保留明细展示但不参与收益统计。
      */
     private HoldingDetailSummaryVO detailSummary(HoldingVO holding, List<InvestmentTransaction> transactions) {
         BigDecimal totalBuyAmount = BigDecimal.ZERO;
         BigDecimal totalSellAmount = BigDecimal.ZERO;
         BigDecimal totalFee = BigDecimal.ZERO;
+        BigDecimal pendingConfirmAmount = BigDecimal.ZERO;
         BigDecimal realizedProfit = BigDecimal.ZERO;
         int buyCount = 0;
         int sellCount = 0;
         java.time.LocalDateTime firstBuyDateTime = null;
         java.time.LocalDateTime lastTradeTime = null;
         for (InvestmentTransaction transaction : transactions) {
+            if ("PENDING_CONFIRM".equals(transaction.getStatus()) && "BUY".equals(transaction.getType())) {
+                pendingConfirmAmount = pendingConfirmAmount.add(scale4(transaction.getAmount()).add(scale4(transaction.getFee())));
+            }
             if (!isEffectiveInvestmentTransaction(transaction)) {
                 continue;
             }
@@ -635,6 +689,7 @@ public class HoldingServiceImpl implements HoldingService {
                 .totalBuyAmount(totalBuyAmount.setScale(4, RoundingMode.HALF_UP))
                 .totalSellAmount(totalSellAmount.setScale(4, RoundingMode.HALF_UP))
                 .totalFee(totalFee.setScale(4, RoundingMode.HALF_UP))
+                .pendingConfirmAmount(pendingConfirmAmount.setScale(4, RoundingMode.HALF_UP))
                 .realizedProfit(realizedProfit.setScale(4, RoundingMode.HALF_UP))
                 .floatingProfit(floatingProfit)
                 .totalProfit(totalProfit)

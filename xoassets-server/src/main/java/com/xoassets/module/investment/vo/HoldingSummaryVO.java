@@ -14,7 +14,9 @@ public class HoldingSummaryVO {
     private BigDecimal totalMarketValue;
     private BigDecimal totalCost;
     private BigDecimal todayProfit;
+    private BigDecimal todayProfitRate;
     private BigDecimal yesterdayProfit;
+    private BigDecimal yesterdayProfitRate;
     private BigDecimal lastMonthProfit;
     private BigDecimal lastMonthProfitRate;
     private BigDecimal floatingProfit;
