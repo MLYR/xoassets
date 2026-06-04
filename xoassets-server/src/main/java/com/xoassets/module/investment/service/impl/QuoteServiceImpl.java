@@ -84,12 +84,12 @@ public class QuoteServiceImpl implements QuoteService {
     }
 
     /**
-     * 按资产选择行情 provider；最近价格仍新鲜时直接复用，避免频繁请求第三方。
+     * 用户手动刷新必须绕过 TTL 和交易时段缓存，尽量拿到最新可用收盘价。
      */
     @Transactional(rollbackFor = Exception.class)
     @Override
     public AssetPriceVO refreshQuote(Long assetId) {
-        return refreshQuoteIfStale(assetId);
+        return refreshQuoteInternal(assetId, true);
     }
 
     /**
@@ -124,16 +124,23 @@ public class QuoteServiceImpl implements QuoteService {
     @Transactional(rollbackFor = Exception.class)
     @Override
     public AssetPriceVO refreshQuoteIfStale(Long assetId) {
+        return refreshQuoteInternal(assetId, false);
+    }
+
+    /**
+     * force=true 用于用户主动刷新；force=false 用于定时任务和后台按需刷新。
+     */
+    private AssetPriceVO refreshQuoteInternal(Long assetId, boolean force) {
         Asset asset = assetService.findAsset(assetId);
         AssetPrice latestPrice = latestPrice(assetId);
-        if (isOutsideStockRefreshWindow(asset)) {
+        if (!force && isOutsideStockRefreshWindow(asset)) {
             // 股票行情只在 09:30-15:00 之间主动刷新；非交易时段直接复用最近快照，避免无意义写入。
             if (latestPrice != null) {
                 return toVO(latestPrice);
             }
             throw new BusinessException(ErrorCode.BUSINESS_ERROR, "股票行情仅在交易时段刷新");
         }
-        if (isFresh(asset, latestPrice)) {
+        if (!force && isFresh(asset, latestPrice)) {
             return toVO(latestPrice);
         }
         QuoteProvider provider = quoteProviders.stream()

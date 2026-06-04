@@ -38,7 +38,10 @@ public class StockQuoteProvider implements QuoteProvider {
                 .baseUrl("https://hq.sinajs.cn")
                 .defaultHeader(HttpHeaders.REFERER, "https://finance.sina.com.cn")
                 .build();
-        this.yahooClient = RestClient.builder().baseUrl("https://query1.finance.yahoo.com").build();
+        this.yahooClient = RestClient.builder()
+                .baseUrl("https://query1.finance.yahoo.com")
+                .defaultHeader(HttpHeaders.USER_AGENT, "Mozilla/5.0")
+                .build();
     }
 
     @Override
@@ -71,6 +74,10 @@ public class StockQuoteProvider implements QuoteProvider {
             }
             BigDecimal previousClose = new BigDecimal(fields[2]).setScale(8, RoundingMode.HALF_UP);
             BigDecimal price = new BigDecimal(fields[3]).setScale(8, RoundingMode.HALF_UP);
+            if (price.compareTo(BigDecimal.ZERO) <= 0 || previousClose.compareTo(BigDecimal.ZERO) <= 0) {
+                // 新浪停牌、退市或无效代码可能返回 0；不能让无效价覆盖当前估值。
+                throw new BusinessException(ErrorCode.BUSINESS_ERROR, "A股行情未返回有效价格");
+            }
             BigDecimal changeAmount = price.subtract(previousClose).setScale(8, RoundingMode.HALF_UP);
             BigDecimal changePercent = previousClose.compareTo(BigDecimal.ZERO) == 0
                     ? null

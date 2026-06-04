@@ -303,6 +303,10 @@ public class AssetServiceImpl implements AssetService {
             }
             BigDecimal previousClose = new BigDecimal(fields[2]).setScale(8, RoundingMode.HALF_UP);
             BigDecimal price = new BigDecimal(fields[3]).setScale(8, RoundingMode.HALF_UP);
+            if (price.compareTo(BigDecimal.ZERO) <= 0 || previousClose.compareTo(BigDecimal.ZERO) <= 0) {
+                // 新浪无效行情会返回 0，资产识别阶段也不能把它当作初始最新价。
+                throw new BusinessException(ErrorCode.BUSINESS_ERROR, "股票资产信息查询失败");
+            }
             return List.of(AssetLookupVO.builder()
                     .name(StringUtils.hasText(fields[0]) ? fields[0] : code)
                     .symbol(code + "." + market)
