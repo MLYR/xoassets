@@ -18,21 +18,24 @@ import com.xoassets.module.investment.vo.HoldingVO;
 import com.xoassets.module.investment.vo.InvestmentTransactionVO;
 import com.xoassets.persistence.entity.Account;
 import com.xoassets.persistence.entity.Asset;
+import com.xoassets.persistence.entity.AssetPriceDaily;
 import com.xoassets.persistence.entity.AssetPrice;
-import com.xoassets.persistence.entity.AssetSnapshot;
+import com.xoassets.persistence.entity.AssetPriceCurrent;
 import com.xoassets.persistence.entity.Holding;
+import com.xoassets.persistence.entity.InvestmentDailySnapshot;
 import com.xoassets.persistence.entity.InvestmentTransaction;
 import com.xoassets.persistence.mapper.AccountMapper;
 import com.xoassets.persistence.mapper.AssetMapper;
+import com.xoassets.persistence.mapper.AssetPriceCurrentMapper;
+import com.xoassets.persistence.mapper.AssetPriceDailyMapper;
 import com.xoassets.persistence.mapper.AssetPriceMapper;
-import com.xoassets.persistence.mapper.AssetSnapshotMapper;
 import com.xoassets.persistence.mapper.HoldingMapper;
+import com.xoassets.persistence.mapper.InvestmentDailySnapshotMapper;
 import com.xoassets.persistence.mapper.InvestmentTransactionMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -54,7 +57,9 @@ public class HoldingServiceImpl implements HoldingService {
     private final HoldingMapper holdingMapper;
     private final AssetMapper assetMapper;
     private final AssetPriceMapper assetPriceMapper;
-    private final AssetSnapshotMapper assetSnapshotMapper;
+    private final AssetPriceCurrentMapper assetPriceCurrentMapper;
+    private final AssetPriceDailyMapper assetPriceDailyMapper;
+    private final InvestmentDailySnapshotMapper investmentDailySnapshotMapper;
     private final InvestmentTransactionMapper investmentTransactionMapper;
     private final AccountMapper accountMapper;
     private final AssetService assetService;
@@ -64,7 +69,9 @@ public class HoldingServiceImpl implements HoldingService {
             HoldingMapper holdingMapper,
             AssetMapper assetMapper,
             AssetPriceMapper assetPriceMapper,
-            AssetSnapshotMapper assetSnapshotMapper,
+            AssetPriceCurrentMapper assetPriceCurrentMapper,
+            AssetPriceDailyMapper assetPriceDailyMapper,
+            InvestmentDailySnapshotMapper investmentDailySnapshotMapper,
             InvestmentTransactionMapper investmentTransactionMapper,
             AccountMapper accountMapper,
             AssetService assetService,
@@ -72,7 +79,9 @@ public class HoldingServiceImpl implements HoldingService {
         this.holdingMapper = holdingMapper;
         this.assetMapper = assetMapper;
         this.assetPriceMapper = assetPriceMapper;
-        this.assetSnapshotMapper = assetSnapshotMapper;
+        this.assetPriceCurrentMapper = assetPriceCurrentMapper;
+        this.assetPriceDailyMapper = assetPriceDailyMapper;
+        this.investmentDailySnapshotMapper = investmentDailySnapshotMapper;
         this.investmentTransactionMapper = investmentTransactionMapper;
         this.accountMapper = accountMapper;
         this.assetService = assetService;
@@ -100,19 +109,23 @@ public class HoldingServiceImpl implements HoldingService {
         List<HoldingVO> holdings = list();
         BigDecimal totalMarketValue = holdings.stream().map(HoldingVO::getMarketValue).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalCost = holdings.stream().map(HoldingVO::getTotalCost).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal todayProfit = holdings.stream().map(item -> nullToZero(item.getTodayProfit())).reduce(BigDecimal.ZERO, BigDecimal::add);
+        InvestmentDailySnapshot previousSnapshot = previousInvestmentSnapshot(userId, LocalDate.now());
+        // 投资总资产较昨日使用用户投资日快照，而不是单持仓今日收益求和，避免用户入金/调仓被误解为价格收益。
+        BigDecimal todayProfit = previousSnapshot == null ? null : totalMarketValue.subtract(scale4(previousSnapshot.getMarketValue())).subtract(todayNetInflow()).setScale(4, RoundingMode.HALF_UP);
         BigDecimal yesterdayProfit = holdings.stream().map(item -> nullToZero(item.getYesterdayProfit())).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal floatingProfit = holdings.stream().map(HoldingVO::getFloatingProfit).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal floatingProfitRate = totalCost.compareTo(BigDecimal.ZERO) == 0
                 ? BigDecimal.ZERO
                 : floatingProfit.multiply(BigDecimal.valueOf(100)).divide(totalCost, 4, RoundingMode.HALF_UP);
-        AssetSnapshot monthStartSnapshot = firstMonthSnapshot(userId, LocalDate.now());
-        BigDecimal lastMonthProfit = monthStartSnapshot == null ? null : totalMarketValue.subtract(scale4(monthStartSnapshot.getInvestmentAsset())).setScale(4, RoundingMode.HALF_UP);
-        BigDecimal lastMonthProfitRate = monthStartSnapshot == null ? null : rate(lastMonthProfit, scale4(monthStartSnapshot.getInvestmentAsset()));
+        InvestmentDailySnapshot lastMonthEndSnapshot = lastMonthEndSnapshot(userId, LocalDate.now());
+        // TODO: 后续需要汇总本月投资账户外部转入/转出，避免充值被算成较上月收益。
+        BigDecimal monthNetInflow = BigDecimal.ZERO;
+        BigDecimal lastMonthProfit = lastMonthEndSnapshot == null ? null : totalMarketValue.subtract(scale4(lastMonthEndSnapshot.getMarketValue())).subtract(monthNetInflow).setScale(4, RoundingMode.HALF_UP);
+        BigDecimal lastMonthProfitRate = lastMonthEndSnapshot == null ? null : rate(lastMonthProfit, scale4(lastMonthEndSnapshot.getMarketValue()));
         return HoldingSummaryVO.builder()
                 .totalMarketValue(totalMarketValue.setScale(4, RoundingMode.HALF_UP))
                 .totalCost(totalCost.setScale(4, RoundingMode.HALF_UP))
-                .todayProfit(todayProfit.setScale(4, RoundingMode.HALF_UP))
+                .todayProfit(todayProfit)
                 .yesterdayProfit(yesterdayProfit.setScale(4, RoundingMode.HALF_UP))
                 .lastMonthProfit(lastMonthProfit)
                 .lastMonthProfitRate(lastMonthProfitRate)
@@ -131,7 +144,7 @@ public class HoldingServiceImpl implements HoldingService {
         Holding holding = findOwnedHolding(id, userId);
         Asset asset = assetMapper.selectById(holding.getAssetId());
         List<AssetPrice> priceSnapshots = latestPriceSnapshots(holding.getAssetId());
-        HoldingVO holdingVO = toVO(holding, asset, priceSnapshots);
+        HoldingVO holdingVO = toVO(holding, asset, priceContext(holding.getAssetId()));
         List<InvestmentTransaction> transactions = investmentTransactionMapper.selectList(new LambdaQueryWrapper<InvestmentTransaction>()
                 .eq(InvestmentTransaction::getUserId, userId)
                 .eq(InvestmentTransaction::getHoldingId, id)
@@ -384,18 +397,40 @@ public class HoldingServiceImpl implements HoldingService {
     }
 
     /**
-     * 查询本月首个资产快照，作为投资页“较上月/本月初”对比基准。
+     * 查询上月最后一条投资日快照，作为投资总资产较上月的权威对比基准。
      */
-    private AssetSnapshot firstMonthSnapshot(Long userId, LocalDate date) {
-        LocalDate startDate = date.withDayOfMonth(1);
-        return assetSnapshotMapper.selectList(new LambdaQueryWrapper<AssetSnapshot>()
-                        .eq(AssetSnapshot::getUserId, userId)
-                        .between(AssetSnapshot::getSnapshotDate, startDate, date)
-                        .orderByAsc(AssetSnapshot::getSnapshotDate)
+    private InvestmentDailySnapshot lastMonthEndSnapshot(Long userId, LocalDate date) {
+        LocalDate monthStart = date.withDayOfMonth(1);
+        return investmentDailySnapshotMapper.selectList(new LambdaQueryWrapper<InvestmentDailySnapshot>()
+                        .eq(InvestmentDailySnapshot::getUserId, userId)
+                        .lt(InvestmentDailySnapshot::getSnapshotDate, monthStart)
+                        .orderByDesc(InvestmentDailySnapshot::getSnapshotDate)
                         .last("limit 1"))
                 .stream()
                 .findFirst()
                 .orElse(null);
+    }
+
+    /**
+     * 查询今天之前最近一条投资日快照，作为投资总资产较昨日的权威对比基准。
+     */
+    private InvestmentDailySnapshot previousInvestmentSnapshot(Long userId, LocalDate date) {
+        return investmentDailySnapshotMapper.selectList(new LambdaQueryWrapper<InvestmentDailySnapshot>()
+                        .eq(InvestmentDailySnapshot::getUserId, userId)
+                        .lt(InvestmentDailySnapshot::getSnapshotDate, date)
+                        .orderByDesc(InvestmentDailySnapshot::getSnapshotDate)
+                        .last("limit 1"))
+                .stream()
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * 第一版暂未区分投资账户外部入金/出金；先固定为 0，并在日快照任务中保留同一 TODO。
+     */
+    private BigDecimal todayNetInflow() {
+        // TODO: 后续需要区分投资账户外部转入/转出，避免充值被算成较昨日收益。
+        return BigDecimal.ZERO;
     }
 
     /**
@@ -429,8 +464,8 @@ public class HoldingServiceImpl implements HoldingService {
         }
         Set<Long> assetIds = holdings.stream().map(Holding::getAssetId).collect(Collectors.toSet());
         Map<Long, Asset> assetMap = assetMapper.selectBatchIds(assetIds).stream().collect(Collectors.toMap(Asset::getId, asset -> asset));
-        Map<Long, List<AssetPrice>> priceMap = priceHistoryMap(assetIds);
-        return holdings.stream().map(holding -> toVO(holding, assetMap.get(holding.getAssetId()), priceMap.getOrDefault(holding.getAssetId(), List.of()))).toList();
+        Map<Long, HoldingPriceContext> priceContextMap = priceContextMap(assetIds);
+        return holdings.stream().map(holding -> toVO(holding, assetMap.get(holding.getAssetId()), priceContextMap.get(holding.getAssetId()))).toList();
     }
 
     /**
@@ -438,28 +473,22 @@ public class HoldingServiceImpl implements HoldingService {
      */
     private HoldingVO toVO(Holding holding) {
         Asset asset = assetMapper.selectById(holding.getAssetId());
-        List<AssetPrice> prices = priceHistoryMap(Set.of(holding.getAssetId())).getOrDefault(holding.getAssetId(), List.of());
-        return toVO(holding, asset, prices);
+        return toVO(holding, asset, priceContext(holding.getAssetId()));
     }
 
     /**
      * 计算市值、浮动盈亏和收益率；没有价格时用 avgCost 兜底。
      */
-    private HoldingVO toVO(Holding holding, Asset asset, List<AssetPrice> prices) {
-        // 最新价、市值和收益指标都从同一组同币种价格快照计算，避免展示和估值口径不一致。
-        List<AssetPrice> matchedPrices = prices.stream()
-                .filter(price -> priceMatchesAssetCurrency(asset, price))
-                .sorted(Comparator.comparing(AssetPrice::getQuoteTime).reversed().thenComparing(AssetPrice::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
-                .toList();
-        AssetPrice matchedPrice = matchedPrices.isEmpty() ? null : matchedPrices.get(0);
-        AssetPrice previousPrice = previousPrice(matchedPrices, matchedPrice);
-        AssetPrice beforePreviousPrice = beforePreviousPrice(matchedPrices);
+    private HoldingVO toVO(Holding holding, Asset asset, HoldingPriceContext priceContext) {
+        AssetPrice matchedPrice = priceContext == null || !priceMatchesAssetCurrency(asset, priceContext.currentPrice()) ? null : priceContext.currentPrice();
+        AssetPriceDaily previousDaily = priceContext == null || !priceMatchesAssetCurrency(asset, priceContext.previousDaily()) ? null : priceContext.previousDaily();
+        AssetPriceDaily beforePreviousDaily = priceContext == null || !priceMatchesAssetCurrency(asset, priceContext.beforePreviousDaily()) ? null : priceContext.beforePreviousDaily();
         BigDecimal latestPrice = matchedPrice == null ? holding.getAvgCost() : matchedPrice.getPrice();
-        // 股票/基金 provider 会把昨收或上一净值直接写在最新快照上，优先使用该字段计算今日收益。
+        // 今日收益按“当前价 - 最近交易日日收盘价”计算，不能用自然日 yesterday 推断交易日。
         BigDecimal previous = matchedPrice != null && matchedPrice.getPreviousClose() != null
                 ? matchedPrice.getPreviousClose()
-                : previousPrice == null ? null : previousPrice.getPrice();
-        BigDecimal beforePrevious = beforePreviousPrice == null ? null : beforePreviousPrice.getPrice();
+                : previousDaily == null ? null : previousDaily.getClosePrice();
+        BigDecimal beforePrevious = beforePreviousDaily == null ? null : beforePreviousDaily.getClosePrice();
         BigDecimal marketValue = holding.getQuantity().multiply(latestPrice).setScale(4, RoundingMode.HALF_UP);
         BigDecimal profit = marketValue.subtract(holding.getTotalCost());
         BigDecimal profitRate = holding.getTotalCost().compareTo(BigDecimal.ZERO) == 0
@@ -487,7 +516,7 @@ public class HoldingServiceImpl implements HoldingService {
                 .beforePreviousPrice(beforePrevious)
                 .priceScale(priceScale(asset))
                 .latestPriceTime(matchedPrice == null ? null : matchedPrice.getQuoteTime())
-                .previousPriceTime(previousPrice == null ? null : previousPrice.getQuoteTime())
+                .previousPriceTime(previousDaily == null ? null : previousDaily.getTradeDate().atStartOfDay())
                 .latestPriceSource(matchedPrice == null ? null : matchedPrice.getSource())
                 .marketStatus(matchedPrice == null ? null : matchedPrice.getMarketStatus())
                 .marketValue(marketValue)
@@ -625,54 +654,35 @@ public class HoldingServiceImpl implements HoldingService {
     }
 
     /**
-     * 批量读取价格快照，后续在内存中按币种和日期挑选最新、昨日、前日价格。
+     * 批量读取 current + 最近两个交易日 daily，核心收益计算不再依赖旧原始快照表。
      */
-    private Map<Long, List<AssetPrice>> priceHistoryMap(Set<Long> assetIds) {
+    private Map<Long, HoldingPriceContext> priceContextMap(Set<Long> assetIds) {
         if (assetIds.isEmpty()) {
             return Map.of();
         }
-        return assetPriceMapper.selectList(new LambdaQueryWrapper<AssetPrice>()
-                        .in(AssetPrice::getAssetId, assetIds)
-                        .orderByDesc(AssetPrice::getQuoteTime)
-                        .orderByDesc(AssetPrice::getCreatedAt))
+        Map<Long, AssetPrice> currentPriceMap = quoteService.latestPriceMap(assetIds);
+        Map<Long, AssetPrice> safeCurrentPriceMap = currentPriceMap == null ? Map.of() : currentPriceMap;
+        List<AssetPriceDaily> dailyRows = assetPriceDailyMapper.selectList(new LambdaQueryWrapper<AssetPriceDaily>()
+                        .in(AssetPriceDaily::getAssetId, assetIds)
+                        .lt(AssetPriceDaily::getTradeDate, LocalDate.now())
+                        .orderByDesc(AssetPriceDaily::getTradeDate));
+        Map<Long, List<AssetPriceDaily>> dailyPriceMap = (dailyRows == null ? List.<AssetPriceDaily>of() : dailyRows)
                 .stream()
-                .collect(Collectors.groupingBy(AssetPrice::getAssetId));
+                .collect(Collectors.groupingBy(AssetPriceDaily::getAssetId));
+        return assetIds.stream().collect(Collectors.toMap(assetId -> assetId, assetId -> {
+            List<AssetPriceDaily> prices = dailyPriceMap.getOrDefault(assetId, List.of());
+            return new HoldingPriceContext(
+                    safeCurrentPriceMap.get(assetId),
+                    prices.isEmpty() ? null : prices.get(0),
+                    prices.size() < 2 ? null : prices.get(1));
+        }));
     }
 
     /**
-     * 昨日价格优先取昨天最后一条；缺失时取最新价格之前最近的不同日期价格。
+     * 读取单个资产的价格上下文。
      */
-    private AssetPrice previousPrice(List<AssetPrice> prices, AssetPrice latestPrice) {
-        if (latestPrice == null) {
-            return null;
-        }
-        LocalDate yesterday = LocalDate.now().minusDays(1);
-        AssetPrice exactYesterday = lastPriceOnDate(prices, yesterday);
-        if (exactYesterday != null) {
-            return exactYesterday;
-        }
-        LocalDate latestDate = latestPrice.getQuoteTime().toLocalDate();
-        return prices.stream()
-                .filter(price -> price.getQuoteTime().toLocalDate().isBefore(latestDate))
-                .findFirst()
-                .orElse(null);
-    }
-
-    /**
-     * 前日价格只取前天最后一条；没有则返回 null，让前端展示暂无。
-     */
-    private AssetPrice beforePreviousPrice(List<AssetPrice> prices) {
-        return lastPriceOnDate(prices, LocalDate.now().minusDays(2));
-    }
-
-    /**
-     * 获取指定日期最后一条价格。
-     */
-    private AssetPrice lastPriceOnDate(List<AssetPrice> prices, LocalDate date) {
-        return prices.stream()
-                .filter(price -> price.getQuoteTime().toLocalDate().equals(date))
-                .findFirst()
-                .orElse(null);
+    private HoldingPriceContext priceContext(Long assetId) {
+        return priceContextMap(Set.of(assetId)).get(assetId);
     }
 
     /**
@@ -768,6 +778,29 @@ public class HoldingServiceImpl implements HoldingService {
         price.setMarketStatus(StringUtils.hasText(request.getMarketStatus()) ? request.getMarketStatus() : "LOOKUP");
         price.setDeleted(0);
         assetPriceMapper.insert(price);
+        upsertCurrentPrice(price);
+    }
+
+    /**
+     * 自动识别带回的初始价同步写 current，保证新增持仓后估值优先使用当前价表。
+     */
+    private void upsertCurrentPrice(AssetPrice price) {
+        AssetPriceCurrent current = new AssetPriceCurrent();
+        current.setAssetId(price.getAssetId());
+        current.setPrice(price.getPrice());
+        current.setCurrency(price.getCurrency());
+        current.setPreviousClose(price.getPreviousClose());
+        current.setChangeAmount(price.getChangeAmount());
+        current.setChangePercent(price.getChangePercent());
+        current.setSource(price.getSource());
+        current.setQuoteTime(price.getQuoteTime());
+        current.setMarketStatus(price.getMarketStatus());
+        current.setRawJson(price.getRawJson());
+        if (assetPriceCurrentMapper.selectById(price.getAssetId()) == null) {
+            assetPriceCurrentMapper.insert(current);
+            return;
+        }
+        assetPriceCurrentMapper.updateById(current);
     }
 
     /**
@@ -785,6 +818,16 @@ public class HoldingServiceImpl implements HoldingService {
             return false;
         }
         return Objects.equals(asset.getCurrency(), price.getCurrency());
+    }
+
+    private boolean priceMatchesAssetCurrency(Asset asset, AssetPriceDaily price) {
+        if (asset == null || price == null) {
+            return false;
+        }
+        return Objects.equals(asset.getCurrency(), price.getCurrency());
+    }
+
+    private record HoldingPriceContext(AssetPrice currentPrice, AssetPriceDaily previousDaily, AssetPriceDaily beforePreviousDaily) {
     }
 
     /**

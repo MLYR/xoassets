@@ -7,10 +7,14 @@ import com.xoassets.module.investment.dto.ManualQuoteRequest;
 import com.xoassets.module.investment.provider.QuoteFetchResult;
 import com.xoassets.module.investment.provider.QuoteProvider;
 import com.xoassets.module.investment.service.AssetService;
+import com.xoassets.module.investment.service.QuoteRawSnapshot;
+import com.xoassets.module.investment.service.QuoteRawSnapshotService;
 import com.xoassets.module.investment.service.QuoteService;
 import com.xoassets.module.investment.vo.AssetPriceVO;
 import com.xoassets.persistence.entity.Asset;
 import com.xoassets.persistence.entity.AssetPrice;
+import com.xoassets.persistence.entity.AssetPriceCurrent;
+import com.xoassets.persistence.mapper.AssetPriceCurrentMapper;
 import com.xoassets.persistence.mapper.AssetPriceMapper;
 import java.math.RoundingMode;
 import java.time.Duration;
@@ -28,7 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 /**
- * 行情价格服务实现，所有外部行情统一写入 xo_asset_price。
+ * 行情价格服务实现：当前价落 MySQL current，原始快照短期落 Redis。
  */
 @Slf4j
 @Service
@@ -38,11 +42,20 @@ public class QuoteServiceImpl implements QuoteService {
     private static final LocalTime STOCK_REFRESH_END = LocalTime.of(15, 0);
 
     private final AssetPriceMapper assetPriceMapper;
+    private final AssetPriceCurrentMapper assetPriceCurrentMapper;
+    private final QuoteRawSnapshotService quoteRawSnapshotService;
     private final AssetService assetService;
     private final List<QuoteProvider> quoteProviders;
 
-    public QuoteServiceImpl(AssetPriceMapper assetPriceMapper, AssetService assetService, List<QuoteProvider> quoteProviders) {
+    public QuoteServiceImpl(
+            AssetPriceMapper assetPriceMapper,
+            AssetPriceCurrentMapper assetPriceCurrentMapper,
+            QuoteRawSnapshotService quoteRawSnapshotService,
+            AssetService assetService,
+            List<QuoteProvider> quoteProviders) {
         this.assetPriceMapper = assetPriceMapper;
+        this.assetPriceCurrentMapper = assetPriceCurrentMapper;
+        this.quoteRawSnapshotService = quoteRawSnapshotService;
         this.assetService = assetService;
         this.quoteProviders = quoteProviders;
     }
@@ -65,6 +78,8 @@ public class QuoteServiceImpl implements QuoteService {
         price.setRawJson(null);
         price.setDeleted(0);
         assetPriceMapper.insert(price);
+        upsertCurrent(toCurrent(price));
+        appendRawSnapshot(toRawSnapshot(price));
         return toVO(price);
     }
 
@@ -136,24 +151,14 @@ public class QuoteServiceImpl implements QuoteService {
             }
             throw exception;
         }
-        AssetPrice price = new AssetPrice();
-        price.setAssetId(asset.getId());
-        price.setPrice(result.price());
-        price.setCurrency(result.currency());
-        price.setPreviousClose(result.previousClose());
-        price.setChangeAmount(result.changeAmount());
-        price.setChangePercent(result.changePercent());
-        price.setSource(result.source());
-        price.setQuoteTime(result.quoteTime());
-        price.setMarketStatus(result.marketStatus());
-        price.setRawJson(result.rawJson());
-        price.setDeleted(0);
-        assetPriceMapper.insert(price);
+        AssetPrice price = toAssetPrice(asset.getId(), result);
+        upsertCurrent(toCurrent(price));
+        appendRawSnapshot(toRawSnapshot(price));
         return toVO(price);
     }
 
     /**
-     * 批量查询最近价格；没有价格的资产不放入结果，持仓估值自行兜底。
+     * 批量查询当前价格；没有 current 的资产才回退旧快照表，兼容迁移前历史数据。
      */
     @Override
     public Map<Long, AssetPrice> latestPriceMap(Collection<Long> assetIds) {
@@ -161,8 +166,15 @@ public class QuoteServiceImpl implements QuoteService {
             return Map.of();
         }
         Map<Long, AssetPrice> result = new HashMap<>();
+        assetPriceCurrentMapper.selectBatchIds(assetIds).stream()
+                .map(this::toAssetPrice)
+                .forEach(price -> result.put(price.getAssetId(), price));
+        List<Long> missingAssetIds = assetIds.stream().filter(assetId -> !result.containsKey(assetId)).toList();
+        if (missingAssetIds.isEmpty()) {
+            return result;
+        }
         assetPriceMapper.selectList(new LambdaQueryWrapper<AssetPrice>()
-                        .in(AssetPrice::getAssetId, assetIds)
+                        .in(AssetPrice::getAssetId, missingAssetIds)
                         .orderByDesc(AssetPrice::getQuoteTime)
                         .orderByDesc(AssetPrice::getCreatedAt))
                 .stream()
@@ -175,6 +187,10 @@ public class QuoteServiceImpl implements QuoteService {
      * 查询单个资产最近价格，供缓存判断和手动资产兜底使用。
      */
     private AssetPrice latestPrice(Long assetId) {
+        AssetPriceCurrent current = assetPriceCurrentMapper.selectById(assetId);
+        if (current != null) {
+            return toAssetPrice(current);
+        }
         return assetPriceMapper.selectOne(new LambdaQueryWrapper<AssetPrice>()
                 .eq(AssetPrice::getAssetId, assetId)
                 .orderByDesc(AssetPrice::getQuoteTime)
@@ -210,6 +226,86 @@ public class QuoteServiceImpl implements QuoteService {
         }
         LocalTime now = LocalTime.now();
         return now.isBefore(STOCK_REFRESH_START) || now.isAfter(STOCK_REFRESH_END);
+    }
+
+    /**
+     * 当前价每个资产只保留一条，用于持仓估值和首页投资资产。
+     */
+    private void upsertCurrent(AssetPriceCurrent current) {
+        if (assetPriceCurrentMapper.selectById(current.getAssetId()) == null) {
+            assetPriceCurrentMapper.insert(current);
+            return;
+        }
+        assetPriceCurrentMapper.updateById(current);
+    }
+
+    /**
+     * Redis 只保存短期原始快照，收益计算不会从 Redis 直接读取。
+     */
+    private void appendRawSnapshot(QuoteRawSnapshot snapshot) {
+        quoteRawSnapshotService.append(snapshot);
+    }
+
+    private AssetPrice toAssetPrice(Long assetId, QuoteFetchResult result) {
+        AssetPrice price = new AssetPrice();
+        price.setAssetId(assetId);
+        price.setPrice(result.price().setScale(8, RoundingMode.HALF_UP));
+        price.setCurrency(result.currency());
+        price.setPreviousClose(result.previousClose() == null ? null : result.previousClose().setScale(8, RoundingMode.HALF_UP));
+        price.setChangeAmount(result.changeAmount() == null ? null : result.changeAmount().setScale(8, RoundingMode.HALF_UP));
+        price.setChangePercent(result.changePercent() == null ? null : result.changePercent().setScale(4, RoundingMode.HALF_UP));
+        price.setSource(result.source());
+        price.setQuoteTime(result.quoteTime());
+        price.setMarketStatus(result.marketStatus());
+        price.setRawJson(result.rawJson());
+        price.setDeleted(0);
+        return price;
+    }
+
+    private AssetPriceCurrent toCurrent(AssetPrice price) {
+        AssetPriceCurrent current = new AssetPriceCurrent();
+        current.setAssetId(price.getAssetId());
+        current.setPrice(price.getPrice().setScale(8, RoundingMode.HALF_UP));
+        current.setCurrency(price.getCurrency());
+        current.setPreviousClose(price.getPreviousClose());
+        current.setChangeAmount(price.getChangeAmount());
+        current.setChangePercent(price.getChangePercent());
+        current.setSource(price.getSource());
+        current.setQuoteTime(price.getQuoteTime());
+        current.setMarketStatus(price.getMarketStatus());
+        current.setRawJson(price.getRawJson());
+        return current;
+    }
+
+    private AssetPrice toAssetPrice(AssetPriceCurrent current) {
+        AssetPrice price = new AssetPrice();
+        price.setAssetId(current.getAssetId());
+        price.setPrice(current.getPrice());
+        price.setCurrency(current.getCurrency());
+        price.setPreviousClose(current.getPreviousClose());
+        price.setChangeAmount(current.getChangeAmount());
+        price.setChangePercent(current.getChangePercent());
+        price.setSource(current.getSource());
+        price.setQuoteTime(current.getQuoteTime());
+        price.setMarketStatus(current.getMarketStatus());
+        price.setRawJson(current.getRawJson());
+        price.setCreatedAt(current.getCreatedAt());
+        price.setUpdatedAt(current.getUpdatedAt());
+        price.setDeleted(0);
+        return price;
+    }
+
+    private QuoteRawSnapshot toRawSnapshot(AssetPrice price) {
+        return new QuoteRawSnapshot(
+                price.getAssetId(),
+                price.getPrice(),
+                price.getCurrency(),
+                price.getPreviousClose(),
+                price.getChangeAmount(),
+                price.getChangePercent(),
+                price.getSource(),
+                price.getQuoteTime(),
+                price.getMarketStatus());
     }
 
     /**

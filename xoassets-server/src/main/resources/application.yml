@@ -15,6 +15,13 @@ spring:
       initialization-fail-timeout: 1
       connection-timeout: 5000
       validation-timeout: 3000
+  data:
+    redis:
+      host: ${XOASSETS_REDIS_HOST:localhost}
+      port: ${XOASSETS_REDIS_PORT:6379}
+      password: ${XOASSETS_REDIS_PASSWORD:}
+      database: ${XOASSETS_REDIS_DATABASE:0}
+      timeout: 3000ms
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: Asia/Shanghai
@@ -58,3 +65,6 @@ xoassets:
     # 行情定时刷新只处理已过期价格，任务失败不会影响主应用启动。
     refresh-fixed-delay-ms: ${XOASSETS_QUOTES_REFRESH_FIXED_DELAY_MS:300000}
     refresh-initial-delay-ms: ${XOASSETS_QUOTES_REFRESH_INITIAL_DELAY_MS:60000}
+    # 日级价格汇总先执行，用户投资日快照随后执行；两者都会补跑最近 3 天。
+    daily-aggregate-cron: ${XOASSETS_QUOTES_DAILY_AGGREGATE_CRON:0 30 23 * * ?}
+    investment-snapshot-cron: ${XOASSETS_INVESTMENT_DAILY_SNAPSHOT_CRON:0 45 23 * * ?}

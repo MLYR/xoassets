@@ -87,19 +87,19 @@ export function buildSummaryMetrics(summary: HoldingSummary | null) {
   const totalAsset = summary?.totalMarketValue ?? 0
   const accumulatedProfit = summary?.floatingProfit ?? 0
   const accumulatedRate = summary?.floatingProfitRate ?? 0
-  const vsYesterdayAmount = summary?.todayProfit ?? 0
+  const vsYesterdayAmount = summary?.todayProfit ?? null
 
-  // 较上月优先使用后端口径；旧接口缺字段时保留昨日收益/累计浮盈兜底，避免页面空洞。
-  const vsLastMonthAmount = summary?.lastMonthProfit ?? summary?.yesterdayProfit ?? accumulatedProfit
+  // 较上月必须来自后端投资日快照；快照不存在时展示 --，不要用累计收益冒充。
+  const vsLastMonthAmount = summary?.lastMonthProfit ?? null
 
   return {
     totalAsset,
     accumulatedProfit,
     accumulatedRate,
     vsYesterdayAmount,
-    vsYesterdayRate: calcRelativeRate(vsYesterdayAmount, totalAsset),
+    vsYesterdayRate: vsYesterdayAmount == null ? null : calcRelativeRate(vsYesterdayAmount, totalAsset),
     vsLastMonthAmount,
-    vsLastMonthRate: summary?.lastMonthProfitRate ?? calcRelativeRate(vsLastMonthAmount, totalAsset)
+    vsLastMonthRate: summary?.lastMonthProfitRate ?? null
   }
 }
 

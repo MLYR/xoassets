@@ -75,8 +75,10 @@ export interface HoldingItem {
 export interface HoldingSummary {
   totalMarketValue: number;
   totalCost: number;
-  todayProfit: number;
+  todayProfit?: number | null;
   yesterdayProfit: number;
+  lastMonthProfit?: number | null;
+  lastMonthProfitRate?: number | null;
   floatingProfit: number;
   floatingProfitRate: number;
   holdingCount: number;

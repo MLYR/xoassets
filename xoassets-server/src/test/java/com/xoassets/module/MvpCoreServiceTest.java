@@ -38,21 +38,27 @@ import com.xoassets.module.transaction.service.impl.TransactionServiceImpl;
 import com.xoassets.persistence.entity.Account;
 import com.xoassets.persistence.entity.Asset;
 import com.xoassets.persistence.entity.AssetPrice;
+import com.xoassets.persistence.entity.AssetPriceDaily;
 import com.xoassets.persistence.entity.Budget;
 import com.xoassets.persistence.entity.Category;
 import com.xoassets.persistence.entity.Holding;
+import com.xoassets.persistence.entity.InvestmentDailySnapshot;
 import com.xoassets.persistence.entity.InvestmentTransaction;
 import com.xoassets.persistence.entity.TransactionRecord;
 import com.xoassets.persistence.mapper.AccountMapper;
 import com.xoassets.persistence.mapper.AssetMapper;
+import com.xoassets.persistence.mapper.AssetPriceCurrentMapper;
+import com.xoassets.persistence.mapper.AssetPriceDailyMapper;
 import com.xoassets.persistence.mapper.AssetPriceMapper;
 import com.xoassets.persistence.mapper.AssetSnapshotMapper;
 import com.xoassets.persistence.mapper.BudgetMapper;
 import com.xoassets.persistence.mapper.CategoryMapper;
 import com.xoassets.persistence.mapper.HoldingMapper;
+import com.xoassets.persistence.mapper.InvestmentDailySnapshotMapper;
 import com.xoassets.persistence.mapper.InvestmentTransactionMapper;
 import com.xoassets.persistence.mapper.TransactionRecordMapper;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
@@ -127,7 +133,8 @@ class MvpCoreServiceTest {
         QuoteService quoteService = mock(QuoteService.class);
         AssetService assetService = mock(AssetService.class);
         HoldingServiceImpl service = new HoldingServiceImpl(
-                holdingMapper, assetMapper, assetPriceMapper, mock(InvestmentTransactionMapper.class), mock(AccountMapper.class), assetService, quoteService);
+                holdingMapper, assetMapper, assetPriceMapper, mock(AssetPriceCurrentMapper.class), mock(AssetPriceDailyMapper.class),
+                mock(InvestmentDailySnapshotMapper.class), mock(InvestmentTransactionMapper.class), mock(AccountMapper.class), assetService, quoteService);
 
         when(holdingMapper.selectOne(any())).thenReturn(holding);
         service.applyBuy(USER_ID, 1L, 10L, bd("10.0000"), bd("20.0000"), bd("0.0000"));
@@ -145,7 +152,7 @@ class MvpCoreServiceTest {
         AssetPrice price = price(10L, "16.00000000", "USD");
         when(holdingMapper.selectList(any())).thenReturn(List.of(holding));
         when(assetMapper.selectBatchIds(Set.of(10L))).thenReturn(List.of(asset));
-        when(assetPriceMapper.selectList(any())).thenReturn(List.of(price));
+        when(quoteService.latestPriceMap(Set.of(10L))).thenReturn(Map.of(10L, price));
 
         HoldingVO vo = service.list().get(0);
         assertEquals(bd("240.0000"), vo.getMarketValue());
@@ -166,7 +173,8 @@ class MvpCoreServiceTest {
         AssetService assetService = mock(AssetService.class);
         AccountServiceImpl accountService = new AccountServiceImpl(accountMapper, mock(TransactionRecordMapper.class));
         HoldingServiceImpl holdingService = new HoldingServiceImpl(
-                holdingMapper, assetMapper, assetPriceMapper, transactionMapper, accountMapper, assetService, mock(QuoteService.class));
+                holdingMapper, assetMapper, assetPriceMapper, mock(AssetPriceCurrentMapper.class), mock(AssetPriceDailyMapper.class),
+                mock(InvestmentDailySnapshotMapper.class), transactionMapper, accountMapper, assetService, mock(QuoteService.class));
         InvestmentTransactionServiceImpl transactionService = new InvestmentTransactionServiceImpl(
                 transactionMapper, assetMapper, accountMapper, assetService, holdingService, accountService);
 
@@ -205,7 +213,8 @@ class MvpCoreServiceTest {
         InvestmentTransactionMapper transactionMapper = mock(InvestmentTransactionMapper.class);
         AccountServiceImpl accountService = new AccountServiceImpl(accountMapper, mock(TransactionRecordMapper.class));
         HoldingServiceImpl holdingService = new HoldingServiceImpl(
-                holdingMapper, assetMapper, mock(AssetPriceMapper.class), transactionMapper, accountMapper, mock(AssetService.class), mock(QuoteService.class));
+                holdingMapper, assetMapper, mock(AssetPriceMapper.class), mock(AssetPriceCurrentMapper.class), mock(AssetPriceDailyMapper.class),
+                mock(InvestmentDailySnapshotMapper.class), transactionMapper, accountMapper, mock(AssetService.class), mock(QuoteService.class));
         InvestmentTransactionServiceImpl transactionService = new InvestmentTransactionServiceImpl(
                 transactionMapper, assetMapper, accountMapper, mock(AssetService.class), holdingService, accountService);
         InvestmentTransaction sell = investmentRecord(99L, "SELL", "50.0000", "12.0000", "600.0000", "2.0000", "451.0000");
@@ -309,16 +318,20 @@ class MvpCoreServiceTest {
         HoldingMapper holdingMapper = mock(HoldingMapper.class);
         AssetMapper assetMapper = mock(AssetMapper.class);
         AssetPriceMapper assetPriceMapper = mock(AssetPriceMapper.class);
+        AssetPriceDailyMapper assetPriceDailyMapper = mock(AssetPriceDailyMapper.class);
+        QuoteService quoteService = mock(QuoteService.class);
         HoldingServiceImpl service = new HoldingServiceImpl(
-                holdingMapper, assetMapper, assetPriceMapper, mock(InvestmentTransactionMapper.class), mock(AccountMapper.class), mock(AssetService.class), mock(QuoteService.class));
+                holdingMapper, assetMapper, assetPriceMapper, mock(AssetPriceCurrentMapper.class), assetPriceDailyMapper,
+                mock(InvestmentDailySnapshotMapper.class), mock(InvestmentTransactionMapper.class), mock(AccountMapper.class), mock(AssetService.class), quoteService);
         Asset asset = asset(10L, "FUND-A", "基金 A", "FUND", "CNY");
         AssetPrice latest = price(10L, "11.00000000", "CNY", LocalDateTime.now());
-        AssetPrice previous = price(10L, "9.00000000", "CNY", LocalDateTime.now().minusDays(1));
-        AssetPrice beforePrevious = price(10L, "8.00000000", "CNY", LocalDateTime.now().minusDays(2));
+        AssetPriceDaily previous = dailyPrice(10L, LocalDate.now().minusDays(1), "9.00000000", "CNY");
+        AssetPriceDaily beforePrevious = dailyPrice(10L, LocalDate.now().minusDays(2), "8.00000000", "CNY");
 
         when(holdingMapper.selectList(any())).thenReturn(List.of(holding));
         when(assetMapper.selectBatchIds(Set.of(10L))).thenReturn(List.of(asset));
-        when(assetPriceMapper.selectList(any())).thenReturn(List.of(latest, previous, beforePrevious));
+        when(quoteService.latestPriceMap(Set.of(10L))).thenReturn(Map.of(10L, latest));
+        when(assetPriceDailyMapper.selectList(any())).thenReturn(List.of(previous, beforePrevious));
 
         HoldingVO vo = service.list().get(0);
         assertEquals(bd("1100.0000"), vo.getMarketValue());
@@ -330,9 +343,32 @@ class MvpCoreServiceTest {
         assertEquals(bd("12.5000"), vo.getYesterdayChangeRate());
         assertEquals(bd("0"), vo.getBreakEvenRate());
 
-        when(assetPriceMapper.selectList(any())).thenReturn(List.of(price(10L, "8.00000000", "CNY", LocalDateTime.now())));
+        when(quoteService.latestPriceMap(Set.of(10L))).thenReturn(Map.of(10L, price(10L, "8.00000000", "CNY", LocalDateTime.now())));
         HoldingVO loss = service.list().get(0);
         assertEquals(bd("25.0000"), loss.getBreakEvenRate());
+    }
+
+    @Test
+    void holdingSummaryShouldUseInvestmentDailySnapshotForVsYesterday() {
+        Holding holding = holding(1L, USER_ID, 10L, "100.0000", "10.0000", "1000.0000");
+        HoldingMapper holdingMapper = mock(HoldingMapper.class);
+        AssetMapper assetMapper = mock(AssetMapper.class);
+        AssetPriceDailyMapper assetPriceDailyMapper = mock(AssetPriceDailyMapper.class);
+        InvestmentDailySnapshotMapper investmentDailySnapshotMapper = mock(InvestmentDailySnapshotMapper.class);
+        QuoteService quoteService = mock(QuoteService.class);
+        HoldingServiceImpl service = new HoldingServiceImpl(
+                holdingMapper, assetMapper, mock(AssetPriceMapper.class), mock(AssetPriceCurrentMapper.class), assetPriceDailyMapper,
+                investmentDailySnapshotMapper, mock(InvestmentTransactionMapper.class), mock(AccountMapper.class), mock(AssetService.class), quoteService);
+
+        when(holdingMapper.selectList(any())).thenReturn(List.of(holding));
+        when(assetMapper.selectBatchIds(Set.of(10L))).thenReturn(List.of(asset(10L, "FUND-A", "基金 A", "FUND", "CNY")));
+        when(quoteService.latestPriceMap(Set.of(10L))).thenReturn(Map.of(10L, price(10L, "11.00000000", "CNY", LocalDateTime.now())));
+        when(assetPriceDailyMapper.selectList(any())).thenReturn(List.of());
+        when(investmentDailySnapshotMapper.selectList(any()))
+                .thenReturn(List.of(investmentDailySnapshot(USER_ID, LocalDate.now().minusDays(1), "1000.0000")))
+                .thenReturn(List.of());
+
+        assertEquals(bd("100.0000"), service.summary().getTodayProfit());
     }
 
     @Test
@@ -343,8 +379,10 @@ class MvpCoreServiceTest {
         AssetPriceMapper assetPriceMapper = mock(AssetPriceMapper.class);
         InvestmentTransactionMapper transactionMapper = mock(InvestmentTransactionMapper.class);
         AccountMapper accountMapper = mock(AccountMapper.class);
+        QuoteService quoteService = mock(QuoteService.class);
         HoldingServiceImpl service = new HoldingServiceImpl(
-                holdingMapper, assetMapper, assetPriceMapper, transactionMapper, accountMapper, mock(AssetService.class), mock(QuoteService.class));
+                holdingMapper, assetMapper, assetPriceMapper, mock(AssetPriceCurrentMapper.class), mock(AssetPriceDailyMapper.class),
+                mock(InvestmentDailySnapshotMapper.class), transactionMapper, accountMapper, mock(AssetService.class), quoteService);
         InvestmentTransaction buy = investmentRecord(1L, "BUY", "100.0000", "10.0000", "1000.0000", "2.0000", "1002.0000");
         InvestmentTransaction sell = investmentRecord(2L, "SELL", "20.0000", "12.0000", "240.0000", "1.0000", "200.0000");
         sell.setRealizedProfit(bd("39.0000"));
@@ -353,6 +391,7 @@ class MvpCoreServiceTest {
 
         when(holdingMapper.selectOne(any())).thenReturn(holding);
         when(assetMapper.selectById(10L)).thenReturn(asset(10L, "FUND-A", "基金 A", "FUND", "CNY"));
+        when(quoteService.latestPriceMap(Set.of(10L))).thenReturn(Map.of(10L, price(10L, "11.00000000", "CNY", LocalDateTime.of(2026, 5, 31, 9, 0))));
         when(assetPriceMapper.selectList(any())).thenReturn(List.of(price(10L, "11.00000000", "CNY", LocalDateTime.of(2026, 5, 31, 9, 0))));
         when(transactionMapper.selectList(any())).thenReturn(List.of(sell, revoked, buy));
         when(accountMapper.selectBatchIds(Set.of(1L))).thenReturn(List.of(account(1L, USER_ID, "银行卡", "BANK", "1000.0000")));
@@ -376,7 +415,8 @@ class MvpCoreServiceTest {
         AssetPriceMapper assetPriceMapper = mock(AssetPriceMapper.class);
         InvestmentTransactionMapper transactionMapper = mock(InvestmentTransactionMapper.class);
         HoldingServiceImpl service = new HoldingServiceImpl(
-                holdingMapper, assetMapper, assetPriceMapper, transactionMapper, mock(AccountMapper.class), mock(AssetService.class), mock(QuoteService.class));
+                holdingMapper, assetMapper, assetPriceMapper, mock(AssetPriceCurrentMapper.class), mock(AssetPriceDailyMapper.class),
+                mock(InvestmentDailySnapshotMapper.class), transactionMapper, mock(AccountMapper.class), mock(AssetService.class), mock(QuoteService.class));
 
         when(holdingMapper.selectOne(any())).thenReturn(holding);
         when(assetMapper.selectById(10L)).thenReturn(asset(10L, "FUND-A", "基金 A", "FUND", "CNY"));
@@ -565,6 +605,25 @@ class MvpCoreServiceTest {
         assetPrice.setSource("MANUAL");
         assetPrice.setQuoteTime(quoteTime);
         return assetPrice;
+    }
+
+    private static AssetPriceDaily dailyPrice(Long assetId, LocalDate tradeDate, String closePrice, String currency) {
+        AssetPriceDaily daily = new AssetPriceDaily();
+        daily.setAssetId(assetId);
+        daily.setTradeDate(tradeDate);
+        daily.setClosePrice(bd(closePrice));
+        daily.setCurrency(currency);
+        daily.setSource("MANUAL");
+        return daily;
+    }
+
+    private static InvestmentDailySnapshot investmentDailySnapshot(Long userId, LocalDate snapshotDate, String marketValue) {
+        InvestmentDailySnapshot snapshot = new InvestmentDailySnapshot();
+        snapshot.setUserId(userId);
+        snapshot.setSnapshotDate(snapshotDate);
+        snapshot.setMarketValue(bd(marketValue));
+        snapshot.setNetInflow(bd("0.0000"));
+        return snapshot;
     }
 
     private static Budget budget(Long id, Long categoryId, String type, String amount) {

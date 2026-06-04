@@ -2,13 +2,13 @@
   <view class="summary-compare-list">
     <view class="summary-compare-row">
       <text class="summary-compare-label">较昨日</text>
-      <text class="summary-compare-value">{{ fmtSigned(metrics.vsYesterdayAmount) }}</text>
-      <text class="summary-compare-rate">{{ fmtPercent(metrics.vsYesterdayRate) }}</text>
+      <text class="summary-compare-value">{{ fmtOptionalSigned(metrics.vsYesterdayAmount) }}</text>
+      <text class="summary-compare-rate">{{ fmtOptionalPercent(metrics.vsYesterdayRate) }}</text>
     </view>
     <view class="summary-compare-row">
       <text class="summary-compare-label">较上月</text>
-      <text class="summary-compare-value">{{ fmtSigned(metrics.vsLastMonthAmount) }}</text>
-      <text class="summary-compare-rate">{{ fmtPercent(metrics.vsLastMonthRate) }}</text>
+      <text class="summary-compare-value">{{ fmtOptionalSigned(metrics.vsLastMonthAmount) }}</text>
+      <text class="summary-compare-rate">{{ fmtOptionalPercent(metrics.vsLastMonthRate) }}</text>
     </view>
   </view>
 </template>
@@ -17,16 +17,24 @@
 import { fmtPercent, fmtSigned } from '../helpers'
 
 type SummaryCompareMetrics = {
-  vsYesterdayAmount: number
-  vsYesterdayRate: number
-  vsLastMonthAmount: number
-  vsLastMonthRate: number
+  vsYesterdayAmount: number | null
+  vsYesterdayRate: number | null
+  vsLastMonthAmount: number | null
+  vsLastMonthRate: number | null
 }
 
 // 汇总对比组件只负责展示后端/ helper 已确定的业务口径，避免页面重复格式化逻辑。
 defineProps<{
   metrics: SummaryCompareMetrics
 }>()
+
+function fmtOptionalSigned(value: number | null) {
+  return value == null ? '--' : fmtSigned(value)
+}
+
+function fmtOptionalPercent(value: number | null) {
+  return value == null ? '--' : fmtPercent(value)
+}
 </script>
 
 <style scoped lang="scss">

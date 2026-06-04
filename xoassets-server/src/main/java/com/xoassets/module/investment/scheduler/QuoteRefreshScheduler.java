@@ -35,6 +35,7 @@ public class QuoteRefreshScheduler {
         try {
             Set<Long> assetIds = holdingMapper.selectList(new LambdaQueryWrapper<Holding>()
                             .select(Holding::getAssetId)
+                            .eq(Holding::getStatus, 1)
                             .gt(Holding::getQuantity, 0))
                     .stream()
                     .map(Holding::getAssetId)

@@ -36,13 +36,13 @@
 - 投资交易：买入必须选择扣款账户并扣减余额，卖出必须选择到账账户并增加余额；买入 / 卖出不写入普通流水，不计入生活收支统计。
 - 投资撤销：`PUT /api/investment-transactions/{id}/revoke` 会反向恢复资金账户和持仓，撤销记录仍保留在投资交易中。
 - 投资精度：投资数量保留 10 位小数，手续费、成本、市值、盈亏和收益率统一按 4 位小数计算；行情价格快照保留 8 位，CRYPTO 当前价至少展示 6 位，FUND / STOCK 当前价展示 4 位。持仓列表的 `marketValue` 始终由后端使用同一个 `latestPrice` 计算，前端不使用格式化价格反算市值。
-- 行情接入：CRYPTO 使用 CoinGecko，FUND 使用天天基金 F10 历史净值表和实时净值兜底，A 股使用新浪行情，美股使用 Yahoo Finance；所有第三方行情只由后端 provider 拉取并写入 `xo_asset_price`。
+- 行情接入：CRYPTO 使用 CoinGecko，FUND 使用天天基金 F10 历史净值表和实时净值兜底，A 股使用新浪行情，美股使用 Yahoo Finance；所有第三方行情只由后端 provider 拉取，自动行情写入 `xo_asset_price_current` 当前价并把 35 天原始快照写入 Redis ZSET，手动价格和审计记录继续保留在 `xo_asset_price`。
 - 资产识别：新增持仓时可按资产类型输入代码或名称查询，后端返回名称、代码、市场、币种、行情源、行情键和当前价格；保存持仓时自动创建 / 复用 `xo_asset` 并写入价格快照，查询失败仍可手动录入。
 - 资产查询日志：第三方资产查询失败时后端会记录行情源、代码 / 市场、响应摘要和原始异常堆栈，前端仍只展示可理解的失败提示。
 - 资产市场：`xo_asset.market` 用于区分 SH / SZ / BJ / US / CN_FUND / CRYPTO，资产唯一性按 `type + market + symbol + deleted` 判断。
-- 行情缓存：持仓列表优先使用 `xo_asset_price` 最近快照；CRYPTO 1 小时内、STOCK 15 分钟内、FUND 1 天内不重复刷新，MANUAL 价格不过期；股票只在 09:30-15:00 之间拉取第三方行情。USD/CNY 展示汇率由 `/api/exchange-rates/usd-cny` 返回后端日缓存，后续可替换为 Redis 缓存。行情失败时保留最近价格，页面可用手动价格兜底。
+- 行情分层：持仓估值优先使用 `xo_asset_price_current`，今日 / 昨日收益使用 `xo_asset_price_daily` 最近两个交易日收盘价，投资总资产较昨日 / 较上月使用 `xo_investment_daily_snapshot`；Redis key 为 `price:snapshot:{assetId}:{yyyyMM}`，仅保存最近 35 天原始快照供日级汇总和排查，不作为长期权威数据。CRYPTO 1 小时内、STOCK 15 分钟内、FUND 1 天内不重复刷新，MANUAL 价格不过期；股票只在 09:30-15:00 之间拉取第三方行情。USD/CNY 展示汇率由 `/api/exchange-rates/usd-cny` 返回后端日缓存，后续可替换为 Redis 缓存。
 - 预算管理：`GET /api/budgets`、`POST /api/budgets`、`PUT /api/budgets/{id}`、`DELETE /api/budgets/{id}`、`GET /api/budgets/summary` 已接入预算页和移动端首页预算进度卡片。
-- 资产快照：`GET /api/snapshots/latest`（返回最新快照 + 今日净资产变化金额 / 变化率）、`GET /api/snapshots/trend`、`POST /api/snapshots/generate-today` 已接入首页和数据分析页；移动端首页净资产主卡片展示最新快照净资产 + 今日变化，资产趋势折线图基于 `GET /api/statistics/net-assets-trend` 近 1 个月数据绘制。
+- 资产快照：`GET /api/snapshots/latest`（返回最新快照 + 今日净资产变化金额 / 变化率）、`GET /api/snapshots/trend`、`POST /api/snapshots/generate-today` 已接入首页和数据分析页；首页主净资产统一使用 `GET /api/dashboard/overview` 的 `netAssets`，快照仅用于今日变化、历史趋势和快照相关说明；移动端资产趋势折线图基于 `GET /api/statistics/net-assets-trend` 近 1 个月数据绘制。
 - 首页和统计：`GET /api/dashboard/overview` 返回账户、流水、投资和预算聚合指标；`GET /api/statistics/net-assets-trend` 返回指定日期范围的净资产趋势数据（移动端首页使用近 1 个月范围）；`/api/statistics/*` 返回收支趋势、分类支出、资产分布、投资盈亏和预算进度，净资产 / 总资产趋势优先使用资产快照。
 - 资产目标：`GET /api/goals`、`POST /api/goals`、`PUT /api/goals/{id}`、`DELETE /api/goals/{id}`、`GET /api/goals/summary` 已接入目标页。
 - AI 报告：`GET /api/reports`、`GET /api/reports/{id}`、`POST /api/reports/generate-preview` 已接入报告页，当前只生成模板化财务复盘，不调用真实 AI，不提供投资买卖建议。
@@ -161,7 +161,7 @@ docker compose up -d
 关键验收口径：
 
 - DOGE：`quantity = 881.3220000000`，`latestPrice = 0.72432000`，`marketValue = 638.3592`。
-- 投资收益分析：持仓接口返回最新价、昨价、前日价、今日收益、昨日收益、总收益、收益率和回本涨幅；缺少历史价格时页面展示“暂无”。
+- 投资收益分析：持仓接口返回最新价、昨价、前日价、今日收益、昨日收益、总收益、收益率和回本涨幅；当前价来自 `xo_asset_price_current`，昨价 / 前日价来自 `xo_asset_price_daily` 最近交易日，投资总资产较昨日 / 较上月来自 `xo_investment_daily_snapshot`，缺少历史价格或快照时页面展示“暂无 / --”。
 - 预算：5 月餐饮支出 `86.5000 - 20.0000 = 66.5000`，转账不进入预算。
 - 账户：银行卡 `21500.0000`，支付宝 `1933.5000`，与初始化余额和流水变更一致。
 
