@@ -13,15 +13,21 @@ import com.xoassets.module.investment.service.HoldingService;
 import com.xoassets.module.investment.service.HoldingTradeResult;
 import com.xoassets.module.investment.service.InvestmentTransactionService;
 import com.xoassets.module.investment.vo.InvestmentTransactionVO;
+import com.xoassets.module.snapshot.service.SnapshotService;
 import com.xoassets.persistence.entity.Account;
 import com.xoassets.persistence.entity.Asset;
+import com.xoassets.persistence.entity.AssetPrice;
+import com.xoassets.persistence.entity.AssetPriceDaily;
 import com.xoassets.persistence.entity.Holding;
 import com.xoassets.persistence.entity.InvestmentTransaction;
 import com.xoassets.persistence.mapper.AccountMapper;
 import com.xoassets.persistence.mapper.AssetMapper;
+import com.xoassets.persistence.mapper.AssetPriceDailyMapper;
+import com.xoassets.persistence.mapper.AssetPriceMapper;
 import com.xoassets.persistence.mapper.InvestmentTransactionMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -37,29 +43,44 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
 
     private static final String TYPE_BUY = "BUY";
     private static final String TYPE_SELL = "SELL";
+    private static final String ASSET_TYPE_FUND = "FUND";
+    private static final String INPUT_MODE_QUANTITY_PRICE = "QUANTITY_PRICE";
+    private static final String INPUT_MODE_AMOUNT_NAV = "AMOUNT_NAV";
     private static final String STATUS_NORMAL = "NORMAL";
     private static final String STATUS_REVOKED = "REVOKED";
+    private static final String STATUS_PENDING_CONFIRM = "PENDING_CONFIRM";
+    private static final String STATUS_CONFIRMED = "CONFIRMED";
+    private static final String STATUS_CANCELLED = "CANCELLED";
 
     private final InvestmentTransactionMapper transactionMapper;
     private final AssetMapper assetMapper;
+    private final AssetPriceMapper assetPriceMapper;
+    private final AssetPriceDailyMapper assetPriceDailyMapper;
     private final AccountMapper accountMapper;
     private final AssetService assetService;
     private final HoldingService holdingService;
     private final AccountService accountService;
+    private final SnapshotService snapshotService;
 
     public InvestmentTransactionServiceImpl(
             InvestmentTransactionMapper transactionMapper,
             AssetMapper assetMapper,
+            AssetPriceMapper assetPriceMapper,
+            AssetPriceDailyMapper assetPriceDailyMapper,
             AccountMapper accountMapper,
             AssetService assetService,
             HoldingService holdingService,
-            AccountService accountService) {
+            AccountService accountService,
+            SnapshotService snapshotService) {
         this.transactionMapper = transactionMapper;
         this.assetMapper = assetMapper;
+        this.assetPriceMapper = assetPriceMapper;
+        this.assetPriceDailyMapper = assetPriceDailyMapper;
         this.accountMapper = accountMapper;
         this.assetService = assetService;
         this.holdingService = holdingService;
         this.accountService = accountService;
+        this.snapshotService = snapshotService;
     }
 
     /**
@@ -70,8 +91,14 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
     public InvestmentTransactionVO create(InvestmentTransactionRequest request) {
         Long userId = LoginUserContext.getUserId();
         ensureType(request.getType());
-        assetService.findAsset(request.getAssetId());
+        Asset asset = assetService.findAsset(request.getAssetId());
+        if (isFundAmountBuy(request, asset)) {
+            return createFundAmountBuy(userId, request, asset);
+        }
         Account account = accountService.findOwnedAccount(request.getAccountId(), userId);
+        if (request.getQuantity() == null || request.getPrice() == null) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "数量和价格不能为空");
+        }
         BigDecimal quantity = scaleQuantity(request.getQuantity());
         BigDecimal price = scale4(request.getPrice());
         BigDecimal fee = scale4(request.getFee());
@@ -104,13 +131,21 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
         transaction.setAssetId(request.getAssetId());
         transaction.setAccountId(account.getId());
         transaction.setType(request.getType());
+        transaction.setInputMode(INPUT_MODE_QUANTITY_PRICE);
+        transaction.setTradeAmount(TYPE_BUY.equals(request.getType()) ? amount.add(fee).setScale(4, RoundingMode.HALF_UP) : amount.subtract(fee).setScale(4, RoundingMode.HALF_UP));
+        transaction.setTradeQuantity(quantity);
+        transaction.setTradePrice(price);
         transaction.setQuantity(quantity);
         transaction.setPrice(price);
         transaction.setAmount(amount);
         transaction.setFee(fee);
         transaction.setCostAmount(costAmount);
         transaction.setRealizedProfit(tradeResult.realizedProfit());
-        transaction.setStatus(STATUS_NORMAL);
+        transaction.setTradeDate(request.getTransactionTime().toLocalDate());
+        transaction.setConfirmedDate(request.getTransactionTime().toLocalDate());
+        transaction.setConfirmedNav(price);
+        transaction.setConfirmedQuantity(quantity);
+        transaction.setStatus(STATUS_CONFIRMED);
         transaction.setTransactionTime(request.getTransactionTime());
         transaction.setNote(request.getNote());
         transaction.setDeleted(0);
@@ -157,7 +192,21 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
         if (STATUS_REVOKED.equals(transaction.getStatus())) {
             throw new BusinessException(ErrorCode.BUSINESS_ERROR, "投资交易已撤销，不能重复撤销");
         }
+        if (STATUS_CANCELLED.equals(transaction.getStatus())) {
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "投资交易已取消，不能重复撤销");
+        }
         Account account = accountService.findOwnedAccount(transaction.getAccountId(), userId);
+        if (STATUS_PENDING_CONFIRM.equals(transaction.getStatus())) {
+            accountService.adjustBalance(userId, account.getId(), transaction.getTradeAmount());
+            transaction.setStatus(STATUS_CANCELLED);
+            transaction.setRevokeTime(LocalDateTime.now());
+            transaction.setRevokeReason(request == null ? null : request.getReason());
+            transactionMapper.update(transaction, new LambdaUpdateWrapper<InvestmentTransaction>()
+                    .eq(InvestmentTransaction::getId, id)
+                    .eq(InvestmentTransaction::getUserId, userId)
+                    .eq(InvestmentTransaction::getStatus, STATUS_PENDING_CONFIRM));
+            return toVO(transaction, assetMapper.selectById(transaction.getAssetId()), account);
+        }
         BigDecimal costAmount = transaction.getCostAmount();
         if (costAmount == null) {
             throw new BusinessException(ErrorCode.BUSINESS_ERROR, "历史交易缺少成本金额，无法撤销");
@@ -181,6 +230,149 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
                 .eq(InvestmentTransaction::getId, id)
                 .eq(InvestmentTransaction::getUserId, userId));
         return toVO(transaction, assetMapper.selectById(transaction.getAssetId()), account);
+    }
+
+    /**
+     * 定时确认所有待确认基金买入；查不到确认净值的交易保持待确认，下一轮继续扫描。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public void confirmPendingFundBuys() {
+        List<InvestmentTransaction> pendingList = transactionMapper.selectList(new LambdaQueryWrapper<InvestmentTransaction>()
+                .eq(InvestmentTransaction::getType, TYPE_BUY)
+                .eq(InvestmentTransaction::getInputMode, INPUT_MODE_AMOUNT_NAV)
+                .eq(InvestmentTransaction::getStatus, STATUS_PENDING_CONFIRM)
+                .orderByAsc(InvestmentTransaction::getTransactionTime)
+                .last("limit 100"));
+        for (InvestmentTransaction transaction : pendingList) {
+            confirmPendingFundBuy(transaction);
+        }
+    }
+
+    /**
+     * 基金金额买入：先扣资金账户；已有确认净值则同步确认，否则保留待确认交易。
+     */
+    private InvestmentTransactionVO createFundAmountBuy(Long userId, InvestmentTransactionRequest request, Asset asset) {
+        Account account = accountService.findOwnedAccount(request.getAccountId(), userId);
+        BigDecimal tradeAmount = scaleMoney2(request.getTradeAmount());
+        BigDecimal fee = scaleMoney2(request.getFee());
+        if (tradeAmount.compareTo(BigDecimal.ZERO) <= 0 || tradeAmount.compareTo(fee) <= 0) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "基金买入总金额必须大于手续费");
+        }
+        if (account.getBalance().compareTo(tradeAmount) < 0) {
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "账户余额不足");
+        }
+        Holding holding = request.getHoldingId() == null
+                ? holdingService.applyConfirmedBuy(userId, null, asset.getId(), BigDecimal.ZERO, BigDecimal.ZERO).holding()
+                : holdingService.findOwnedHolding(request.getHoldingId(), userId);
+        LocalDate tradeDate = request.getTransactionTime().toLocalDate();
+        LocalDate confirmedDate = request.getConfirmedDate() == null ? tradeDate : request.getConfirmedDate();
+        BigDecimal confirmedNav = fundNavOnDate(asset.getId(), confirmedDate);
+        BigDecimal netAmount = tradeAmount.subtract(fee).setScale(2, RoundingMode.HALF_UP);
+        accountService.adjustBalance(userId, account.getId(), tradeAmount.negate());
+        InvestmentTransaction transaction = new InvestmentTransaction();
+        transaction.setUserId(userId);
+        transaction.setHoldingId(holding == null ? null : holding.getId());
+        transaction.setAssetId(asset.getId());
+        transaction.setAccountId(account.getId());
+        transaction.setType(TYPE_BUY);
+        transaction.setInputMode(INPUT_MODE_AMOUNT_NAV);
+        transaction.setTradeAmount(tradeAmount);
+        transaction.setTradeQuantity(null);
+        transaction.setTradePrice(null);
+        transaction.setQuantity(BigDecimal.ZERO.setScale(10, RoundingMode.HALF_UP));
+        transaction.setPrice(BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP));
+        transaction.setAmount(netAmount.setScale(4, RoundingMode.HALF_UP));
+        transaction.setFee(fee.setScale(4, RoundingMode.HALF_UP));
+        transaction.setTradeDate(tradeDate);
+        transaction.setConfirmedDate(confirmedDate);
+        transaction.setTransactionTime(request.getTransactionTime());
+        transaction.setNote(request.getNote());
+        transaction.setDeleted(0);
+        if (confirmedNav == null) {
+            transaction.setStatus(STATUS_PENDING_CONFIRM);
+            transactionMapper.insert(transaction);
+            return toVO(transaction, asset, account);
+        }
+        confirmFundTransactionFields(transaction, confirmedNav);
+        HoldingTradeResult tradeResult = holdingService.applyConfirmedBuy(userId, transaction.getHoldingId(), asset.getId(), transaction.getConfirmedQuantity(), transaction.getCostAmount());
+        transaction.setHoldingId(tradeResult.holding().getId());
+        transactionMapper.insert(transaction);
+        snapshotService.generateForUser(userId, LocalDate.now());
+        return toVO(transaction, asset, account);
+    }
+
+    /**
+     * 确认单条待确认基金交易，使用状态条件更新保证定时任务幂等。
+     */
+    private void confirmPendingFundBuy(InvestmentTransaction transaction) {
+        BigDecimal confirmedNav = fundNavOnDate(transaction.getAssetId(), transaction.getConfirmedDate());
+        if (confirmedNav == null) {
+            return;
+        }
+        confirmFundTransactionFields(transaction, confirmedNav);
+        int updated = transactionMapper.update(transaction, new LambdaUpdateWrapper<InvestmentTransaction>()
+                .eq(InvestmentTransaction::getId, transaction.getId())
+                .eq(InvestmentTransaction::getUserId, transaction.getUserId())
+                .eq(InvestmentTransaction::getStatus, STATUS_PENDING_CONFIRM));
+        if (updated > 0) {
+            // 只有成功抢到待确认状态的任务才能更新持仓，避免重复扫描导致份额重复累加。
+            holdingService.applyConfirmedBuy(transaction.getUserId(), transaction.getHoldingId(), transaction.getAssetId(), transaction.getConfirmedQuantity(), transaction.getCostAmount());
+            snapshotService.generateForUser(transaction.getUserId(), LocalDate.now());
+        }
+    }
+
+    /**
+     * 根据确认净值计算基金确认份额和成本字段。
+     */
+    private void confirmFundTransactionFields(InvestmentTransaction transaction, BigDecimal confirmedNav) {
+        BigDecimal tradeAmount = scaleMoney2(transaction.getTradeAmount());
+        BigDecimal fee = scaleMoney2(transaction.getFee());
+        BigDecimal netAmount = tradeAmount.subtract(fee).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal confirmedQuantity = netAmount.divide(confirmedNav, 4, RoundingMode.DOWN);
+        if (confirmedQuantity.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "确认份额必须大于0");
+        }
+        transaction.setConfirmedNav(confirmedNav.setScale(6, RoundingMode.HALF_UP));
+        transaction.setConfirmedQuantity(confirmedQuantity);
+        transaction.setQuantity(confirmedQuantity.setScale(10, RoundingMode.HALF_UP));
+        transaction.setPrice(confirmedNav.setScale(4, RoundingMode.HALF_UP));
+        transaction.setAmount(netAmount.setScale(4, RoundingMode.HALF_UP));
+        transaction.setCostAmount(tradeAmount.setScale(4, RoundingMode.HALF_UP));
+        transaction.setRealizedProfit(null);
+        transaction.setStatus(STATUS_CONFIRMED);
+    }
+
+    /**
+     * 查询某日基金单位净值；优先用日级价格，旧价格快照兜底，查不到则保留待确认。
+     */
+    private BigDecimal fundNavOnDate(Long assetId, LocalDate date) {
+        if (date == null) {
+            return null;
+        }
+        // 基金确认优先使用长期日级净值，避免只查历史审计快照导致定时行情已入库但交易仍无法确认。
+        AssetPriceDaily dailyPrice = assetPriceDailyMapper.selectOne(new LambdaQueryWrapper<AssetPriceDaily>()
+                .eq(AssetPriceDaily::getAssetId, assetId)
+                .eq(AssetPriceDaily::getTradeDate, date)
+                .orderByDesc(AssetPriceDaily::getCreatedAt)
+                .last("limit 1"));
+        if (dailyPrice != null && dailyPrice.getClosePrice() != null) {
+            return dailyPrice.getClosePrice().setScale(6, RoundingMode.HALF_UP);
+        }
+        AssetPrice price = assetPriceMapper.selectOne(new LambdaQueryWrapper<AssetPrice>()
+                .eq(AssetPrice::getAssetId, assetId)
+                .ge(AssetPrice::getQuoteTime, date.atStartOfDay())
+                .lt(AssetPrice::getQuoteTime, date.plusDays(1).atStartOfDay())
+                .orderByDesc(AssetPrice::getQuoteTime)
+                .orderByDesc(AssetPrice::getCreatedAt)
+                .last("limit 1"));
+        return price == null ? null : price.getPrice().setScale(6, RoundingMode.HALF_UP);
+    }
+
+    private boolean isFundAmountBuy(InvestmentTransactionRequest request, Asset asset) {
+        return TYPE_BUY.equals(request.getType())
+                && ASSET_TYPE_FUND.equals(asset.getType())
+                && (INPUT_MODE_AMOUNT_NAV.equals(request.getInputMode()) || request.getTradeAmount() != null);
     }
 
     /**
@@ -213,6 +405,13 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
     }
 
     /**
+     * 基金金额买入的用户输入金额按两位小数保存。
+     */
+    private BigDecimal scaleMoney2(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /**
      * 投资数量保留十位小数，避免虚拟货币数量被截断。
      */
     private BigDecimal scaleQuantity(BigDecimal value) {
@@ -232,12 +431,20 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
                 .assetName(asset == null ? null : asset.getName())
                 .symbol(asset == null ? null : asset.getSymbol())
                 .type(transaction.getType())
+                .inputMode(transaction.getInputMode())
+                .tradeAmount(transaction.getTradeAmount())
+                .tradeQuantity(transaction.getTradeQuantity())
+                .tradePrice(transaction.getTradePrice())
                 .quantity(transaction.getQuantity())
                 .price(transaction.getPrice())
                 .amount(transaction.getAmount())
                 .fee(transaction.getFee())
                 .costAmount(transaction.getCostAmount())
                 .realizedProfit(transaction.getRealizedProfit())
+                .tradeDate(transaction.getTradeDate())
+                .confirmedDate(transaction.getConfirmedDate())
+                .confirmedNav(transaction.getConfirmedNav())
+                .confirmedQuantity(transaction.getConfirmedQuantity())
                 .status(transaction.getStatus())
                 .revokeTime(transaction.getRevokeTime())
                 .revokeReason(transaction.getRevokeReason())

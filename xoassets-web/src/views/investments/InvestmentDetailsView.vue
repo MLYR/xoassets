@@ -173,8 +173,18 @@
             <el-input v-model.trim="holdingForm.quoteKey" :placeholder="quoteKeyPlaceholder" />
             <small class="form-tip">{{ quoteKeyTip }}</small>
           </el-form-item>
-          <el-form-item label="数量"><el-input-number v-model="holdingForm.quantity" class="full-width" :min="quantityMin" :precision="quantityPrecision" /></el-form-item>
-          <el-form-item label="平均成本"><el-input-number v-model="holdingForm.avgCost" class="full-width" :min="0" :precision="4" /></el-form-item>
+          <el-alert
+            v-if="isNewFundHolding"
+            class="fund-holding-tip"
+            type="info"
+            show-icon
+            :closable="false"
+            title="基金可先保存持仓，再通过买入录入总金额和交易日期，系统按确认净值计算份额。"
+          />
+          <template v-else>
+            <el-form-item label="数量"><el-input-number v-model="holdingForm.quantity" class="full-width" :min="quantityMin" :precision="quantityPrecision" /></el-form-item>
+            <el-form-item label="平均成本"><el-input-number v-model="holdingForm.avgCost" class="full-width" :min="0" :precision="4" /></el-form-item>
+          </template>
           <el-form-item label="当前价格"><el-input-number v-model="holdingForm.latestPrice" class="full-width" :min="0" :precision="formPricePrecision" /></el-form-item>
         </div>
         <el-form-item label="备注"><el-input v-model.trim="holdingForm.remark" type="textarea" :rows="3" /></el-form-item>
@@ -193,10 +203,17 @@
             <el-option v-for="account in accounts" :key="account.id" :label="`${account.name} · ${account.balance.toFixed(2)} ${account.currency}`" :value="account.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="数量"><el-input-number v-model="tradeForm.quantity" class="full-width" :min="tradeQuantityMin" :precision="tradeQuantityPrecision" /></el-form-item>
-        <el-form-item label="价格"><el-input-number v-model="tradeForm.price" class="full-width" :min="0.000001" :precision="activePricePrecision" /></el-form-item>
+        <template v-if="isFundAmountBuy">
+          <el-form-item label="买入总金额"><el-input-number v-model="tradeForm.tradeAmount" class="full-width" :min="0.01" :precision="2" /></el-form-item>
+          <el-form-item label="交易日期"><el-date-picker v-model="tradeForm.transactionTime" type="date" class="full-width" /></el-form-item>
+          <small class="form-tip">基金买入会按确认净值自动反推确认份额；当天净值未出时先保存为待确认。</small>
+        </template>
+        <template v-else>
+          <el-form-item label="数量"><el-input-number v-model="tradeForm.quantity" class="full-width" :min="tradeQuantityMin" :precision="tradeQuantityPrecision" /></el-form-item>
+          <el-form-item label="价格"><el-input-number v-model="tradeForm.price" class="full-width" :min="0.000001" :precision="activePricePrecision" /></el-form-item>
+          <el-form-item label="交易时间"><el-date-picker v-model="tradeForm.transactionTime" type="datetime" class="full-width" /></el-form-item>
+        </template>
         <el-form-item label="手续费"><el-input-number v-model="tradeForm.fee" class="full-width" :min="0" :precision="4" /></el-form-item>
-        <el-form-item label="交易时间"><el-date-picker v-model="tradeForm.transactionTime" type="datetime" class="full-width" /></el-form-item>
         <el-form-item label="备注"><el-input v-model.trim="tradeForm.note" type="textarea" :rows="3" /></el-form-item>
       </el-form>
       <template #footer>
@@ -237,18 +254,21 @@
         <el-table-column label="成交金额" min-width="130" align="right" header-align="right">
           <template #default="{ row }"><AmountText class="numeric-cell" :value="row.amount" :precision="4" /></template>
         </el-table-column>
+        <el-table-column label="确认信息" min-width="190">
+          <template #default="{ row }">{{ formatConfirmInfo(row) }}</template>
+        </el-table-column>
         <el-table-column label="已实现盈亏" min-width="140" align="right" header-align="right">
           <template #default="{ row }"><AmountText v-if="row.realizedProfit !== null && row.realizedProfit !== undefined" class="numeric-cell" :value="row.realizedProfit" with-sign :precision="4" /><span v-else class="numeric-cell muted-text">暂无</span></template>
         </el-table-column>
         <el-table-column label="状态" width="100">
-          <template #default="{ row }"><StatusBadge :label="row.status === 'REVOKED' ? '已撤销' : '正常'" /></template>
+          <template #default="{ row }"><StatusBadge :label="statusLabel(row.status)" /></template>
         </el-table-column>
         <el-table-column label="撤销信息" min-width="180">
           <template #default="{ row }">{{ row.status === 'REVOKED' ? (row.revokeReason || formatTableTime(row.revokeTime) || '已撤销') : '-' }}</template>
         </el-table-column>
         <el-table-column label="操作" width="100" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button link type="danger" :disabled="row.status === 'REVOKED'" @click.stop="handleRevokeTransaction(row)">撤销</el-button>
+            <el-button link type="danger" :disabled="row.status === 'REVOKED' || row.status === 'CANCELLED'" @click.stop="handleRevokeTransaction(row)">撤销</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -342,7 +362,7 @@ const holdingForm = reactive<Required<Omit<HoldingRequest, 'assetId'>>>({
   avgCost: 0,
   remark: ''
 });
-const tradeForm = reactive({ type: 'BUY' as InvestmentTransactionType, accountId: '', quantity: 0, price: 0, fee: 0, transactionTime: new Date(), note: '' });
+const tradeForm = reactive({ type: 'BUY' as InvestmentTransactionType, accountId: '', quantity: 0, price: 0, tradeAmount: 0, fee: 0, transactionTime: new Date(), note: '' });
 const quoteForm = reactive({ price: 0, currency: 'CNY' });
 
 onMounted(() => {
@@ -383,6 +403,8 @@ const pagedHoldings = computed(() => {
   return filteredHoldings.value.slice(start, start + pageSize.value);
 });
 const activePricePrecision = computed(() => activeHolding.value ? pricePrecision(activeHolding.value) : 4);
+const isFundAmountBuy = computed(() => activeHolding.value?.assetType === 'FUND' && tradeForm.type === 'BUY');
+const isNewFundHolding = computed(() => !editingHolding.value && holdingForm.assetType === 'FUND');
 const formPricePrecision = computed(() => holdingForm.assetType === 'CRYPTO' ? 8 : 4);
 const quantityPrecision = computed(() => holdingForm.assetType === 'CRYPTO' ? 10 : 4);
 const quantityMin = computed(() => holdingForm.assetType === 'CRYPTO' ? 0.0000000001 : 0.0001);
@@ -554,13 +576,22 @@ function applyLookupResult(item: AssetLookupItem) {
 }
 
 async function handleSaveHolding() {
-  if (!holdingForm.assetName || !holdingForm.symbol || holdingForm.quantity <= 0) {
+  if (!holdingForm.assetName || !holdingForm.symbol) {
+    ElMessage.warning('请输入持仓名称和资产代码');
+    return;
+  }
+  if (!isNewFundHolding.value && holdingForm.quantity <= 0) {
     ElMessage.warning('请输入持仓名称、资产代码和有效数量');
     return;
   }
   submitting.value = true;
   try {
-    const payload = { ...holdingForm, quantity: roundQuantity(holdingForm.quantity, holdingForm.assetType), avgCost: round4(holdingForm.avgCost) };
+    // 基金金额买入场景先保存 0 份额持仓，后续由确认净值交易写入真实份额和成本。
+    const payload = {
+      ...holdingForm,
+      quantity: isNewFundHolding.value ? 0 : roundQuantity(holdingForm.quantity, holdingForm.assetType),
+      avgCost: isNewFundHolding.value ? 0 : round4(holdingForm.avgCost)
+    };
     if (editingHolding.value) {
       await investmentApi.updateHolding(editingHolding.value.id, payload);
     } else {
@@ -582,6 +613,7 @@ function openTradeDialog(holding: HoldingItem, type: InvestmentTransactionType) 
   tradeForm.accountId = accounts.value[0]?.id || '';
   tradeForm.quantity = 0;
   tradeForm.price = roundTo(Number(holding.latestPrice || holding.avgCost || 0), pricePrecision(holding));
+  tradeForm.tradeAmount = 0;
   tradeForm.fee = 0;
   tradeForm.transactionTime = new Date();
   tradeForm.note = '';
@@ -596,7 +628,15 @@ function openQuoteDialog(holding: HoldingItem) {
 }
 
 async function handleCreateTrade() {
-  if (!activeHolding.value || !tradeForm.accountId || tradeForm.quantity <= 0 || tradeForm.price <= 0) {
+  if (!activeHolding.value || !tradeForm.accountId) {
+    ElMessage.warning('请选择资金账户');
+    return;
+  }
+  if (isFundAmountBuy.value && tradeForm.tradeAmount <= 0) {
+    ElMessage.warning('请输入有效的基金买入总金额');
+    return;
+  }
+  if (!isFundAmountBuy.value && (tradeForm.quantity <= 0 || tradeForm.price <= 0)) {
     ElMessage.warning('请选择资金账户并输入有效的数量和价格');
     return;
   }
@@ -607,8 +647,10 @@ async function handleCreateTrade() {
       assetId: activeHolding.value.assetId,
       accountId: tradeForm.accountId,
       type: tradeForm.type,
-      quantity: roundQuantity(tradeForm.quantity, activeHolding.value.assetType || 'OTHER'),
-      price: roundTo(tradeForm.price, activePricePrecision.value),
+      inputMode: isFundAmountBuy.value ? 'AMOUNT_NAV' : 'QUANTITY_PRICE',
+      tradeAmount: isFundAmountBuy.value ? roundTo(tradeForm.tradeAmount, 2) : undefined,
+      quantity: isFundAmountBuy.value ? undefined : roundQuantity(tradeForm.quantity, activeHolding.value.assetType || 'OTHER'),
+      price: isFundAmountBuy.value ? undefined : roundTo(tradeForm.price, activePricePrecision.value),
       fee: round4(tradeForm.fee),
       transactionTime: formatDateTime(tradeForm.transactionTime),
       note: tradeForm.note
@@ -758,6 +800,23 @@ function formatOptionalPrice(value: number | null | undefined, row: HoldingItem)
     return '暂无';
   }
   return `${currencySymbol.value}${displayValue(value, row.currency, pricePrecision(row)).toLocaleString('zh-CN', { minimumFractionDigits: pricePrecision(row), maximumFractionDigits: pricePrecision(row) })}`;
+}
+
+function statusLabel(status?: string | null) {
+  return ({ NORMAL: '正常', CONFIRMED: '已确认', PENDING_CONFIRM: '待确认', FAILED: '确认失败', CANCELLED: '已取消', REVOKED: '已撤销' } as Record<string, string>)[status || ''] || '正常';
+}
+
+function formatConfirmInfo(row: InvestmentTransactionItem) {
+  if (row.inputMode !== 'AMOUNT_NAV') {
+    return '-';
+  }
+  if (row.status === 'PENDING_CONFIRM') {
+    return `待确认 · ${row.confirmedDate || row.tradeDate || '-'}`;
+  }
+  if (row.confirmedNav && row.confirmedQuantity) {
+    return `净值 ${roundTo(row.confirmedNav, 4).toFixed(4)} · 份额 ${roundTo(row.confirmedQuantity, 4).toFixed(4)}`;
+  }
+  return row.confirmedDate || '-';
 }
 
 function formatLookupPrice(item: AssetLookupItem) {

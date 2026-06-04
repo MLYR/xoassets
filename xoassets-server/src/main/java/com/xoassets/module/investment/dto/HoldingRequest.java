@@ -28,7 +28,7 @@ public class HoldingRequest {
     private String marketStatus;
 
     @NotNull(message = "持仓数量不能为空")
-    @DecimalMin(value = "0.0000000001", message = "持仓数量必须大于0")
+    @DecimalMin(value = "0.0000", message = "持仓数量不能小于0")
     private BigDecimal quantity;
 
     @NotNull(message = "平均成本不能为空")

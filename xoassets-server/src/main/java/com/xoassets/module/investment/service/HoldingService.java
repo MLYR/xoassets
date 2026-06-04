@@ -54,6 +54,11 @@ public interface HoldingService {
     HoldingTradeResult applyBuy(Long userId, Long holdingId, Long assetId, BigDecimal quantity, BigDecimal price, BigDecimal fee);
 
     /**
+     * 基金金额买入确认后，按确认份额和实际总成本增加持仓。
+     */
+    HoldingTradeResult applyConfirmedBuy(Long userId, Long holdingId, Long assetId, BigDecimal quantity, BigDecimal costAmount);
+
+    /**
      * 卖出时校验数量并扣减持仓。
      */
     HoldingTradeResult applySell(Long userId, Long holdingId, Long assetId, BigDecimal quantity, BigDecimal price, BigDecimal fee);

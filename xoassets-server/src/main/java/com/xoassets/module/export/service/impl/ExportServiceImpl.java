@@ -257,6 +257,10 @@ public class ExportServiceImpl implements ExportService {
             case "SELL", "INVEST_SELL" -> "投资卖出";
             case "REVOKED" -> "已撤销";
             case "NORMAL" -> "正常";
+            case "CONFIRMED" -> "已确认";
+            case "PENDING_CONFIRM" -> "待确认";
+            case "FAILED" -> "确认失败";
+            case "CANCELLED" -> "已取消";
             default -> type;
         };
     }

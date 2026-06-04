@@ -53,6 +53,7 @@ public class HoldingServiceImpl implements HoldingService {
 
     private static final List<String> ASSET_TYPES = List.of("STOCK", "FUND", "CRYPTO", "OTHER");
     private static final List<String> QUOTE_SOURCES = List.of("MANUAL", "COINGECKO", "EASTMONEY", "SINA", "YAHOO", "ALPHA_VANTAGE", "TUSHARE", "AKSHARE");
+    private static final String ASSET_TYPE_FUND = "FUND";
 
     private final HoldingMapper holdingMapper;
     private final AssetMapper assetMapper;
@@ -172,6 +173,7 @@ public class HoldingServiceImpl implements HoldingService {
         Asset asset = resolveAsset(request);
         BigDecimal quantity = scaleQuantity(request.getQuantity());
         BigDecimal avgCost = scale4(request.getAvgCost());
+        ensureInitialQuantity(request.getAssetType(), quantity);
         ensureNoDuplicatedHolding(userId, asset.getId(), null);
         Holding holding = new Holding();
         holding.setUserId(userId);
@@ -198,6 +200,7 @@ public class HoldingServiceImpl implements HoldingService {
         Holding holding = findOwnedHolding(id, userId);
         BigDecimal quantity = scaleQuantity(request.getQuantity());
         BigDecimal avgCost = scale4(request.getAvgCost());
+        ensureInitialQuantity(request.getAssetType(), quantity);
         ensureNoDuplicatedHolding(userId, asset.getId(), id);
         holding.setAssetId(asset.getId());
         holding.setQuantity(quantity);
@@ -257,6 +260,27 @@ public class HoldingServiceImpl implements HoldingService {
         BigDecimal buyCost = quantity.multiply(price).add(fee).setScale(4, RoundingMode.HALF_UP);
         BigDecimal newQuantity = holding.getQuantity().add(quantity).setScale(10, RoundingMode.HALF_UP);
         BigDecimal newTotalCost = holding.getTotalCost().add(buyCost);
+        holding.setQuantity(newQuantity);
+        holding.setTotalCost(newTotalCost);
+        holding.setAvgCost(newQuantity.compareTo(BigDecimal.ZERO) == 0 ? BigDecimal.ZERO : newTotalCost.divide(newQuantity, 4, RoundingMode.HALF_UP));
+        updateHoldingBalance(holding);
+        return new HoldingTradeResult(holding, null, null);
+    }
+
+    /**
+     * 基金金额买入确认后使用确认份额和用户实际投入金额更新持仓，避免份额向下取整后成本被反推变小。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public HoldingTradeResult applyConfirmedBuy(Long userId, Long holdingId, Long assetId, BigDecimal quantity, BigDecimal costAmount) {
+        quantity = quantity == null ? BigDecimal.ZERO : quantity.setScale(4, RoundingMode.DOWN);
+        costAmount = costAmount == null ? BigDecimal.ZERO : costAmount.setScale(4, RoundingMode.HALF_UP);
+        Holding holding = holdingId == null ? findOrCreateHolding(userId, assetId) : findOwnedHolding(holdingId, userId);
+        if (!Objects.equals(holding.getAssetId(), assetId)) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "交易资产与持仓资产不一致");
+        }
+        BigDecimal newQuantity = holding.getQuantity().add(quantity).setScale(10, RoundingMode.HALF_UP);
+        BigDecimal newTotalCost = holding.getTotalCost().add(costAmount).setScale(4, RoundingMode.HALF_UP);
         holding.setQuantity(newQuantity);
         holding.setTotalCost(newTotalCost);
         holding.setAvgCost(newQuantity.compareTo(BigDecimal.ZERO) == 0 ? BigDecimal.ZERO : newTotalCost.divide(newQuantity, 4, RoundingMode.HALF_UP));
@@ -441,6 +465,15 @@ public class HoldingServiceImpl implements HoldingService {
     }
 
     /**
+     * 基金允许先建 0 份额持仓再通过金额买入确认份额，股票和虚拟货币仍要求初始数量大于 0。
+     */
+    private void ensureInitialQuantity(String assetType, BigDecimal quantity) {
+        if (!ASSET_TYPE_FUND.equals(assetType) && quantity.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "非基金持仓数量必须大于0");
+        }
+    }
+
+    /**
      * 同一用户同一资产只保留一条持仓。
      */
     private void ensureNoDuplicatedHolding(Long userId, Long assetId, Long excludeId) {
@@ -567,7 +600,7 @@ public class HoldingServiceImpl implements HoldingService {
         java.time.LocalDateTime firstBuyDateTime = null;
         java.time.LocalDateTime lastTradeTime = null;
         for (InvestmentTransaction transaction : transactions) {
-            if ("REVOKED".equals(transaction.getStatus())) {
+            if (!isEffectiveInvestmentTransaction(transaction)) {
                 continue;
             }
             BigDecimal fee = scale4(transaction.getFee());
@@ -609,6 +642,13 @@ public class HoldingServiceImpl implements HoldingService {
     }
 
     /**
+     * 只有正常已确认交易参与持仓详情汇总，待确认、已撤销和已取消都只保留明细展示。
+     */
+    private boolean isEffectiveInvestmentTransaction(InvestmentTransaction transaction) {
+        return "NORMAL".equals(transaction.getStatus()) || "CONFIRMED".equals(transaction.getStatus());
+    }
+
+    /**
      * 转换详情页投资交易记录，保持和投资交易列表相同字段。
      */
     private InvestmentTransactionVO toTransactionVO(InvestmentTransaction transaction, Asset asset, Account account) {
@@ -621,12 +661,20 @@ public class HoldingServiceImpl implements HoldingService {
                 .assetName(asset == null ? null : asset.getName())
                 .symbol(asset == null ? null : asset.getSymbol())
                 .type(transaction.getType())
+                .inputMode(transaction.getInputMode())
+                .tradeAmount(transaction.getTradeAmount())
+                .tradeQuantity(transaction.getTradeQuantity())
+                .tradePrice(transaction.getTradePrice())
                 .quantity(transaction.getQuantity())
                 .price(transaction.getPrice())
                 .amount(transaction.getAmount())
                 .fee(transaction.getFee())
                 .costAmount(transaction.getCostAmount())
                 .realizedProfit(transaction.getRealizedProfit())
+                .tradeDate(transaction.getTradeDate())
+                .confirmedDate(transaction.getConfirmedDate())
+                .confirmedNav(transaction.getConfirmedNav())
+                .confirmedQuantity(transaction.getConfirmedQuantity())
                 .status(transaction.getStatus())
                 .revokeTime(transaction.getRevokeTime())
                 .revokeReason(transaction.getRevokeReason())

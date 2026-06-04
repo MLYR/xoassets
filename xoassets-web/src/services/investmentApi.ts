@@ -4,6 +4,8 @@ import { request } from './http';
 export type AssetType = 'STOCK' | 'FUND' | 'CRYPTO' | 'OTHER';
 export type QuoteSource = 'MANUAL' | 'COINGECKO' | 'EASTMONEY' | 'SINA' | 'YAHOO' | 'ALPHA_VANTAGE' | 'TUSHARE' | 'AKSHARE';
 export type InvestmentTransactionType = 'BUY' | 'SELL';
+export type InvestmentInputMode = 'QUANTITY_PRICE' | 'AMOUNT_NAV';
+export type InvestmentTransactionStatus = 'NORMAL' | 'CONFIRMED' | 'PENDING_CONFIRM' | 'FAILED' | 'CANCELLED' | 'REVOKED';
 
 export interface AssetItem {
   id: string;
@@ -146,13 +148,21 @@ export interface InvestmentTransactionItem {
   assetName: string | null;
   symbol: string | null;
   type: InvestmentTransactionType;
+  inputMode?: InvestmentInputMode | null;
+  tradeAmount?: number | null;
+  tradeQuantity?: number | null;
+  tradePrice?: number | null;
   quantity: number;
   price: number;
   amount: number;
   fee: number;
   costAmount?: number | null;
   realizedProfit?: number | null;
-  status?: 'NORMAL' | 'REVOKED' | null;
+  tradeDate?: string | null;
+  confirmedDate?: string | null;
+  confirmedNav?: number | null;
+  confirmedQuantity?: number | null;
+  status?: InvestmentTransactionStatus | null;
   revokeTime?: string | null;
   revokeReason?: string | null;
   transactionTime: string;
@@ -164,8 +174,11 @@ export interface InvestmentTransactionRequest {
   assetId: string;
   accountId: string;
   type: InvestmentTransactionType;
-  quantity: number;
-  price: number;
+  inputMode?: InvestmentInputMode;
+  tradeAmount?: number;
+  quantity?: number;
+  price?: number;
+  confirmedDate?: string;
   fee: number;
   transactionTime: string;
   note?: string;

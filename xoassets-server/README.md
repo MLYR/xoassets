@@ -141,6 +141,7 @@ http://localhost:8080/doc.html
 - 已有本地库升级行情字段时，执行 `src/main/resources/db/migration-quote-fields.sql`。
 - 投资买入会创建或更新持仓并按移动平均成本重算；投资卖出必须校验持仓数量，数量不足时拒绝。
 - 投资买入必须选择扣款账户并扣减账户余额；投资卖出必须选择到账账户并增加账户余额，已实现盈亏写入投资交易记录。
+- 基金可先创建 0 份额持仓，再使用金额确认模式买入：`input_mode = AMOUNT_NAV` 时先按买入总金额扣减资金账户，已有确认日期单位净值则立即确认份额并更新持仓；确认净值优先读取 `xo_asset_price_daily.close_price`，旧 `xo_asset_price` 同日快照兜底；没有净值则保存为 `PENDING_CONFIRM`，由基金确认定时任务后续更新为 `CONFIRMED`。
 - 投资交易、资金账户和持仓联动在同一事务中完成，避免交易记录与账户余额、持仓数量、成本不一致。
 - 投资交易支持撤销，不物理删除；撤销状态写入 `status = REVOKED`，账户余额和持仓通过原交易 `cost_amount` 反向恢复。
 - 投资数量统一保留 10 位小数，手续费、持仓成本、市值、盈亏和收益率统一按 4 位小数归一化后计算，避免不同调用入口产生精度口径差异。
@@ -201,4 +202,10 @@ WHERE cost_amount IS NULL;
 
 ALTER TABLE xo_investment_transaction
   MODIFY account_id BIGINT NOT NULL COMMENT '资金账户ID';
+```
+
+已有库升级到基金金额买入版本时，执行：
+
+```bash
+mysql -u root -p xoassets < src/main/resources/db/migration-fund-amount-nav.sql
 ```

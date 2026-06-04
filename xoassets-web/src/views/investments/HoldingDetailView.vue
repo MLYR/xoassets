@@ -66,6 +66,9 @@
         <el-table-column label="成交价" min-width="130" align="right" header-align="right">
           <template #default="{ row }"><AmountText class="numeric-cell" :value="row.price" :precision="pricePrecision" :currency-symbol="currencySymbol" /></template>
         </el-table-column>
+        <el-table-column label="确认信息" min-width="190">
+          <template #default="{ row }">{{ formatConfirmInfo(row) }}</template>
+        </el-table-column>
         <el-table-column label="成交金额" min-width="140" align="right" header-align="right">
           <template #default="{ row }"><AmountText class="numeric-cell" :value="row.amount" :precision="4" :currency-symbol="currencySymbol" /></template>
         </el-table-column>
@@ -79,14 +82,14 @@
           </template>
         </el-table-column>
         <el-table-column label="状态" width="100">
-          <template #default="{ row }"><StatusBadge :label="row.status === 'REVOKED' ? '已撤销' : '正常'" /></template>
+          <template #default="{ row }"><StatusBadge :label="statusLabel(row.status)" /></template>
         </el-table-column>
         <el-table-column label="备注" min-width="180">
           <template #default="{ row }">{{ row.status === 'REVOKED' ? (row.revokeReason || '已撤销') : (row.note || '-') }}</template>
         </el-table-column>
         <el-table-column label="操作" width="110" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button link type="danger" :disabled="row.status === 'REVOKED'" @click="handleRevokeTransaction(row)">撤销</el-button>
+            <el-button link type="danger" :disabled="row.status === 'REVOKED' || row.status === 'CANCELLED'" @click="handleRevokeTransaction(row)">撤销</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -100,10 +103,17 @@
             <el-option v-for="account in accounts" :key="account.id" :label="`${account.name} · ${account.balance.toFixed(2)} ${account.currency}`" :value="account.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="数量"><el-input-number v-model="tradeForm.quantity" class="full-width" :min="quantityMin" :precision="quantityPrecision" /></el-form-item>
-        <el-form-item label="价格"><el-input-number v-model="tradeForm.price" class="full-width" :min="0.000001" :precision="pricePrecision" /></el-form-item>
+        <template v-if="isFundAmountBuy">
+          <el-form-item label="买入总金额"><el-input-number v-model="tradeForm.tradeAmount" class="full-width" :min="0.01" :precision="2" /></el-form-item>
+          <el-form-item label="交易日期"><el-date-picker v-model="tradeForm.transactionTime" type="date" class="full-width" /></el-form-item>
+          <small class="form-tip">基金买入会按确认净值自动反推确认份额；当天净值未出时先保存为待确认。</small>
+        </template>
+        <template v-else>
+          <el-form-item label="数量"><el-input-number v-model="tradeForm.quantity" class="full-width" :min="quantityMin" :precision="quantityPrecision" /></el-form-item>
+          <el-form-item label="价格"><el-input-number v-model="tradeForm.price" class="full-width" :min="0.000001" :precision="pricePrecision" /></el-form-item>
+          <el-form-item label="交易时间"><el-date-picker v-model="tradeForm.transactionTime" type="datetime" class="full-width" /></el-form-item>
+        </template>
         <el-form-item label="手续费"><el-input-number v-model="tradeForm.fee" class="full-width" :min="0" :precision="4" /></el-form-item>
-        <el-form-item label="交易时间"><el-date-picker v-model="tradeForm.transactionTime" type="datetime" class="full-width" /></el-form-item>
         <el-form-item label="备注"><el-input v-model.trim="tradeForm.note" type="textarea" :rows="3" /></el-form-item>
       </el-form>
       <template #footer>
@@ -153,7 +163,7 @@ const refreshingQuote = ref(false);
 const trendMode = ref<'MARKET_VALUE' | 'PRICE'>('MARKET_VALUE');
 const tradeDialogVisible = ref(false);
 const quoteDialogVisible = ref(false);
-const tradeForm = reactive({ type: 'BUY' as InvestmentTransactionType, accountId: '', quantity: 0, price: 0, fee: 0, transactionTime: new Date(), note: '' });
+const tradeForm = reactive({ type: 'BUY' as InvestmentTransactionType, accountId: '', quantity: 0, price: 0, tradeAmount: 0, fee: 0, transactionTime: new Date(), note: '' });
 const quoteForm = reactive({ price: 0, currency: 'CNY' });
 const trendModeOptions = [
   { label: '总市值', value: 'MARKET_VALUE' },
@@ -165,6 +175,7 @@ const currencySymbol = computed(() => (holding.value?.currency === 'USD' ? '$' :
 const pricePrecision = computed(() => holding.value?.priceScale || (holding.value?.assetType === 'CRYPTO' ? 6 : 4));
 const quantityPrecision = computed(() => holding.value?.assetType === 'CRYPTO' ? 10 : 4);
 const quantityMin = computed(() => holding.value?.assetType === 'CRYPTO' ? 0.0000000001 : 0.0001);
+const isFundAmountBuy = computed(() => holding.value?.assetType === 'FUND' && tradeForm.type === 'BUY');
 const priceChartOption = computed<EChartsOption>(() => {
   const points = [...priceSnapshots.value].reverse();
   const quantity = Number(holding.value?.quantity || 0);
@@ -227,6 +238,7 @@ function openTradeDialog(type: InvestmentTransactionType) {
   tradeForm.accountId = accounts.value[0]?.id || '';
   tradeForm.quantity = 0;
   tradeForm.price = roundTo(Number(holding.value.latestPrice || holding.value.avgCost || 0), pricePrecision.value);
+  tradeForm.tradeAmount = 0;
   tradeForm.fee = 0;
   tradeForm.transactionTime = new Date();
   tradeForm.note = '';
@@ -243,8 +255,16 @@ function openQuoteDialog() {
 }
 
 async function handleCreateTrade() {
-  if (!holding.value || !tradeForm.accountId || tradeForm.quantity <= 0 || tradeForm.price <= 0) {
-    ElMessage.warning('请选择资金账户并输入有效的数量和价格');
+  if (!holding.value || !tradeForm.accountId) {
+    ElMessage.warning('请选择资金账户');
+    return;
+  }
+  if (isFundAmountBuy.value && tradeForm.tradeAmount <= 0) {
+    ElMessage.warning('请输入有效的基金买入总金额');
+    return;
+  }
+  if (!isFundAmountBuy.value && (tradeForm.quantity <= 0 || tradeForm.price <= 0)) {
+    ElMessage.warning('请输入有效的数量和价格');
     return;
   }
   submitting.value = true;
@@ -254,8 +274,10 @@ async function handleCreateTrade() {
       assetId: holding.value.assetId,
       accountId: tradeForm.accountId,
       type: tradeForm.type,
-      quantity: roundQuantity(tradeForm.quantity),
-      price: roundTo(tradeForm.price, pricePrecision.value),
+      inputMode: isFundAmountBuy.value ? 'AMOUNT_NAV' : 'QUANTITY_PRICE',
+      tradeAmount: isFundAmountBuy.value ? roundTo(tradeForm.tradeAmount, 2) : undefined,
+      quantity: isFundAmountBuy.value ? undefined : roundQuantity(tradeForm.quantity),
+      price: isFundAmountBuy.value ? undefined : roundTo(tradeForm.price, pricePrecision.value),
       fee: round4(tradeForm.fee),
       transactionTime: formatDateTime(tradeForm.transactionTime),
       note: tradeForm.note
@@ -332,6 +354,23 @@ function formatTableTime(value?: string | null) {
 
 function formatQuantity(value: number) {
   return roundTo(Number(value), quantityPrecision.value).toLocaleString('zh-CN', { minimumFractionDigits: holding.value?.assetType === 'CRYPTO' ? 0 : 4, maximumFractionDigits: quantityPrecision.value });
+}
+
+function statusLabel(status?: string | null) {
+  return ({ NORMAL: '正常', CONFIRMED: '已确认', PENDING_CONFIRM: '待确认', FAILED: '确认失败', CANCELLED: '已取消', REVOKED: '已撤销' } as Record<string, string>)[status || ''] || '正常';
+}
+
+function formatConfirmInfo(row: InvestmentTransactionItem) {
+  if (row.inputMode !== 'AMOUNT_NAV') {
+    return '-';
+  }
+  if (row.status === 'PENDING_CONFIRM') {
+    return `待确认 · ${row.confirmedDate || row.tradeDate || '-'}`;
+  }
+  if (row.confirmedNav && row.confirmedQuantity) {
+    return `净值 ${roundTo(row.confirmedNav, 4).toFixed(4)} · 份额 ${roundTo(row.confirmedQuantity, 4).toFixed(4)}`;
+  }
+  return row.confirmedDate || '-';
 }
 
 function formatBreakEven(value: number | null | undefined) {

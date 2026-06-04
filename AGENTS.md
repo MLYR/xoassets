@@ -138,6 +138,7 @@ com.xoassets
 - 新增持仓优先通过 `GET /api/assets/lookup` 自动识别资产信息；查询失败不能阻塞手动录入。保存持仓时若带 `latestPrice`，后端必须写入 `xo_asset_price` 作为初始价格快照。
 - 投资主页只展示聚合统计和图表，投资分布按具体投资产品统计，总投资资产曲线优先使用资产快照，收益贡献独占整行并支持总 / 当日 / 当月 / 当年切换且优先显示资产名称；持仓明细、买入卖出、编辑删除、价格刷新等操作集中在 `/investments/details`，单个持仓详情使用 `/investments/holdings/:id`，详情页走势默认展示总市值并可切换价格。
 - 投资买入 / 卖出必须选择当前用户资金账户；买入扣减账户余额，卖出增加账户余额，交易、账户和持仓更新必须在同一事务内完成，且不写入普通流水。
+- 基金买入默认支持 `AMOUNT_NAV` 金额净值录入，基金可先创建 0 份额持仓；用户录入买入总金额和交易日期后，系统按确认日期单位净值反推确认份额，净值缺失时交易保持 `PENDING_CONFIRM`，后续定时任务确认，股票等资产继续使用 `QUANTITY_PRICE` 数量价格录入。
 - 投资交易撤销必须使用 `cost_amount` 反向恢复历史成本，不物理删除交易；已撤销交易保留展示但不参与账户资金明细汇总。
 - 投资数量统一保留 10 位小数，手续费、成本、市值、盈亏和收益率统一按 4 位小数计算；当前价和日级价保留 8 位，并记录 previous_close、change_amount、change_percent、market_status，持仓接口返回 `priceScale`，CRYPTO 当前价至少展示 6 位，FUND / STOCK 展示 4 位。
 - 公共资产 `xo_asset` 必须写入 `market`，股票为 SH / SZ / BJ / US，基金为 CN_FUND，虚拟货币为 CRYPTO；资产唯一性按 `type + market + symbol + deleted` 判断。

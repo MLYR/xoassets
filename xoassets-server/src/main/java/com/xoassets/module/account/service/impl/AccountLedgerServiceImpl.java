@@ -49,6 +49,7 @@ public class AccountLedgerServiceImpl implements AccountLedgerService {
     private static final String SOURCE_INVESTMENT = "INVESTMENT";
     private static final String STATUS_NORMAL = "NORMAL";
     private static final String STATUS_REVOKED = "REVOKED";
+    private static final String STATUS_CANCELLED = "CANCELLED";
 
     private final AccountService accountService;
     private final AccountMapper accountMapper;
@@ -107,7 +108,7 @@ public class AccountLedgerServiceImpl implements AccountLedgerService {
         // MVP 阶段复用资金明细全量加载后聚合；后续可按分类、投资资产和日期分别改为 SQL GROUP BY 聚合。
         List<AccountLedgerVO> rows = loadLedgerRows(userId, accountId, ledgerQuery).stream()
                 // 撤销投资交易保留展示，但不参与资金流向统计。
-                .filter(row -> !STATUS_REVOKED.equals(row.getStatus()))
+                .filter(row -> isEffectiveInvestmentStatus(row.getStatus()))
                 .toList();
         BigDecimal income = sumByType(rows, "INCOME");
         BigDecimal refund = sumByType(rows, "REFUND");
@@ -244,7 +245,7 @@ public class AccountLedgerServiceImpl implements AccountLedgerService {
      * 账户明细汇总不统计已撤销投资交易。
      */
     private AccountLedgerSummaryVO buildSummary(Account account, List<AccountLedgerVO> rows) {
-        List<AccountLedgerVO> effectiveRows = rows.stream().filter(row -> !STATUS_REVOKED.equals(row.getStatus())).toList();
+        List<AccountLedgerVO> effectiveRows = rows.stream().filter(row -> isEffectiveInvestmentStatus(row.getStatus())).toList();
         BigDecimal inflow = effectiveRows.stream().map(AccountLedgerVO::getAmount).filter(amount -> amount.compareTo(BigDecimal.ZERO) > 0).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal outflow = effectiveRows.stream().map(AccountLedgerVO::getAmount).filter(amount -> amount.compareTo(BigDecimal.ZERO) < 0).map(BigDecimal::abs).reduce(BigDecimal.ZERO, BigDecimal::add);
         return AccountLedgerSummaryVO.builder()
@@ -255,6 +256,13 @@ public class AccountLedgerServiceImpl implements AccountLedgerService {
                 .netInflow(inflow.subtract(outflow))
                 .transactionCount(effectiveRows.size())
                 .build();
+    }
+
+    /**
+     * 账户资金统计排除已撤销和已取消投资交易，待确认基金买入仍计入账户流出。
+     */
+    private boolean isEffectiveInvestmentStatus(String status) {
+        return !STATUS_REVOKED.equals(status) && !STATUS_CANCELLED.equals(status);
     }
 
     /**
