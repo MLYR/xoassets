@@ -203,6 +203,15 @@ export interface InvestmentTransactionRequest {
   note?: string;
 }
 
+export interface FundConfirmPreview {
+  tradeDate: string;
+  effectiveTradeDate: string;
+  confirmedDate: string;
+  qdii: boolean;
+  shifted: boolean;
+  shiftReason?: string | null;
+}
+
 export interface ManualQuoteRequest {
   assetId: string;
   price: number;
@@ -290,6 +299,13 @@ export const investmentApi = {
       url: '/investment-transactions',
       method: 'POST',
       data
+    });
+  },
+  fundConfirmPreview(params: { assetId: string; transactionTime: string }) {
+    return request<FundConfirmPreview>({
+      url: '/investment-transactions/fund-confirm-preview',
+      method: 'GET',
+      params
     });
   },
   listTransactions(holdingId?: string) {

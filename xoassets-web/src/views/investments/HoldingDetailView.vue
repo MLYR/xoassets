@@ -105,8 +105,8 @@
         </el-form-item>
         <template v-if="isFundAmountBuy">
           <el-form-item label="买入总金额"><el-input-number v-model="tradeForm.tradeAmount" class="full-width" :min="0.01" :precision="2" /></el-form-item>
-          <el-form-item label="交易日期"><el-date-picker v-model="tradeForm.transactionTime" type="date" class="full-width" /></el-form-item>
-          <small class="form-tip">基金买入会按确认净值自动反推确认份额；当天净值未出时先保存为待确认。</small>
+          <el-form-item label="实际买入时间"><el-date-picker v-model="tradeForm.transactionTime" type="datetime" class="full-width" /></el-form-item>
+          <small class="form-tip">{{ fundConfirmPreviewText }}</small>
         </template>
         <template v-else>
           <el-form-item label="数量"><el-input-number v-model="tradeForm.quantity" class="full-width" :min="quantityMin" :precision="quantityPrecision" /></el-form-item>
@@ -138,7 +138,7 @@
 
 <script setup lang="ts">
 // 页面只读取当前 holdingId 的详情接口，买入卖出后重新拉取详情保证汇总口径来自后端。
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import type { EChartsOption } from 'echarts';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
@@ -148,7 +148,7 @@ import MetricCard from '@/components/finance/MetricCard.vue';
 import StatusBadge from '@/components/finance/StatusBadge.vue';
 import { ROUTES } from '@/constants/routes';
 import { accountApi, type AccountItem } from '@/services/accountApi';
-import { investmentApi, type AssetPriceItem, type HoldingDetailSummary, type HoldingItem, type InvestmentTransactionItem, type InvestmentTransactionType } from '@/services/investmentApi';
+import { investmentApi, type AssetPriceItem, type FundConfirmPreview, type HoldingDetailSummary, type HoldingItem, type InvestmentTransactionItem, type InvestmentTransactionType } from '@/services/investmentApi';
 
 const route = useRoute();
 const router = useRouter();
@@ -165,6 +165,8 @@ const tradeDialogVisible = ref(false);
 const quoteDialogVisible = ref(false);
 const tradeForm = reactive({ type: 'BUY' as InvestmentTransactionType, accountId: '', quantity: 0, price: 0, tradeAmount: 0, fee: 0, transactionTime: new Date(), note: '' });
 const quoteForm = reactive({ price: 0, currency: 'CNY' });
+const fundConfirmPreview = ref<FundConfirmPreview | null>(null);
+let fundConfirmPreviewSeq = 0;
 const trendModeOptions = [
   { label: '总市值', value: 'MARKET_VALUE' },
   { label: '价格', value: 'PRICE' }
@@ -176,6 +178,19 @@ const pricePrecision = computed(() => holding.value?.priceScale || (holding.valu
 const quantityPrecision = computed(() => holding.value?.assetType === 'CRYPTO' ? 10 : 4);
 const quantityMin = computed(() => holding.value?.assetType === 'CRYPTO' ? 0.0000000001 : 0.0001);
 const isFundAmountBuy = computed(() => holding.value?.assetType === 'FUND' && tradeForm.type === 'BUY');
+const fundConfirmPreviewText = computed(() => {
+  if (!isFundAmountBuy.value) {
+    return '';
+  }
+  if (!fundConfirmPreview.value) {
+    return '基金买入会按确认净值自动反推确认份额；净值未出时先保存为待确认。';
+  }
+  const preview = fundConfirmPreview.value;
+  const prefix = preview.shifted
+    ? `${preview.shiftReason || '实际买入时间已顺延'}，将按 ${preview.effectiveTradeDate} 作为申请日`
+    : `将按 ${preview.effectiveTradeDate} 作为申请日`;
+  return `${prefix}，${preview.qdii ? 'QDII 预计' : '预计'} ${preview.confirmedDate} 确认；净值未出时先保存为待确认。`;
+});
 const todayProfitDescription = computed(() => holding.value?.todayPriceAvailable === false ? '今日净值未更新' : '今日有效价对比昨价');
 const priceChartOption = computed<EChartsOption>(() => {
   const points = [...priceSnapshots.value].reverse();
@@ -206,6 +221,13 @@ const priceChartOption = computed<EChartsOption>(() => {
 onMounted(() => {
   loadPageData();
 });
+
+watch(
+  () => [isFundAmountBuy.value, tradeForm.transactionTime, holding.value?.assetId],
+  () => {
+    loadFundConfirmPreview();
+  }
+);
 
 async function loadPageData() {
   if (!holdingId.value) {
@@ -244,6 +266,28 @@ function openTradeDialog(type: InvestmentTransactionType) {
   tradeForm.transactionTime = new Date();
   tradeForm.note = '';
   tradeDialogVisible.value = true;
+  loadFundConfirmPreview();
+}
+
+async function loadFundConfirmPreview() {
+  if (!isFundAmountBuy.value || !holding.value?.assetId || !(tradeForm.transactionTime instanceof Date)) {
+    fundConfirmPreview.value = null;
+    return;
+  }
+  const seq = ++fundConfirmPreviewSeq;
+  try {
+    const preview = await investmentApi.fundConfirmPreview({
+      assetId: holding.value.assetId,
+      transactionTime: formatDateTime(tradeForm.transactionTime)
+    });
+    if (seq === fundConfirmPreviewSeq) {
+      fundConfirmPreview.value = preview;
+    }
+  } catch {
+    if (seq === fundConfirmPreviewSeq) {
+      fundConfirmPreview.value = null;
+    }
+  }
 }
 
 function openQuoteDialog() {

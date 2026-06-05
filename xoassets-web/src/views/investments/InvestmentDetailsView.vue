@@ -189,7 +189,7 @@
             type="info"
             show-icon
             :closable="false"
-            title="基金可先保存持仓，再通过买入录入总金额和交易日期，系统按确认净值计算份额。"
+            title="基金可先保存持仓，再通过买入录入总金额和实际买入时间，系统按确认净值计算份额。"
           />
           <template v-else>
             <el-form-item label="数量"><el-input-number v-model="holdingForm.quantity" class="full-width" :min="quantityMin" :precision="quantityPrecision" /></el-form-item>
@@ -215,8 +215,8 @@
         </el-form-item>
         <template v-if="isFundAmountBuy">
           <el-form-item label="买入总金额"><el-input-number v-model="tradeForm.tradeAmount" class="full-width" :min="0.01" :precision="2" /></el-form-item>
-          <el-form-item label="交易日期"><el-date-picker v-model="tradeForm.transactionTime" type="date" class="full-width" /></el-form-item>
-          <small class="form-tip">基金买入会按确认净值自动反推确认份额；当天净值未出时先保存为待确认。</small>
+          <el-form-item label="实际买入时间"><el-date-picker v-model="tradeForm.transactionTime" type="datetime" class="full-width" /></el-form-item>
+          <small class="form-tip">{{ fundConfirmPreviewText }}</small>
         </template>
         <template v-else>
           <el-form-item label="数量"><el-input-number v-model="tradeForm.quantity" class="full-width" :min="tradeQuantityMin" :precision="tradeQuantityPrecision" /></el-form-item>
@@ -300,7 +300,7 @@ import { ROUTES } from '@/constants/routes';
 import { accountApi, type AccountItem } from '@/services/accountApi';
 import { exchangeRateApi } from '@/services/exchangeRateApi';
 import { exportApi } from '@/services/exportApi';
-import { investmentApi, type AssetLookupItem, type AssetType, type HoldingItem, type HoldingRequest, type InvestmentTransactionItem, type InvestmentTransactionType, type QuoteSource } from '@/services/investmentApi';
+import { investmentApi, type AssetLookupItem, type AssetType, type FundConfirmPreview, type HoldingItem, type HoldingRequest, type InvestmentTransactionItem, type InvestmentTransactionType, type QuoteSource } from '@/services/investmentApi';
 
 type DisplayCurrency = 'CNY' | 'USD';
 
@@ -374,6 +374,8 @@ const holdingForm = reactive<Required<Omit<HoldingRequest, 'assetId'>>>({
 });
 const tradeForm = reactive({ type: 'BUY' as InvestmentTransactionType, accountId: '', quantity: 0, price: 0, tradeAmount: 0, fee: 0, transactionTime: new Date(), note: '' });
 const quoteForm = reactive({ price: 0, currency: 'CNY' });
+const fundConfirmPreview = ref<FundConfirmPreview | null>(null);
+let fundConfirmPreviewSeq = 0;
 
 onMounted(() => {
   loadPageData();
@@ -414,6 +416,19 @@ const pagedHoldings = computed(() => {
 });
 const activePricePrecision = computed(() => activeHolding.value ? pricePrecision(activeHolding.value) : 4);
 const isFundAmountBuy = computed(() => activeHolding.value?.assetType === 'FUND' && tradeForm.type === 'BUY');
+const fundConfirmPreviewText = computed(() => {
+  if (!isFundAmountBuy.value) {
+    return '';
+  }
+  if (!fundConfirmPreview.value) {
+    return '基金买入会按确认净值自动反推确认份额；净值未出时先保存为待确认。';
+  }
+  const preview = fundConfirmPreview.value;
+  const prefix = preview.shifted
+    ? `${preview.shiftReason || '实际买入时间已顺延'}，将按 ${preview.effectiveTradeDate} 作为申请日`
+    : `将按 ${preview.effectiveTradeDate} 作为申请日`;
+  return `${prefix}，${preview.qdii ? 'QDII 预计' : '预计'} ${preview.confirmedDate} 确认；净值未出时先保存为待确认。`;
+});
 const isNewFundHolding = computed(() => !editingHolding.value && holdingForm.assetType === 'FUND');
 const formPricePrecision = computed(() => holdingForm.assetType === 'CRYPTO' ? 8 : 4);
 const quantityPrecision = computed(() => holdingForm.assetType === 'CRYPTO' ? 10 : 4);
@@ -434,6 +449,14 @@ const quoteKeyTip = computed(() => {
   if (holdingForm.assetType === 'STOCK' && holdingForm.quoteSource === 'YAHOO') return '美股填写股票代码，例如 AAPL。';
   return '手动行情可不填，后续通过手动价格兜底。';
 });
+
+watch(
+  () => [isFundAmountBuy.value, tradeForm.transactionTime, activeHolding.value?.assetId],
+  () => {
+    loadFundConfirmPreview();
+  }
+);
+
 const displayedSummary = computed(() => {
   // 统计块跟随当前资产类型和关键词筛选，全部则统计所有基金、股票、虚拟货币。
   const totalCost = sumDisplayed('totalCost');
@@ -628,6 +651,28 @@ function openTradeDialog(holding: HoldingItem, type: InvestmentTransactionType) 
   tradeForm.transactionTime = new Date();
   tradeForm.note = '';
   tradeDialogVisible.value = true;
+  loadFundConfirmPreview();
+}
+
+async function loadFundConfirmPreview() {
+  if (!isFundAmountBuy.value || !activeHolding.value?.assetId || !(tradeForm.transactionTime instanceof Date)) {
+    fundConfirmPreview.value = null;
+    return;
+  }
+  const seq = ++fundConfirmPreviewSeq;
+  try {
+    const preview = await investmentApi.fundConfirmPreview({
+      assetId: activeHolding.value.assetId,
+      transactionTime: formatDateTime(tradeForm.transactionTime)
+    });
+    if (seq === fundConfirmPreviewSeq) {
+      fundConfirmPreview.value = preview;
+    }
+  } catch {
+    if (seq === fundConfirmPreviewSeq) {
+      fundConfirmPreview.value = null;
+    }
+  }
 }
 
 function openQuoteDialog(holding: HoldingItem) {

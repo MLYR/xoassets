@@ -24,6 +24,7 @@ import com.xoassets.module.budget.vo.BudgetSummaryVO;
 import com.xoassets.module.category.service.CategoryService;
 import com.xoassets.module.dashboard.service.impl.DashboardServiceImpl;
 import com.xoassets.module.investment.service.AssetService;
+import com.xoassets.module.investment.service.FundConfirmDateService;
 import com.xoassets.module.investment.service.HoldingService;
 import com.xoassets.module.investment.service.InvestmentPositionHistoryService;
 import com.xoassets.module.investment.service.InvestmentPositionState;
@@ -189,8 +190,8 @@ class MvpCoreServiceTest {
                 holdingMapper, assetMapper, assetPriceMapper, mock(AssetPriceCurrentMapper.class), mock(AssetPriceDailyMapper.class),
                 mock(InvestmentDailySnapshotMapper.class), transactionMapper, accountMapper, assetService, mock(com.xoassets.module.investment.service.InvestmentPositionHistoryService.class), mock(QuoteService.class));
         InvestmentTransactionServiceImpl transactionService = new InvestmentTransactionServiceImpl(
-                transactionMapper, assetMapper, mock(AssetPriceMapper.class), mock(AssetPriceDailyMapper.class),
-                accountMapper, assetService, holdingService, accountService, mock(com.xoassets.module.snapshot.service.SnapshotService.class));
+                transactionMapper, assetMapper, mock(AssetPriceMapper.class), mock(AssetPriceDailyMapper.class), mock(AssetPriceCurrentMapper.class),
+                accountMapper, assetService, mock(FundConfirmDateService.class), holdingService, accountService, mock(com.xoassets.module.snapshot.service.SnapshotService.class));
 
         mockAtomicBalance(accountMapper, bank);
         when(holdingMapper.update(any(), any())).thenReturn(1);
@@ -232,8 +233,8 @@ class MvpCoreServiceTest {
                 holdingMapper, assetMapper, mock(AssetPriceMapper.class), mock(AssetPriceCurrentMapper.class), mock(AssetPriceDailyMapper.class),
                 mock(InvestmentDailySnapshotMapper.class), transactionMapper, accountMapper, mock(AssetService.class), mock(com.xoassets.module.investment.service.InvestmentPositionHistoryService.class), mock(QuoteService.class));
         InvestmentTransactionServiceImpl transactionService = new InvestmentTransactionServiceImpl(
-                transactionMapper, assetMapper, mock(AssetPriceMapper.class), mock(AssetPriceDailyMapper.class),
-                accountMapper, mock(AssetService.class), holdingService, accountService, mock(com.xoassets.module.snapshot.service.SnapshotService.class));
+                transactionMapper, assetMapper, mock(AssetPriceMapper.class), mock(AssetPriceDailyMapper.class), mock(AssetPriceCurrentMapper.class),
+                accountMapper, mock(AssetService.class), mock(FundConfirmDateService.class), holdingService, accountService, mock(com.xoassets.module.snapshot.service.SnapshotService.class));
         InvestmentTransaction sell = investmentRecord(99L, "SELL", "50.0000", "12.0000", "600.0000", "2.0000", "451.0000");
 
         mockAtomicBalance(accountMapper, bank);

@@ -328,3 +328,17 @@ CREATE TABLE IF NOT EXISTS xo_ai_report (
   KEY idx_user_date (user_id, report_date),
   KEY idx_user_type_date (user_id, report_type, report_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI财务报告表';
+
+CREATE TABLE IF NOT EXISTS xo_market_calendar (
+  id BIGINT PRIMARY KEY COMMENT '日历ID',
+  market VARCHAR(30) NOT NULL COMMENT '市场：A_SHARE 港股/美股后续扩展',
+  trade_date DATE NOT NULL COMMENT '日期',
+  trading_day TINYINT(1) NOT NULL COMMENT '是否交易日：1是 0否',
+  source VARCHAR(50) NOT NULL DEFAULT 'SYSTEM_WEEKDAY' COMMENT '来源：SYSTEM_WEEKDAY EXCHANGE_ANNOUNCEMENT MANUAL',
+  remark VARCHAR(255) DEFAULT NULL COMMENT '备注',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除：0否 1是',
+  UNIQUE KEY uk_market_date (market, trade_date, deleted),
+  KEY idx_market_trading_day (market, trading_day, trade_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='市场交易日历表';

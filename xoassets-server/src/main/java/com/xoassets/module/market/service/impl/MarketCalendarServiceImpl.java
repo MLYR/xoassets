@@ -1,0 +1,88 @@
+package com.xoassets.module.market.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.IdWorker;
+import com.xoassets.module.market.service.MarketCalendarService;
+import com.xoassets.persistence.entity.MarketCalendar;
+import com.xoassets.persistence.mapper.MarketCalendarMapper;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * 市场交易日历数据库实现；没有年度数据时先补基础周末规则，再读取数据库结果。
+ */
+@Service
+public class MarketCalendarServiceImpl implements MarketCalendarService {
+
+    private static final String SOURCE_SYSTEM_WEEKDAY = "SYSTEM_WEEKDAY";
+
+    private final MarketCalendarMapper marketCalendarMapper;
+
+    public MarketCalendarServiceImpl(MarketCalendarMapper marketCalendarMapper) {
+        this.marketCalendarMapper = marketCalendarMapper;
+    }
+
+    @Override
+    public boolean isTradingDay(String market, LocalDate date) {
+        if (market == null || market.isBlank() || date == null) {
+            return false;
+        }
+        MarketCalendar calendar = findCalendar(market, date);
+        if (calendar == null) {
+            ensureYearInitialized(market, date.getYear());
+            calendar = findCalendar(market, date);
+        }
+        // 数据库补齐失败时退回周末规则，避免确认日计算陷入死循环。
+        return calendar == null ? isWeekday(date) : Boolean.TRUE.equals(calendar.getTradingDay());
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public void ensureYearInitialized(String market, int year) {
+        if (market == null || market.isBlank()) {
+            return;
+        }
+        LocalDate start = LocalDate.of(year, 1, 1);
+        LocalDate end = LocalDate.of(year, 12, 31);
+        List<MarketCalendar> existingRows = marketCalendarMapper.selectList(new LambdaQueryWrapper<MarketCalendar>()
+                .eq(MarketCalendar::getMarket, market)
+                .between(MarketCalendar::getTradeDate, start, end));
+        Set<LocalDate> existingDates = new HashSet<>(existingRows.stream().map(MarketCalendar::getTradeDate).toList());
+        LocalDate cursor = start;
+        while (!cursor.isAfter(end)) {
+            if (!existingDates.contains(cursor)) {
+                insertBaselineDay(market, cursor);
+            }
+            cursor = cursor.plusDays(1);
+        }
+    }
+
+    private MarketCalendar findCalendar(String market, LocalDate date) {
+        return marketCalendarMapper.selectOne(new LambdaQueryWrapper<MarketCalendar>()
+                .eq(MarketCalendar::getMarket, market)
+                .eq(MarketCalendar::getTradeDate, date)
+                .last("limit 1"));
+    }
+
+    private void insertBaselineDay(String market, LocalDate date) {
+        MarketCalendar calendar = new MarketCalendar();
+        calendar.setId(IdWorker.getId());
+        calendar.setMarket(market);
+        calendar.setTradeDate(date);
+        calendar.setTradingDay(isWeekday(date));
+        calendar.setSource(SOURCE_SYSTEM_WEEKDAY);
+        calendar.setRemark("系统按周末规则自动补齐，交易所休市日以数据库修正记录为准");
+        calendar.setDeleted(0);
+        marketCalendarMapper.insert(calendar);
+    }
+
+    private boolean isWeekday(LocalDate date) {
+        DayOfWeek dayOfWeek = date.getDayOfWeek();
+        return dayOfWeek != DayOfWeek.SATURDAY && dayOfWeek != DayOfWeek.SUNDAY;
+    }
+}

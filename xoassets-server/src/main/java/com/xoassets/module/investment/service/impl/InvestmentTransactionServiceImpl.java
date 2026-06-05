@@ -10,19 +10,23 @@ import com.xoassets.module.investment.dto.InvestmentTransactionConvertRequest;
 import com.xoassets.module.investment.dto.InvestmentTransactionRequest;
 import com.xoassets.module.investment.dto.InvestmentTransactionRevokeRequest;
 import com.xoassets.module.investment.service.AssetService;
+import com.xoassets.module.investment.service.FundConfirmDateService;
 import com.xoassets.module.investment.service.HoldingService;
 import com.xoassets.module.investment.service.HoldingTradeResult;
 import com.xoassets.module.investment.service.InvestmentTransactionService;
+import com.xoassets.module.investment.vo.FundConfirmPreviewVO;
 import com.xoassets.module.investment.vo.InvestmentTransactionVO;
 import com.xoassets.module.snapshot.service.SnapshotService;
 import com.xoassets.persistence.entity.Account;
 import com.xoassets.persistence.entity.Asset;
 import com.xoassets.persistence.entity.AssetPrice;
+import com.xoassets.persistence.entity.AssetPriceCurrent;
 import com.xoassets.persistence.entity.AssetPriceDaily;
 import com.xoassets.persistence.entity.Holding;
 import com.xoassets.persistence.entity.InvestmentTransaction;
 import com.xoassets.persistence.mapper.AccountMapper;
 import com.xoassets.persistence.mapper.AssetMapper;
+import com.xoassets.persistence.mapper.AssetPriceCurrentMapper;
 import com.xoassets.persistence.mapper.AssetPriceDailyMapper;
 import com.xoassets.persistence.mapper.AssetPriceMapper;
 import com.xoassets.persistence.mapper.InvestmentTransactionMapper;
@@ -57,8 +61,10 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
     private final AssetMapper assetMapper;
     private final AssetPriceMapper assetPriceMapper;
     private final AssetPriceDailyMapper assetPriceDailyMapper;
+    private final AssetPriceCurrentMapper assetPriceCurrentMapper;
     private final AccountMapper accountMapper;
     private final AssetService assetService;
+    private final FundConfirmDateService fundConfirmDateService;
     private final HoldingService holdingService;
     private final AccountService accountService;
     private final SnapshotService snapshotService;
@@ -68,8 +74,10 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
             AssetMapper assetMapper,
             AssetPriceMapper assetPriceMapper,
             AssetPriceDailyMapper assetPriceDailyMapper,
+            AssetPriceCurrentMapper assetPriceCurrentMapper,
             AccountMapper accountMapper,
             AssetService assetService,
+            FundConfirmDateService fundConfirmDateService,
             HoldingService holdingService,
             AccountService accountService,
             SnapshotService snapshotService) {
@@ -77,8 +85,10 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
         this.assetMapper = assetMapper;
         this.assetPriceMapper = assetPriceMapper;
         this.assetPriceDailyMapper = assetPriceDailyMapper;
+        this.assetPriceCurrentMapper = assetPriceCurrentMapper;
         this.accountMapper = accountMapper;
         this.assetService = assetService;
+        this.fundConfirmDateService = fundConfirmDateService;
         this.holdingService = holdingService;
         this.accountService = accountService;
         this.snapshotService = snapshotService;
@@ -274,6 +284,15 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
     }
 
     /**
+     * 预估基金申购确认日期，供前端在保存前展示顺延和 QDII 提示。
+     */
+    @Override
+    public FundConfirmPreviewVO previewFundConfirm(Long assetId, LocalDateTime transactionTime) {
+        Asset asset = assetService.findAsset(assetId);
+        return fundConfirmDateService.preview(asset, transactionTime);
+    }
+
+    /**
      * 定时确认所有待确认基金买入；查不到确认净值的交易保持待确认，下一轮继续扫描。
      */
     @Transactional(rollbackFor = Exception.class)
@@ -307,7 +326,9 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
                 ? holdingService.applyConfirmedBuy(userId, null, asset.getId(), BigDecimal.ZERO, BigDecimal.ZERO).holding()
                 : holdingService.findOwnedHolding(request.getHoldingId(), userId);
         LocalDate tradeDate = request.getTransactionTime().toLocalDate();
-        LocalDate confirmedDate = request.getConfirmedDate() == null ? tradeDate : request.getConfirmedDate();
+        LocalDate confirmedDate = request.getConfirmedDate() == null
+                ? fundConfirmDateService.confirmedDate(asset, request.getTransactionTime())
+                : request.getConfirmedDate();
         BigDecimal confirmedNav = fundNavOnDate(asset.getId(), confirmedDate);
         BigDecimal netAmount = tradeAmount.subtract(fee).setScale(2, RoundingMode.HALF_UP);
         accountService.adjustBalance(userId, account.getId(), tradeAmount.negate());
@@ -412,12 +433,21 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
         }
         AssetPrice price = assetPriceMapper.selectOne(new LambdaQueryWrapper<AssetPrice>()
                 .eq(AssetPrice::getAssetId, assetId)
+                .gt(AssetPrice::getPrice, BigDecimal.ZERO)
                 .ge(AssetPrice::getQuoteTime, date.atStartOfDay())
                 .lt(AssetPrice::getQuoteTime, date.plusDays(1).atStartOfDay())
                 .orderByDesc(AssetPrice::getQuoteTime)
                 .orderByDesc(AssetPrice::getCreatedAt)
                 .last("limit 1"));
-        return price == null ? null : price.getPrice().setScale(6, RoundingMode.HALF_UP);
+        if (price != null) {
+            return price.getPrice().setScale(6, RoundingMode.HALF_UP);
+        }
+        AssetPriceCurrent current = assetPriceCurrentMapper.selectById(assetId);
+        if (current != null && current.getPrice() != null && current.getPrice().compareTo(BigDecimal.ZERO) > 0
+                && current.getQuoteTime() != null && date.equals(current.getQuoteTime().toLocalDate())) {
+            return current.getPrice().setScale(6, RoundingMode.HALF_UP);
+        }
+        return null;
     }
 
     private boolean isFundAmountBuy(InvestmentTransactionRequest request, Asset asset) {

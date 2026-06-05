@@ -30,10 +30,10 @@
 - 账户管理：`GET /api/accounts`、`POST /api/accounts`、`PUT /api/accounts/{id}`、`DELETE /api/accounts/{id}` 已接入账户页；余额校准通过 `POST /api/accounts/{id}/balance-adjustments` 生成专用修正记录；`GET /api/accounts/{id}/ledger`、`/flow-statistics` 和 `/balance-trend` 已接入账户详情页。
 - 分类管理：`GET /api/categories`、`POST /api/categories`、`PUT /api/categories/{id}`、`DELETE /api/categories/{id}`、`PUT /api/categories/{id}/status` 已接入分类页。
 - 记账流水：`GET /api/transactions`、`POST /api/transactions`、`PUT /api/transactions/{id}`、`DELETE /api/transactions/{id}` 已接入记账页，支持分页和流水图片。
-- 投资持仓：`GET /api/assets/lookup`、`GET /api/holdings`、`GET /api/holdings/summary`、`GET /api/holdings/{id}/detail`、`POST /api/holdings`、`PUT /api/holdings/{id}`、`DELETE /api/holdings/{id}`、`POST /api/investment-transactions`、`GET /api/investment-transactions`、`POST /api/quotes/manual`、`POST /api/quotes/refresh`、`POST /api/quotes/refresh-batch` 已接入投资页；前端只暴露持仓概念，`xo_asset` 作为后端内部行情基础表。
+- 投资持仓：`GET /api/assets/lookup`、`GET /api/holdings`、`GET /api/holdings/summary`、`GET /api/holdings/{id}/detail`、`POST /api/holdings`、`PUT /api/holdings/{id}`、`DELETE /api/holdings/{id}`、`POST /api/investment-transactions`、`GET /api/investment-transactions`、`GET /api/investment-transactions/fund-confirm-preview`、`POST /api/quotes/manual`、`POST /api/quotes/refresh`、`POST /api/quotes/refresh-batch` 已接入投资页；前端只暴露持仓概念，`xo_asset` 作为后端内部行情基础表。
 - 投资展示：投资主页只展示总投资 / 基金 / 股票 / 虚拟货币统计和图表，投资分布按具体投资产品展示，并基于资产快照展示总投资资产曲线；收益贡献独占整行，支持总 / 当日 / 当月 / 当年切换且优先显示资产名称；持仓表格、买入卖出、编辑删除、价格刷新、收益分析等操作集中在 `/investments/details`；资产分布与持仓分析分别在移动端子页展示；单个持仓的收益汇总、交易记录和总市值 / 价格走势在 `/investments/holdings/:id` 查看。
 - 投资明细：类型筛选会同步影响顶部统计块；持仓表格支持选择显示字段，默认展示类型、总市值、总收益、总收益率、今日收益和昨日收益，数值列支持排序。
-- 投资交易：买入必须选择扣款账户并扣减余额，卖出必须选择到账账户并增加余额；买入 / 卖出不写入普通流水，不计入生活收支统计。基金可先创建 0 份额持仓，再用 `AMOUNT_NAV` 金额模式录入买入总金额和交易日期，系统按确认净值反推确认份额且保留 10 位小数；确认净值优先取日级基金单位净值，旧价格快照兜底，净值未出时交易状态为 `PENDING_CONFIRM`，后续定时确认。
+- 投资交易：买入必须选择扣款账户并扣减余额，卖出必须选择到账账户并增加余额；买入 / 卖出不写入普通流水，不计入生活收支统计。基金可先创建 0 份额持仓，再用 `AMOUNT_NAV` 金额模式录入买入总金额和实际买入时间；后端按数据库市场日历计算有效申请日和确认日，普通基金 T+1、名称包含 `QDII` 的基金 T+2，确认净值优先取日级基金单位净值，旧价格快照和当前价同日兜底，净值未出时交易状态为 `PENDING_CONFIRM`，后续定时确认。
 - 投资撤销：`PUT /api/investment-transactions/{id}/revoke` 会反向恢复资金账户和持仓，撤销记录仍保留在投资交易中。
 - 投资精度：投资数量保留 10 位小数，手续费、成本、市值、盈亏和收益率统一按 4 位小数计算；行情价格快照保留 8 位，CRYPTO 当前价至少展示 6 位，FUND / STOCK 当前价展示 4 位。持仓列表的 `marketValue` 始终由后端使用同一个 `latestPrice` 计算，前端不使用格式化价格反算市值。
 - 行情接入：CRYPTO 使用 CoinGecko，FUND 使用天天基金 F10 历史净值表和实时净值兜底，A 股使用新浪行情，美股使用 Yahoo Finance；所有第三方行情只由后端 provider 拉取，自动行情写入 `xo_asset_price_current` 当前价并把 35 天原始快照写入 Redis ZSET，手动价格和审计记录继续保留在 `xo_asset_price`。
@@ -41,6 +41,7 @@
 - 资产查询日志：第三方资产查询失败时后端会记录行情源、代码 / 市场、响应摘要和原始异常堆栈，前端仍只展示可理解的失败提示。
 - 资产市场：`xo_asset.market` 用于区分 SH / SZ / BJ / US / CN_FUND / CRYPTO，资产唯一性按 `type + market + symbol + deleted` 判断。
 - 行情分层：持仓估值优先使用 `xo_asset_price_current`，今日 / 昨日收益使用 `xo_asset_price_daily` 最近两个交易日收盘价和对应基准日持仓数量，投资总资产较昨日 / 较上月使用 `xo_investment_daily_snapshot`；投资日快照按 `xo_investment_transaction` 重建历史持仓、成本、市值、已实现收益和净入金，不再用当前持仓回填历史。Redis key 为 `price:snapshot:{assetId}:{yyyyMM}`，仅保存最近 35 天原始快照供日级汇总和排查，不作为长期权威数据。CRYPTO 1 小时内、STOCK 15 分钟内、FUND 1 天内不重复刷新，MANUAL 价格不过期；股票只在 09:30-15:00 之间拉取第三方行情。USD/CNY 展示汇率由 `/api/exchange-rates/usd-cny` 返回后端日缓存，后续可替换为 Redis 缓存。
+- 市场日历：`xo_market_calendar` 是基金确认日和后续交易日判断的数据库权威来源；年度任务每年 1 月 1 日补齐当年和下一年基础周末日历，交易所公告休市日通过迁移或人工修正写入表中覆盖。
 - 预算管理：`GET /api/budgets`、`POST /api/budgets`、`PUT /api/budgets/{id}`、`DELETE /api/budgets/{id}`、`GET /api/budgets/summary` 已接入预算页和移动端首页预算进度卡片。
 - 资产快照：`GET /api/snapshots/latest`（返回最新快照 + 今日净资产变化金额 / 变化率）、`GET /api/snapshots/trend`、`POST /api/snapshots/generate-today` 已接入首页和数据分析页；首页主净资产统一使用 `GET /api/dashboard/overview` 的 `netAssets`，快照仅用于今日变化、历史趋势和快照相关说明；移动端资产趋势折线图基于 `GET /api/statistics/net-assets-trend` 近 1 个月数据绘制。
 - 首页和统计：`GET /api/dashboard/overview` 返回账户、流水、投资和预算聚合指标；`GET /api/statistics/net-assets-trend` 返回指定日期范围的净资产趋势数据（移动端首页使用近 1 个月范围）；`/api/statistics/*` 返回收支趋势、分类支出、资产分布、投资盈亏和预算进度，净资产 / 总资产趋势优先使用资产快照。

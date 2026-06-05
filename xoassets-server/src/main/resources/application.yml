@@ -66,7 +66,9 @@ xoassets:
     # 日级价格汇总先执行，用户投资日快照随后执行；两者都会补跑最近 3 天。
     daily-aggregate-cron: ${XOASSETS_QUOTES_DAILY_AGGREGATE_CRON:0 30 23 * * ?}
     investment-snapshot-cron: ${XOASSETS_INVESTMENT_DAILY_SNAPSHOT_CRON:0 45 23 * * ?}
-
+  market-calendar:
+    # 每年开年第一天补齐当年和下一年的基础市场日历，交易所特殊休市日以数据库记录为准。
+    yearly-refresh-cron: ${XOASSETS_MARKET_CALENDAR_YEARLY_REFRESH_CRON:0 5 0 1 1 ?}
 ---
 spring:
   config:

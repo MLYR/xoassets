@@ -6,10 +6,12 @@ import com.xoassets.module.investment.service.InvestmentPositionHistoryService;
 import com.xoassets.module.investment.service.InvestmentPositionState;
 import com.xoassets.persistence.entity.AssetPriceCurrent;
 import com.xoassets.persistence.entity.AssetPriceDaily;
+import com.xoassets.persistence.entity.AssetPrice;
 import com.xoassets.persistence.entity.InvestmentDailySnapshot;
 import com.xoassets.persistence.entity.InvestmentTransaction;
 import com.xoassets.persistence.mapper.AssetPriceCurrentMapper;
 import com.xoassets.persistence.mapper.AssetPriceDailyMapper;
+import com.xoassets.persistence.mapper.AssetPriceMapper;
 import com.xoassets.persistence.mapper.InvestmentDailySnapshotMapper;
 import com.xoassets.persistence.mapper.InvestmentTransactionMapper;
 import java.math.BigDecimal;
@@ -30,9 +32,14 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 public class InvestmentDailySnapshotJob {
 
+    private static final String TYPE_BUY = "BUY";
+    private static final String INPUT_MODE_AMOUNT_NAV = "AMOUNT_NAV";
+    private static final String STATUS_PENDING_CONFIRM = "PENDING_CONFIRM";
+
     private final InvestmentPositionHistoryService positionHistoryService;
     private final AssetPriceCurrentMapper assetPriceCurrentMapper;
     private final AssetPriceDailyMapper assetPriceDailyMapper;
+    private final AssetPriceMapper assetPriceMapper;
     private final InvestmentTransactionMapper investmentTransactionMapper;
     private final InvestmentDailySnapshotMapper investmentDailySnapshotMapper;
 
@@ -40,11 +47,13 @@ public class InvestmentDailySnapshotJob {
             InvestmentPositionHistoryService positionHistoryService,
             AssetPriceCurrentMapper assetPriceCurrentMapper,
             AssetPriceDailyMapper assetPriceDailyMapper,
+            AssetPriceMapper assetPriceMapper,
             InvestmentTransactionMapper investmentTransactionMapper,
             InvestmentDailySnapshotMapper investmentDailySnapshotMapper) {
         this.positionHistoryService = positionHistoryService;
         this.assetPriceCurrentMapper = assetPriceCurrentMapper;
         this.assetPriceDailyMapper = assetPriceDailyMapper;
+        this.assetPriceMapper = assetPriceMapper;
         this.investmentTransactionMapper = investmentTransactionMapper;
         this.investmentDailySnapshotMapper = investmentDailySnapshotMapper;
     }
@@ -87,12 +96,18 @@ public class InvestmentDailySnapshotJob {
             marketValue = marketValue.add(position.quantity().multiply(price));
             totalCost = totalCost.add(position.totalCost());
         }
+        BigDecimal pendingAmount = pendingFundBuyAmount(userId, snapshotDate);
+        // 待确认基金买入已扣资金账户，日快照按在途投资资产处理，收益计算再用净流入剔除本金影响。
+        marketValue = marketValue.add(pendingAmount);
+        totalCost = totalCost.add(pendingAmount);
         marketValue = scale4(marketValue);
         totalCost = scale4(totalCost);
         BigDecimal floatingProfit = marketValue.subtract(totalCost).setScale(4, RoundingMode.HALF_UP);
         BigDecimal floatingProfitRate = rate(floatingProfit, totalCost);
         BigDecimal realizedProfit = realizedProfit(userId, snapshotDate);
-        BigDecimal netInflow = positionHistoryService.netInflow(userId, snapshotDate, snapshotDate);
+        BigDecimal netInflow = positionHistoryService.netInflow(userId, snapshotDate, snapshotDate)
+                .add(pendingAmount)
+                .setScale(4, RoundingMode.HALF_UP);
         InvestmentDailySnapshot previous = previousSnapshot(userId, snapshotDate);
         BigDecimal dailyProfit = previous == null ? null : marketValue.subtract(previous.getMarketValue()).subtract(netInflow).setScale(4, RoundingMode.HALF_UP);
         BigDecimal dailyProfitRate = previous == null ? null : rate(dailyProfit, previous.getMarketValue());
@@ -112,19 +127,45 @@ public class InvestmentDailySnapshotJob {
     }
 
     private BigDecimal resolvePrice(Long assetId, LocalDate snapshotDate) {
+        LocalDateTime snapshotEnd = snapshotDate.atTime(LocalTime.MAX);
         AssetPriceDaily daily = assetPriceDailyMapper.selectOne(new LambdaQueryWrapper<AssetPriceDaily>()
                 .eq(AssetPriceDaily::getAssetId, assetId)
                 .le(AssetPriceDaily::getTradeDate, snapshotDate)
+                .le(AssetPriceDaily::getCreatedAt, snapshotEnd)
                 .orderByDesc(AssetPriceDaily::getTradeDate)
                 .last("LIMIT 1"));
         if (daily != null) {
             return daily.getClosePrice();
         }
         AssetPriceCurrent current = assetPriceCurrentMapper.selectById(assetId);
-        if (current == null || current.getQuoteTime() == null || current.getQuoteTime().toLocalDate().isAfter(snapshotDate)) {
-            return null;
+        if (current == null || current.getQuoteTime() == null || current.getQuoteTime().toLocalDate().isAfter(snapshotDate)
+                || current.getUpdatedAt() == null || current.getUpdatedAt().isAfter(snapshotEnd)) {
+            AssetPrice legacy = assetPriceMapper.selectOne(new LambdaQueryWrapper<AssetPrice>()
+                    .eq(AssetPrice::getAssetId, assetId)
+                    .gt(AssetPrice::getPrice, BigDecimal.ZERO)
+                    .le(AssetPrice::getQuoteTime, snapshotEnd)
+                    .le(AssetPrice::getCreatedAt, snapshotEnd)
+                    .orderByDesc(AssetPrice::getQuoteTime)
+                    .orderByDesc(AssetPrice::getCreatedAt)
+                    .last("LIMIT 1"));
+            return legacy == null ? null : legacy.getPrice();
         }
         return current.getPrice();
+    }
+
+    private BigDecimal pendingFundBuyAmount(Long userId, LocalDate snapshotDate) {
+        LocalDateTime end = snapshotDate.atTime(LocalTime.MAX);
+        return investmentTransactionMapper.selectList(new LambdaQueryWrapper<InvestmentTransaction>()
+                        .eq(InvestmentTransaction::getUserId, userId)
+                        .eq(InvestmentTransaction::getType, TYPE_BUY)
+                        .eq(InvestmentTransaction::getInputMode, INPUT_MODE_AMOUNT_NAV)
+                        .eq(InvestmentTransaction::getStatus, STATUS_PENDING_CONFIRM)
+                        .le(InvestmentTransaction::getTransactionTime, end))
+                .stream()
+                .map(InvestmentTransaction::getTradeAmount)
+                .map(this::scale4)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(4, RoundingMode.HALF_UP);
     }
 
     private BigDecimal realizedProfit(Long userId, LocalDate snapshotDate) {

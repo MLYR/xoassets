@@ -3,7 +3,9 @@ package com.xoassets.module.investment.service;
 import com.xoassets.module.investment.dto.InvestmentTransactionRequest;
 import com.xoassets.module.investment.dto.InvestmentTransactionConvertRequest;
 import com.xoassets.module.investment.dto.InvestmentTransactionRevokeRequest;
+import com.xoassets.module.investment.vo.FundConfirmPreviewVO;
 import com.xoassets.module.investment.vo.InvestmentTransactionVO;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -30,6 +32,11 @@ public interface InvestmentTransactionService {
      * 撤销当前用户自己的投资交易，并反向恢复账户余额和持仓。
      */
     InvestmentTransactionVO revoke(Long id, InvestmentTransactionRevokeRequest request);
+
+    /**
+     * 预估基金金额买入的申请日和确认日。
+     */
+    FundConfirmPreviewVO previewFundConfirm(Long assetId, LocalDateTime transactionTime);
 
     /**
      * 确认待确认基金买入交易，供定时任务调用。

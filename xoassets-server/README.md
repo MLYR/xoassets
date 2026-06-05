@@ -103,6 +103,7 @@ http://localhost:8080/doc.html
 - `DELETE /api/holdings/{id}`
 - `POST /api/investment-transactions`
 - `GET /api/investment-transactions`
+- `GET /api/investment-transactions/fund-confirm-preview`
 - `PUT /api/investment-transactions/{id}/revoke`
 - `POST /api/quotes/manual`
 - `POST /api/quotes/refresh`
@@ -144,7 +145,7 @@ http://localhost:8080/doc.html
 - 已有本地库升级行情字段时，执行 `src/main/resources/db/migration-quote-fields.sql`。
 - 投资买入会创建或更新持仓并按移动平均成本重算；投资卖出必须校验持仓数量，数量不足时拒绝。
 - 投资买入必须选择扣款账户并扣减账户余额；投资卖出必须选择到账账户并增加账户余额，已实现盈亏写入投资交易记录。
-- 基金可先创建 0 份额持仓，再使用金额确认模式买入：`input_mode = AMOUNT_NAV` 时先按买入总金额扣减资金账户，已有确认日期单位净值则立即确认份额并更新持仓；确认净值优先读取 `xo_asset_price_daily.close_price`，旧 `xo_asset_price` 同日快照兜底；没有净值则保存为 `PENDING_CONFIRM`，由基金确认定时任务后续更新为 `CONFIRMED`。
+- 基金可先创建 0 份额持仓，再使用金额确认模式买入：`input_mode = AMOUNT_NAV` 时先按买入总金额扣减资金账户，`transaction_time` 表示用户实际买入时间；后端按 `xo_market_calendar` 计算有效申请日和确认日，15:00:00 及以前按当天申请，15:00 后或非交易日顺延，普通基金 T+1，名称包含 `QDII` 的基金 T+2。确认净值优先读取 `xo_asset_price_daily.close_price`，旧 `xo_asset_price` 同日正价兜底，`xo_asset_price_current.quote_time` 等于确认日时可兜底；没有净值则保存为 `PENDING_CONFIRM`，由基金确认定时任务后续更新为 `CONFIRMED`。
 - 投资交易、资金账户和持仓联动在同一事务中完成，避免交易记录与账户余额、持仓数量、成本不一致。
 - 投资交易支持撤销，不物理删除；撤销状态写入 `status = REVOKED`，账户余额和持仓通过原交易 `cost_amount` 反向恢复。
 - 投资数量和基金确认份额统一保留 10 位小数，手续费、持仓成本、市值、盈亏和收益率统一按 4 位小数归一化后计算，避免不同调用入口产生精度口径差异。
@@ -160,6 +161,7 @@ http://localhost:8080/doc.html
 - `POST /api/quotes/refresh-batch` 支持按当前持仓资产批量刷新；刷新失败保留旧价格，不删除历史快照。
 - 行情缓存按资产类型控制刷新频率：CRYPTO 1 小时、STOCK 15 分钟、FUND 1 天；MANUAL 价格不过期；股票只在 09:30-15:00 之间拉取第三方行情。`GET /api/exchange-rates/usd-cny` 返回 USD/CNY 日缓存汇率，MVP 使用进程内缓存，后续可替换为 Redis。
 - 后端启用 `QuoteRefreshScheduler` 定时刷新持仓涉及资产，任务或单个资产失败只记录日志，不影响主应用启动。
+- 市场交易日历使用 `xo_market_calendar` 存储，`MarketCalendarRefreshScheduler` 每年 1 月 1 日补齐当年和下一年基础周末日历；春节、国庆等交易所特殊休市以数据库修正记录为准，不写死在 Java 或配置文件里。
 - 预算表 `xo_budget` 按当前用户隔离；每个用户每月只能有一个总预算，每个支出分类每月只能有一个分类预算。
 - 预算使用额从 `xo_transaction` 汇总，转账不计入预算，退款抵扣支出。
 - 资产快照表 `xo_asset_snapshot` 每天记录现金资产、投资资产、负债、净资产、月度收支和预算使用率；同一用户同一天只保留一条，重复生成会更新。
@@ -214,6 +216,12 @@ ALTER TABLE xo_investment_transaction
 
 ```bash
 mysql -u root -p xoassets < src/main/resources/db/migration-fund-amount-nav.sql
+```
+
+已有库升级到市场交易日历版本时，执行：
+
+```bash
+mysql -u root -p xoassets < src/main/resources/db/migration-market-calendar.sql
 ```
 
 已有库升级到账户余额修正和余额曲线版本时，执行：
