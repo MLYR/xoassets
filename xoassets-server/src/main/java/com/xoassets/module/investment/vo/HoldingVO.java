@@ -1,6 +1,7 @@
 package com.xoassets.module.investment.vo;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import lombok.Builder;
 import lombok.Data;
@@ -29,6 +30,9 @@ public class HoldingVO {
     private Integer priceScale;
     private LocalDateTime latestPriceTime;
     private LocalDateTime previousPriceTime;
+    private LocalDate priceDate;
+    private Boolean todayPriceAvailable;
+    private String priceStatus;
     private String latestPriceSource;
     private String marketStatus;
     private BigDecimal marketValue;

@@ -60,6 +60,9 @@ export interface HoldingItem {
   priceScale?: number | null;
   latestPriceTime?: string | null;
   previousPriceTime?: string | null;
+  priceDate?: string | null;
+  todayPriceAvailable?: boolean | null;
+  priceStatus?: string | null;
   latestPriceSource?: string | null;
   marketStatus?: string | null;
   marketValue: number;

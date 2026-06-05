@@ -27,7 +27,7 @@
 
     <section class="summary-grid">
       <MetricCard title="投资总市值" :value="displayedSummary.totalMarketValue" :trend="0" description="持仓最新市值合计" :precision="4" :currency-symbol="currencySymbol" />
-      <MetricCard title="今日收益" :value="displayedSummary.todayProfit" :trend="displayedSummary.todayProfit" description="按最新价与昨价计算" :precision="4" :currency-symbol="currencySymbol" :tone="profitTone(displayedSummary.todayProfit)" />
+      <MetricCard title="今日收益" :value="displayedSummary.todayProfit" :trend="displayedSummary.todayProfit" description="仅统计今日有效价" :precision="4" :currency-symbol="currencySymbol" :tone="profitTone(displayedSummary.todayProfit)" />
       <MetricCard title="昨日收益" :value="displayedSummary.yesterdayProfit" :trend="displayedSummary.yesterdayProfit" description="按昨价与前日价计算" :precision="4" :currency-symbol="currencySymbol" :tone="profitTone(displayedSummary.yesterdayProfit)" />
       <MetricCard title="总收益" :value="displayedSummary.floatingProfit" :trend="displayedSummary.floatingProfitRate" description="浮动盈亏 / 总成本" :precision="4" :currency-symbol="currencySymbol" :tone="profitTone(displayedSummary.floatingProfit)" />
       <MetricCard title="持仓数量" :value="displayedSummary.holdingCount" :trend="displayedSummary.floatingProfitRate" description="当前持仓项目数" :precision="0" currency-symbol="" />
@@ -59,7 +59,12 @@
             <template #default="{ row }"><span class="numeric-cell">{{ formatOptionalPrice(row.previousPrice, row) }}</span></template>
           </el-table-column>
           <el-table-column v-if="columnVisible('todayChangeRate')" label="今日涨跌" prop="todayChangeRate" min-width="140" align="right" header-align="right" sortable>
-            <template #default="{ row }"><TrendValue v-if="row.todayChangeRate !== null && row.todayChangeRate !== undefined" class="numeric-cell" :value="round4(row.todayChangeRate)" :precision="4" /><span v-else class="numeric-cell muted-text">暂无</span></template>
+            <template #default="{ row }">
+              <div class="numeric-stack">
+                <TrendValue class="numeric-cell" :value="round4(row.todayChangeRate || 0)" :precision="4" />
+                <small v-if="!row.todayPriceAvailable" class="muted-line">今日净值未更新</small>
+              </div>
+            </template>
           </el-table-column>
           <el-table-column v-if="columnVisible('marketValue')" label="总市值" prop="marketValue" min-width="150" align="right" header-align="right" sortable>
             <template #default="{ row }"><AmountText class="numeric-cell" :value="displayValue(row.marketValue, row.currency, 4)" :precision="4" :currency-symbol="currencySymbol" /></template>
@@ -68,7 +73,12 @@
             <template #default="{ row }"><AmountText class="numeric-cell" :value="displayValue(row.totalCost, row.currency, 4)" :precision="4" :currency-symbol="currencySymbol" /></template>
           </el-table-column>
           <el-table-column v-if="columnVisible('todayProfit')" label="今日收益" prop="todayProfit" min-width="150" align="right" header-align="right" sortable>
-            <template #default="{ row }"><AmountText v-if="row.todayProfit !== null && row.todayProfit !== undefined" class="numeric-cell" :value="displayValue(row.todayProfit, row.currency, 4)" with-sign :precision="4" :currency-symbol="currencySymbol" /><span v-else class="numeric-cell muted-text">暂无</span></template>
+            <template #default="{ row }">
+              <div class="numeric-stack">
+                <AmountText class="numeric-cell" :value="displayValue(row.todayProfit || 0, row.currency, 4)" with-sign :precision="4" :currency-symbol="currencySymbol" />
+                <small v-if="!row.todayPriceAvailable" class="muted-line">今日净值未更新</small>
+              </div>
+            </template>
           </el-table-column>
           <el-table-column v-if="columnVisible('yesterdayProfit')" label="昨日收益" prop="yesterdayProfit" min-width="150" align="right" header-align="right" sortable>
             <template #default="{ row }"><AmountText v-if="row.yesterdayProfit !== null && row.yesterdayProfit !== undefined" class="numeric-cell" :value="displayValue(row.yesterdayProfit, row.currency, 4)" with-sign :precision="4" :currency-symbol="currencySymbol" /><span v-else class="numeric-cell muted-text">暂无</span></template>
@@ -1007,6 +1017,12 @@ function roundTo(value: number, precision: number) {
   display: inline-block;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+}
+
+.numeric-stack {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
 }
 
 .muted-text {

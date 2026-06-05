@@ -146,11 +146,11 @@ public class EastMoneyFundQuoteProvider implements QuoteProvider {
     }
 
     /**
-     * 净值日期没有时用当前时间兜底，避免缺少日期导致刷新失败。
+     * 净值日期没有时不能用当前时间兜底，否则会把无日期基金净值误判成今日有效价格。
      */
     private LocalDateTime quoteTime(String dateText) {
         if (!StringUtils.hasText(dateText)) {
-            return LocalDateTime.now();
+            return LocalDateTime.of(LocalDate.of(1970, 1, 1), LocalTime.MIDNIGHT);
         }
         return LocalDateTime.of(LocalDate.parse(dateText), LocalTime.of(15, 0));
     }

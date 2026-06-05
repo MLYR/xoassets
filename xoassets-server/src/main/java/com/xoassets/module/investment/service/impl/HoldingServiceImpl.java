@@ -58,6 +58,10 @@ public class HoldingServiceImpl implements HoldingService {
     private static final List<String> ASSET_TYPES = List.of("STOCK", "FUND", "CRYPTO", "OTHER");
     private static final List<String> QUOTE_SOURCES = List.of("MANUAL", "COINGECKO", "EASTMONEY", "SINA", "YAHOO", "ALPHA_VANTAGE", "TUSHARE", "AKSHARE");
     private static final String ASSET_TYPE_FUND = "FUND";
+    private static final String ASSET_TYPE_STOCK = "STOCK";
+    private static final String ASSET_TYPE_CRYPTO = "CRYPTO";
+    private static final String PRICE_STATUS_NORMAL = "NORMAL";
+    private static final String PRICE_STATUS_TODAY_PRICE_NOT_AVAILABLE = "TODAY_PRICE_NOT_AVAILABLE";
 
     private final HoldingMapper holdingMapper;
     private final AssetMapper assetMapper;
@@ -114,17 +118,13 @@ public class HoldingServiceImpl implements HoldingService {
         List<HoldingVO> holdings = list();
         BigDecimal totalMarketValue = holdings.stream().map(HoldingVO::getMarketValue).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalCost = holdings.stream().map(HoldingVO::getTotalCost).reduce(BigDecimal.ZERO, BigDecimal::add);
-        InvestmentDailySnapshot previousSnapshot = previousInvestmentSnapshot(userId, LocalDate.now());
-        // 投资总资产较昨日使用用户投资日快照，而不是单持仓今日收益求和，避免用户入金/调仓被误解为价格收益。
-        BigDecimal fallbackTodayProfit = holdings.stream().map(item -> nullToZero(item.getTodayProfit())).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal fallbackTodayProfitBase = holdings.stream()
-                .filter(item -> item.getPreviousPrice() != null)
+        // 今日收益必须尊重单项持仓的“今日价格有效性”，基金/股票未更新今日价时按 0 汇总。
+        BigDecimal todayProfit = holdings.stream().map(item -> nullToZero(item.getTodayProfit())).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(4, RoundingMode.HALF_UP);
+        BigDecimal todayProfitBase = holdings.stream()
+                .filter(item -> Boolean.TRUE.equals(item.getTodayPriceAvailable()) && item.getPreviousPrice() != null)
                 .map(item -> item.getQuantity().multiply(item.getPreviousPrice()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal todayProfit = previousSnapshot == null ? fallbackTodayProfit.setScale(4, RoundingMode.HALF_UP) : totalMarketValue.subtract(scale4(previousSnapshot.getMarketValue())).subtract(todayNetInflow()).setScale(4, RoundingMode.HALF_UP);
-        BigDecimal todayProfitRate = previousSnapshot == null
-                ? (fallbackTodayProfitBase.compareTo(BigDecimal.ZERO) <= 0 ? null : rate(todayProfit, fallbackTodayProfitBase))
-                : rate(todayProfit, scale4(previousSnapshot.getMarketValue()));
+        BigDecimal todayProfitRate = todayProfitBase.compareTo(BigDecimal.ZERO) <= 0 ? null : rate(todayProfit, todayProfitBase);
         BigDecimal yesterdayProfit = holdings.stream().map(item -> nullToZero(item.getYesterdayProfit())).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal yesterdayProfitBase = holdings.stream()
                 .filter(item -> item.getBeforePreviousPrice() != null)
@@ -572,8 +572,11 @@ public class HoldingServiceImpl implements HoldingService {
         BigDecimal profitRate = holding.getTotalCost().compareTo(BigDecimal.ZERO) == 0
                 ? BigDecimal.ZERO
                 : profit.multiply(BigDecimal.valueOf(100)).divide(holding.getTotalCost(), 4, RoundingMode.HALF_UP);
-        BigDecimal todayProfit = priceDiffProfit(holding.getQuantity(), latestPrice, previous);
-        BigDecimal todayChangeRate = changeRate(latestPrice, previous);
+        LocalDate priceDate = matchedPrice == null || matchedPrice.getQuoteTime() == null ? null : matchedPrice.getQuoteTime().toLocalDate();
+        boolean todayPriceAvailable = todayPriceAvailable(asset, priceDate);
+        // 基金和股票只有当天有效价格才能计算今日收益，避免把昨日净值或兜底价格当成今日涨跌。
+        BigDecimal todayProfit = todayPriceAvailable ? priceDiffProfit(holding.getQuantity(), latestPrice, previous) : BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
+        BigDecimal todayChangeRate = todayPriceAvailable ? changeRate(latestPrice, previous) : BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
         BigDecimal yesterdayProfit = priceDiffProfit(holding.getQuantity(), yesterdayPrevious, beforePrevious);
         BigDecimal yesterdayChangeRate = changeRate(yesterdayPrevious, beforePrevious);
         BigDecimal breakEvenRate = matchedPrice == null ? null : breakEvenRate(holding.getAvgCost(), latestPrice);
@@ -595,6 +598,9 @@ public class HoldingServiceImpl implements HoldingService {
                 .priceScale(priceScale(asset))
                 .latestPriceTime(matchedPrice == null ? null : matchedPrice.getQuoteTime())
                 .previousPriceTime(previousDaily != null ? previousDaily.getTradeDate().atStartOfDay() : previousAudit == null ? null : previousAudit.getQuoteTime())
+                .priceDate(priceDate)
+                .todayPriceAvailable(todayPriceAvailable)
+                .priceStatus(todayPriceAvailable ? PRICE_STATUS_NORMAL : PRICE_STATUS_TODAY_PRICE_NOT_AVAILABLE)
                 .latestPriceSource(matchedPrice == null ? null : matchedPrice.getSource())
                 .marketStatus(matchedPrice == null ? null : matchedPrice.getMarketStatus())
                 .marketValue(marketValue)
@@ -898,6 +904,22 @@ public class HoldingServiceImpl implements HoldingService {
             return null;
         }
         return current.subtract(previous).multiply(BigDecimal.valueOf(100)).divide(previous, 4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 今日收益只允许使用今天有效价；CRYPTO 按实时价格处理，基金/股票不能用历史净值或兜底价冒充今日价格。
+     */
+    private boolean todayPriceAvailable(Asset asset, LocalDate priceDate) {
+        if (asset == null || priceDate == null) {
+            return false;
+        }
+        if (ASSET_TYPE_CRYPTO.equals(asset.getType())) {
+            return true;
+        }
+        if (ASSET_TYPE_FUND.equals(asset.getType()) || ASSET_TYPE_STOCK.equals(asset.getType())) {
+            return LocalDate.now().equals(priceDate);
+        }
+        return LocalDate.now().equals(priceDate);
     }
 
     /**

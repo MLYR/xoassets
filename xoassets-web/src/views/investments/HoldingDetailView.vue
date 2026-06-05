@@ -21,7 +21,7 @@
       <MetricCard title="当前市值" :value="holding?.marketValue || 0" :trend="holding?.floatingProfitRate || 0" description="数量 × 最新价格" :precision="4" :currency-symbol="currencySymbol" />
       <MetricCard title="持仓数量" :value="holding?.quantity || 0" :trend="0" description="当前剩余持仓" :precision="quantityPrecision" currency-symbol="" />
       <MetricCard title="持仓成本" :value="holding?.totalCost || 0" :trend="0" description="移动平均成本口径" :precision="4" :currency-symbol="currencySymbol" />
-      <MetricCard title="今日收益" :value="holding?.todayProfit || 0" :trend="holding?.todayChangeRate || 0" description="最新价对比昨价" :precision="4" :currency-symbol="currencySymbol" :tone="profitTone(holding?.todayProfit || 0)" />
+      <MetricCard title="今日收益" :value="holding?.todayProfit || 0" :trend="holding?.todayChangeRate || 0" :description="todayProfitDescription" :precision="4" :currency-symbol="currencySymbol" :tone="profitTone(holding?.todayProfit || 0)" />
       <MetricCard title="总收益" :value="summary?.totalProfit || 0" :trend="summary?.totalProfitRate || 0" description="已实现 + 浮动盈亏" :precision="4" :currency-symbol="currencySymbol" :tone="profitTone(summary?.totalProfit || 0)" />
       <div class="rate-card panel panel-padding">
         <span>总收益率</span>
@@ -176,6 +176,7 @@ const pricePrecision = computed(() => holding.value?.priceScale || (holding.valu
 const quantityPrecision = computed(() => holding.value?.assetType === 'CRYPTO' ? 10 : 4);
 const quantityMin = computed(() => holding.value?.assetType === 'CRYPTO' ? 0.0000000001 : 0.0001);
 const isFundAmountBuy = computed(() => holding.value?.assetType === 'FUND' && tradeForm.type === 'BUY');
+const todayProfitDescription = computed(() => holding.value?.todayPriceAvailable === false ? '今日净值未更新' : '今日有效价对比昨价');
 const priceChartOption = computed<EChartsOption>(() => {
   const points = [...priceSnapshots.value].reverse();
   const quantity = Number(holding.value?.quantity || 0);

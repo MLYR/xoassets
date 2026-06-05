@@ -142,7 +142,7 @@ com.xoassets
 - 投资交易撤销必须使用 `cost_amount` 反向恢复历史成本，不物理删除交易；已撤销交易保留展示但不参与账户资金明细汇总。
 - 投资数量统一保留 10 位小数，手续费、成本、市值、盈亏和收益率统一按 4 位小数计算；当前价和日级价保留 8 位，并记录 previous_close、change_amount、change_percent、market_status，持仓接口返回 `priceScale`，CRYPTO 当前价至少展示 6 位，FUND / STOCK 展示 4 位。
 - 公共资产 `xo_asset` 必须写入 `market`，股票为 SH / SZ / BJ / US，基金为 CN_FUND，虚拟货币为 CRYPTO；资产唯一性按 `type + market + symbol + deleted` 判断。
-- 持仓收益分析字段由后端基于 `xo_asset_price_current` 当前价和 `xo_asset_price_daily` 最近交易日价格计算，包括今日收益、昨日收益、浮动盈亏、收益率和回本涨幅；历史价格缺失时字段可为空，前端展示“暂无”。
+- 持仓收益分析字段由后端基于 `xo_asset_price_current` 当前价和 `xo_asset_price_daily` 最近交易日价格计算，包括今日收益、昨日收益、浮动盈亏、收益率和回本涨幅；基金和股票只有当前价格日期等于今天时才计算今日收益，否则 `todayPriceAvailable=false`、`priceStatus=TODAY_PRICE_NOT_AVAILABLE` 且今日收益按 0 返回，不能用历史价或兜底价冒充今日价；历史价格缺失时字段可为空，前端展示“暂无”。
 - 持仓估值只能使用与资产币种一致的 `xo_asset_price_current` 当前价；前端展示市值、成本和盈亏必须使用后端返回字段，不得用格式化后的当前价反算。
 - 账户编辑允许手动校准当前余额；流水支持备注和图片，图片字段使用 `image_url`。
 - 账户详情页通过聚合普通流水和投资交易展示资金变化，投资买入计入账户流出，投资卖出计入账户流入，但不进入普通收支统计。
