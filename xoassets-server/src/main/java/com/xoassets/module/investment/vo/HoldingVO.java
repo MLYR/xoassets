@@ -37,8 +37,10 @@ public class HoldingVO {
     private String marketStatus;
     private BigDecimal marketValue;
     private BigDecimal todayProfit;
+    private BigDecimal todayProfitBase;
     private BigDecimal todayChangeRate;
     private BigDecimal yesterdayProfit;
+    private BigDecimal yesterdayProfitBase;
     private BigDecimal yesterdayChangeRate;
     private BigDecimal floatingProfit;
     private BigDecimal floatingProfitRate;

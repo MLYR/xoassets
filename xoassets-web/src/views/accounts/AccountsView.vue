@@ -53,6 +53,7 @@
         </el-form-item>
         <el-form-item v-if="editingAccount" label="当前余额">
           <el-input-number v-model="form.balance" class="full-width" :precision="2" :step="100" />
+          <p class="form-tip">保存时会生成余额修正记录，不计入普通收支，但会进入账户账本和余额曲线。</p>
         </el-form-item>
         <el-form-item label="币种">
           <el-input v-model.trim="form.currency" placeholder="CNY" />
@@ -194,7 +195,16 @@ async function handleSubmit() {
   submitting.value = true;
   try {
     if (editingAccount.value) {
-      await accountApi.update(editingAccount.value.id, form);
+      const balanceChanged = Math.abs(Number(form.balance ?? 0) - Number(editingAccount.value.balance ?? 0)) >= 0.0001;
+      // 基础信息仍走账户更新；余额差异走专用修正接口，保留可追溯的对账事件。
+      await accountApi.update(editingAccount.value.id, { ...form, balance: editingAccount.value.balance });
+      if (balanceChanged) {
+        await accountApi.adjustBalance(editingAccount.value.id, {
+          afterBalance: Number(form.balance ?? 0),
+          reason: '账户编辑余额修正',
+          bizDate: formatDate(new Date())
+        });
+      }
       ElMessage.success('账户已更新');
     } else {
       await accountApi.create(form);
@@ -226,6 +236,12 @@ async function handleDelete(account: AccountItem) {
     }
     ElMessage.error(error instanceof Error ? error.message : '账户删除失败');
   }
+}
+
+function formatDate(date: Date) {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
 }
 </script>
 
@@ -323,6 +339,13 @@ async function handleDelete(account: AccountItem) {
 
 .full-width {
   width: 100%;
+}
+
+.form-tip {
+  margin: 8px 0 0;
+  color: var(--xo-muted);
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 @media (max-width: 1080px) {

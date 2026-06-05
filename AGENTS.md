@@ -126,7 +126,7 @@ com.xoassets
 - 手动行情接口使用 `/api/quotes/**`。
 - 汇率展示接口使用 `/api/exchange-rates/**`，前端只读后端缓存汇率，不直连第三方汇率源。
 - 资产快照接口使用 `/api/snapshots/**`，用于首页净资产变化、趋势图、AI 报告和资产目标分析。
-- 账户资金明细接口使用 `/api/accounts/{id}/ledger`，资金流向统计使用 `/api/accounts/{id}/flow-statistics`。
+- 账户资金明细接口使用 `/api/accounts/{id}/ledger`，资金流向统计使用 `/api/accounts/{id}/flow-statistics`，余额修正和账户余额曲线使用 `/api/accounts/{id}/balance-adjustments`、`/api/accounts/{id}/balance-trend`。
 - CSV 导出接口使用 `/api/export/**`，只允许导出当前登录用户自己的数据。
 - 预算接口使用 `/api/budgets/**`。
 - 资产目标接口使用 `/api/goals/**`。
@@ -142,14 +142,14 @@ com.xoassets
 - 投资交易撤销必须使用 `cost_amount` 反向恢复历史成本，不物理删除交易；已撤销交易保留展示但不参与账户资金明细汇总。
 - 投资数量统一保留 10 位小数，手续费、成本、市值、盈亏和收益率统一按 4 位小数计算；当前价和日级价保留 8 位，并记录 previous_close、change_amount、change_percent、market_status，持仓接口返回 `priceScale`，CRYPTO 当前价至少展示 6 位，FUND / STOCK 展示 4 位。
 - 公共资产 `xo_asset` 必须写入 `market`，股票为 SH / SZ / BJ / US，基金为 CN_FUND，虚拟货币为 CRYPTO；资产唯一性按 `type + market + symbol + deleted` 判断。
-- 持仓收益分析字段由后端基于 `xo_asset_price_current` 当前价和 `xo_asset_price_daily` 最近交易日价格计算，包括今日收益、昨日收益、浮动盈亏、收益率和回本涨幅；基金和股票只有当前价格日期等于今天时才计算今日收益，否则 `todayPriceAvailable=false`、`priceStatus=TODAY_PRICE_NOT_AVAILABLE` 且今日收益按 0 返回，不能用历史价或兜底价冒充今日价；历史价格缺失时字段可为空，前端展示“暂无”。
+- 持仓收益分析字段由后端基于 `xo_asset_price_current` 当前价和 `xo_asset_price_daily` 最近交易日价格计算，包括今日收益、昨日收益、浮动盈亏、收益率和回本涨幅；基金和股票只有当前价格日期等于今天时才计算今日收益，否则 `todayPriceAvailable=false`、`priceStatus=TODAY_PRICE_NOT_AVAILABLE`，收益基准价格或基准数量缺失时对应字段返回 `null`，前端展示“暂无 / --”，不能用历史价、兜底价或其他值冒充今日价；今日收益用上一交易日日终持仓数量，昨日收益用上上交易日日终持仓数量。
 - 持仓估值只能使用与资产币种一致的 `xo_asset_price_current` 当前价；前端展示市值、成本和盈亏必须使用后端返回字段，不得用格式化后的当前价反算。
-- 账户编辑允许手动校准当前余额；流水支持备注和图片，图片字段使用 `image_url`。
-- 账户详情页通过聚合普通流水和投资交易展示资金变化，投资买入计入账户流出，投资卖出计入账户流入，但不进入普通收支统计。
+- 账户余额校准必须生成 `xo_account_balance_adjustment` 修正事件；该事件进入账户账本和余额曲线，但不计入普通收入 / 支出统计。`PUT /api/accounts/{id}` 可兼容余额差异，但 Web/App 应优先调用专用余额修正接口。
+- 账户详情页通过聚合普通流水、投资交易和余额修正展示资金变化，投资买入计入账户流出，投资卖出计入账户流入，但不进入普通收支统计。
 - 行情刷新通过 `QuoteProvider` 扩展；CRYPTO 使用 CoinGecko，FUND 使用天天基金 F10 历史净值表和实时净值兜底，A 股使用新浪行情，美股使用 Yahoo Finance。第三方行情只能由后端调用，前端只调 XOAssets `/api/quotes/**`。
 - 投资页 CNY / USD 切换使用下拉框，默认人民币；USD/CNY 汇率由后端日缓存提供，MVP 可用进程内缓存，后续可替换为 Redis。
 - 第三方资产查询失败时，后端日志必须保留行情源、代码 / 市场、响应摘要和异常堆栈；前端错误提示保持简洁，不暴露第三方原文。
-- 行情缓存 TTL：CRYPTO 1 小时、STOCK 15 分钟、FUND 1 天、MANUAL 不过期；自动行情刷新写 `xo_asset_price_current` 并把原始快照写入 Redis ZSET `price:snapshot:{assetId}:{yyyyMM}`，TTL 35 天；`xo_asset_price_daily` 保存长期日级价格，`xo_investment_daily_snapshot` 保存用户投资日快照；股票只在 09:30-15:00 之间拉取第三方行情；刷新失败保留最近价格，定时刷新失败不能影响应用启动。
+- 行情缓存 TTL：CRYPTO 1 小时、STOCK 15 分钟、FUND 1 天、MANUAL 不过期；自动行情刷新写 `xo_asset_price_current` 并把原始快照写入 Redis ZSET `price:snapshot:{assetId}:{yyyyMM}`，TTL 35 天；`xo_asset_price_daily` 保存长期日级价格，`xo_investment_daily_snapshot` 通过投资交易流水重建历史持仓和净入金后保存用户投资日快照；股票只在 09:30-15:00 之间拉取第三方行情；刷新失败保留最近价格，定时刷新失败不能影响应用启动。
 - 预算使用额从 `xo_transaction` 汇总，转账不计入，退款抵扣支出；预算接口必须按当前 user_id 隔离。
 - 资产快照写入 `xo_asset_snapshot`，同一用户同一天重复生成必须更新原记录；现金资产只统计正余额账户，负余额账户绝对值计入负债，投资资产使用同币种最新价格快照估值。
 - 首页和统计总资产口径优先使用资产快照：总资产 = 现金资产 + 投资资产，净资产 = 总资产 - 负债；没有快照时页面可退回当前实时概览。

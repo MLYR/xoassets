@@ -5,18 +5,22 @@ import com.xoassets.common.api.PageResult;
 import com.xoassets.common.security.LoginUserContext;
 import com.xoassets.module.account.dto.AccountFlowStatisticsQuery;
 import com.xoassets.module.account.dto.AccountLedgerQuery;
+import com.xoassets.module.account.service.AccountBalanceService;
 import com.xoassets.module.account.service.AccountLedgerService;
 import com.xoassets.module.account.service.AccountService;
+import com.xoassets.module.account.vo.AccountBalanceTrendPointVO;
 import com.xoassets.module.account.vo.AccountFlowStatisticsVO;
 import com.xoassets.module.account.vo.AccountLedgerPageVO;
 import com.xoassets.module.account.vo.AccountLedgerSummaryVO;
 import com.xoassets.module.account.vo.AccountLedgerVO;
 import com.xoassets.module.account.vo.AccountVO;
 import com.xoassets.persistence.entity.Account;
+import com.xoassets.persistence.entity.AccountBalanceAdjustment;
 import com.xoassets.persistence.entity.Asset;
 import com.xoassets.persistence.entity.Category;
 import com.xoassets.persistence.entity.InvestmentTransaction;
 import com.xoassets.persistence.entity.TransactionRecord;
+import com.xoassets.persistence.mapper.AccountBalanceAdjustmentMapper;
 import com.xoassets.persistence.mapper.AccountMapper;
 import com.xoassets.persistence.mapper.AssetMapper;
 import com.xoassets.persistence.mapper.CategoryMapper;
@@ -47,12 +51,15 @@ public class AccountLedgerServiceImpl implements AccountLedgerService {
 
     private static final String SOURCE_TRANSACTION = "TRANSACTION";
     private static final String SOURCE_INVESTMENT = "INVESTMENT";
+    private static final String SOURCE_ADJUSTMENT = "ADJUSTMENT";
     private static final String STATUS_NORMAL = "NORMAL";
     private static final String STATUS_REVOKED = "REVOKED";
     private static final String STATUS_CANCELLED = "CANCELLED";
 
     private final AccountService accountService;
+    private final AccountBalanceService accountBalanceService;
     private final AccountMapper accountMapper;
+    private final AccountBalanceAdjustmentMapper adjustmentMapper;
     private final TransactionRecordMapper transactionRecordMapper;
     private final InvestmentTransactionMapper investmentTransactionMapper;
     private final CategoryMapper categoryMapper;
@@ -60,13 +67,17 @@ public class AccountLedgerServiceImpl implements AccountLedgerService {
 
     public AccountLedgerServiceImpl(
             AccountService accountService,
+            AccountBalanceService accountBalanceService,
             AccountMapper accountMapper,
+            AccountBalanceAdjustmentMapper adjustmentMapper,
             TransactionRecordMapper transactionRecordMapper,
             InvestmentTransactionMapper investmentTransactionMapper,
             CategoryMapper categoryMapper,
             AssetMapper assetMapper) {
         this.accountService = accountService;
+        this.accountBalanceService = accountBalanceService;
         this.accountMapper = accountMapper;
+        this.adjustmentMapper = adjustmentMapper;
         this.transactionRecordMapper = transactionRecordMapper;
         this.investmentTransactionMapper = investmentTransactionMapper;
         this.categoryMapper = categoryMapper;
@@ -117,6 +128,7 @@ public class AccountLedgerServiceImpl implements AccountLedgerService {
         BigDecimal transferOut = sumByTypeAbs(rows, "TRANSFER_OUT");
         BigDecimal investmentBuy = sumByTypeAbs(rows, "INVEST_BUY");
         BigDecimal investmentSell = sumByType(rows, "INVEST_SELL");
+        BigDecimal adjustment = sumByType(rows, "BALANCE_ADJUSTMENT");
         BigDecimal inflow = income.add(refund).add(transferIn).add(investmentSell);
         BigDecimal outflow = expense.add(transferOut).add(investmentBuy);
         return AccountFlowStatisticsVO.builder()
@@ -126,10 +138,12 @@ public class AccountLedgerServiceImpl implements AccountLedgerService {
                 .transferOutAmount(transferOut)
                 .investmentBuyAmount(investmentBuy)
                 .investmentSellAmount(investmentSell)
+                .adjustmentAmount(adjustment)
                 .netFlowAmount(inflow.subtract(outflow))
                 .categoryExpenseStats(categoryExpenseStats(rows))
                 .investmentFlowStats(investmentFlowStats(rows))
                 .dailyFlowTrend(dailyFlowTrend(rows))
+                .dailyBalanceTrend(balanceTrendItems(accountId, range))
                 .build();
     }
 
@@ -139,12 +153,15 @@ public class AccountLedgerServiceImpl implements AccountLedgerService {
     private List<AccountLedgerVO> loadLedgerRows(Long userId, Long accountId, AccountLedgerQuery query) {
         List<TransactionRecord> transactionRecords = transactionRecordMapper.selectList(transactionWrapper(userId, accountId, query));
         List<InvestmentTransaction> investmentRecords = investmentTransactionMapper.selectList(investmentWrapper(userId, accountId, query));
-        Map<Long, Account> accountMap = accountMap(userId, transactionRecords, investmentRecords);
+        List<AccountBalanceAdjustment> adjustmentRecords = adjustmentMapper.selectList(adjustmentWrapper(userId, accountId, query));
+        adjustmentRecords = adjustmentRecords == null ? List.of() : adjustmentRecords;
+        Map<Long, Account> accountMap = accountMap(userId, transactionRecords, investmentRecords, adjustmentRecords);
         Map<Long, Category> categoryMap = categoryMap(userId, transactionRecords);
         Map<Long, Asset> assetMap = assetMap(investmentRecords);
         List<AccountLedgerVO> rows = new ArrayList<>();
         transactionRecords.forEach(record -> rows.add(toTransactionLedger(accountId, record, accountMap, categoryMap)));
         investmentRecords.forEach(record -> rows.add(toInvestmentLedger(record, accountMap, assetMap)));
+        adjustmentRecords.forEach(record -> rows.add(toAdjustmentLedger(accountId, record, accountMap)));
         return rows.stream()
                 .filter(row -> !StringUtils.hasText(query.getType()) || Objects.equals(row.getBizType(), query.getType()))
                 .filter(row -> !StringUtils.hasText(query.getKeyword()) || matchesKeyword(row, query.getKeyword()))
@@ -171,6 +188,22 @@ public class AccountLedgerServiceImpl implements AccountLedgerService {
                 .eq(InvestmentTransaction::getUserId, userId)
                 .eq(InvestmentTransaction::getAccountId, accountId);
         applyDateRange(wrapper, query.getStartDate(), query.getEndDate(), InvestmentTransaction::getTransactionTime);
+        return wrapper;
+    }
+
+    /**
+     * 余额修正按业务日期归属到资金明细。
+     */
+    private LambdaQueryWrapper<AccountBalanceAdjustment> adjustmentWrapper(Long userId, Long accountId, AccountLedgerQuery query) {
+        LambdaQueryWrapper<AccountBalanceAdjustment> wrapper = new LambdaQueryWrapper<AccountBalanceAdjustment>()
+                .eq(AccountBalanceAdjustment::getUserId, userId)
+                .eq(AccountBalanceAdjustment::getAccountId, accountId);
+        if (query.getStartDate() != null) {
+            wrapper.ge(AccountBalanceAdjustment::getBizDate, query.getStartDate());
+        }
+        if (query.getEndDate() != null) {
+            wrapper.le(AccountBalanceAdjustment::getBizDate, query.getEndDate());
+        }
         return wrapper;
     }
 
@@ -238,6 +271,25 @@ public class AccountLedgerServiceImpl implements AccountLedgerService {
                 .status(StringUtils.hasText(record.getStatus()) ? record.getStatus() : STATUS_NORMAL)
                 .transactionTime(record.getTransactionTime())
                 .note(record.getNote())
+                .build();
+    }
+
+    /**
+     * 余额修正展示为专用账本事件，不计入普通收支分类。
+     */
+    private AccountLedgerVO toAdjustmentLedger(Long accountId, AccountBalanceAdjustment record, Map<Long, Account> accountMap) {
+        Account account = accountMap.get(accountId);
+        return AccountLedgerVO.builder()
+                .id(record.getId())
+                .sourceType(SOURCE_ADJUSTMENT)
+                .bizType("BALANCE_ADJUSTMENT")
+                .title("余额修正")
+                .amount(record.getDeltaAmount())
+                .accountId(accountId)
+                .accountName(account == null ? null : account.getName())
+                .status(STATUS_NORMAL)
+                .transactionTime(record.getBizDate().atStartOfDay())
+                .note(record.getReason())
                 .build();
     }
 
@@ -396,6 +448,22 @@ public class AccountLedgerServiceImpl implements AccountLedgerService {
     }
 
     /**
+     * 账户余额曲线由余额服务统一重建，避免和账本流向口径分叉。
+     */
+    private List<AccountFlowStatisticsVO.DailyBalanceItem> balanceTrendItems(Long accountId, DateRange range) {
+        List<AccountBalanceTrendPointVO> trend = accountBalanceService.balanceTrend(accountId, range.startDate(), range.endDate());
+        return (trend == null ? List.<AccountBalanceTrendPointVO>of() : trend).stream()
+                .map(item -> AccountFlowStatisticsVO.DailyBalanceItem.builder()
+                        .date(item.getDate())
+                        .endBalance(item.getEndBalance())
+                        .inflow(item.getInflow())
+                        .outflow(item.getOutflow())
+                        .adjustmentAmount(item.getAdjustmentAmount())
+                        .build())
+                .toList();
+    }
+
+    /**
      * month 优先；未传日期时默认当前月，避免全量统计过大。
      */
     private DateRange resolveRange(AccountFlowStatisticsQuery query) {
@@ -410,10 +478,12 @@ public class AccountLedgerServiceImpl implements AccountLedgerService {
         return new DateRange(current.atDay(1), current.atEndOfMonth());
     }
 
-    private Map<Long, Account> accountMap(Long userId, List<TransactionRecord> transactions, List<InvestmentTransaction> investments) {
+    private Map<Long, Account> accountMap(Long userId, List<TransactionRecord> transactions, List<InvestmentTransaction> investments, List<AccountBalanceAdjustment> adjustments) {
         Set<Long> ids = java.util.stream.Stream.concat(
-                        transactions.stream().flatMap(record -> java.util.stream.Stream.of(record.getAccountId(), record.getTargetAccountId())),
-                        investments.stream().map(InvestmentTransaction::getAccountId))
+                        java.util.stream.Stream.concat(
+                                transactions.stream().flatMap(record -> java.util.stream.Stream.of(record.getAccountId(), record.getTargetAccountId())),
+                                investments.stream().map(InvestmentTransaction::getAccountId)),
+                        adjustments.stream().map(AccountBalanceAdjustment::getAccountId))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
         if (ids.isEmpty()) {

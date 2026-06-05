@@ -5,25 +5,25 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import lombok.Data;
 
 /**
- * 用户投资持仓实体，所有查询和修改必须按 user_id 隔离。
+ * 账户日终余额快照实体，用于账户详情资产曲线。
  */
 @Data
-@TableName("xo_holding")
-public class Holding {
+@TableName("xo_account_daily_balance_snapshot")
+public class AccountDailyBalanceSnapshot {
 
     private Long id;
     private Long userId;
-    private Long assetId;
-    private BigDecimal quantity;
-    private BigDecimal avgCost;
-    private BigDecimal totalCost;
-    private String remark;
-    private Integer status;
-    private Long version;
+    private Long accountId;
+    private LocalDate snapshotDate;
+    private BigDecimal endBalance;
+    private BigDecimal inflowAmount;
+    private BigDecimal outflowAmount;
+    private BigDecimal adjustmentAmount;
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
     @TableField(fill = FieldFill.INSERT_UPDATE)

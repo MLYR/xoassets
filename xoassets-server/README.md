@@ -28,7 +28,7 @@ mysql -uroot -p < src/main/resources/db/schema.sql
 2. 配置数据库和 JWT：
 
 ```bash
-export XOASSETS_DB_URL='jdbc:mysql://localhost:3306/xoassets?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true'
+export XOASSETS_DATASOURCE_URL='jdbc:mysql://localhost:3306/xoassets?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true'
 export XOASSETS_DB_USERNAME='root'
 export XOASSETS_DB_PASSWORD='your-password'
 export XOASSETS_JWT_SECRET='replace-with-at-least-32-bytes-secret-key'
@@ -70,6 +70,8 @@ http://localhost:8080/doc.html
 - `DELETE /api/accounts/{id}`
 - `GET /api/accounts/{id}/ledger`
 - `GET /api/accounts/{id}/flow-statistics`
+- `POST /api/accounts/{id}/balance-adjustments`
+- `GET /api/accounts/{id}/balance-trend`
 - `GET /api/categories`
 - `POST /api/categories`
 - `PUT /api/categories/{id}`
@@ -133,9 +135,10 @@ http://localhost:8080/doc.html
 - 流水类型支持 `INCOME`、`EXPENSE`、`TRANSFER`、`REFUND`。
 - 转账只影响账户余额，不计入收入支出统计。
 - 删除或修改流水会在同一事务中反向修正账户余额。
-- 账户余额允许通过账户编辑手动校准，用于处理利息、漏记流水等现实差异；流水增删改仍会按事务联动余额。
-- 账户资金明细接口聚合 `xo_transaction` 和 `xo_investment_transaction`，按当前账户方向展示收入、支出、转账转入/转出、退款、投资买入和投资卖出。
-- 账户资金流向统计单独区分普通收支、转账和投资资金流，投资买入不计入普通支出分类统计。
+- 账户余额校准通过 `xo_account_balance_adjustment` 生成专用修正事件；`PUT /api/accounts/{id}` 仍兼容余额差异，但 Web/App 应优先调用 `POST /api/accounts/{id}/balance-adjustments`。
+- 余额修正不计入普通收入 / 支出统计，但会进入账户资金明细和 `xo_account_daily_balance_snapshot` 日终余额曲线。
+- 账户资金明细接口聚合 `xo_transaction`、`xo_investment_transaction` 和 `xo_account_balance_adjustment`，按当前账户方向展示收入、支出、转账转入/转出、退款、投资买入、投资卖出和余额修正。
+- 账户资金流向统计单独区分普通收支、转账、投资资金流和余额修正，投资买入不计入普通支出分类统计。
 - 流水可保存 `image_url`，第一版允许前端传图片 Data URL，数据库使用 `MEDIUMTEXT`，后续可替换为对象存储 URL。
 - 公共资产表 `xo_asset` 和价格表 `xo_asset_price` 不带 `user_id`；前端不再暴露资产管理入口，`xo_asset` 仅作为持仓行情和价格快照的内部基础数据。
 - 已有本地库升级行情字段时，执行 `src/main/resources/db/migration-quote-fields.sql`。
@@ -144,8 +147,9 @@ http://localhost:8080/doc.html
 - 基金可先创建 0 份额持仓，再使用金额确认模式买入：`input_mode = AMOUNT_NAV` 时先按买入总金额扣减资金账户，已有确认日期单位净值则立即确认份额并更新持仓；确认净值优先读取 `xo_asset_price_daily.close_price`，旧 `xo_asset_price` 同日快照兜底；没有净值则保存为 `PENDING_CONFIRM`，由基金确认定时任务后续更新为 `CONFIRMED`。
 - 投资交易、资金账户和持仓联动在同一事务中完成，避免交易记录与账户余额、持仓数量、成本不一致。
 - 投资交易支持撤销，不物理删除；撤销状态写入 `status = REVOKED`，账户余额和持仓通过原交易 `cost_amount` 反向恢复。
-- 投资数量统一保留 10 位小数，手续费、持仓成本、市值、盈亏和收益率统一按 4 位小数归一化后计算，避免不同调用入口产生精度口径差异。
-- 持仓接口返回最新价、昨价、前日价、今日收益、昨日收益、浮动盈亏、收益率、回本涨幅和报价时间；基金和股票只有当前价格日期等于今天时才计算今日收益，否则 `todayPriceAvailable=false`、`priceStatus=TODAY_PRICE_NOT_AVAILABLE` 且今日收益按 0 返回；缺少历史价格时收益分析字段允许为空。
+- 投资数量和基金确认份额统一保留 10 位小数，手续费、持仓成本、市值、盈亏和收益率统一按 4 位小数归一化后计算，避免不同调用入口产生精度口径差异。
+- 持仓接口返回最新价、昨价、前日价、今日收益、昨日收益、浮动盈亏、收益率、回本涨幅和报价时间；基金和股票只有当前价格日期等于今天时才计算今日收益，否则 `todayPriceAvailable=false`、`priceStatus=TODAY_PRICE_NOT_AVAILABLE`；收益基准价格或基准持仓数量缺失时返回 `null`，前端展示 `--`。
+- 今日收益按上一交易日日终持仓数量计算，昨日收益按上上交易日日终持仓数量计算；投资总今日 / 本月收益按 `当前市值 - 基准市值 - 净入金` 计算，避免当日买卖放大或压低收益。
 - 行情价格快照使用 `DECIMAL(28,8)`，第三方行情和手动报价入库前统一保留 8 位；`xo_asset_price` 记录 `previous_close`、`change_amount`、`change_percent`、`market_status`，持仓返回 `priceScale`，CRYPTO 当前价至少展示 6 位，FUND / STOCK 展示 4 位。
 - 公共资产表 `xo_asset` 使用 `market` 区分交易市场，股票为 `SH` / `SZ` / `BJ` / `US`，基金为 `CN_FUND`，虚拟货币为 `CRYPTO`；唯一性按 `type + market + symbol + deleted` 控制。
 - 持仓估值使用与资产币种一致的最近价格；没有价格或价格币种不一致时使用平均成本兜底，避免当前价和市值口径不一致。
@@ -159,6 +163,7 @@ http://localhost:8080/doc.html
 - 预算表 `xo_budget` 按当前用户隔离；每个用户每月只能有一个总预算，每个支出分类每月只能有一个分类预算。
 - 预算使用额从 `xo_transaction` 汇总，转账不计入预算，退款抵扣支出。
 - 资产快照表 `xo_asset_snapshot` 每天记录现金资产、投资资产、负债、净资产、月度收支和预算使用率；同一用户同一天只保留一条，重复生成会更新。
+- 投资日快照表 `xo_investment_daily_snapshot` 按 `xo_investment_transaction` 截至快照日重建历史持仓、成本、市值、已实现收益和净入金，补跑用户覆盖近期有交易、已有快照或当前有持仓的用户。
 - 资产快照中现金资产只统计正余额账户，负余额账户按绝对值计入负债；投资资产使用持仓数量和同币种最新价格快照计算。
 - 首页总资产 = 快照现金资产 + 投资持仓市值；净资产 = 总资产 - 负债。
 - 后端启用 `AssetSnapshotScheduler`，默认每天 23:55 为所有启用用户生成资产快照，单个用户失败只记录日志。
@@ -173,7 +178,8 @@ http://localhost:8080/doc.html
 - 导入开发数据：`mysql -uroot -p xoassets < src/main/resources/db/dev-data.sql`。
 - 测试账号：`demo / xoassets123`。
 - Docker 一键启动从仓库根目录执行 `docker compose up -d`，MySQL 首次启动会自动执行 `schema.sql` 和 `dev-data.sql`。
-- 核心测试在 `src/test/java/com/xoassets/module/MvpCoreServiceTest.java`，覆盖流水余额联动、预算退款抵扣、投资账户联动、移动平均成本、收益分析、首页总资产和数据隔离基础路径。
+- 核心测试在 `src/test/java/com/xoassets/module/MvpCoreServiceTest.java`，覆盖流水余额联动、余额修正、账户账本、账户余额曲线、预算退款抵扣、投资账户联动、移动平均成本、历史投资头寸、收益分析、首页总资产和数据隔离基础路径。
+- `mvn test` 会生成 JaCoCo 覆盖率报告，不设置阻断阈值。
 - CSV 导出接口只导出当前用户数据，包含账户资金明细、普通流水和投资交易；输出 UTF-8 BOM，金额保留 4 位小数。
 
 已有库升级到投资账户联动版本时，先为历史投资交易补齐当前用户的资金账户，再把字段改为非空：
@@ -208,4 +214,10 @@ ALTER TABLE xo_investment_transaction
 
 ```bash
 mysql -u root -p xoassets < src/main/resources/db/migration-fund-amount-nav.sql
+```
+
+已有库升级到账户余额修正和余额曲线版本时，执行：
+
+```bash
+mysql -u root -p xoassets < src/main/resources/db/migration-account-adjustment-balance-trend.sql
 ```

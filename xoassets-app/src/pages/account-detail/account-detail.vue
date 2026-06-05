@@ -46,7 +46,7 @@
         </view>
         <view class="month-title-box">
           <text class="month-title">{{ monthTitle }}</text>
-          <text class="month-subtitle">按月统计资金变化</text>
+          <text class="month-subtitle">账户余额曲线与资金变化</text>
         </view>
         <view class="month-arrow next" @click="changeMonth(1)">
           <AppIcon name="common.back" size="28rpx" />
@@ -82,7 +82,7 @@
           <view class="trend-track">
             <view
               class="trend-fill"
-              :class="item.netFlow >= 0 ? 'positive-bg' : 'negative-bg'"
+              :class="item.trendPositive ? 'positive-bg' : 'negative-bg'"
               :style="{ height: item.height + '%' }"
             ></view>
           </view>
@@ -198,7 +198,7 @@
           <text class="form-label">修正备注</text>
           <input v-model="correctionRemark" class="form-input" placeholder="例如：补记利息、对账调整" />
         </view>
-        <text class="modal-tip">余额修正会直接更新账户当前余额，不生成普通收支流水。</text>
+        <text class="modal-tip">余额修正会生成专用调整记录，不计入普通收支，但会进入账户账本和余额曲线。</text>
         <view class="modal-actions">
           <button class="modal-btn secondary" @click="closeModals">取消</button>
           <button class="modal-btn primary" :loading="saving" @click="saveBalanceCorrection">确认修正</button>
@@ -216,7 +216,7 @@ import AppNavBar from '@/components/app/AppNavBar.vue'
 import { useAccountStore } from '@/stores/account'
 import { useTheme } from '@/theme/useTheme'
 import type {
-  AccountDailyFlowItem,
+  AccountDailyBalanceItem,
   AccountFlowStatistics,
   AccountItem,
   AccountLedgerBizType,
@@ -311,14 +311,22 @@ const inflowRatio = computed(() => totalFlow.value <= 0 ? 0 : Math.round(monthIn
 const outflowRatio = computed(() => totalFlow.value <= 0 ? 0 : Math.round(monthOutflow.value / totalFlow.value * 100))
 
 const trendBars = computed(() => {
-  const trend = flowStatistics.value?.dailyFlowTrend || []
-  const max = Math.max(...trend.map(item => Math.abs(toNumber(item.netFlow))), 1)
+  const trend = flowStatistics.value?.dailyBalanceTrend || []
+  const max = Math.max(...trend.map(item => Math.abs(toNumber(item.endBalance))), 1)
   const maxStart = Math.max(trend.length - flowTrendWindowSize, 0)
   const start = Math.min(flowTrendWindowStart.value, maxStart)
-  return trend.slice(start, start + flowTrendWindowSize).map(item => ({
+  const mapped: Array<AccountDailyBalanceItem & { day: string; height: number; trendPositive: boolean }> = trend.map((item, index) => {
+    const previous = index > 0 ? toNumber(trend[index - 1]?.endBalance) : toNumber(item.endBalance)
+    const current = toNumber(item.endBalance)
+    return {
+      ...item,
+      day: item.date.slice(8, 10),
+      height: Math.max(10, Math.round(Math.abs(current) / max * 100)),
+      trendPositive: current >= previous
+    }
+  })
+  return mapped.slice(start, start + flowTrendWindowSize).map(item => ({
     ...item,
-    day: item.date.slice(8, 10),
-    height: Math.max(10, Math.round(Math.abs(toNumber(item.netFlow)) / max * 100))
   }))
 })
 
@@ -440,7 +448,7 @@ function onFlowTrendTouchEnd(event: TouchEvent) {
 }
 
 function shiftFlowTrendWindow(delta: number) {
-  const trend = flowStatistics.value?.dailyFlowTrend || []
+  const trend = flowStatistics.value?.dailyBalanceTrend || []
   const maxStart = Math.max(trend.length - flowTrendWindowSize, 0)
   const current = Math.min(flowTrendWindowStart.value, maxStart)
   flowTrendWindowStart.value = Math.max(0, Math.min(current + delta, maxStart))
@@ -496,12 +504,23 @@ async function saveBalanceCorrection() {
     uni.showToast({ title: '请输入有效余额', icon: 'none' })
     return
   }
-  await saveAccount({
-    name: account.value.name,
-    type: account.value.type,
-    balance,
-    remark: correctionRemark.value || account.value.remark || null
-  })
+  if (saving.value) return
+  saving.value = true
+  try {
+    // 余额修正走专用接口，确保账本和余额曲线都有可追溯的调整记录。
+    await store.adjustBalance(accId.value, {
+      afterBalance: balance,
+      reason: correctionRemark.value || undefined,
+      bizDate: formatDate(new Date())
+    })
+    showCorrectionModal.value = false
+    uni.showToast({ title: '修正成功', icon: 'success' })
+    await reload()
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : '余额修正失败', icon: 'none' })
+  } finally {
+    saving.value = false
+  }
 }
 
 async function saveAccount(payload: { name: string; type: string; balance: number; remark?: string | null }) {
@@ -589,6 +608,7 @@ function ledgerMeta(item: AccountLedgerItem) {
 }
 
 function ledgerIconName(item: AccountLedgerItem) {
+  if (item.sourceType === 'ADJUSTMENT' || item.bizType === 'BALANCE_ADJUSTMENT') return 'common.edit'
   if (item.sourceType === 'INVESTMENT') return 'quickActions.invest'
   if (item.bizType === 'TRANSFER_IN' || item.bizType === 'TRANSFER_OUT') return 'quickActions.transfer'
   if (item.bizType === 'INCOME' || item.bizType === 'REFUND') return 'home.income'
@@ -626,14 +646,14 @@ function bizLabel(type: AccountLedgerBizType) {
     TRANSFER_IN: '转入',
     REFUND: '退款',
     INVEST_BUY: '投资买入',
-    INVEST_SELL: '投资卖出'
+    INVEST_SELL: '投资卖出',
+    BALANCE_ADJUSTMENT: '余额修正'
   }
   return labels[type] || type
 }
 
-function isInflow(item: AccountLedgerItem | AccountDailyFlowItem) {
-  if ('amount' in item) return toNumber(item.amount) >= 0
-  return toNumber(item.netFlow) >= 0
+function isInflow(item: AccountLedgerItem) {
+  return toNumber(item.amount) >= 0
 }
 
 function toNumber(value: number | string | undefined | null) {

@@ -24,8 +24,8 @@ export interface AccountRequest {
   remark?: string;
 }
 
-export type AccountLedgerSourceType = 'TRANSACTION' | 'INVESTMENT';
-export type AccountLedgerBizType = 'INCOME' | 'EXPENSE' | 'TRANSFER_OUT' | 'TRANSFER_IN' | 'REFUND' | 'INVEST_BUY' | 'INVEST_SELL';
+export type AccountLedgerSourceType = 'TRANSACTION' | 'INVESTMENT' | 'ADJUSTMENT';
+export type AccountLedgerBizType = 'INCOME' | 'EXPENSE' | 'TRANSFER_OUT' | 'TRANSFER_IN' | 'REFUND' | 'INVEST_BUY' | 'INVEST_SELL' | 'BALANCE_ADJUSTMENT';
 
 export interface AccountLedgerItem {
   id: string;
@@ -85,16 +85,24 @@ export interface AccountFlowStatistics {
   transferOutAmount: number;
   investmentBuyAmount: number;
   investmentSellAmount: number;
+  adjustmentAmount: number;
   netFlowAmount: number;
   categoryExpenseStats: Array<{ name: string; amount: number }>;
   investmentFlowStats: Array<{ name: string; amount: number }>;
   dailyFlowTrend: Array<{ date: string; inflow: number; outflow: number; netFlow: number }>;
+  dailyBalanceTrend: Array<{ date: string; endBalance: number; inflow: number; outflow: number; adjustmentAmount: number }>;
 }
 
 export interface AccountFlowStatisticsQuery {
   month?: string;
   startDate?: string;
   endDate?: string;
+}
+
+export interface AccountBalanceAdjustmentRequest {
+  afterBalance: number;
+  reason?: string;
+  bizDate?: string;
 }
 
 export const accountApi = {
@@ -119,6 +127,22 @@ export const accountApi = {
       url: `/accounts/${id}`,
       method: 'PUT',
       data
+    });
+  },
+  // 余额修正生成专用调整事件，不计入普通收支。
+  adjustBalance(id: string, data: AccountBalanceAdjustmentRequest) {
+    return request({
+      url: `/accounts/${id}/balance-adjustments`,
+      method: 'POST',
+      data
+    });
+  },
+  // 查询账户日终余额曲线。
+  balanceTrend(id: string, params: AccountFlowStatisticsQuery) {
+    return request<Array<{ date: string; endBalance: number; inflow: number; outflow: number; adjustmentAmount: number }>>({
+      url: `/accounts/${id}/balance-trend`,
+      method: 'GET',
+      params
     });
   },
   // 删除账户；如果后端拒绝删除，错误会透传给页面提示。

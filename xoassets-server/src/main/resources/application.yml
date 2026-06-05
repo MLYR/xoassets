@@ -30,8 +30,6 @@ mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
   configuration:
     map-underscore-to-camel-case: true
-    # 本地开发输出 MyBatis SQL 和参数，便于联调时检查 user_id 隔离和余额变更。
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
   global-config:
     db-config:
       id-type: assign_id
@@ -45,11 +43,11 @@ logging:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n%wEx"
   level:
     root: info
-    com.xoassets: debug
-    com.xoassets.persistence.mapper: debug
+    com.xoassets: info
+    com.xoassets.persistence.mapper: info
     com.zaxxer.hikari: info
-    org.mybatis: debug
-    org.springframework.jdbc: debug
+    org.mybatis: info
+    org.springframework.jdbc: info
 
 knife4j:
   enable: true
@@ -68,3 +66,21 @@ xoassets:
     # 日级价格汇总先执行，用户投资日快照随后执行；两者都会补跑最近 3 天。
     daily-aggregate-cron: ${XOASSETS_QUOTES_DAILY_AGGREGATE_CRON:0 30 23 * * ?}
     investment-snapshot-cron: ${XOASSETS_INVESTMENT_DAILY_SNAPSHOT_CRON:0 45 23 * * ?}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+mybatis-plus:
+  configuration:
+    # 仅 dev profile 输出 MyBatis SQL，生产默认关闭 SQL debug。
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+logging:
+  level:
+    com.xoassets: debug
+    com.xoassets.persistence.mapper: debug
+    org.mybatis: debug
+    org.springframework.jdbc: debug

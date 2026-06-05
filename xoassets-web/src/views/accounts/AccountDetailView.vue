@@ -8,6 +8,7 @@
       </div>
       <div class="header-actions">
         <el-button @click="$router.push('/accounts')">返回账户</el-button>
+        <el-button :icon="Edit" @click="openBalanceAdjustment">余额修正</el-button>
         <el-button type="primary" :icon="Download" :loading="exporting" @click="handleExportLedger">导出账户明细</el-button>
       </div>
     </div>
@@ -42,13 +43,13 @@
       <MetricCard title="本期流入" :value="periodInflow" :trend="periodInflow" description="收入/转入/卖出" tone="success" />
       <MetricCard title="本期流出" :value="periodOutflow" :trend="-periodOutflow" description="支出/转出/买入" tone="danger" />
       <MetricCard title="本期净流入" :value="flowStats.netFlowAmount" :trend="flowStats.netFlowAmount" description="本期资金净变化" :tone="flowStats.netFlowAmount >= 0 ? 'success' : 'danger'" />
-      <MetricCard title="投资净流入" :value="investmentNetFlow" :trend="investmentNetFlow" description="卖出减买入" :tone="investmentNetFlow >= 0 ? 'success' : 'danger'" />
+      <MetricCard title="余额修正" :value="flowStats.adjustmentAmount" :trend="flowStats.adjustmentAmount" description="不计入普通收支" :tone="flowStats.adjustmentAmount >= 0 ? 'success' : 'danger'" />
     </section>
 
     <section class="chart-grid">
       <div class="panel chart-panel">
-        <div class="section-head"><h2>资金流入流出趋势</h2></div>
-        <el-empty v-if="flowStats.dailyFlowTrend.length === 0" description="暂无趋势数据" />
+        <div class="section-head"><h2>账户余额曲线</h2></div>
+        <el-empty v-if="flowStats.dailyBalanceTrend.length === 0" description="暂无余额曲线数据" />
         <BaseChart v-else :option="trendOption" height="260px" />
       </div>
       <div class="panel chart-panel">
@@ -94,7 +95,7 @@
             <template #default="{ row }">{{ row.relatedAccountName || '-' }}</template>
           </el-table-column>
           <el-table-column label="来源" width="110">
-            <template #default="{ row }">{{ row.sourceType === 'INVESTMENT' ? '投资交易' : '普通流水' }}</template>
+            <template #default="{ row }">{{ sourceTypeLabel(row.sourceType) }}</template>
           </el-table-column>
           <el-table-column label="状态" width="100">
             <template #default="{ row }"><StatusBadge :label="row.status === 'REVOKED' ? '已撤销' : '正常'" /></template>
@@ -117,6 +118,25 @@
         </div>
       </template>
     </section>
+
+    <el-dialog v-model="adjustmentDialogVisible" title="余额修正" width="420px">
+      <el-form label-position="top" @submit.prevent="handleBalanceAdjustment">
+        <el-form-item label="修正后余额">
+          <el-input-number v-model="adjustmentForm.afterBalance" class="full-width" :precision="2" :step="100" />
+        </el-form-item>
+        <el-form-item label="业务日期">
+          <el-date-picker v-model="adjustmentForm.bizDate" class="full-width" type="date" value-format="YYYY-MM-DD" />
+        </el-form-item>
+        <el-form-item label="修正原因">
+          <el-input v-model.trim="adjustmentForm.reason" type="textarea" :rows="3" placeholder="例如：补记利息、对账调整" />
+        </el-form-item>
+        <p class="dialog-tip">余额修正会生成专用调整记录，不计入普通收支，但会进入账户账本和余额曲线。</p>
+      </el-form>
+      <template #footer>
+        <el-button @click="adjustmentDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="adjustingBalance" @click="handleBalanceAdjustment">确认修正</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -124,7 +144,7 @@
 // 账户详情的图表和表格均来自后端聚合接口，避免前端重复拼普通流水和投资交易。
 import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
-import { Download } from '@element-plus/icons-vue';
+import { Download, Edit } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import type { EChartsOption } from 'echarts';
 import AmountText from '@/components/finance/AmountText.vue';
@@ -138,9 +158,11 @@ const route = useRoute();
 const accountId = computed(() => String(route.params.id || ''));
 const loading = ref(false);
 const exporting = ref(false);
+const adjustingBalance = ref(false);
+const adjustmentDialogVisible = ref(false);
 const account = ref<AccountItem | null>(null);
 const summary = ref<AccountLedgerSummary>({ currentBalance: 0, initialBalance: 0, totalInflow: 0, totalOutflow: 0, netInflow: 0, transactionCount: 0 });
-const flowStats = ref<AccountFlowStatistics>({ incomeAmount: 0, expenseAmount: 0, transferInAmount: 0, transferOutAmount: 0, investmentBuyAmount: 0, investmentSellAmount: 0, netFlowAmount: 0, categoryExpenseStats: [], investmentFlowStats: [], dailyFlowTrend: [] });
+const flowStats = ref<AccountFlowStatistics>({ incomeAmount: 0, expenseAmount: 0, transferInAmount: 0, transferOutAmount: 0, investmentBuyAmount: 0, investmentSellAmount: 0, adjustmentAmount: 0, netFlowAmount: 0, categoryExpenseStats: [], investmentFlowStats: [], dailyFlowTrend: [], dailyBalanceTrend: [] });
 const records = ref<AccountLedgerItem[]>([]);
 const total = ref(0);
 const pageNo = ref(1);
@@ -148,6 +170,7 @@ const pageSize = ref(20);
 const typeFilter = ref<AccountLedgerBizType | ''>('');
 const keyword = ref('');
 const dateRange = ref<[string, string] | null>(null);
+const adjustmentForm = ref({ afterBalance: 0, reason: '', bizDate: formatDate(new Date()) });
 const ledgerTypeOptions = [
   { label: '收入', value: 'INCOME' },
   { label: '支出', value: 'EXPENSE' },
@@ -155,7 +178,8 @@ const ledgerTypeOptions = [
   { label: '转账转入', value: 'TRANSFER_IN' },
   { label: '退款', value: 'REFUND' },
   { label: '投资买入', value: 'INVEST_BUY' },
-  { label: '投资卖出', value: 'INVEST_SELL' }
+  { label: '投资卖出', value: 'INVEST_SELL' },
+  { label: '余额修正', value: 'BALANCE_ADJUSTMENT' }
 ] as const;
 
 onMounted(() => {
@@ -165,17 +189,15 @@ onMounted(() => {
 const accountSubtitle = computed(() => `${account.value?.currency || '-'} · ${account.value?.remark || '查看账户资金变化'}`);
 const periodInflow = computed(() => flowStats.value.incomeAmount + flowStats.value.transferInAmount + flowStats.value.investmentSellAmount);
 const periodOutflow = computed(() => flowStats.value.expenseAmount + flowStats.value.transferOutAmount + flowStats.value.investmentBuyAmount);
-const investmentNetFlow = computed(() => flowStats.value.investmentSellAmount - flowStats.value.investmentBuyAmount);
 const trendOption = computed<EChartsOption>(() => ({
   tooltip: { trigger: 'axis' },
   legend: { bottom: 0 },
   grid: { top: 24, left: 40, right: 20, bottom: 44 },
-  xAxis: { type: 'category', data: flowStats.value.dailyFlowTrend.map((item) => item.date) },
+  xAxis: { type: 'category', data: flowStats.value.dailyBalanceTrend.map((item) => item.date) },
   yAxis: { type: 'value' },
   series: [
-    { name: '流入', type: 'line', smooth: true, data: flowStats.value.dailyFlowTrend.map((item) => item.inflow) },
-    { name: '流出', type: 'line', smooth: true, data: flowStats.value.dailyFlowTrend.map((item) => item.outflow) },
-    { name: '净流入', type: 'bar', data: flowStats.value.dailyFlowTrend.map((item) => item.netFlow) }
+    { name: '日终余额', type: 'line', smooth: true, data: flowStats.value.dailyBalanceTrend.map((item) => item.endBalance) },
+    { name: '余额修正', type: 'bar', data: flowStats.value.dailyBalanceTrend.map((item) => item.adjustmentAmount) }
   ]
 }));
 const categoryOption = computed<EChartsOption>(() => ({
@@ -236,6 +258,38 @@ async function handleExportLedger() {
   }
 }
 
+function openBalanceAdjustment() {
+  adjustmentForm.value = {
+    afterBalance: Number(summary.value.currentBalance || account.value?.balance || 0),
+    reason: '',
+    bizDate: formatDate(new Date())
+  };
+  adjustmentDialogVisible.value = true;
+}
+
+async function handleBalanceAdjustment() {
+  if (!Number.isFinite(Number(adjustmentForm.value.afterBalance))) {
+    ElMessage.warning('请输入有效余额');
+    return;
+  }
+  adjustingBalance.value = true;
+  try {
+    // 余额修正走专用接口，保证账本和余额曲线都能追溯调整原因。
+    await accountApi.adjustBalance(accountId.value, {
+      afterBalance: adjustmentForm.value.afterBalance,
+      reason: adjustmentForm.value.reason || undefined,
+      bizDate: adjustmentForm.value.bizDate || undefined
+    });
+    ElMessage.success('余额已修正');
+    adjustmentDialogVisible.value = false;
+    await loadAll();
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '余额修正失败');
+  } finally {
+    adjustingBalance.value = false;
+  }
+}
+
 function queryParams() {
   return {
     pageNo: pageNo.value,
@@ -251,8 +305,24 @@ function bizTypeLabel(type: AccountLedgerBizType) {
   return ledgerTypeOptions.find((item) => item.value === type)?.label || type;
 }
 
+function sourceTypeLabel(type: AccountLedgerItem['sourceType']) {
+  if (type === 'INVESTMENT') {
+    return '投资交易';
+  }
+  if (type === 'ADJUSTMENT') {
+    return '余额修正';
+  }
+  return '普通流水';
+}
+
 function formatDateTime(value: string) {
   return value.replace('T', ' ').slice(0, 16);
+}
+
+function formatDate(date: Date) {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
 }
 </script>
 
@@ -314,6 +384,17 @@ function formatDateTime(value: string) {
   gap: 12px;
   padding: 16px;
   align-items: center;
+}
+
+.dialog-tip {
+  margin: 0;
+  color: var(--xo-muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.full-width {
+  width: 100%;
 }
 
 .numeric-cell {

@@ -339,7 +339,7 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
         HoldingTradeResult tradeResult = holdingService.applyConfirmedBuy(userId, transaction.getHoldingId(), asset.getId(), transaction.getConfirmedQuantity(), transaction.getCostAmount());
         transaction.setHoldingId(tradeResult.holding().getId());
         transactionMapper.insert(transaction);
-        snapshotService.generateForUser(userId, LocalDate.now());
+        refreshSnapshotsAfterConfirmation(userId, transaction.getConfirmedDate());
         return toVO(transaction, asset, account);
     }
 
@@ -359,7 +359,17 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
         if (updated > 0) {
             // 只有成功抢到待确认状态的任务才能更新持仓，避免重复扫描导致份额重复累加。
             holdingService.applyConfirmedBuy(transaction.getUserId(), transaction.getHoldingId(), transaction.getAssetId(), transaction.getConfirmedQuantity(), transaction.getCostAmount());
-            snapshotService.generateForUser(transaction.getUserId(), LocalDate.now());
+            refreshSnapshotsAfterConfirmation(transaction.getUserId(), transaction.getConfirmedDate());
+        }
+    }
+
+    private void refreshSnapshotsAfterConfirmation(Long userId, LocalDate confirmedDate) {
+        LocalDate today = LocalDate.now();
+        if (confirmedDate != null) {
+            snapshotService.generateForUser(userId, confirmedDate);
+        }
+        if (confirmedDate == null || !today.equals(confirmedDate)) {
+            snapshotService.generateForUser(userId, today);
         }
     }
 
@@ -370,7 +380,7 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
         BigDecimal tradeAmount = scaleMoney2(transaction.getTradeAmount());
         BigDecimal fee = scaleMoney2(transaction.getFee());
         BigDecimal netAmount = tradeAmount.subtract(fee).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal confirmedQuantity = netAmount.divide(confirmedNav, 4, RoundingMode.DOWN);
+        BigDecimal confirmedQuantity = netAmount.divide(confirmedNav, 10, RoundingMode.DOWN);
         if (confirmedQuantity.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException(ErrorCode.BUSINESS_ERROR, "确认份额必须大于0");
         }

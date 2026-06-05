@@ -9,6 +9,7 @@ import com.xoassets.module.investment.dto.HoldingRequest;
 import com.xoassets.module.investment.service.AssetService;
 import com.xoassets.module.investment.service.HoldingService;
 import com.xoassets.module.investment.service.HoldingTradeResult;
+import com.xoassets.module.investment.service.InvestmentPositionHistoryService;
 import com.xoassets.module.investment.service.QuoteService;
 import com.xoassets.module.investment.vo.AssetPriceVO;
 import com.xoassets.module.investment.vo.HoldingChartPointVO;
@@ -72,6 +73,7 @@ public class HoldingServiceImpl implements HoldingService {
     private final InvestmentTransactionMapper investmentTransactionMapper;
     private final AccountMapper accountMapper;
     private final AssetService assetService;
+    private final InvestmentPositionHistoryService positionHistoryService;
     private final QuoteService quoteService;
 
     public HoldingServiceImpl(
@@ -84,6 +86,7 @@ public class HoldingServiceImpl implements HoldingService {
             InvestmentTransactionMapper investmentTransactionMapper,
             AccountMapper accountMapper,
             AssetService assetService,
+            InvestmentPositionHistoryService positionHistoryService,
             QuoteService quoteService) {
         this.holdingMapper = holdingMapper;
         this.assetMapper = assetMapper;
@@ -94,6 +97,7 @@ public class HoldingServiceImpl implements HoldingService {
         this.investmentTransactionMapper = investmentTransactionMapper;
         this.accountMapper = accountMapper;
         this.assetService = assetService;
+        this.positionHistoryService = positionHistoryService;
         this.quoteService = quoteService;
     }
 
@@ -121,14 +125,21 @@ public class HoldingServiceImpl implements HoldingService {
         // 今日收益必须尊重单项持仓的“今日价格有效性”，基金/股票未更新今日价时按 0 汇总。
         BigDecimal todayProfit = holdings.stream().map(item -> nullToZero(item.getTodayProfit())).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(4, RoundingMode.HALF_UP);
         BigDecimal todayProfitBase = holdings.stream()
-                .filter(item -> Boolean.TRUE.equals(item.getTodayPriceAvailable()) && item.getPreviousPrice() != null)
-                .map(item -> item.getQuantity().multiply(item.getPreviousPrice()))
+                .filter(item -> Boolean.TRUE.equals(item.getTodayPriceAvailable()) && item.getTodayProfitBase() != null)
+                .map(HoldingVO::getTodayProfitBase)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+        InvestmentDailySnapshot previousSnapshot = previousInvestmentSnapshot(userId, LocalDate.now());
+        if (previousSnapshot != null) {
+            BigDecimal todayNetInflow = positionHistoryService.netInflow(userId, previousSnapshot.getSnapshotDate().plusDays(1), LocalDate.now());
+            todayNetInflow = todayNetInflow == null ? BigDecimal.ZERO : todayNetInflow;
+            todayProfit = totalMarketValue.subtract(scale4(previousSnapshot.getMarketValue())).subtract(todayNetInflow).setScale(4, RoundingMode.HALF_UP);
+            todayProfitBase = scale4(previousSnapshot.getMarketValue());
+        }
         BigDecimal todayProfitRate = todayProfitBase.compareTo(BigDecimal.ZERO) <= 0 ? null : rate(todayProfit, todayProfitBase);
         BigDecimal yesterdayProfit = holdings.stream().map(item -> nullToZero(item.getYesterdayProfit())).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal yesterdayProfitBase = holdings.stream()
-                .filter(item -> item.getBeforePreviousPrice() != null)
-                .map(item -> item.getQuantity().multiply(item.getBeforePreviousPrice()))
+                .filter(item -> item.getYesterdayProfitBase() != null)
+                .map(HoldingVO::getYesterdayProfitBase)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal yesterdayProfitRate = yesterdayProfitBase.compareTo(BigDecimal.ZERO) <= 0 ? null : rate(yesterdayProfit, yesterdayProfitBase);
         BigDecimal floatingProfit = holdings.stream().map(HoldingVO::getFloatingProfit).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -136,8 +147,8 @@ public class HoldingServiceImpl implements HoldingService {
                 ? BigDecimal.ZERO
                 : floatingProfit.multiply(BigDecimal.valueOf(100)).divide(totalCost, 4, RoundingMode.HALF_UP);
         InvestmentDailySnapshot lastMonthEndSnapshot = lastMonthEndSnapshot(userId, LocalDate.now());
-        // TODO: 后续需要汇总本月投资账户外部转入/转出，避免充值被算成较上月收益。
-        BigDecimal monthNetInflow = BigDecimal.ZERO;
+        BigDecimal monthNetInflow = positionHistoryService.netInflow(userId, LocalDate.now().withDayOfMonth(1), LocalDate.now());
+        monthNetInflow = monthNetInflow == null ? BigDecimal.ZERO : monthNetInflow;
         BigDecimal lastMonthProfit = lastMonthEndSnapshot == null ? null : totalMarketValue.subtract(scale4(lastMonthEndSnapshot.getMarketValue())).subtract(monthNetInflow).setScale(4, RoundingMode.HALF_UP);
         BigDecimal lastMonthProfitRate = lastMonthEndSnapshot == null ? null : rate(lastMonthProfit, scale4(lastMonthEndSnapshot.getMarketValue()));
         return HoldingSummaryVO.builder()
@@ -225,6 +236,7 @@ public class HoldingServiceImpl implements HoldingService {
         holding.setTotalCost(quantity.multiply(avgCost).setScale(4, RoundingMode.HALF_UP));
         holding.setRemark(request.getRemark());
         holding.setStatus(1);
+        holding.setVersion(0L);
         holding.setDeleted(0);
         holdingMapper.insert(holding);
         saveLookupPriceSnapshot(request, asset);
@@ -249,9 +261,7 @@ public class HoldingServiceImpl implements HoldingService {
         holding.setAvgCost(avgCost);
         holding.setTotalCost(quantity.multiply(avgCost).setScale(4, RoundingMode.HALF_UP));
         holding.setRemark(request.getRemark());
-        holdingMapper.update(holding, new LambdaUpdateWrapper<Holding>()
-                .eq(Holding::getId, id)
-                .eq(Holding::getUserId, userId));
+        updateHoldingBalance(holding);
         return toVO(holding);
     }
 
@@ -315,7 +325,7 @@ public class HoldingServiceImpl implements HoldingService {
     @Transactional(rollbackFor = Exception.class)
     @Override
     public HoldingTradeResult applyConfirmedBuy(Long userId, Long holdingId, Long assetId, BigDecimal quantity, BigDecimal costAmount) {
-        quantity = quantity == null ? BigDecimal.ZERO : quantity.setScale(4, RoundingMode.DOWN);
+        quantity = scaleQuantity(quantity);
         costAmount = costAmount == null ? BigDecimal.ZERO : costAmount.setScale(4, RoundingMode.HALF_UP);
         Holding holding = holdingId == null ? findOrCreateHolding(userId, assetId) : findOwnedHolding(holdingId, userId);
         if (!Objects.equals(holding.getAssetId(), assetId)) {
@@ -418,6 +428,7 @@ public class HoldingServiceImpl implements HoldingService {
         created.setAvgCost(BigDecimal.ZERO);
         created.setTotalCost(BigDecimal.ZERO);
         created.setStatus(1);
+        created.setVersion(0L);
         created.setDeleted(0);
         holdingMapper.insert(created);
         return created;
@@ -440,9 +451,15 @@ public class HoldingServiceImpl implements HoldingService {
      * 更新持仓数量和成本，按 user_id 限定写入范围。
      */
     private void updateHoldingBalance(Holding holding) {
-        holdingMapper.update(holding, new LambdaUpdateWrapper<Holding>()
+        long version = holding.getVersion() == null ? 0L : holding.getVersion();
+        holding.setVersion(version + 1);
+        int updated = holdingMapper.update(holding, new LambdaUpdateWrapper<Holding>()
                 .eq(Holding::getId, holding.getId())
-                .eq(Holding::getUserId, holding.getUserId()));
+                .eq(Holding::getUserId, holding.getUserId())
+                .eq(Holding::getVersion, version));
+        if (updated == 0) {
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "持仓更新冲突，请重试");
+        }
     }
 
     /**
@@ -567,6 +584,13 @@ public class HoldingServiceImpl implements HoldingService {
                 : previousDaily != null ? previousDaily.getClosePrice() : previousAudit == null ? null : previousAudit.getPrice();
         BigDecimal yesterdayPrevious = yesterdayPreviousPrice(previousDaily, beforePreviousDaily, previousAudit, beforePreviousAudit);
         BigDecimal beforePrevious = yesterdayBeforePreviousPrice(previousDaily, beforePreviousDaily, previousAudit, beforePreviousAudit);
+        LocalDate previousDate = previousPriceDate(matchedPrice, previousDaily, previousAudit);
+        LocalDate beforePreviousDate = beforePreviousPriceDate(previousDaily, beforePreviousDaily, beforePreviousAudit);
+        BigDecimal todayBaselineQuantity = previousDate == null ? holding.getQuantity() : positionHistoryService.quantityAt(holding.getUserId(), holding.getId(), holding.getAssetId(), previousDate);
+        if (todayBaselineQuantity == null) {
+            todayBaselineQuantity = holding.getQuantity();
+        }
+        BigDecimal yesterdayBaselineQuantity = beforePreviousDate == null ? null : positionHistoryService.quantityAt(holding.getUserId(), holding.getId(), holding.getAssetId(), beforePreviousDate);
         BigDecimal marketValue = holding.getQuantity().multiply(latestPrice).setScale(4, RoundingMode.HALF_UP);
         BigDecimal profit = marketValue.subtract(holding.getTotalCost());
         BigDecimal profitRate = holding.getTotalCost().compareTo(BigDecimal.ZERO) == 0
@@ -575,9 +599,12 @@ public class HoldingServiceImpl implements HoldingService {
         LocalDate priceDate = matchedPrice == null || matchedPrice.getQuoteTime() == null ? null : matchedPrice.getQuoteTime().toLocalDate();
         boolean todayPriceAvailable = todayPriceAvailable(asset, priceDate);
         // 基金和股票只有当天有效价格才能计算今日收益，避免把昨日净值或兜底价格当成今日涨跌。
-        BigDecimal todayProfit = todayPriceAvailable ? priceDiffProfit(holding.getQuantity(), latestPrice, previous) : BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
-        BigDecimal todayChangeRate = todayPriceAvailable ? changeRate(latestPrice, previous) : BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
-        BigDecimal yesterdayProfit = priceDiffProfit(holding.getQuantity(), yesterdayPrevious, beforePrevious);
+        BigDecimal todayProfit = todayPriceAvailable ? priceDiffProfit(todayBaselineQuantity, latestPrice, previous) : null;
+        BigDecimal todayProfitBase = todayPriceAvailable && previous != null ? todayBaselineQuantity.multiply(previous).setScale(4, RoundingMode.HALF_UP) : null;
+        BigDecimal todayChangeRate = todayPriceAvailable ? changeRate(latestPrice, previous) : null;
+        // 昨日收益使用上上交易日日终持仓数量，避免把昨日或今日新增份额套进历史涨跌。
+        BigDecimal yesterdayProfit = yesterdayBaselineQuantity == null ? null : priceDiffProfit(yesterdayBaselineQuantity, yesterdayPrevious, beforePrevious);
+        BigDecimal yesterdayProfitBase = beforePrevious == null || yesterdayBaselineQuantity == null ? null : yesterdayBaselineQuantity.multiply(beforePrevious).setScale(4, RoundingMode.HALF_UP);
         BigDecimal yesterdayChangeRate = changeRate(yesterdayPrevious, beforePrevious);
         BigDecimal breakEvenRate = matchedPrice == null ? null : breakEvenRate(holding.getAvgCost(), latestPrice);
         return HoldingVO.builder()
@@ -605,8 +632,10 @@ public class HoldingServiceImpl implements HoldingService {
                 .marketStatus(matchedPrice == null ? null : matchedPrice.getMarketStatus())
                 .marketValue(marketValue)
                 .todayProfit(todayProfit)
+                .todayProfitBase(todayProfitBase)
                 .todayChangeRate(todayChangeRate)
                 .yesterdayProfit(yesterdayProfit)
+                .yesterdayProfitBase(yesterdayProfitBase)
                 .yesterdayChangeRate(yesterdayChangeRate)
                 .floatingProfit(profit)
                 .floatingProfitRate(profitRate)
@@ -871,6 +900,26 @@ public class HoldingServiceImpl implements HoldingService {
             return beforePreviousAudit.getPrice();
         }
         return beforePreviousDaily != null ? beforePreviousDaily.getClosePrice() : beforePreviousAudit == null ? null : beforePreviousAudit.getPrice();
+    }
+
+    private LocalDate previousPriceDate(AssetPrice matchedPrice, AssetPriceDaily previousDaily, AssetPrice previousAudit) {
+        if (previousDaily != null) {
+            return previousDaily.getTradeDate();
+        }
+        if (previousAudit != null && previousAudit.getQuoteTime() != null) {
+            return previousAudit.getQuoteTime().toLocalDate();
+        }
+        return matchedPrice == null || matchedPrice.getQuoteTime() == null ? null : matchedPrice.getQuoteTime().toLocalDate().minusDays(1);
+    }
+
+    private LocalDate beforePreviousPriceDate(AssetPriceDaily previousDaily, AssetPriceDaily beforePreviousDaily, AssetPrice beforePreviousAudit) {
+        if (beforePreviousDaily != null) {
+            return beforePreviousDaily.getTradeDate();
+        }
+        if (beforePreviousAudit != null && beforePreviousAudit.getQuoteTime() != null) {
+            return beforePreviousAudit.getQuoteTime().toLocalDate();
+        }
+        return previousDaily == null ? null : previousDaily.getTradeDate().minusDays(1);
     }
 
     private boolean isFlatDailyWithUsefulAudit(AssetPriceDaily previousDaily, AssetPriceDaily beforePreviousDaily, AssetPrice previousAudit, AssetPrice beforePreviousAudit) {

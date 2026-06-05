@@ -25,6 +25,7 @@ public class Account {
     private Integer status;
     private Integer sortOrder;
     private String remark;
+    private Long version;
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
     @TableField(fill = FieldFill.INSERT_UPDATE)

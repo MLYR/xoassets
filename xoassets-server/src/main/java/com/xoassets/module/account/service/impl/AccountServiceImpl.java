@@ -5,7 +5,9 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.xoassets.common.api.ErrorCode;
 import com.xoassets.common.exception.BusinessException;
 import com.xoassets.common.security.LoginUserContext;
+import com.xoassets.module.account.dto.AccountBalanceAdjustmentRequest;
 import com.xoassets.module.account.dto.AccountRequest;
+import com.xoassets.module.account.service.AccountBalanceService;
 import com.xoassets.module.account.service.AccountService;
 import com.xoassets.module.account.vo.AccountVO;
 import com.xoassets.persistence.entity.Account;
@@ -25,10 +27,12 @@ public class AccountServiceImpl implements AccountService {
 
     private final AccountMapper accountMapper;
     private final TransactionRecordMapper transactionRecordMapper;
+    private final AccountBalanceService accountBalanceService;
 
-    public AccountServiceImpl(AccountMapper accountMapper, TransactionRecordMapper transactionRecordMapper) {
+    public AccountServiceImpl(AccountMapper accountMapper, TransactionRecordMapper transactionRecordMapper, AccountBalanceService accountBalanceService) {
         this.accountMapper = accountMapper;
         this.transactionRecordMapper = transactionRecordMapper;
+        this.accountBalanceService = accountBalanceService;
     }
 
     /**
@@ -63,6 +67,7 @@ public class AccountServiceImpl implements AccountService {
         account.setStatus(request.getStatus());
         account.setSortOrder(request.getSortOrder());
         account.setRemark(request.getRemark());
+        account.setVersion(0L);
         account.setDeleted(0);
         accountMapper.insert(account);
         return toVO(account);
@@ -76,18 +81,31 @@ public class AccountServiceImpl implements AccountService {
     public AccountVO update(Long id, AccountRequest request) {
         Long userId = LoginUserContext.getUserId();
         Account account = findOwnedAccount(id, userId);
+        BigDecimal requestedBalance = request.getBalance();
+        BigDecimal beforeBalance = account.getBalance();
         account.setName(request.getName());
         account.setType(request.getType());
         account.setInitialBalance(request.getInitialBalance());
-        account.setBalance(request.getBalance() == null ? account.getBalance() : request.getBalance());
         account.setCurrency(request.getCurrency());
         account.setStatus(request.getStatus());
         account.setSortOrder(request.getSortOrder());
         account.setRemark(request.getRemark());
-        accountMapper.update(account, new LambdaUpdateWrapper<Account>()
+        long version = account.getVersion() == null ? 0L : account.getVersion();
+        account.setVersion(version + 1);
+        int updated = accountMapper.update(account, new LambdaUpdateWrapper<Account>()
                 .eq(Account::getId, id)
-                .eq(Account::getUserId, userId));
-        return toVO(account);
+                .eq(Account::getUserId, userId)
+                .eq(Account::getVersion, version));
+        if (updated == 0) {
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "账户信息更新冲突，请重试");
+        }
+        if (requestedBalance != null && requestedBalance.compareTo(beforeBalance) != 0) {
+            AccountBalanceAdjustmentRequest adjustmentRequest = new AccountBalanceAdjustmentRequest();
+            adjustmentRequest.setAfterBalance(requestedBalance);
+            adjustmentRequest.setReason("账户编辑余额修正");
+            accountBalanceService.adjustBalance(id, adjustmentRequest);
+        }
+        return toVO(findOwnedAccount(id, userId));
     }
 
     /**
@@ -126,11 +144,9 @@ public class AccountServiceImpl implements AccountService {
      */
     @Override
     public void adjustBalance(Long userId, Long accountId, BigDecimal delta) {
-        Account account = findOwnedAccount(accountId, userId);
-        account.setBalance(account.getBalance().add(delta));
-        accountMapper.update(account, new LambdaUpdateWrapper<Account>()
-                .eq(Account::getId, accountId)
-                .eq(Account::getUserId, userId));
+        if (accountMapper.incrementBalance(userId, accountId, delta) == 0) {
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "账户余额更新冲突，请重试");
+        }
     }
 
     /**

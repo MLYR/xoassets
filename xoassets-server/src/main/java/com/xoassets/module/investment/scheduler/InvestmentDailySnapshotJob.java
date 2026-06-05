@@ -2,14 +2,14 @@ package com.xoassets.module.investment.scheduler;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.xoassets.module.investment.service.InvestmentPositionHistoryService;
+import com.xoassets.module.investment.service.InvestmentPositionState;
 import com.xoassets.persistence.entity.AssetPriceCurrent;
 import com.xoassets.persistence.entity.AssetPriceDaily;
-import com.xoassets.persistence.entity.Holding;
 import com.xoassets.persistence.entity.InvestmentDailySnapshot;
 import com.xoassets.persistence.entity.InvestmentTransaction;
 import com.xoassets.persistence.mapper.AssetPriceCurrentMapper;
 import com.xoassets.persistence.mapper.AssetPriceDailyMapper;
-import com.xoassets.persistence.mapper.HoldingMapper;
 import com.xoassets.persistence.mapper.InvestmentDailySnapshotMapper;
 import com.xoassets.persistence.mapper.InvestmentTransactionMapper;
 import java.math.BigDecimal;
@@ -17,10 +17,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -33,19 +30,19 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 public class InvestmentDailySnapshotJob {
 
-    private final HoldingMapper holdingMapper;
+    private final InvestmentPositionHistoryService positionHistoryService;
     private final AssetPriceCurrentMapper assetPriceCurrentMapper;
     private final AssetPriceDailyMapper assetPriceDailyMapper;
     private final InvestmentTransactionMapper investmentTransactionMapper;
     private final InvestmentDailySnapshotMapper investmentDailySnapshotMapper;
 
     public InvestmentDailySnapshotJob(
-            HoldingMapper holdingMapper,
+            InvestmentPositionHistoryService positionHistoryService,
             AssetPriceCurrentMapper assetPriceCurrentMapper,
             AssetPriceDailyMapper assetPriceDailyMapper,
             InvestmentTransactionMapper investmentTransactionMapper,
             InvestmentDailySnapshotMapper investmentDailySnapshotMapper) {
-        this.holdingMapper = holdingMapper;
+        this.positionHistoryService = positionHistoryService;
         this.assetPriceCurrentMapper = assetPriceCurrentMapper;
         this.assetPriceDailyMapper = assetPriceDailyMapper;
         this.investmentTransactionMapper = investmentTransactionMapper;
@@ -71,33 +68,31 @@ public class InvestmentDailySnapshotJob {
      */
     @Transactional(rollbackFor = Exception.class)
     public void snapshot(LocalDate snapshotDate) {
-        for (Long userId : activeHoldingUserIds()) {
+        for (Long userId : positionHistoryService.snapshotUserIds(snapshotDate, LocalDate.now())) {
             upsert(buildSnapshot(userId, snapshotDate));
         }
     }
 
     private InvestmentDailySnapshot buildSnapshot(Long userId, LocalDate snapshotDate) {
-        List<Holding> holdings = holdingMapper.selectList(new LambdaQueryWrapper<Holding>()
-                .eq(Holding::getUserId, userId)
-                .eq(Holding::getStatus, 1)
-                .gt(Holding::getQuantity, 0));
+        Map<Long, InvestmentPositionState> positions = positionHistoryService.positionsAt(userId, snapshotDate);
         BigDecimal marketValue = BigDecimal.ZERO;
         BigDecimal totalCost = BigDecimal.ZERO;
-        for (Holding holding : holdings) {
-            BigDecimal price = resolvePrice(holding.getAssetId(), snapshotDate);
+        for (InvestmentPositionState position : positions.values()) {
+            BigDecimal price = resolvePrice(position.assetId(), snapshotDate);
             if (price == null) {
-                price = holding.getAvgCost();
+                price = position.quantity().compareTo(BigDecimal.ZERO) <= 0
+                        ? BigDecimal.ZERO
+                        : position.totalCost().divide(position.quantity(), 8, RoundingMode.HALF_UP);
             }
-            marketValue = marketValue.add(holding.getQuantity().multiply(price));
-            totalCost = totalCost.add(holding.getTotalCost());
+            marketValue = marketValue.add(position.quantity().multiply(price));
+            totalCost = totalCost.add(position.totalCost());
         }
         marketValue = scale4(marketValue);
         totalCost = scale4(totalCost);
         BigDecimal floatingProfit = marketValue.subtract(totalCost).setScale(4, RoundingMode.HALF_UP);
         BigDecimal floatingProfitRate = rate(floatingProfit, totalCost);
         BigDecimal realizedProfit = realizedProfit(userId, snapshotDate);
-        // TODO: 后续需要区分投资账户外部转入/转出，避免充值被算成收益。
-        BigDecimal netInflow = BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
+        BigDecimal netInflow = positionHistoryService.netInflow(userId, snapshotDate, snapshotDate);
         InvestmentDailySnapshot previous = previousSnapshot(userId, snapshotDate);
         BigDecimal dailyProfit = previous == null ? null : marketValue.subtract(previous.getMarketValue()).subtract(netInflow).setScale(4, RoundingMode.HALF_UP);
         BigDecimal dailyProfitRate = previous == null ? null : rate(dailyProfit, previous.getMarketValue());
@@ -126,7 +121,10 @@ public class InvestmentDailySnapshotJob {
             return daily.getClosePrice();
         }
         AssetPriceCurrent current = assetPriceCurrentMapper.selectById(assetId);
-        return current == null ? null : current.getPrice();
+        if (current == null || current.getQuoteTime() == null || current.getQuoteTime().toLocalDate().isAfter(snapshotDate)) {
+            return null;
+        }
+        return current.getPrice();
     }
 
     private BigDecimal realizedProfit(Long userId, LocalDate snapshotDate) {
@@ -134,13 +132,24 @@ public class InvestmentDailySnapshotJob {
         return investmentTransactionMapper.selectList(new LambdaQueryWrapper<InvestmentTransaction>()
                         .eq(InvestmentTransaction::getUserId, userId)
                         .eq(InvestmentTransaction::getType, "SELL")
-                        .ne(InvestmentTransaction::getStatus, "REVOKED")
+                        .in(InvestmentTransaction::getStatus, "NORMAL", "CONFIRMED")
                         .le(InvestmentTransaction::getTransactionTime, end))
                 .stream()
+                .filter(transaction -> effectiveDate(transaction).atTime(LocalTime.MAX).compareTo(end) <= 0)
                 .map(InvestmentTransaction::getRealizedProfit)
                 .map(this::scale4)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .setScale(4, RoundingMode.HALF_UP);
+    }
+
+    private LocalDate effectiveDate(InvestmentTransaction transaction) {
+        if ("AMOUNT_NAV".equals(transaction.getInputMode()) && transaction.getConfirmedDate() != null) {
+            return transaction.getConfirmedDate();
+        }
+        if (transaction.getTradeDate() != null) {
+            return transaction.getTradeDate();
+        }
+        return transaction.getTransactionTime().toLocalDate();
     }
 
     private InvestmentDailySnapshot previousSnapshot(Long userId, LocalDate snapshotDate) {
@@ -163,16 +172,6 @@ public class InvestmentDailySnapshotJob {
         snapshot.setId(exists.getId());
         investmentDailySnapshotMapper.update(snapshot, new LambdaUpdateWrapper<InvestmentDailySnapshot>()
                 .eq(InvestmentDailySnapshot::getId, exists.getId()));
-    }
-
-    private Set<Long> activeHoldingUserIds() {
-        return holdingMapper.selectList(new LambdaQueryWrapper<Holding>()
-                        .select(Holding::getUserId)
-                        .eq(Holding::getStatus, 1)
-                        .gt(Holding::getQuantity, 0))
-                .stream()
-                .map(Holding::getUserId)
-                .collect(Collectors.toSet());
     }
 
     private BigDecimal scale4(BigDecimal value) {

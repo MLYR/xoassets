@@ -56,11 +56,11 @@ export interface AccountOverview {
   accounts: AccountDisplayItem[]
 }
 
-export type AccountLedgerBizType = 'INCOME' | 'EXPENSE' | 'TRANSFER_OUT' | 'TRANSFER_IN' | 'REFUND' | 'INVEST_BUY' | 'INVEST_SELL'
+export type AccountLedgerBizType = 'INCOME' | 'EXPENSE' | 'TRANSFER_OUT' | 'TRANSFER_IN' | 'REFUND' | 'INVEST_BUY' | 'INVEST_SELL' | 'BALANCE_ADJUSTMENT'
 
 export interface AccountLedgerItem {
   id: string
-  sourceType: 'TRANSACTION' | 'INVESTMENT'
+  sourceType: 'TRANSACTION' | 'INVESTMENT' | 'ADJUSTMENT'
   bizType: AccountLedgerBizType
   title: string
   amount: number
@@ -94,6 +94,14 @@ export interface AccountDailyFlowItem {
   netFlow: number
 }
 
+export interface AccountDailyBalanceItem {
+  date: string
+  endBalance: number
+  inflow: number
+  outflow: number
+  adjustmentAmount: number
+}
+
 export interface AccountFlowStatistics {
   incomeAmount: number
   expenseAmount: number
@@ -101,10 +109,18 @@ export interface AccountFlowStatistics {
   transferOutAmount: number
   investmentBuyAmount: number
   investmentSellAmount: number
+  adjustmentAmount: number
   netFlowAmount: number
   categoryExpenseStats: AccountFlowNameAmountItem[]
   investmentFlowStats: AccountFlowNameAmountItem[]
   dailyFlowTrend: AccountDailyFlowItem[]
+  dailyBalanceTrend: AccountDailyBalanceItem[]
+}
+
+export interface AccountBalanceAdjustmentRequest {
+  afterBalance: number
+  reason?: string
+  bizDate?: string
 }
 
 export interface AccountLedgerPage {
@@ -139,6 +155,24 @@ export const accountApi = {
       url: `/accounts/${id}`,
       method: 'PUT',
       data
+    })
+  },
+  adjustBalance(id: string, data: AccountBalanceAdjustmentRequest) {
+    return request({
+      url: `/accounts/${id}/balance-adjustments`,
+      method: 'POST',
+      data
+    })
+  },
+  balanceTrend(id: string, params: {
+    month?: string
+    startDate?: string
+    endDate?: string
+  }) {
+    return request<AccountDailyBalanceItem[]>({
+      url: `/accounts/${id}/balance-trend`,
+      method: 'GET',
+      data: params
     })
   },
   ledger(id: string, params: {

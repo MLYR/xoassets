@@ -1,7 +1,7 @@
 /* 账户 Store */
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { accountApi, type AccountItem, type AccountLedgerPage, type AccountOverview, type AccountRequest } from '@/services/accountApi'
+import { accountApi, type AccountBalanceAdjustmentRequest, type AccountItem, type AccountLedgerPage, type AccountOverview, type AccountRequest } from '@/services/accountApi'
 
 export const useAccountStore = defineStore('account', () => {
   const accounts = ref<AccountItem[]>([])
@@ -36,6 +36,11 @@ export const useAccountStore = defineStore('account', () => {
     return accountApi.flowStatistics(id, params)
   }
 
+  async function adjustBalance(id: string, data: AccountBalanceAdjustmentRequest) {
+    // 余额校准必须生成专用修正事件，避免和普通账户编辑混在一起。
+    return accountApi.adjustBalance(id, data)
+  }
+
   async function updateAccount(id: string, data: AccountRequest) {
     const updated = await accountApi.update(id, data)
     const index = accounts.value.findIndex(item => item.id === id)
@@ -49,5 +54,5 @@ export const useAccountStore = defineStore('account', () => {
     return created
   }
 
-  return { accounts, overview, loading, fetchAccounts, fetchOverview, fetchLedger, fetchFlowStatistics, updateAccount, createAccount }
+  return { accounts, overview, loading, fetchAccounts, fetchOverview, fetchLedger, fetchFlowStatistics, adjustBalance, updateAccount, createAccount }
 })

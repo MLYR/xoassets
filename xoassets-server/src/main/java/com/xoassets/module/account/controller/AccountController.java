@@ -1,17 +1,22 @@
 package com.xoassets.module.account.controller;
 
 import com.xoassets.common.api.Result;
+import com.xoassets.module.account.dto.AccountBalanceAdjustmentRequest;
 import com.xoassets.module.account.dto.AccountFlowStatisticsQuery;
 import com.xoassets.module.account.dto.AccountLedgerQuery;
 import com.xoassets.module.account.dto.AccountRequest;
+import com.xoassets.module.account.service.AccountBalanceService;
 import com.xoassets.module.account.service.AccountLedgerService;
 import com.xoassets.module.account.service.AccountOverviewService;
 import com.xoassets.module.account.service.AccountService;
+import com.xoassets.module.account.vo.AccountBalanceAdjustmentVO;
+import com.xoassets.module.account.vo.AccountBalanceTrendPointVO;
 import com.xoassets.module.account.vo.AccountFlowStatisticsVO;
 import com.xoassets.module.account.vo.AccountLedgerPageVO;
 import com.xoassets.module.account.vo.AccountOverviewVO;
 import com.xoassets.module.account.vo.AccountVO;
 import jakarta.validation.Valid;
+import java.time.LocalDate;
 import java.util.List;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,11 +35,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class AccountController {
 
     private final AccountService accountService;
+    private final AccountBalanceService accountBalanceService;
     private final AccountLedgerService accountLedgerService;
     private final AccountOverviewService accountOverviewService;
 
-    public AccountController(AccountService accountService, AccountLedgerService accountLedgerService, AccountOverviewService accountOverviewService) {
+    public AccountController(AccountService accountService, AccountBalanceService accountBalanceService, AccountLedgerService accountLedgerService, AccountOverviewService accountOverviewService) {
         this.accountService = accountService;
+        this.accountBalanceService = accountBalanceService;
         this.accountLedgerService = accountLedgerService;
         this.accountOverviewService = accountOverviewService;
     }
@@ -69,6 +76,22 @@ public class AccountController {
     @GetMapping("/{id}/flow-statistics")
     public Result<AccountFlowStatisticsVO> flowStatistics(@PathVariable Long id, AccountFlowStatisticsQuery query) {
         return Result.success(accountLedgerService.flowStatistics(id, query));
+    }
+
+    /**
+     * 查询账户日终余额曲线。
+     */
+    @GetMapping("/{id}/balance-trend")
+    public Result<List<AccountBalanceTrendPointVO>> balanceTrend(@PathVariable Long id, LocalDate startDate, LocalDate endDate) {
+        return Result.success(accountBalanceService.balanceTrend(id, startDate, endDate));
+    }
+
+    /**
+     * 账户余额修正：生成专用调整事件，不计入普通收支。
+     */
+    @PostMapping("/{id}/balance-adjustments")
+    public Result<AccountBalanceAdjustmentVO> adjustBalance(@PathVariable Long id, @Valid @RequestBody AccountBalanceAdjustmentRequest request) {
+        return Result.success(accountBalanceService.adjustBalance(id, request));
     }
 
     /**

@@ -18,10 +18,12 @@ public class AccountFlowStatisticsVO {
     private BigDecimal transferOutAmount;
     private BigDecimal investmentBuyAmount;
     private BigDecimal investmentSellAmount;
+    private BigDecimal adjustmentAmount;
     private BigDecimal netFlowAmount;
     private List<NameAmountItem> categoryExpenseStats;
     private List<NameAmountItem> investmentFlowStats;
     private List<DailyFlowItem> dailyFlowTrend;
+    private List<DailyBalanceItem> dailyBalanceTrend;
 
     /**
      * 名称加金额的通用统计项。
@@ -43,5 +45,18 @@ public class AccountFlowStatisticsVO {
         private BigDecimal inflow;
         private BigDecimal outflow;
         private BigDecimal netFlow;
+    }
+
+    /**
+     * 按日期聚合的日终余额曲线点。
+     */
+    @Data
+    @Builder
+    public static class DailyBalanceItem {
+        private String date;
+        private BigDecimal endBalance;
+        private BigDecimal inflow;
+        private BigDecimal outflow;
+        private BigDecimal adjustmentAmount;
     }
 }

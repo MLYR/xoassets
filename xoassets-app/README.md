@@ -47,7 +47,7 @@ src/
 |-----|------|------|
 | 首页 | `pages/index/index` | 净资产、收支概览、最近流水 |
 | 记账 | `pages/add/add` | 日历流水、快速录入、图片与键盘输入 |
-| 账户 | `pages/accounts/accounts` | 账户余额、账户明细 |
+| 账户 | `pages/accounts/accounts` | 账户余额、余额修正、账户明细 |
 | 投资 | `pages/investments/investments` | 持仓汇总、持仓卡片 |
 | 我的 | `pages/mine/mine` | 分类/预算/目标/报告入口、退出 |
 
@@ -183,7 +183,7 @@ src/assets/themes/classic-blue/icons/
 - 首页资产概览
 - 快速记账（支出 / 收入 / 转账）
 - 流水列表与详情（筛选、删除二次确认）
-- 账户列表与明细（含投资买卖记录）
+- 账户列表与明细（含投资买卖记录、余额修正记录和账户余额曲线）
 - 投资持仓与详情
 - 分类管理、预算管理、资产目标、AI 报告
 
@@ -227,6 +227,8 @@ src/assets/themes/classic-blue/icons/
 - 分类筛选：全部 / 银行卡 / 电子钱包 / 现金
 - 排序：默认（录入顺序）、名称、金额
 - 眼睛开关覆盖整个账户页面全部金额
+- 账户详情余额修正调用 `POST /api/accounts/{id}/balance-adjustments`，生成专用调整记录，不计入普通收支，但进入账本和余额曲线
+- 账户详情月度趋势使用 `dailyBalanceTrend.endBalance` 展示日终余额曲线，资金流趋势保留为辅助统计数据
 
 **图标资源：**
 - 新增 SVG：`account-bank-card.svg`、`account-credit-card.svg`、`account-cash.svg`、`account-stock.svg`、`account-fund.svg`、`account-crypto.svg`、`account-other.svg`、`account-wechat.svg`
