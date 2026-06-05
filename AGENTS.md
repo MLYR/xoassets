@@ -27,11 +27,12 @@
 - Vue 3
 - Vite
 - TypeScript
-- Element Plus
-- ECharts
+- Element Plus（继续作为 Web 基础组件库）
+- ECharts（继续作为 Web 图表库）
 - Pinia
 - Axios
 - Vue Router
+- Web 端必须建立并使用 `xo-design` tokens，统一覆盖 Element Plus 的颜色、圆角、阴影、按钮、输入框、表格、卡片、弹窗和分段控件。
 - 前端真实接口统一放在 `xoassets-web/src/services/*Api.ts`，公共请求逻辑放在 `xoassets-web/src/services/http.ts`。
 
 ### 3.3 移动端
@@ -40,10 +41,12 @@
 - Pinia
 - TypeScript
 - SCSS
+- 自研 App 组件体系，不引入 Element Plus 或重型 UI 库。
 - 移动端项目位于 `xoassets-app/`，独立于 Web 管理端，复用后端 API。
 - 移动端 services 和 stores 结构与 Web 端一致，API 类型定义复用后端接口契约。
 - 移动端 token 使用 `uni.storage` API，HTTP 请求通过 `uni.request` 封装。
 - 移动端页面位于 `xoassets-app/src/pages/`，底部 Tab 含首页、记账、账户、投资、我的。
+- 移动端页面必须走 `src/theme/`、`AppPage`、`AppCard`、`AppAmount`、`AppIcon`、`AppActionButton`、`AppSectionHeader`；弹窗、Picker、表单增强可按需评估轻量组件，但主视觉必须由 theme 控制。
 - 移动端开发启动：`cd xoassets-app && npm install && npx uni --host 127.0.0.1 --port 5174`。
 - 移动端构建：`cd xoassets-app && npx uni build`，产物在 `dist/build/h5/`。
 - 登录 token 统一由 `xoassets-web/src/services/token.ts` 管理，请求通过 `Authorization: Bearer <token>` 传递。
@@ -168,11 +171,12 @@ com.xoassets
   - P0：登录、注册、首页仪表盘、记账流水、新增记账、账户管理、投资持仓、统计分析。
   - P1：AI 报告、预算管理、资产目标、分类管理。
   - P2：系统设置。
-- 图表优先使用 ECharts，表单和基础组件优先使用 Element Plus。
-- 前端视觉变量和组件皮肤统一收敛在 `xoassets-web/src/styles/variables.css`、`global.css`、`layout.css`；按钮、输入框、表格、弹窗、分段控件、卡片阴影和圆角优先走全局样式，不要在单页重复造一套。
+- Web 端继续使用 Element Plus + ECharts；图表优先使用 ECharts，表单和基础组件优先使用 Element Plus。
+- Web 端必须建立 `xo-design` tokens，并通过 `xoassets-web/src/styles/variables.css`、`global.css`、`layout.css` 统一覆盖 Element Plus 的颜色、圆角、阴影、按钮、输入框、表格、卡片、弹窗和分段控件；禁止为单个页面重复造独立视觉规则。
 - 登录页和业务页视觉参考统一以 `xoassets-web/原型图/` 下的设计图为准；做 UI 调整时优先复用现有布局骨架和自定义 CSS，不引入新的重型 UI 框架。
-- 移动端主题系统统一维护在 `xoassets-app/src/theme/`，主题配置必须保持 `colors`、`components`、`icons`、`assets`、`pageTokens` 等 schema 完整；页面级布局 token 和素材入口不要硬编码散落在业务页面。
-- 移动端投资页等原型复刻页面要优先使用主题 token、语义按钮变体和局部组件承载复杂区域；新增/调整后需核对原型关键视觉、字段口径和移动端首屏表现。
+- 移动端保留 uni-app + Vue3 + SCSS + 自研 App 组件体系，禁止引入 Element Plus 或重型 UI 库。
+- 移动端主题系统统一维护在 `xoassets-app/src/theme/`，主题配置必须保持 `colors`、`components`、`icons`、`assets`、`pageTokens` 等 schema 完整；所有页面必须优先使用 `AppPage`、`AppCard`、`AppAmount`、`AppIcon`、`AppActionButton`、`AppSectionHeader`，页面级布局 token 和素材入口不要硬编码散落在业务页面。
+- 移动端弹窗、Picker、表单增强可按需评估轻量组件，但主视觉必须由 theme 控制；移动端投资页等原型复刻页面要优先使用主题 token、语义按钮变体和局部组件承载复杂区域，新增/调整后需核对原型关键视觉、字段口径和移动端首屏表现。
 
 ## 9. 安全要求
 - 使用 JWT 登录认证，Token 放在 `Authorization` Header。

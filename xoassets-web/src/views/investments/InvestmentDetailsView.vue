@@ -348,7 +348,7 @@ const columnOptions = [
   { key: 'breakEvenRate', label: '回本涨幅' }
 ];
 // 默认只展示用户最常比较的收益字段，其余字段可通过表格字段选择器打开。
-const visibleColumnKeys = ref(['assetType', 'marketValue', 'floatingProfit', 'floatingProfitRate', 'todayProfit', 'yesterdayProfit']);
+const visibleColumnKeys = ref(['assetType', 'marketValue', 'latestPrice','previousPrice','todayChangeRate','floatingProfit', 'floatingProfitRate', 'todayProfit', 'yesterdayProfit']);
 const typeOptions = [
   { label: '全部', value: 'ALL' },
   { label: '基金', value: 'FUND' },

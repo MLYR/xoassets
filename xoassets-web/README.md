@@ -15,9 +15,11 @@
 
 - 设计参考：`原型图/` 目录下的页面截图。
 - 整体风格：现代金融 SaaS，浅灰蓝背景、蓝色主色、白色玻璃卡片、柔和阴影、大圆角、宽松留白。
+- Web 端继续使用 Element Plus + ECharts；Element Plus 作为基础组件库，ECharts 作为图表库。
+- 建立并维护 `xo-design` tokens，统一覆盖 Element Plus 的颜色、圆角、阴影、按钮、输入框、表格、卡片、弹窗和分段控件。
 - 主题样式入口：
-  - `src/styles/variables.css`：颜色、圆角、阴影、图表色板等设计变量。
-  - `src/styles/global.css`：Element Plus 按钮、输入框、表格、弹窗、分段控件等全局覆盖。
+  - `src/styles/variables.css`：`xo-design` token 入口，集中定义颜色、圆角、阴影、图表色板等设计变量。
+  - `src/styles/global.css`：Element Plus 按钮、输入框、表格、卡片、弹窗、分段控件等全局覆盖。
   - `src/styles/layout.css`：页面容器、栅格、面板和通用排版辅助类。
 - 统一组件：
   - `src/components/finance/MetricCard.vue`
@@ -25,7 +27,7 @@
   - `src/components/finance/StatusBadge.vue`
   - `src/components/finance/TrendValue.vue`
 - 当前重点优化页面：登录页、首页仪表盘、账户管理、账户详情、记账流水、投资明细、持仓详情、预算管理、统计分析、AI 报告。
-- 后续做 UI 调整时，优先改全局变量和公共样式，再做页面局部补充；不要在单页散落一套独立视觉规则。
+- 后续做 UI 调整时，优先改 `xo-design` tokens、全局变量和公共样式，再做页面局部补充；禁止为单个页面重复造独立视觉规则。
 
 ## 接口联调状态
 

@@ -16,11 +16,11 @@
 ## 当前进度
 
 - 前端：已重建为 Vue3、Element Plus、ECharts、Pinia、Vue Router 项目；登录、注册、用户中心、账户管理、分类管理、记账流水、投资持仓、投资子页面、预算管理、首页、数据分析、资产目标和 AI 报告模板页已接入后端接口。
-- 前端视觉：已按 `xoassets-web/原型图/` 统一为现代金融 SaaS 风格，重点页包括登录页、首页、账户、流水、投资、预算、统计和 AI 报告；当前主风格为浅灰蓝背景、蓝色主色、白色玻璃卡片、大圆角、柔和阴影和统一金额数字排版。
+- 前端视觉：Web 端继续使用 Element Plus + ECharts，并以 `xo-design` tokens 统一覆盖颜色、圆角、阴影、按钮、输入框、表格、卡片、弹窗和分段控件；重点页已按 `xoassets-web/原型图/` 统一为现代金融 SaaS 风格，禁止为单个页面重复造独立视觉规则。
 - 后端：已创建 Spring Boot MVP，覆盖登录注册、账户、分类、流水、首页统计、基础图表统计、资产快照、投资持仓维护、行情刷新、预算管理、资产目标和 AI 报告模板生成。
 - 体验稳定性：核心业务页已补齐空状态、删除二次确认、金额输入大于 0 校验、后端错误 message 展示和统一 loading 状态。
 - 暂不做：自动同步银行卡 / 支付宝 / 微信、AI 报告真实调用、自动交易或投资建议；行情只在后端接入，前端不直连第三方。
-- 移动端：已创建 uni-app 独立项目，复用后端 API；包含登录注册、首页仪表盘、快速记账、流水列表、账户管理、投资持仓、投资子页面和我的页面共 17 个页面，5 个底部 Tab；延续 Web 浅蓝金融 SaaS 风格，卡片化 + 大圆角 + 适配手指点击。当前已补齐主题系统和通用 UI 组件层（`AppPage`、`AppCard`、`AppAmount`、`AppIcon`、`AppActionButton`、`AppSectionHeader`、`AppBottomTabs`）。首页已升级为卡片化 Dashboard，包含净资产主卡片（支持金额显隐）、本月收支结余统计、近 1 个月资产趋势折线图、预算进度环形图、目标进度卡片和快捷操作入口，样式全部通过 theme 系统驱动。记账页已切到日历驱动的流水列表 + 快速录入样式。投资页已开始按原型风格重做，投资子页面已新增资产分布和持仓分析。后续页面可基于通用 UI 组件继续复刻原型。
+- 移动端：已创建 uni-app 独立项目，复用后端 API；保留 uni-app + Vue3 + SCSS + 自研 App 组件体系，禁止引入 Element Plus 或重型 UI 库。当前已补齐主题系统和通用 UI 组件层（`AppPage`、`AppCard`、`AppAmount`、`AppIcon`、`AppActionButton`、`AppSectionHeader`、`AppBottomTabs`），所有页面主视觉必须由 `src/theme/` 和 App 组件控制。首页已升级为卡片化 Dashboard，样式全部通过 theme 系统驱动；后续弹窗、Picker、表单增强可按需评估轻量组件，但不能绕开 theme。
 
 ## 前后端联调状态
 
@@ -54,8 +54,9 @@
 
 - 视觉参考图目录：`xoassets-web/原型图/`。
 - 全局样式入口：`xoassets-web/src/styles/index.css`。
+- `xo-design` tokens：通过 `xoassets-web/src/styles/variables.css`、`global.css`、`layout.css` 统一定义和应用。
 - 主题变量：`xoassets-web/src/styles/variables.css`。
-- 全局组件皮肤：`xoassets-web/src/styles/global.css`。
+- 全局组件皮肤：`xoassets-web/src/styles/global.css`，负责覆盖 Element Plus 的按钮、输入框、表格、卡片、弹窗和分段控件。
 - 页面布局辅助类：`xoassets-web/src/styles/layout.css`。
 - 当前视觉基线：
   - 页面背景使用浅灰蓝渐变 / `#F6F8FC` 体系。
@@ -63,7 +64,8 @@
   - 卡片统一白色玻璃感、`20px` 圆角、柔和阴影、浅边框。
   - 表格表头浅灰底、hover 柔和高亮、金额右对齐且不换行。
   - 侧边栏为白色背景，当前菜单浅蓝底 + 蓝字，不再使用旧深色侧栏风格。
-  - 优先使用 Element Plus + 自定义 CSS 做样式统一，不引入复杂 UI 框架。
+  - 继续使用 Element Plus + ECharts，不引入复杂 UI 框架。
+  - 单页不得重复定义独立视觉规则；新增视觉样式优先沉淀到 `xo-design` tokens 和全局样式。
 
 ## 前端命令
 

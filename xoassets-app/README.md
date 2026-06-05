@@ -6,9 +6,11 @@
 
 - **框架**: uni-app 3.x（alpha）
 - **语言**: TypeScript
-- **UI**: Vue 3 + SCSS
+- **UI**: Vue 3 + SCSS + 自研 App 组件体系
 - **状态管理**: Pinia
 - **构建**: Vite 5
+
+App 端禁止引入 Element Plus 或重型 UI 库；如需弹窗、Picker、表单增强，可按需评估轻量组件，但主视觉必须由 `src/theme/` 和 App 组件体系控制。
 
 ## 项目结构
 
@@ -98,7 +100,7 @@ npm run type-check
 
 ## 主题系统
 
-主题系统集中放在 `src/theme/`，用于统一管理颜色、图标、背景、圆角、阴影、字体和间距。
+主题系统集中放在 `src/theme/`，用于统一管理颜色、图标、背景、圆角、阴影、字体和间距。所有页面必须优先从主题读取视觉 token，不在页面里硬编码主视觉。
 
 ```text
 src/theme/
@@ -138,18 +140,24 @@ src/components/app/
 - `danger`
 - `purple`
 
-页面后续接入建议：
-1. 页面最外层优先使用 `AppPage`
-2. 业务区块优先使用 `AppCard`
-3. 金额统一使用 `AppAmount`
-4. 图标统一使用 `AppIcon`
-5. 操作按钮统一使用 `AppActionButton`
-6. 标题栏统一使用 `AppSectionHeader`
+页面接入硬性要求：
+1. 页面最外层必须优先使用 `AppPage`
+2. 业务区块必须优先使用 `AppCard`
+3. 金额必须统一使用 `AppAmount`
+4. 图标必须统一使用 `AppIcon`
+5. 操作按钮必须统一使用 `AppActionButton`
+6. 标题栏必须统一使用 `AppSectionHeader`
+7. 页面主视觉必须由 `src/theme/`、CSS 变量和 App 组件控制
 
 新增主题时：
 1. 在 `src/theme/themes/` 新建主题配置文件，实现完整 `ThemeConfig`。
 2. 在 `src/theme/index.ts` 注册主题。
 3. 页面优先使用 CSS 变量或 `src/theme/helpers.ts` 读取语义化配置，不要直接写死颜色或图标路径。
+
+组件引入边界：
+- 禁止引入 Element Plus 或重型 UI 库。
+- 弹窗、Picker、表单增强可以按需评估轻量组件，但必须适配 theme token。
+- 任何新增页面若绕开 `src/theme/` 或 App 组件体系，需要先说明原因和替代方案。
 
 已接入主题变量的范围：
 - 全局 `page`、`.card`、`.btn-primary`、`.btn-outline`、`.tag-*`、`.amount.*`
