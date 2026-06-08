@@ -23,6 +23,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Collections;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -41,6 +42,8 @@ public class TransactionServiceImpl implements TransactionService {
     private static final String TYPE_EXPENSE = "EXPENSE";
     private static final String TYPE_TRANSFER = "TRANSFER";
     private static final String TYPE_REFUND = "REFUND";
+    private static final int MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+    private static final String DATA_IMAGE_PREFIX = "data:image/";
 
     private final TransactionRecordMapper transactionRecordMapper;
     private final AccountMapper accountMapper;
@@ -166,6 +169,7 @@ public class TransactionServiceImpl implements TransactionService {
      */
     private void validateRequest(Long userId, TransactionRequest request) {
         ensureType(request.getType());
+        validateImageUrl(request.getImageUrl());
         accountService.findOwnedAccount(request.getAccountId(), userId);
 
         if (TYPE_TRANSFER.equals(request.getType())) {
@@ -193,6 +197,33 @@ public class TransactionServiceImpl implements TransactionService {
         }
         if (request.getOriginalTransactionId() != null) {
             findOwnedTransaction(request.getOriginalTransactionId(), userId);
+        }
+    }
+
+    /**
+     * 前端图片以 Data URL 传入时，后端按解码后原图大小兜底校验，避免绕过前端塞入超大凭证。
+     */
+    private void validateImageUrl(String imageUrl) {
+        if (!StringUtils.hasText(imageUrl) || !imageUrl.startsWith("data:")) {
+            return;
+        }
+        if (!imageUrl.startsWith(DATA_IMAGE_PREFIX)) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "流水图片只支持图片文件");
+        }
+        int commaIndex = imageUrl.indexOf(',');
+        if (commaIndex <= 0) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "流水图片格式不正确");
+        }
+        String metadata = imageUrl.substring(0, commaIndex).toLowerCase(Locale.ROOT);
+        if (!metadata.contains(";base64")) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "流水图片格式不正确");
+        }
+        String payload = imageUrl.substring(commaIndex + 1);
+        int payloadLength = payload.length();
+        int padding = payload.endsWith("==") ? 2 : payload.endsWith("=") ? 1 : 0;
+        long decodedBytes = payloadLength * 3L / 4 - padding;
+        if (decodedBytes > MAX_IMAGE_BYTES) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "流水图片不能超过 10MB");
         }
     }
 
