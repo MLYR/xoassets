@@ -9,6 +9,7 @@ import com.xoassets.module.account.service.AccountService;
 import com.xoassets.module.investment.dto.InvestmentTransactionConvertRequest;
 import com.xoassets.module.investment.dto.InvestmentTransactionRequest;
 import com.xoassets.module.investment.dto.InvestmentTransactionRevokeRequest;
+import com.xoassets.module.investment.scheduler.InvestmentDailySnapshotJob;
 import com.xoassets.module.investment.service.AssetService;
 import com.xoassets.module.investment.service.FundConfirmDateService;
 import com.xoassets.module.investment.service.HoldingService;
@@ -19,7 +20,6 @@ import com.xoassets.module.investment.vo.InvestmentTransactionVO;
 import com.xoassets.module.snapshot.service.SnapshotService;
 import com.xoassets.persistence.entity.Account;
 import com.xoassets.persistence.entity.Asset;
-import com.xoassets.persistence.entity.AssetPrice;
 import com.xoassets.persistence.entity.AssetPriceCurrent;
 import com.xoassets.persistence.entity.AssetPriceDaily;
 import com.xoassets.persistence.entity.Holding;
@@ -28,14 +28,15 @@ import com.xoassets.persistence.mapper.AccountMapper;
 import com.xoassets.persistence.mapper.AssetMapper;
 import com.xoassets.persistence.mapper.AssetPriceCurrentMapper;
 import com.xoassets.persistence.mapper.AssetPriceDailyMapper;
-import com.xoassets.persistence.mapper.AssetPriceMapper;
 import com.xoassets.persistence.mapper.InvestmentTransactionMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -59,7 +60,6 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
 
     private final InvestmentTransactionMapper transactionMapper;
     private final AssetMapper assetMapper;
-    private final AssetPriceMapper assetPriceMapper;
     private final AssetPriceDailyMapper assetPriceDailyMapper;
     private final AssetPriceCurrentMapper assetPriceCurrentMapper;
     private final AccountMapper accountMapper;
@@ -68,11 +68,11 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
     private final HoldingService holdingService;
     private final AccountService accountService;
     private final SnapshotService snapshotService;
+    private final InvestmentDailySnapshotJob investmentDailySnapshotJob;
 
     public InvestmentTransactionServiceImpl(
             InvestmentTransactionMapper transactionMapper,
             AssetMapper assetMapper,
-            AssetPriceMapper assetPriceMapper,
             AssetPriceDailyMapper assetPriceDailyMapper,
             AssetPriceCurrentMapper assetPriceCurrentMapper,
             AccountMapper accountMapper,
@@ -80,10 +80,10 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
             FundConfirmDateService fundConfirmDateService,
             HoldingService holdingService,
             AccountService accountService,
-            SnapshotService snapshotService) {
+            SnapshotService snapshotService,
+            InvestmentDailySnapshotJob investmentDailySnapshotJob) {
         this.transactionMapper = transactionMapper;
         this.assetMapper = assetMapper;
-        this.assetPriceMapper = assetPriceMapper;
         this.assetPriceDailyMapper = assetPriceDailyMapper;
         this.assetPriceCurrentMapper = assetPriceCurrentMapper;
         this.accountMapper = accountMapper;
@@ -92,6 +92,7 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
         this.holdingService = holdingService;
         this.accountService = accountService;
         this.snapshotService = snapshotService;
+        this.investmentDailySnapshotJob = investmentDailySnapshotJob;
     }
 
     /**
@@ -360,7 +361,7 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
         HoldingTradeResult tradeResult = holdingService.applyConfirmedBuy(userId, transaction.getHoldingId(), asset.getId(), transaction.getConfirmedQuantity(), transaction.getCostAmount());
         transaction.setHoldingId(tradeResult.holding().getId());
         transactionMapper.insert(transaction);
-        refreshSnapshotsAfterConfirmation(userId, transaction.getConfirmedDate());
+        refreshSnapshotsAfterConfirmation(transaction);
         return toVO(transaction, asset, account);
     }
 
@@ -380,18 +381,37 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
         if (updated > 0) {
             // 只有成功抢到待确认状态的任务才能更新持仓，避免重复扫描导致份额重复累加。
             holdingService.applyConfirmedBuy(transaction.getUserId(), transaction.getHoldingId(), transaction.getAssetId(), transaction.getConfirmedQuantity(), transaction.getCostAmount());
-            refreshSnapshotsAfterConfirmation(transaction.getUserId(), transaction.getConfirmedDate());
+            refreshSnapshotsAfterConfirmation(transaction);
         }
     }
 
-    private void refreshSnapshotsAfterConfirmation(Long userId, LocalDate confirmedDate) {
+    private void refreshSnapshotsAfterConfirmation(InvestmentTransaction transaction) {
+        Long userId = transaction.getUserId();
         LocalDate today = LocalDate.now();
-        if (confirmedDate != null) {
-            snapshotService.generateForUser(userId, confirmedDate);
+        for (LocalDate snapshotDate : confirmationSnapshotDates(transaction, today)) {
+            investmentDailySnapshotJob.snapshotForUser(userId, snapshotDate);
+            snapshotService.generateForUser(userId, snapshotDate);
         }
-        if (confirmedDate == null || !today.equals(confirmedDate)) {
-            snapshotService.generateForUser(userId, today);
+    }
+
+    private Set<LocalDate> confirmationSnapshotDates(InvestmentTransaction transaction, LocalDate today) {
+        Set<LocalDate> dates = new LinkedHashSet<>();
+        LocalDate start = transaction.getTransactionTime() == null ? transaction.getTradeDate() : transaction.getTransactionTime().toLocalDate();
+        if (start == null) {
+            start = transaction.getConfirmedDate();
         }
+        LocalDate end = transaction.getConfirmedDate() == null ? today : transaction.getConfirmedDate();
+        if (start != null && end != null) {
+            LocalDate cursor = start;
+            LocalDate safeEnd = end.isAfter(today) ? today : end;
+            while (!cursor.isAfter(safeEnd)) {
+                // 基金确认会改变确认日前后的在途资产口径，确认成功后顺手修复该区间历史快照。
+                dates.add(cursor);
+                cursor = cursor.plusDays(1);
+            }
+        }
+        dates.add(today);
+        return dates;
     }
 
     /**
@@ -416,13 +436,13 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
     }
 
     /**
-     * 查询某日基金单位净值；优先用日级价格，旧价格快照兜底，查不到则保留待确认。
+     * 查询某日基金单位净值；旧价格快照表退役后只使用 daily，current 仅允许同净值日兜底。
      */
     private BigDecimal fundNavOnDate(Long assetId, LocalDate date) {
         if (date == null) {
             return null;
         }
-        // 基金确认优先使用长期日级净值，避免只查历史审计快照导致定时行情已入库但交易仍无法确认。
+        // 基金确认优先使用长期日级净值，避免只查当前价导致 QDII 延迟时确认口径漂移。
         AssetPriceDaily dailyPrice = assetPriceDailyMapper.selectOne(new LambdaQueryWrapper<AssetPriceDaily>()
                 .eq(AssetPriceDaily::getAssetId, assetId)
                 .eq(AssetPriceDaily::getTradeDate, date)
@@ -430,17 +450,6 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
                 .last("limit 1"));
         if (dailyPrice != null && dailyPrice.getClosePrice() != null) {
             return dailyPrice.getClosePrice().setScale(6, RoundingMode.HALF_UP);
-        }
-        AssetPrice price = assetPriceMapper.selectOne(new LambdaQueryWrapper<AssetPrice>()
-                .eq(AssetPrice::getAssetId, assetId)
-                .gt(AssetPrice::getPrice, BigDecimal.ZERO)
-                .ge(AssetPrice::getQuoteTime, date.atStartOfDay())
-                .lt(AssetPrice::getQuoteTime, date.plusDays(1).atStartOfDay())
-                .orderByDesc(AssetPrice::getQuoteTime)
-                .orderByDesc(AssetPrice::getCreatedAt)
-                .last("limit 1"));
-        if (price != null) {
-            return price.getPrice().setScale(6, RoundingMode.HALF_UP);
         }
         AssetPriceCurrent current = assetPriceCurrentMapper.selectById(assetId);
         if (current != null && current.getPrice() != null && current.getPrice().compareTo(BigDecimal.ZERO) > 0

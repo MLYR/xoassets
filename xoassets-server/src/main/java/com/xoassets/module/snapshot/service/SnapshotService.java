@@ -26,6 +26,11 @@ public interface SnapshotService {
     AssetSnapshotVO generateToday();
 
     /**
+     * 手动生成或更新当前用户指定日期的资产快照。
+     */
+    AssetSnapshotVO generate(LocalDate snapshotDate);
+
+    /**
      * 生成指定用户指定日期快照，供定时任务和内部复用。
      */
     AssetSnapshotVO generateForUser(Long userId, LocalDate snapshotDate);

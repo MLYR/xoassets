@@ -1,7 +1,6 @@
 package com.xoassets.module.account.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.xoassets.common.api.ErrorCode;
 import com.xoassets.common.exception.BusinessException;
 import com.xoassets.common.security.LoginUserContext;
@@ -11,11 +10,9 @@ import com.xoassets.module.account.vo.AccountBalanceAdjustmentVO;
 import com.xoassets.module.account.vo.AccountBalanceTrendPointVO;
 import com.xoassets.persistence.entity.Account;
 import com.xoassets.persistence.entity.AccountBalanceAdjustment;
-import com.xoassets.persistence.entity.AccountDailyBalanceSnapshot;
 import com.xoassets.persistence.entity.InvestmentTransaction;
 import com.xoassets.persistence.entity.TransactionRecord;
 import com.xoassets.persistence.mapper.AccountBalanceAdjustmentMapper;
-import com.xoassets.persistence.mapper.AccountDailyBalanceSnapshotMapper;
 import com.xoassets.persistence.mapper.AccountMapper;
 import com.xoassets.persistence.mapper.InvestmentTransactionMapper;
 import com.xoassets.persistence.mapper.TransactionRecordMapper;
@@ -45,19 +42,16 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
     private final TransactionRecordMapper transactionRecordMapper;
     private final InvestmentTransactionMapper investmentTransactionMapper;
     private final AccountBalanceAdjustmentMapper adjustmentMapper;
-    private final AccountDailyBalanceSnapshotMapper dailyBalanceSnapshotMapper;
 
     public AccountBalanceServiceImpl(
             AccountMapper accountMapper,
             TransactionRecordMapper transactionRecordMapper,
             InvestmentTransactionMapper investmentTransactionMapper,
-            AccountBalanceAdjustmentMapper adjustmentMapper,
-            AccountDailyBalanceSnapshotMapper dailyBalanceSnapshotMapper) {
+            AccountBalanceAdjustmentMapper adjustmentMapper) {
         this.accountMapper = accountMapper;
         this.transactionRecordMapper = transactionRecordMapper;
         this.investmentTransactionMapper = investmentTransactionMapper;
         this.adjustmentMapper = adjustmentMapper;
-        this.dailyBalanceSnapshotMapper = dailyBalanceSnapshotMapper;
     }
 
     /**
@@ -88,7 +82,6 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
         if (delta.compareTo(BigDecimal.ZERO) != 0 && accountMapper.incrementBalance(userId, accountId, delta) == 0) {
             throw new BusinessException(ErrorCode.BUSINESS_ERROR, "账户余额更新冲突，请重试");
         }
-        upsertDailySnapshot(userId, accountId, adjustment.getBizDate());
         return toVO(adjustment);
     }
 
@@ -107,35 +100,6 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
         LocalDate end = endDate == null ? LocalDate.now() : endDate;
         LocalDate start = startDate == null ? end.minusDays(29) : startDate;
         return rebuildTrend(userId, account, start, end);
-    }
-
-    private void upsertDailySnapshot(Long userId, Long accountId, LocalDate date) {
-        Account account = accountMapper.selectById(accountId);
-        AccountBalanceTrendPointVO point = rebuildTrend(userId, account, date, date).stream().findFirst().orElse(null);
-        if (point == null) {
-            return;
-        }
-        AccountDailyBalanceSnapshot snapshot = dailyBalanceSnapshotMapper.selectOne(new LambdaQueryWrapper<AccountDailyBalanceSnapshot>()
-                .eq(AccountDailyBalanceSnapshot::getAccountId, accountId)
-                .eq(AccountDailyBalanceSnapshot::getSnapshotDate, date)
-                .last("LIMIT 1"));
-        if (snapshot == null) {
-            snapshot = new AccountDailyBalanceSnapshot();
-            snapshot.setUserId(userId);
-            snapshot.setAccountId(accountId);
-            snapshot.setSnapshotDate(date);
-            snapshot.setDeleted(0);
-        }
-        snapshot.setEndBalance(point.getEndBalance());
-        snapshot.setInflowAmount(point.getInflow());
-        snapshot.setOutflowAmount(point.getOutflow());
-        snapshot.setAdjustmentAmount(point.getAdjustmentAmount());
-        if (snapshot.getId() == null) {
-            dailyBalanceSnapshotMapper.insert(snapshot);
-            return;
-        }
-        dailyBalanceSnapshotMapper.update(snapshot, new LambdaUpdateWrapper<AccountDailyBalanceSnapshot>()
-                .eq(AccountDailyBalanceSnapshot::getId, snapshot.getId()));
     }
 
     private List<AccountBalanceTrendPointVO> rebuildTrend(Long userId, Account account, LocalDate start, LocalDate end) {

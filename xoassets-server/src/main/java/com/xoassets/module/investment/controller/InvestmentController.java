@@ -1,6 +1,8 @@
 package com.xoassets.module.investment.controller;
 
 import com.xoassets.common.api.Result;
+import com.xoassets.common.security.LoginUserContext;
+import com.xoassets.module.investment.scheduler.InvestmentDailySnapshotJob;
 import com.xoassets.module.investment.service.HoldingService;
 import com.xoassets.module.investment.vo.HoldingVO;
 import com.xoassets.module.investment.vo.InvestmentCalendarDayProfitVO;
@@ -12,6 +14,7 @@ import java.util.List;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -24,13 +27,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class InvestmentController {
 
     private final HoldingService holdingService;
+    private final InvestmentDailySnapshotJob investmentDailySnapshotJob;
 
-    public InvestmentController(HoldingService holdingService) {
+    public InvestmentController(HoldingService holdingService, InvestmentDailySnapshotJob investmentDailySnapshotJob) {
         this.holdingService = holdingService;
+        this.investmentDailySnapshotJob = investmentDailySnapshotJob;
     }
 
     /**
-     * 查询投资总览，今日收益和昨日收益按资产范围拆分。
+     * 查询投资总览，今日收益按今日有效价格动态汇总。
      */
     @GetMapping("/overview")
     public Result<InvestmentOverviewVO> overview() {
@@ -67,5 +72,15 @@ public class InvestmentController {
             @RequestParam(required = false) Integer month) {
         YearMonth targetMonth = year == null || month == null ? YearMonth.now() : YearMonth.of(year, month);
         return Result.success(holdingService.profitCalendar(id, targetMonth));
+    }
+
+    /**
+     * 手动重建当前用户指定日期投资日快照，便于本地对账和历史数据修复。
+     */
+    @PostMapping("/snapshots/generate")
+    public Result<Void> generateInvestmentSnapshot(
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate snapshotDate) {
+        investmentDailySnapshotJob.snapshotForUser(LoginUserContext.getUserId(), snapshotDate == null ? LocalDate.now() : snapshotDate);
+        return Result.success(null);
     }
 }

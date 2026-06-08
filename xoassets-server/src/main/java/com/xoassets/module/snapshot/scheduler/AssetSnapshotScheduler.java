@@ -20,9 +20,9 @@ public class AssetSnapshotScheduler {
     }
 
     /**
-     * 每天 23:55 记录所有启用用户当天资产状态，cron 可通过配置覆盖。
+     * 每天 23:50 记录所有启用用户当天资产状态，cron 可通过配置覆盖。
      */
-    @Scheduled(cron = "${xoassets.snapshots.daily-cron:0 55 23 * * ?}")
+    @Scheduled(cron = "${xoassets.snapshots.daily-cron:0 50 23 * * ?}")
     public void generateDailySnapshots() {
         try {
             snapshotService.generateAllUsers(LocalDate.now());

@@ -51,4 +51,13 @@ public class SnapshotController {
     public Result<AssetSnapshotVO> generateToday() {
         return Result.success(snapshotService.generateToday());
     }
+
+    /**
+     * 手动生成或更新指定日期快照，便于本地对账修复历史数据。
+     */
+    @PostMapping("/generate")
+    public Result<AssetSnapshotVO> generate(
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate snapshotDate) {
+        return Result.success(snapshotService.generate(snapshotDate));
+    }
 }

@@ -19,5 +19,8 @@ public class InvestmentCalendarDayProfitVO {
     private BigDecimal price;
     private BigDecimal previousPrice;
     private Boolean hasPrice;
+    private Boolean tradingDay;
+    private Boolean marketClosed;
+    private String statusLabel;
     private String priceLabel;
 }

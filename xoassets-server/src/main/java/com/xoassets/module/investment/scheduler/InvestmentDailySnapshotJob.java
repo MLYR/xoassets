@@ -2,16 +2,16 @@ package com.xoassets.module.investment.scheduler;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.xoassets.common.api.ErrorCode;
+import com.xoassets.common.exception.BusinessException;
 import com.xoassets.module.investment.service.InvestmentPositionHistoryService;
 import com.xoassets.module.investment.service.InvestmentPositionState;
 import com.xoassets.persistence.entity.AssetPriceCurrent;
 import com.xoassets.persistence.entity.AssetPriceDaily;
-import com.xoassets.persistence.entity.AssetPrice;
 import com.xoassets.persistence.entity.InvestmentDailySnapshot;
 import com.xoassets.persistence.entity.InvestmentTransaction;
 import com.xoassets.persistence.mapper.AssetPriceCurrentMapper;
 import com.xoassets.persistence.mapper.AssetPriceDailyMapper;
-import com.xoassets.persistence.mapper.AssetPriceMapper;
 import com.xoassets.persistence.mapper.InvestmentDailySnapshotMapper;
 import com.xoassets.persistence.mapper.InvestmentTransactionMapper;
 import java.math.BigDecimal;
@@ -35,11 +35,12 @@ public class InvestmentDailySnapshotJob {
     private static final String TYPE_BUY = "BUY";
     private static final String INPUT_MODE_AMOUNT_NAV = "AMOUNT_NAV";
     private static final String STATUS_PENDING_CONFIRM = "PENDING_CONFIRM";
+    private static final String STATUS_CONFIRMED = "CONFIRMED";
+    private static final int RECENT_REPAIR_DAYS = 4;
 
     private final InvestmentPositionHistoryService positionHistoryService;
     private final AssetPriceCurrentMapper assetPriceCurrentMapper;
     private final AssetPriceDailyMapper assetPriceDailyMapper;
-    private final AssetPriceMapper assetPriceMapper;
     private final InvestmentTransactionMapper investmentTransactionMapper;
     private final InvestmentDailySnapshotMapper investmentDailySnapshotMapper;
 
@@ -47,23 +48,33 @@ public class InvestmentDailySnapshotJob {
             InvestmentPositionHistoryService positionHistoryService,
             AssetPriceCurrentMapper assetPriceCurrentMapper,
             AssetPriceDailyMapper assetPriceDailyMapper,
-            AssetPriceMapper assetPriceMapper,
             InvestmentTransactionMapper investmentTransactionMapper,
             InvestmentDailySnapshotMapper investmentDailySnapshotMapper) {
         this.positionHistoryService = positionHistoryService;
         this.assetPriceCurrentMapper = assetPriceCurrentMapper;
         this.assetPriceDailyMapper = assetPriceDailyMapper;
-        this.assetPriceMapper = assetPriceMapper;
         this.investmentTransactionMapper = investmentTransactionMapper;
         this.investmentDailySnapshotMapper = investmentDailySnapshotMapper;
     }
 
     /**
-     * 在日级价格汇总后执行，失败会在下一次补跑最近 3 天时被覆盖更新。
+     * 在日级价格汇总后执行，补跑最近 4 个自然日，周一可覆盖上周五交易日。
      */
-    @Scheduled(cron = "${xoassets.quotes.investment-snapshot-cron:0 45 23 * * ?}")
+    @Scheduled(cron = "${xoassets.quotes.investment-snapshot-cron:0 30 19 * * ?}")
     public void snapshotRecentDays() {
-        for (int daysAgo = 2; daysAgo >= 0; daysAgo--) {
+        snapshotRecentDaysSafely();
+    }
+
+    /**
+     * 20:00 到 23:30 每半小时继续 upsert，等待晚间净值逐步入库。
+     */
+    @Scheduled(cron = "${xoassets.quotes.investment-snapshot-followup-cron:0 0,30 20-23 * * ?}")
+    public void snapshotRecentDaysFollowup() {
+        snapshotRecentDaysSafely();
+    }
+
+    private void snapshotRecentDaysSafely() {
+        for (int daysAgo = RECENT_REPAIR_DAYS - 1; daysAgo >= 0; daysAgo--) {
             try {
                 snapshot(LocalDate.now().minusDays(daysAgo));
             } catch (Exception exception) {
@@ -78,8 +89,20 @@ public class InvestmentDailySnapshotJob {
     @Transactional(rollbackFor = Exception.class)
     public void snapshot(LocalDate snapshotDate) {
         for (Long userId : positionHistoryService.snapshotUserIds(snapshotDate, LocalDate.now())) {
-            upsert(buildSnapshot(userId, snapshotDate));
+            snapshotForUser(userId, snapshotDate);
         }
+    }
+
+    /**
+     * 手动重建单个用户指定日期投资日快照，供本地对账修复使用。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void snapshotForUser(Long userId, LocalDate snapshotDate) {
+        LocalDate targetDate = snapshotDate == null ? LocalDate.now() : snapshotDate;
+        if (targetDate.isAfter(LocalDate.now())) {
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "不能生成未来日期投资快照");
+        }
+        upsert(buildSnapshot(userId, targetDate));
     }
 
     private InvestmentDailySnapshot buildSnapshot(Long userId, LocalDate snapshotDate) {
@@ -96,17 +119,17 @@ public class InvestmentDailySnapshotJob {
             marketValue = marketValue.add(position.quantity().multiply(price));
             totalCost = totalCost.add(position.totalCost());
         }
-        BigDecimal pendingAmount = pendingFundBuyAmount(userId, snapshotDate);
-        // 待确认基金买入已扣资金账户，日快照按在途投资资产处理，收益计算再用净流入剔除本金影响。
-        marketValue = marketValue.add(pendingAmount);
-        totalCost = totalCost.add(pendingAmount);
+        BigDecimal inTransitAmount = inTransitFundBuyAmount(userId, snapshotDate);
+        // 基金金额买入从实际申购到确认日前已扣资金账户，日快照按在途投资资产处理，收益计算再用净流入剔除本金影响。
+        marketValue = marketValue.add(inTransitAmount);
+        totalCost = totalCost.add(inTransitAmount);
         marketValue = scale4(marketValue);
         totalCost = scale4(totalCost);
         BigDecimal floatingProfit = marketValue.subtract(totalCost).setScale(4, RoundingMode.HALF_UP);
         BigDecimal floatingProfitRate = rate(floatingProfit, totalCost);
         BigDecimal realizedProfit = realizedProfit(userId, snapshotDate);
         BigDecimal netInflow = positionHistoryService.netInflow(userId, snapshotDate, snapshotDate)
-                .add(pendingAmount)
+                .add(inTransitAmount)
                 .setScale(4, RoundingMode.HALF_UP);
         InvestmentDailySnapshot previous = previousSnapshot(userId, snapshotDate);
         BigDecimal dailyProfit = previous == null ? null : marketValue.subtract(previous.getMarketValue()).subtract(netInflow).setScale(4, RoundingMode.HALF_UP);
@@ -127,41 +150,33 @@ public class InvestmentDailySnapshotJob {
     }
 
     private BigDecimal resolvePrice(Long assetId, LocalDate snapshotDate) {
-        LocalDateTime snapshotEnd = snapshotDate.atTime(LocalTime.MAX);
         AssetPriceDaily daily = assetPriceDailyMapper.selectOne(new LambdaQueryWrapper<AssetPriceDaily>()
                 .eq(AssetPriceDaily::getAssetId, assetId)
                 .le(AssetPriceDaily::getTradeDate, snapshotDate)
-                .le(AssetPriceDaily::getCreatedAt, snapshotEnd)
                 .orderByDesc(AssetPriceDaily::getTradeDate)
                 .last("LIMIT 1"));
         if (daily != null) {
             return daily.getClosePrice();
         }
         AssetPriceCurrent current = assetPriceCurrentMapper.selectById(assetId);
-        if (current == null || current.getQuoteTime() == null || current.getQuoteTime().toLocalDate().isAfter(snapshotDate)
-                || current.getUpdatedAt() == null || current.getUpdatedAt().isAfter(snapshotEnd)) {
-            AssetPrice legacy = assetPriceMapper.selectOne(new LambdaQueryWrapper<AssetPrice>()
-                    .eq(AssetPrice::getAssetId, assetId)
-                    .gt(AssetPrice::getPrice, BigDecimal.ZERO)
-                    .le(AssetPrice::getQuoteTime, snapshotEnd)
-                    .le(AssetPrice::getCreatedAt, snapshotEnd)
-                    .orderByDesc(AssetPrice::getQuoteTime)
-                    .orderByDesc(AssetPrice::getCreatedAt)
-                    .last("LIMIT 1"));
-            return legacy == null ? null : legacy.getPrice();
+        if (current == null || current.getQuoteTime() == null || current.getQuoteTime().toLocalDate().isAfter(snapshotDate)) {
+            // 投资快照补跑要使用已沉淀的权威日级价格；缺价时由调用方按成本价兜底。
+            return null;
         }
         return current.getPrice();
     }
 
-    private BigDecimal pendingFundBuyAmount(Long userId, LocalDate snapshotDate) {
+    private BigDecimal inTransitFundBuyAmount(Long userId, LocalDate snapshotDate) {
         LocalDateTime end = snapshotDate.atTime(LocalTime.MAX);
         return investmentTransactionMapper.selectList(new LambdaQueryWrapper<InvestmentTransaction>()
                         .eq(InvestmentTransaction::getUserId, userId)
                         .eq(InvestmentTransaction::getType, TYPE_BUY)
                         .eq(InvestmentTransaction::getInputMode, INPUT_MODE_AMOUNT_NAV)
-                        .eq(InvestmentTransaction::getStatus, STATUS_PENDING_CONFIRM)
+                        .in(InvestmentTransaction::getStatus, STATUS_PENDING_CONFIRM, STATUS_CONFIRMED)
                         .le(InvestmentTransaction::getTransactionTime, end))
                 .stream()
+                .filter(transaction -> STATUS_PENDING_CONFIRM.equals(transaction.getStatus())
+                        || (transaction.getConfirmedDate() != null && transaction.getConfirmedDate().isAfter(snapshotDate)))
                 .map(InvestmentTransaction::getTradeAmount)
                 .map(this::scale4)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
@@ -205,6 +220,8 @@ public class InvestmentDailySnapshotJob {
         InvestmentDailySnapshot exists = investmentDailySnapshotMapper.selectOne(new LambdaQueryWrapper<InvestmentDailySnapshot>()
                 .eq(InvestmentDailySnapshot::getUserId, snapshot.getUserId())
                 .eq(InvestmentDailySnapshot::getSnapshotDate, snapshot.getSnapshotDate())
+                // 与 uk_user_snapshot_date(user_id, snapshot_date, deleted) 保持一致，避免误复活逻辑删除快照。
+                .eq(InvestmentDailySnapshot::getDeleted, 0)
                 .last("LIMIT 1"));
         if (exists == null) {
             investmentDailySnapshotMapper.insert(snapshot);
@@ -212,7 +229,8 @@ public class InvestmentDailySnapshotJob {
         }
         snapshot.setId(exists.getId());
         investmentDailySnapshotMapper.update(snapshot, new LambdaUpdateWrapper<InvestmentDailySnapshot>()
-                .eq(InvestmentDailySnapshot::getId, exists.getId()));
+                .eq(InvestmentDailySnapshot::getId, exists.getId())
+                .eq(InvestmentDailySnapshot::getDeleted, 0));
     }
 
     private BigDecimal scale4(BigDecimal value) {

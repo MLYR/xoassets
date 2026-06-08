@@ -13,6 +13,7 @@ public class HoldingSummaryVO {
 
     private BigDecimal totalMarketValue;
     private BigDecimal totalCost;
+    private Boolean todayProfitAvailable;
     private BigDecimal todayProfit;
     private BigDecimal todayProfitRate;
     private BigDecimal yesterdayProfit;

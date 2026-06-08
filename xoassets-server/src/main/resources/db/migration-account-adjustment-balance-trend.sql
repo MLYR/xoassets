@@ -1,11 +1,35 @@
 -- 账户余额修正、账户余额曲线和并发版本字段迁移。
 USE xoassets;
 
-ALTER TABLE xo_account
-  ADD COLUMN IF NOT EXISTS version BIGINT NOT NULL DEFAULT 0 COMMENT '乐观锁版本号';
+SET @xo_account_version_exists := (
+  SELECT COUNT(1)
+  FROM information_schema.columns
+  WHERE table_schema = DATABASE()
+    AND table_name = 'xo_account'
+    AND column_name = 'version'
+);
+SET @xo_account_version_sql := IF(@xo_account_version_exists = 0,
+  'ALTER TABLE xo_account ADD COLUMN version BIGINT NOT NULL DEFAULT 0 COMMENT ''乐观锁版本号''',
+  'SELECT 1'
+);
+PREPARE xo_account_version_stmt FROM @xo_account_version_sql;
+EXECUTE xo_account_version_stmt;
+DEALLOCATE PREPARE xo_account_version_stmt;
 
-ALTER TABLE xo_holding
-  ADD COLUMN IF NOT EXISTS version BIGINT NOT NULL DEFAULT 0 COMMENT '乐观锁版本号';
+SET @xo_holding_version_exists := (
+  SELECT COUNT(1)
+  FROM information_schema.columns
+  WHERE table_schema = DATABASE()
+    AND table_name = 'xo_holding'
+    AND column_name = 'version'
+);
+SET @xo_holding_version_sql := IF(@xo_holding_version_exists = 0,
+  'ALTER TABLE xo_holding ADD COLUMN version BIGINT NOT NULL DEFAULT 0 COMMENT ''乐观锁版本号''',
+  'SELECT 1'
+);
+PREPARE xo_holding_version_stmt FROM @xo_holding_version_sql;
+EXECUTE xo_holding_version_stmt;
+DEALLOCATE PREPARE xo_holding_version_stmt;
 
 SET @idx_exists := (
   SELECT COUNT(1)
@@ -38,19 +62,3 @@ CREATE TABLE IF NOT EXISTS xo_account_balance_adjustment (
   KEY idx_user_account_date (user_id, account_id, biz_date),
   KEY idx_account_created (account_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='账户余额修正表';
-
-CREATE TABLE IF NOT EXISTS xo_account_daily_balance_snapshot (
-  id BIGINT PRIMARY KEY COMMENT 'ID',
-  user_id BIGINT NOT NULL COMMENT '用户ID',
-  account_id BIGINT NOT NULL COMMENT '账户ID',
-  snapshot_date DATE NOT NULL COMMENT '快照日期',
-  end_balance DECIMAL(18,4) NOT NULL COMMENT '日终余额',
-  inflow_amount DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '当日流入',
-  outflow_amount DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '当日流出',
-  adjustment_amount DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '当日修正额',
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除：0否 1是',
-  UNIQUE KEY uk_account_date (account_id, snapshot_date, deleted),
-  KEY idx_user_account_date (user_id, account_id, snapshot_date)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='账户日余额快照表';

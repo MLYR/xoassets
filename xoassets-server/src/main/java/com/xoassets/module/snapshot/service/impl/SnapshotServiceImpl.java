@@ -2,29 +2,31 @@ package com.xoassets.module.snapshot.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.xoassets.common.api.ErrorCode;
+import com.xoassets.common.exception.BusinessException;
 import com.xoassets.common.security.LoginUserContext;
+import com.xoassets.module.investment.service.InvestmentPositionHistoryService;
+import com.xoassets.module.investment.service.InvestmentPositionState;
 import com.xoassets.module.snapshot.service.SnapshotService;
 import com.xoassets.module.snapshot.vo.AssetSnapshotLatestVO;
 import com.xoassets.module.snapshot.vo.AssetSnapshotVO;
 import com.xoassets.persistence.entity.Account;
+import com.xoassets.persistence.entity.AccountBalanceAdjustment;
 import com.xoassets.persistence.entity.Asset;
-import com.xoassets.persistence.entity.AssetPrice;
 import com.xoassets.persistence.entity.AssetPriceCurrent;
 import com.xoassets.persistence.entity.AssetPriceDaily;
 import com.xoassets.persistence.entity.AssetSnapshot;
 import com.xoassets.persistence.entity.Budget;
-import com.xoassets.persistence.entity.Holding;
 import com.xoassets.persistence.entity.InvestmentTransaction;
 import com.xoassets.persistence.entity.TransactionRecord;
 import com.xoassets.persistence.entity.User;
+import com.xoassets.persistence.mapper.AccountBalanceAdjustmentMapper;
 import com.xoassets.persistence.mapper.AccountMapper;
 import com.xoassets.persistence.mapper.AssetMapper;
 import com.xoassets.persistence.mapper.AssetPriceCurrentMapper;
 import com.xoassets.persistence.mapper.AssetPriceDailyMapper;
-import com.xoassets.persistence.mapper.AssetPriceMapper;
 import com.xoassets.persistence.mapper.AssetSnapshotMapper;
 import com.xoassets.persistence.mapper.BudgetMapper;
-import com.xoassets.persistence.mapper.HoldingMapper;
 import com.xoassets.persistence.mapper.InvestmentTransactionMapper;
 import com.xoassets.persistence.mapper.TransactionRecordMapper;
 import com.xoassets.persistence.mapper.UserMapper;
@@ -36,6 +38,7 @@ import java.time.LocalTime;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -43,7 +46,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 资产快照服务实现：用当前数据库状态生成每日资产状态，用于趋势和报告。
+ * 资产快照服务实现：按快照日期生成资产状态，用于趋势和报告。
  */
 @Slf4j
 @Service
@@ -56,46 +59,49 @@ public class SnapshotServiceImpl implements SnapshotService {
     private static final String INVESTMENT_TYPE_BUY = "BUY";
     private static final String INVESTMENT_INPUT_AMOUNT_NAV = "AMOUNT_NAV";
     private static final String INVESTMENT_STATUS_PENDING_CONFIRM = "PENDING_CONFIRM";
+    private static final String INVESTMENT_STATUS_CONFIRMED = "CONFIRMED";
+    private static final String STATUS_REVOKED = "REVOKED";
+    private static final String STATUS_CANCELLED = "CANCELLED";
 
     private final AssetSnapshotMapper assetSnapshotMapper;
     private final AccountMapper accountMapper;
-    private final HoldingMapper holdingMapper;
+    private final AccountBalanceAdjustmentMapper accountBalanceAdjustmentMapper;
     private final AssetMapper assetMapper;
-    private final AssetPriceMapper assetPriceMapper;
     private final AssetPriceCurrentMapper assetPriceCurrentMapper;
     private final AssetPriceDailyMapper assetPriceDailyMapper;
     private final InvestmentTransactionMapper investmentTransactionMapper;
     private final TransactionRecordMapper transactionRecordMapper;
     private final BudgetMapper budgetMapper;
     private final UserMapper userMapper;
+    private final InvestmentPositionHistoryService positionHistoryService;
 
     public SnapshotServiceImpl(
             AssetSnapshotMapper assetSnapshotMapper,
             AccountMapper accountMapper,
-            HoldingMapper holdingMapper,
+            AccountBalanceAdjustmentMapper accountBalanceAdjustmentMapper,
             AssetMapper assetMapper,
-            AssetPriceMapper assetPriceMapper,
             AssetPriceCurrentMapper assetPriceCurrentMapper,
             AssetPriceDailyMapper assetPriceDailyMapper,
             InvestmentTransactionMapper investmentTransactionMapper,
             TransactionRecordMapper transactionRecordMapper,
             BudgetMapper budgetMapper,
-            UserMapper userMapper) {
+            UserMapper userMapper,
+            InvestmentPositionHistoryService positionHistoryService) {
         this.assetSnapshotMapper = assetSnapshotMapper;
         this.accountMapper = accountMapper;
-        this.holdingMapper = holdingMapper;
+        this.accountBalanceAdjustmentMapper = accountBalanceAdjustmentMapper;
         this.assetMapper = assetMapper;
-        this.assetPriceMapper = assetPriceMapper;
         this.assetPriceCurrentMapper = assetPriceCurrentMapper;
         this.assetPriceDailyMapper = assetPriceDailyMapper;
         this.investmentTransactionMapper = investmentTransactionMapper;
         this.transactionRecordMapper = transactionRecordMapper;
         this.budgetMapper = budgetMapper;
         this.userMapper = userMapper;
+        this.positionHistoryService = positionHistoryService;
     }
 
     /**
-     * 查询最新快照，并用历史快照计算昨日、本月初变化；没有历史点时返回 0。
+     * 查询最新快照，并用历史快照计算昨日、本月初变化；缺少基准快照时返回 null，避免把缺失对比显示成 0。
      */
     @Override
     public AssetSnapshotLatestVO latest() {
@@ -104,12 +110,16 @@ public class SnapshotServiceImpl implements SnapshotService {
         if (latest == null) {
             return AssetSnapshotLatestVO.builder()
                     .latest(null)
-                    .netAssetChangeFromYesterday(BigDecimal.ZERO)
-                    .netAssetChangeFromMonthStart(BigDecimal.ZERO)
+                    .netAssetChangeFromYesterday(null)
+                    .netAssetChangeFromMonthStart(null)
                     .build();
         }
         AssetSnapshot yesterday = nearestSnapshotOnOrBefore(userId, latest.getSnapshotDate().minusDays(1));
         AssetSnapshot monthStart = firstSnapshotOnOrAfter(userId, latest.getSnapshotDate().withDayOfMonth(1), latest.getSnapshotDate());
+        if (monthStart != null && monthStart.getSnapshotDate().equals(latest.getSnapshotDate()) && !latest.getSnapshotDate().equals(latest.getSnapshotDate().withDayOfMonth(1))) {
+            // 本月只有最新这一天快照时没有有效月初基准，不能把月初变化冒充成 0。
+            monthStart = null;
+        }
         return AssetSnapshotLatestVO.builder()
                 .latest(toVO(latest))
                 .netAssetChangeFromYesterday(change(latest, yesterday))
@@ -144,16 +154,30 @@ public class SnapshotServiceImpl implements SnapshotService {
     }
 
     /**
+     * 手动重建当前用户指定日期快照，用于本地对账和历史快照修复。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public AssetSnapshotVO generate(LocalDate snapshotDate) {
+        return generateForUser(LoginUserContext.getUserId(), snapshotDate == null ? LocalDate.now() : snapshotDate);
+    }
+
+    /**
      * 为指定用户生成快照，所有聚合都显式带 user_id，避免跨用户数据串用。
      */
     @Transactional(rollbackFor = Exception.class)
     @Override
     public AssetSnapshotVO generateForUser(Long userId, LocalDate snapshotDate) {
         LocalDate targetDate = snapshotDate == null ? LocalDate.now() : snapshotDate;
+        if (targetDate.isAfter(LocalDate.now())) {
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "不能生成未来日期资产快照");
+        }
         AssetSnapshot snapshot = buildSnapshot(userId, targetDate);
         AssetSnapshot exists = assetSnapshotMapper.selectOne(new LambdaQueryWrapper<AssetSnapshot>()
                 .eq(AssetSnapshot::getUserId, userId)
-                .eq(AssetSnapshot::getSnapshotDate, targetDate));
+                .eq(AssetSnapshot::getSnapshotDate, targetDate)
+                // 与 uk_user_snapshot_date(user_id, snapshot_date, deleted) 保持一致，只 upsert 当前有效快照。
+                .eq(AssetSnapshot::getDeleted, 0));
         if (exists == null) {
             assetSnapshotMapper.insert(snapshot);
         } else {
@@ -161,7 +185,8 @@ public class SnapshotServiceImpl implements SnapshotService {
             assetSnapshotMapper.update(snapshot, new LambdaUpdateWrapper<AssetSnapshot>()
                     .eq(AssetSnapshot::getId, exists.getId())
                     .eq(AssetSnapshot::getUserId, userId)
-                    .eq(AssetSnapshot::getSnapshotDate, targetDate));
+                    .eq(AssetSnapshot::getSnapshotDate, targetDate)
+                    .eq(AssetSnapshot::getDeleted, 0));
         }
         return toVO(snapshot);
     }
@@ -185,13 +210,12 @@ public class SnapshotServiceImpl implements SnapshotService {
      * 按快照日期聚合资产、收支和预算，并统一保留四位小数。
      */
     private AssetSnapshot buildSnapshot(Long userId, LocalDate snapshotDate) {
-        AccountSummary accountSummary = accountSummary(userId);
+        AccountSummary accountSummary = accountSummary(userId, snapshotDate);
         InvestmentSummary investmentSummary = investmentSummary(userId, snapshotDate);
-        YearMonth month = YearMonth.from(snapshotDate);
-        BigDecimal monthlyIncome = monthlyIncome(userId, month);
-        BigDecimal monthlyExpense = monthlyExpense(userId, month);
+        BigDecimal monthlyIncome = monthlyIncome(userId, snapshotDate);
+        BigDecimal monthlyExpense = monthlyExpense(userId, snapshotDate);
         BigDecimal monthlyBalance = monthlyIncome.subtract(monthlyExpense).setScale(4, RoundingMode.HALF_UP);
-        BudgetSummary budgetSummary = budgetSummary(userId, month);
+        BudgetSummary budgetSummary = budgetSummary(userId, snapshotDate);
         BigDecimal totalAsset = accountSummary.cashAsset().add(investmentSummary.marketValue()).setScale(4, RoundingMode.HALF_UP);
         BigDecimal netAsset = totalAsset.subtract(accountSummary.liability()).setScale(4, RoundingMode.HALF_UP);
         BigDecimal investmentProfit = investmentSummary.marketValue().subtract(investmentSummary.totalCost()).setScale(4, RoundingMode.HALF_UP);
@@ -221,14 +245,17 @@ public class SnapshotServiceImpl implements SnapshotService {
     /**
      * 正余额账户计入现金资产，负余额账户按绝对值计入负债。
      */
-    private AccountSummary accountSummary(Long userId) {
+    private AccountSummary accountSummary(Long userId, LocalDate snapshotDate) {
         BigDecimal cashAsset = BigDecimal.ZERO;
         BigDecimal liability = BigDecimal.ZERO;
         List<Account> accounts = accountMapper.selectList(new LambdaQueryWrapper<Account>()
                 .eq(Account::getUserId, userId)
                 .eq(Account::getStatus, 1));
         for (Account account : accounts) {
-            BigDecimal balance = scale4(account.getBalance());
+            if (account.getCreatedAt() != null && account.getCreatedAt().toLocalDate().isAfter(snapshotDate)) {
+                continue;
+            }
+            BigDecimal balance = accountBalanceAt(userId, account, snapshotDate);
             if (balance.compareTo(BigDecimal.ZERO) >= 0) {
                 cashAsset = cashAsset.add(balance);
             } else {
@@ -239,32 +266,99 @@ public class SnapshotServiceImpl implements SnapshotService {
     }
 
     /**
+     * 账户历史余额按初始余额和资金事件重建，避免补跑历史资产快照时读取当前账户余额。
+     */
+    private BigDecimal accountBalanceAt(Long userId, Account account, LocalDate snapshotDate) {
+        LocalDate start = account.getCreatedAt() == null ? LocalDate.of(1970, 1, 1) : account.getCreatedAt().toLocalDate();
+        LocalDateTime startTime = start.atStartOfDay();
+        LocalDateTime endTime = snapshotDate.atTime(LocalTime.MAX);
+        BigDecimal balance = scale4(account.getInitialBalance());
+        balance = balance.add(transactionFlow(userId, account.getId(), startTime, endTime));
+        balance = balance.add(investmentFlow(userId, account.getId(), startTime, endTime));
+        balance = balance.add(adjustmentFlow(userId, account.getId(), start, snapshotDate));
+        return balance.setScale(4, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal transactionFlow(Long userId, Long accountId, LocalDateTime startTime, LocalDateTime endTime) {
+        return transactionRecordMapper.selectList(new LambdaQueryWrapper<TransactionRecord>()
+                        .eq(TransactionRecord::getUserId, userId)
+                        .and(item -> item.eq(TransactionRecord::getAccountId, accountId).or().eq(TransactionRecord::getTargetAccountId, accountId))
+                        .ge(TransactionRecord::getTransactionTime, startTime)
+                        .le(TransactionRecord::getTransactionTime, endTime))
+                .stream()
+                .map(record -> signedTransactionAmount(accountId, record))
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(4, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal investmentFlow(Long userId, Long accountId, LocalDateTime startTime, LocalDateTime endTime) {
+        return investmentTransactionMapper.selectList(new LambdaQueryWrapper<InvestmentTransaction>()
+                        .eq(InvestmentTransaction::getUserId, userId)
+                        .eq(InvestmentTransaction::getAccountId, accountId)
+                        .ge(InvestmentTransaction::getTransactionTime, startTime)
+                        .le(InvestmentTransaction::getTransactionTime, endTime))
+                .stream()
+                .filter(record -> !STATUS_REVOKED.equals(record.getStatus()) && !STATUS_CANCELLED.equals(record.getStatus()))
+                .map(this::signedInvestmentAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(4, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal adjustmentFlow(Long userId, Long accountId, LocalDate start, LocalDate end) {
+        return accountBalanceAdjustmentMapper.selectList(new LambdaQueryWrapper<AccountBalanceAdjustment>()
+                        .eq(AccountBalanceAdjustment::getUserId, userId)
+                        .eq(AccountBalanceAdjustment::getAccountId, accountId)
+                        .between(AccountBalanceAdjustment::getBizDate, start, end))
+                .stream()
+                .map(AccountBalanceAdjustment::getDeltaAmount)
+                .map(this::scale4)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(4, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal signedTransactionAmount(Long accountId, TransactionRecord record) {
+        if ("TRANSFER".equals(record.getType())) {
+            return Objects.equals(accountId, record.getTargetAccountId()) ? scale4(record.getAmount()) : scale4(record.getAmount()).negate();
+        }
+        if (TRANSACTION_EXPENSE.equals(record.getType())) {
+            return scale4(record.getAmount()).negate();
+        }
+        return scale4(record.getAmount());
+    }
+
+    private BigDecimal signedInvestmentAmount(InvestmentTransaction record) {
+        if (INVESTMENT_TYPE_BUY.equals(record.getType())) {
+            BigDecimal amount = record.getTradeAmount() == null ? scale4(record.getAmount()).add(scale4(record.getFee())) : scale4(record.getTradeAmount());
+            return amount.negate().setScale(4, RoundingMode.HALF_UP);
+        }
+        return scale4(record.getAmount()).subtract(scale4(record.getFee())).setScale(4, RoundingMode.HALF_UP);
+    }
+
+    /**
      * 投资市值优先使用分层行情表；待确认基金买入作为在途资产计入，避免净资产被现金扣款假性拉低。
      */
     private InvestmentSummary investmentSummary(Long userId, LocalDate snapshotDate) {
-        List<Holding> holdings = holdingMapper.selectList(new LambdaQueryWrapper<Holding>()
-                .eq(Holding::getUserId, userId)
-                .eq(Holding::getStatus, 1));
+        Map<Long, InvestmentPositionState> positions = positionHistoryService.positionsAt(userId, snapshotDate);
         BigDecimal pendingAmount = pendingFundBuyAmount(userId, snapshotDate);
-        if (holdings.isEmpty()) {
+        if (positions.isEmpty()) {
             return new InvestmentSummary(pendingAmount, pendingAmount);
         }
-        Set<Long> assetIds = holdings.stream().map(Holding::getAssetId).collect(Collectors.toSet());
+        Set<Long> assetIds = positions.values().stream().map(InvestmentPositionState::assetId).collect(Collectors.toSet());
         Map<Long, Asset> assetMap = assetMapper.selectBatchIds(assetIds)
                 .stream()
                 .collect(Collectors.toMap(Asset::getId, asset -> asset));
 
         BigDecimal marketValue = BigDecimal.ZERO;
         BigDecimal totalCost = BigDecimal.ZERO;
-        for (Holding holding : holdings) {
-            Asset asset = assetMap.get(holding.getAssetId());
+        for (InvestmentPositionState position : positions.values()) {
+            Asset asset = assetMap.get(position.assetId());
             BigDecimal latestPrice = latestMatchedPrice(asset, snapshotDate);
             if (latestPrice == null) {
-                latestPrice = scale4(holding.getAvgCost());
+                latestPrice = avgCost(position);
             }
-            // 数量保留持仓表原始精度，避免虚拟货币小数位在快照估值前被截断。
-            marketValue = marketValue.add(nullToZero(holding.getQuantity()).multiply(latestPrice).setScale(4, RoundingMode.HALF_UP));
-            totalCost = totalCost.add(scale4(holding.getTotalCost()));
+            // 历史资产快照必须用交易流水重建出的日终数量和成本，不能用当前持仓倒推过去。
+            marketValue = marketValue.add(nullToZero(position.quantity()).multiply(latestPrice).setScale(4, RoundingMode.HALF_UP));
+            totalCost = totalCost.add(scale4(position.totalCost()));
         }
         return new InvestmentSummary(
                 marketValue.add(pendingAmount).setScale(4, RoundingMode.HALF_UP),
@@ -272,18 +366,26 @@ public class SnapshotServiceImpl implements SnapshotService {
     }
 
     /**
-     * 快照估值优先使用日级价和当前价；旧价格快照只作为迁移前数据兜底。
+     * 缺少历史价格时只能用该日重建成本均价兜底，避免读取当前持仓均价污染历史。
+     */
+    private BigDecimal avgCost(InvestmentPositionState position) {
+        if (position == null || position.quantity() == null || position.quantity().compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
+        }
+        return scale4(position.totalCost()).divide(position.quantity(), 8, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 快照估值优先使用日级价和当前价；旧价格快照表退役后缺价不再读旧审计表。
      */
     private BigDecimal latestMatchedPrice(Asset asset, LocalDate snapshotDate) {
         if (asset == null) {
             return null;
         }
-        LocalDateTime snapshotEnd = snapshotDate.atTime(LocalTime.MAX);
         AssetPriceDaily daily = assetPriceDailyMapper.selectOne(new LambdaQueryWrapper<AssetPriceDaily>()
                 .eq(AssetPriceDaily::getAssetId, asset.getId())
                 .eq(AssetPriceDaily::getCurrency, asset.getCurrency())
                 .le(AssetPriceDaily::getTradeDate, snapshotDate)
-                .le(AssetPriceDaily::getCreatedAt, snapshotEnd)
                 .orderByDesc(AssetPriceDaily::getTradeDate)
                 .last("limit 1"));
         if (daily != null) {
@@ -291,20 +393,10 @@ public class SnapshotServiceImpl implements SnapshotService {
         }
         AssetPriceCurrent current = assetPriceCurrentMapper.selectById(asset.getId());
         if (current != null && asset.getCurrency().equals(current.getCurrency())
-                && current.getQuoteTime() != null && !current.getQuoteTime().toLocalDate().isAfter(snapshotDate)
-                && current.getUpdatedAt() != null && !current.getUpdatedAt().isAfter(snapshotEnd)) {
+                && current.getQuoteTime() != null && !current.getQuoteTime().toLocalDate().isAfter(snapshotDate)) {
             return current.getPrice();
         }
-        AssetPrice legacy = assetPriceMapper.selectOne(new LambdaQueryWrapper<AssetPrice>()
-                .eq(AssetPrice::getAssetId, asset.getId())
-                .eq(AssetPrice::getCurrency, asset.getCurrency())
-                .gt(AssetPrice::getPrice, BigDecimal.ZERO)
-                .le(AssetPrice::getQuoteTime, snapshotEnd)
-                .le(AssetPrice::getCreatedAt, snapshotEnd)
-                .orderByDesc(AssetPrice::getQuoteTime)
-                .orderByDesc(AssetPrice::getCreatedAt)
-                .last("limit 1"));
-        return legacy == null ? null : legacy.getPrice();
+        return null;
     }
 
     /**
@@ -316,9 +408,13 @@ public class SnapshotServiceImpl implements SnapshotService {
                         .eq(InvestmentTransaction::getUserId, userId)
                         .eq(InvestmentTransaction::getType, INVESTMENT_TYPE_BUY)
                         .eq(InvestmentTransaction::getInputMode, INVESTMENT_INPUT_AMOUNT_NAV)
-                        .eq(InvestmentTransaction::getStatus, INVESTMENT_STATUS_PENDING_CONFIRM)
                         .le(InvestmentTransaction::getTransactionTime, end))
                 .stream()
+                // 历史重放时，后来已确认的基金买入在确认日前仍是“在途投资资产”。
+                .filter(transaction -> INVESTMENT_STATUS_PENDING_CONFIRM.equals(transaction.getStatus())
+                        || (INVESTMENT_STATUS_CONFIRMED.equals(transaction.getStatus())
+                        && transaction.getConfirmedDate() != null
+                        && transaction.getConfirmedDate().isAfter(snapshotDate)))
                 .map(InvestmentTransaction::getTradeAmount)
                 .map(this::scale4)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
@@ -328,8 +424,8 @@ public class SnapshotServiceImpl implements SnapshotService {
     /**
      * 月度普通收入只统计 INCOME，投资卖出和转账不进入该口径。
      */
-    private BigDecimal monthlyIncome(Long userId, YearMonth month) {
-        return transactionRecordMapper.selectList(monthWrapper(userId, month)
+    private BigDecimal monthlyIncome(Long userId, LocalDate snapshotDate) {
+        return transactionRecordMapper.selectList(monthToDateWrapper(userId, snapshotDate)
                         .eq(TransactionRecord::getType, TRANSACTION_INCOME))
                 .stream()
                 .map(TransactionRecord::getAmount)
@@ -340,13 +436,13 @@ public class SnapshotServiceImpl implements SnapshotService {
     /**
      * 月度普通支出按 EXPENSE 减 REFUND，保持和预算、首页支出口径一致。
      */
-    private BigDecimal monthlyExpense(Long userId, YearMonth month) {
-        BigDecimal expense = transactionRecordMapper.selectList(monthWrapper(userId, month)
+    private BigDecimal monthlyExpense(Long userId, LocalDate snapshotDate) {
+        BigDecimal expense = transactionRecordMapper.selectList(monthToDateWrapper(userId, snapshotDate)
                         .eq(TransactionRecord::getType, TRANSACTION_EXPENSE))
                 .stream()
                 .map(TransactionRecord::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal refund = transactionRecordMapper.selectList(monthWrapper(userId, month)
+        BigDecimal refund = transactionRecordMapper.selectList(monthToDateWrapper(userId, snapshotDate)
                         .eq(TransactionRecord::getType, TRANSACTION_REFUND))
                 .stream()
                 .map(TransactionRecord::getAmount)
@@ -357,7 +453,8 @@ public class SnapshotServiceImpl implements SnapshotService {
     /**
      * 预算总额优先取总预算，没有总预算时汇总启用的分类预算，避免双重计算。
      */
-    private BudgetSummary budgetSummary(Long userId, YearMonth month) {
+    private BudgetSummary budgetSummary(Long userId, LocalDate snapshotDate) {
+        YearMonth month = YearMonth.from(snapshotDate);
         List<Budget> budgets = budgetMapper.selectList(new LambdaQueryWrapper<Budget>()
                 .eq(Budget::getUserId, userId)
                 .eq(Budget::getMonth, month.toString())
@@ -367,7 +464,7 @@ public class SnapshotServiceImpl implements SnapshotService {
                 .findFirst()
                 .map(Budget::getAmount)
                 .orElseGet(() -> budgets.stream().map(Budget::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add));
-        return new BudgetSummary(monthlyExpense(userId, month), scale4(total));
+        return new BudgetSummary(monthlyExpense(userId, snapshotDate), scale4(total));
     }
 
     /**
@@ -414,9 +511,10 @@ public class SnapshotServiceImpl implements SnapshotService {
     /**
      * 构造月度普通流水查询条件。
      */
-    private LambdaQueryWrapper<TransactionRecord> monthWrapper(Long userId, YearMonth month) {
+    private LambdaQueryWrapper<TransactionRecord> monthToDateWrapper(Long userId, LocalDate snapshotDate) {
+        YearMonth month = YearMonth.from(snapshotDate);
         LocalDateTime start = month.atDay(1).atStartOfDay();
-        LocalDateTime end = month.atEndOfMonth().atTime(LocalTime.MAX);
+        LocalDateTime end = snapshotDate.atTime(LocalTime.MAX);
         return new LambdaQueryWrapper<TransactionRecord>()
                 .eq(TransactionRecord::getUserId, userId)
                 .between(TransactionRecord::getTransactionTime, start, end);
@@ -427,7 +525,7 @@ public class SnapshotServiceImpl implements SnapshotService {
      */
     private BigDecimal change(AssetSnapshot latest, AssetSnapshot base) {
         if (latest == null || base == null) {
-            return BigDecimal.ZERO;
+            return null;
         }
         return scale4(latest.getNetAsset()).subtract(scale4(base.getNetAsset())).setScale(4, RoundingMode.HALF_UP);
     }

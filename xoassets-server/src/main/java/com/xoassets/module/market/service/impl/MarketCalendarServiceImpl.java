@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class MarketCalendarServiceImpl implements MarketCalendarService {
 
     private static final String SOURCE_SYSTEM_WEEKDAY = "SYSTEM_WEEKDAY";
+    private static final String CALENDAR_PRIORITY_SQL = "order by case source when 'MANUAL' then 3 when 'EXCHANGE_ANNOUNCEMENT' then 2 when 'SYSTEM_WEEKDAY' then 1 else 0 end desc, id desc limit 1";
 
     private final MarketCalendarMapper marketCalendarMapper;
 
@@ -66,7 +67,8 @@ public class MarketCalendarServiceImpl implements MarketCalendarService {
         return marketCalendarMapper.selectOne(new LambdaQueryWrapper<MarketCalendar>()
                 .eq(MarketCalendar::getMarket, market)
                 .eq(MarketCalendar::getTradeDate, date)
-                .last("limit 1"));
+                // 同一天可能既有系统周末规则又有交易所公告修正，确认日和休市展示必须优先取修正记录。
+                .last(CALENDAR_PRIORITY_SQL));
     }
 
     private void insertBaselineDay(String market, LocalDate date) {

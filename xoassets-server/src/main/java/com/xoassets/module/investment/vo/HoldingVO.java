@@ -49,6 +49,10 @@ public class HoldingVO {
     private BigDecimal todayProfit;
     private BigDecimal todayProfitBase;
     private BigDecimal todayChangeRate;
+    private BigDecimal todayProfitByCurrentQuantity;
+    private BigDecimal todayProfitRateByCurrentQuantity;
+    private BigDecimal todayProfitByPreviousSnapshotQuantity;
+    private BigDecimal todayProfitRateByPreviousSnapshotQuantity;
     private BigDecimal yesterdayProfit;
     private BigDecimal yesterdayProfitBase;
     private BigDecimal yesterdayChangeRate;

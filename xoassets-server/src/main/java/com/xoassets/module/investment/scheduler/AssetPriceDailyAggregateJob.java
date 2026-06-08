@@ -4,9 +4,11 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.xoassets.module.investment.service.QuoteRawSnapshot;
 import com.xoassets.module.investment.service.QuoteRawSnapshotService;
+import com.xoassets.persistence.entity.Asset;
 import com.xoassets.persistence.entity.AssetPriceCurrent;
 import com.xoassets.persistence.entity.AssetPriceDaily;
 import com.xoassets.persistence.entity.Holding;
+import com.xoassets.persistence.mapper.AssetMapper;
 import com.xoassets.persistence.mapper.AssetPriceCurrentMapper;
 import com.xoassets.persistence.mapper.AssetPriceDailyMapper;
 import com.xoassets.persistence.mapper.HoldingMapper;
@@ -29,34 +31,49 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 public class AssetPriceDailyAggregateJob {
 
+    private static final String ASSET_TYPE_STOCK = "STOCK";
+    private static final String ASSET_TYPE_CRYPTO = "CRYPTO";
+    private static final int RECENT_REPAIR_DAYS = 4;
+
     private final HoldingMapper holdingMapper;
+    private final AssetMapper assetMapper;
     private final AssetPriceCurrentMapper assetPriceCurrentMapper;
     private final AssetPriceDailyMapper assetPriceDailyMapper;
     private final QuoteRawSnapshotService quoteRawSnapshotService;
 
     public AssetPriceDailyAggregateJob(
             HoldingMapper holdingMapper,
+            AssetMapper assetMapper,
             AssetPriceCurrentMapper assetPriceCurrentMapper,
             AssetPriceDailyMapper assetPriceDailyMapper,
             QuoteRawSnapshotService quoteRawSnapshotService) {
         this.holdingMapper = holdingMapper;
+        this.assetMapper = assetMapper;
         this.assetPriceCurrentMapper = assetPriceCurrentMapper;
         this.assetPriceDailyMapper = assetPriceDailyMapper;
         this.quoteRawSnapshotService = quoteRawSnapshotService;
     }
 
     /**
-     * 每天补跑最近 3 天，避免某天任务失败导致 Redis 原始快照过期前没有沉淀到 MySQL。
+     * 每天补跑最近 4 个自然日，周一晚间仍能覆盖上周五交易日，避免周末打断补数。
      */
-    @Scheduled(cron = "${xoassets.quotes.daily-aggregate-cron:0 30 23 * * ?}")
+    @Scheduled(cron = "${xoassets.quotes.daily-aggregate-cron:0 25,55 19-22 * * ?}")
     public void aggregateRecentDays() {
-        for (int daysAgo = 2; daysAgo >= 0; daysAgo--) {
+        for (int daysAgo = RECENT_REPAIR_DAYS - 1; daysAgo >= 0; daysAgo--) {
             try {
                 aggregate(LocalDate.now().minusDays(daysAgo));
             } catch (Exception exception) {
                 log.warn("资产日级价格汇总失败 date={}", LocalDate.now().minusDays(daysAgo), exception);
             }
         }
+    }
+
+    /**
+     * 23:25 再补一轮，给 23:30 投资快照和 23:50 总资产快照提供晚间最终价。
+     */
+    @Scheduled(cron = "${xoassets.quotes.daily-aggregate-late-cron:0 25 23 * * ?}")
+    public void aggregateLateRecentDays() {
+        aggregateRecentDays();
     }
 
     /**
@@ -145,6 +162,8 @@ public class AssetPriceDailyAggregateJob {
         AssetPriceDaily exists = assetPriceDailyMapper.selectOne(new LambdaQueryWrapper<AssetPriceDaily>()
                 .eq(AssetPriceDaily::getAssetId, daily.getAssetId())
                 .eq(AssetPriceDaily::getTradeDate, daily.getTradeDate())
+                // 与 uk_asset_trade_date(asset_id, trade_date, deleted) 保持一致，只更新有效日线。
+                .eq(AssetPriceDaily::getDeleted, 0)
                 .last("LIMIT 1"));
         if (exists == null) {
             assetPriceDailyMapper.insert(daily);
@@ -152,16 +171,24 @@ public class AssetPriceDailyAggregateJob {
         }
         daily.setId(exists.getId());
         assetPriceDailyMapper.update(daily, new LambdaUpdateWrapper<AssetPriceDaily>()
-                .eq(AssetPriceDaily::getId, exists.getId()));
+                .eq(AssetPriceDaily::getId, exists.getId())
+                .eq(AssetPriceDaily::getDeleted, 0));
     }
 
     private Set<Long> activeHoldingAssetIds() {
-        return holdingMapper.selectList(new LambdaQueryWrapper<Holding>()
-                        .select(Holding::getAssetId)
+        Set<Long> assetIds = holdingMapper.selectList(new LambdaQueryWrapper<Holding>()
                         .eq(Holding::getStatus, 1)
                         .gt(Holding::getQuantity, 0))
                 .stream()
                 .map(Holding::getAssetId)
+                .collect(Collectors.toSet());
+        if (assetIds.isEmpty()) {
+            return Set.of();
+        }
+        // Redis 原始快照只承载股票和虚拟货币；基金净值由基金刷新直接写 current/daily，不参与 Redis 聚合。
+        return assetMapper.selectBatchIds(assetIds).stream()
+                .filter(asset -> ASSET_TYPE_STOCK.equals(asset.getType()) || ASSET_TYPE_CRYPTO.equals(asset.getType()))
+                .map(Asset::getId)
                 .collect(Collectors.toSet());
     }
 

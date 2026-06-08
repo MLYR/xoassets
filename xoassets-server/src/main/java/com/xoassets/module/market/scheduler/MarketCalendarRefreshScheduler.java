@@ -1,6 +1,7 @@
 package com.xoassets.module.market.scheduler;
 
 import com.xoassets.module.market.service.MarketCalendarService;
+import jakarta.annotation.PostConstruct;
 import java.time.LocalDate;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -22,11 +23,22 @@ public class MarketCalendarRefreshScheduler {
     }
 
     /**
+     * 应用启动时先补当前年和下一年基础日历，避免全新库等到下一次年度定时任务前没有交易日数据。
+     */
+    @PostConstruct
+    public void initializeCurrentCalendars() {
+        refreshCalendar(LocalDate.now().getYear());
+    }
+
+    /**
      * 每年 1 月 1 日补齐当年和下一年的基础日历，春节等交易所休市日以后续修正数据覆盖。
      */
     @Scheduled(cron = "${xoassets.market-calendar.yearly-refresh-cron:0 5 0 1 1 ?}")
     public void refreshYearlyCalendar() {
-        int year = LocalDate.now().getYear();
+        refreshCalendar(LocalDate.now().getYear());
+    }
+
+    private void refreshCalendar(int year) {
         try {
             marketCalendarService.ensureYearInitialized(MARKET_A_SHARE, year);
             marketCalendarService.ensureYearInitialized(MARKET_A_SHARE, year + 1);

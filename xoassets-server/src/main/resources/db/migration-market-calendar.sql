@@ -1,4 +1,6 @@
 -- 市场交易日历表；基金确认日等交易日判断统一读取该表。
+USE xoassets;
+
 CREATE TABLE IF NOT EXISTS xo_market_calendar (
   id BIGINT PRIMARY KEY COMMENT '日历ID',
   market VARCHAR(30) NOT NULL COMMENT '市场：A_SHARE 港股/美股后续扩展',

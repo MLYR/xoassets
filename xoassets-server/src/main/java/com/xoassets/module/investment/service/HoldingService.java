@@ -35,7 +35,7 @@ public interface HoldingService {
     HoldingSummaryVO summary();
 
     /**
-     * 查询投资总览，拆分今日收益和昨日收益的资产范围。
+     * 查询投资总览，今日收益按今日有效价格动态汇总。
      */
     InvestmentOverviewVO overview();
 

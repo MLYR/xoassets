@@ -16,7 +16,9 @@ public class InvestmentModuleAssetVO {
     private BigDecimal assetAmount;
     private BigDecimal assetRatio;
     private String primaryProfitLabel;
+    private Boolean primaryProfitAvailable;
     private BigDecimal primaryProfitAmount;
+    private String primaryProfitStatusLabel;
     private BigDecimal holdingProfit;
     private BigDecimal holdingProfitRate;
     private Integer holdingCount;

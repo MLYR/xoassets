@@ -7,14 +7,12 @@ import com.xoassets.module.budget.vo.BudgetSummaryVO;
 import com.xoassets.module.dashboard.service.DashboardService;
 import com.xoassets.module.dashboard.vo.DashboardOverviewVO;
 import com.xoassets.module.investment.service.HoldingService;
-import com.xoassets.module.investment.service.InvestmentTransactionService;
-import com.xoassets.module.investment.vo.HoldingVO;
-import com.xoassets.module.transaction.dto.TransactionQuery;
-import com.xoassets.module.transaction.service.TransactionService;
-import com.xoassets.module.transaction.vo.TransactionVO;
+import com.xoassets.module.investment.vo.InvestmentOverviewVO;
 import com.xoassets.persistence.entity.Account;
+import com.xoassets.persistence.entity.InvestmentTransaction;
 import com.xoassets.persistence.entity.TransactionRecord;
 import com.xoassets.persistence.mapper.AccountMapper;
+import com.xoassets.persistence.mapper.InvestmentTransactionMapper;
 import com.xoassets.persistence.mapper.TransactionRecordMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -26,30 +24,27 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 /**
- * 首页服务：提供 MVP 仪表盘所需的汇总指标和最近流水。
+ * 首页服务：提供 MVP 仪表盘所需的汇总指标。
  */
 @Service
 public class DashboardServiceImpl implements DashboardService {
 
     private final AccountMapper accountMapper;
     private final TransactionRecordMapper transactionRecordMapper;
-    private final TransactionService transactionService;
+    private final InvestmentTransactionMapper investmentTransactionMapper;
     private final HoldingService holdingService;
-    private final InvestmentTransactionService investmentTransactionService;
     private final BudgetService budgetService;
 
     public DashboardServiceImpl(
             AccountMapper accountMapper,
             TransactionRecordMapper transactionRecordMapper,
-            TransactionService transactionService,
+            InvestmentTransactionMapper investmentTransactionMapper,
             HoldingService holdingService,
-            InvestmentTransactionService investmentTransactionService,
             BudgetService budgetService) {
         this.accountMapper = accountMapper;
         this.transactionRecordMapper = transactionRecordMapper;
-        this.transactionService = transactionService;
+        this.investmentTransactionMapper = investmentTransactionMapper;
         this.holdingService = holdingService;
-        this.investmentTransactionService = investmentTransactionService;
         this.budgetService = budgetService;
     }
 
@@ -63,16 +58,24 @@ public class DashboardServiceImpl implements DashboardService {
         YearMonth previousMonth = targetMonth.minusMonths(1);
 
         AccountAssetSummary accountSummary = accountAssetSummary(userId);
-        List<HoldingVO> holdings = holdingService.list();
-        BigDecimal investmentMarketValue = holdings.stream().map(HoldingVO::getMarketValue).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal investmentFloatingProfit = holdings.stream().map(HoldingVO::getFloatingProfit).reduce(BigDecimal.ZERO, BigDecimal::add);
+        InvestmentOverviewVO investmentOverview = holdingService.overview();
+        // 首页投资指标直接复用投资模块总览，确保“今日盈亏”和投资页今日收益同源同口径。
+        BigDecimal investmentMarketValue = nullToZero(investmentOverview.getTotalInvestmentAsset());
+        BigDecimal investmentFloatingProfit = nullToZero(investmentOverview.getHoldingProfit());
+        // 首页“投资盈亏(总)”展示投资总收益：已实现卖出收益 + 当前持仓浮动收益。
+        BigDecimal investmentTotalProfit = investmentFloatingProfit.add(realizedInvestmentProfit(userId, LocalDate.now()));
+        BigDecimal investmentTodayProfit = investmentOverview.getTodayProfit();
         BigDecimal totalAssets = accountSummary.cashAsset().add(investmentMarketValue);
         BigDecimal netAssets = totalAssets.subtract(accountSummary.liability());
         BigDecimal budgetUsageRate = safeBudgetUsageRate(targetMonth);
 
         BigDecimal monthlyIncome = sumIncome(userId, targetMonth);
         BigDecimal monthlyExpense = sumExpense(userId, targetMonth);
+        BigDecimal todayIncome = sumIncome(userId, LocalDate.now());
         BigDecimal todayExpense = sumExpense(userId, LocalDate.now());
+        BigDecimal yesterdayIncome = sumIncome(userId, LocalDate.now().minusDays(1));
+        BigDecimal yesterdayExpense = sumExpense(userId, LocalDate.now().minusDays(1));
+        BigDecimal todayBalance = todayIncome.subtract(todayExpense);
         BigDecimal monthlyBalance = monthlyIncome.subtract(monthlyExpense);
 
         BigDecimal previousIncome = sumIncome(userId, previousMonth);
@@ -82,31 +85,28 @@ public class DashboardServiceImpl implements DashboardService {
         return DashboardOverviewVO.builder()
                 .totalAssets(totalAssets)
                 .netAssets(netAssets)
+                .todayIncome(todayIncome)
                 .todayExpense(todayExpense)
+                .yesterdayIncome(yesterdayIncome)
+                .yesterdayExpense(yesterdayExpense)
                 .monthlyIncome(monthlyIncome)
                 .monthlyExpense(monthlyExpense)
+                .todayBalance(todayBalance)
                 .monthlyBalance(monthlyBalance)
+                .todayBalanceRateByIncome(balanceRate(todayBalance, todayIncome))
+                .todayBalanceRateByExpense(balanceRate(todayBalance, todayExpense))
+                .monthlyBalanceRateByIncome(balanceRate(monthlyBalance, monthlyIncome))
+                .monthlyBalanceRateByExpense(balanceRate(monthlyBalance, monthlyExpense))
                 .investmentMarketValue(investmentMarketValue)
                 .investmentFloatingProfit(investmentFloatingProfit)
+                .investmentTotalProfit(investmentTotalProfit)
+                .investmentTodayProfit(investmentTodayProfit)
                 .budgetUsageRate(budgetUsageRate)
-                .assetTrendRate(BigDecimal.ZERO)
+                .assetTrendRate(null)
                 .incomeTrendRate(rate(monthlyIncome, previousIncome))
                 .expenseTrendRate(rate(monthlyExpense, previousExpense))
                 .balanceTrendRate(rate(monthlyBalance, previousBalance))
-                .recentTransactions(recentTransactions(5))
-                .recentInvestmentTransactions(investmentTransactionService.list(null).stream().limit(5).toList())
                 .build();
-    }
-
-    /**
-     * 查询最近流水，限制 limit 防止首页一次性拉取过多数据。
-     */
-    @Override
-    public List<TransactionVO> recentTransactions(int limit) {
-        TransactionQuery query = new TransactionQuery();
-        query.setPageNo(1);
-        query.setPageSize(Math.max(1, Math.min(limit, 20)));
-        return transactionService.page(query).getRecords();
     }
 
     /**
@@ -154,6 +154,33 @@ public class DashboardServiceImpl implements DashboardService {
                 .map(TransactionRecord::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         return expense.subtract(refund).max(BigDecimal.ZERO);
+    }
+
+    /**
+     * 统计指定用户某日收入。
+     */
+    private BigDecimal sumIncome(Long userId, LocalDate date) {
+        return transactionRecordMapper.selectList(dayWrapper(userId, date)
+                        .eq(TransactionRecord::getType, "INCOME"))
+                .stream()
+                .map(TransactionRecord::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /**
+     * 统计截至指定日期已实现投资收益，只取正常/已确认卖出，撤销交易不参与首页总收益。
+     */
+    private BigDecimal realizedInvestmentProfit(Long userId, LocalDate date) {
+        LocalDateTime end = date.atTime(LocalTime.MAX);
+        return investmentTransactionMapper.selectList(new LambdaQueryWrapper<InvestmentTransaction>()
+                        .eq(InvestmentTransaction::getUserId, userId)
+                        .eq(InvestmentTransaction::getType, "SELL")
+                        .in(InvestmentTransaction::getStatus, "NORMAL", "CONFIRMED")
+                        .le(InvestmentTransaction::getTransactionTime, end))
+                .stream()
+                .map(InvestmentTransaction::getRealizedProfit)
+                .filter(value -> value != null)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     /**
@@ -205,15 +232,32 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     /**
-     * 计算环比百分比；上期为 0 时返回 0，避免除零和误导性无穷大。
+     * 计算环比百分比；上期为 0 时返回 null，让前端展示 --，避免把缺失基准冒充成 0。
      */
     private BigDecimal rate(BigDecimal current, BigDecimal previous) {
         if (previous == null || previous.compareTo(BigDecimal.ZERO) == 0) {
-            return BigDecimal.ZERO;
+            return null;
         }
         return current.subtract(previous)
                 .multiply(BigDecimal.valueOf(100))
                 .divide(previous.abs(), 4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 盈亏率支持收入和支出两个分母；分母为 0 时返回 null，让前端展示 --。
+     */
+    private BigDecimal balanceRate(BigDecimal balance, BigDecimal denominator) {
+        if (balance == null || denominator == null || denominator.compareTo(BigDecimal.ZERO) == 0) {
+            return null;
+        }
+        return balance.multiply(BigDecimal.valueOf(100)).divide(denominator.abs(), 4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 投资模块部分字段允许为 null，首页资产总额计算时统一按 0 兜底。
+     */
+    private BigDecimal nullToZero(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 
     /**

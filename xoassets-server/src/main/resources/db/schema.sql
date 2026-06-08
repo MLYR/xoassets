@@ -55,22 +55,6 @@ CREATE TABLE IF NOT EXISTS xo_account_balance_adjustment (
   KEY idx_account_created (account_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='账户余额修正表';
 
-CREATE TABLE IF NOT EXISTS xo_account_daily_balance_snapshot (
-  id BIGINT PRIMARY KEY COMMENT 'ID',
-  user_id BIGINT NOT NULL COMMENT '用户ID',
-  account_id BIGINT NOT NULL COMMENT '账户ID',
-  snapshot_date DATE NOT NULL COMMENT '快照日期',
-  end_balance DECIMAL(18,4) NOT NULL COMMENT '日终余额',
-  inflow_amount DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '当日流入',
-  outflow_amount DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '当日流出',
-  adjustment_amount DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '当日修正额',
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除：0否 1是',
-  UNIQUE KEY uk_account_date (account_id, snapshot_date, deleted),
-  KEY idx_user_account_date (user_id, account_id, snapshot_date)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='账户日余额快照表';
-
 CREATE TABLE IF NOT EXISTS xo_category (
   id BIGINT PRIMARY KEY COMMENT '分类ID',
   user_id BIGINT NOT NULL COMMENT '用户ID',
@@ -182,25 +166,6 @@ CREATE TABLE IF NOT EXISTS xo_investment_transaction (
   KEY idx_user_account_time (user_id, account_id, transaction_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='投资交易流水表';
 
-CREATE TABLE IF NOT EXISTS xo_asset_price (
-  id BIGINT PRIMARY KEY COMMENT '价格ID',
-  asset_id BIGINT NOT NULL COMMENT '资产ID',
-  price DECIMAL(28,8) NOT NULL COMMENT '价格，低单价虚拟货币需要保留更多展示精度',
-  currency VARCHAR(10) NOT NULL DEFAULT 'CNY' COMMENT '币种',
-  previous_close DECIMAL(28,8) DEFAULT NULL COMMENT '昨收价或上一交易日价格',
-  change_amount DECIMAL(28,8) DEFAULT NULL COMMENT '本次行情涨跌额',
-  change_percent DECIMAL(18,4) DEFAULT NULL COMMENT '本次行情涨跌幅百分比',
-  source VARCHAR(30) NOT NULL COMMENT '行情来源：MANUAL COINGECKO EASTMONEY SINA YAHOO ALPHA_VANTAGE TUSHARE AKSHARE',
-  quote_time DATETIME NOT NULL COMMENT '报价时间',
-  market_status VARCHAR(30) DEFAULT NULL COMMENT '市场状态：OPEN CLOSED UNKNOWN',
-  raw_json TEXT DEFAULT NULL COMMENT '行情原文',
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除：0否 1是',
-  KEY idx_asset_time (asset_id, quote_time),
-  KEY idx_source_time (source, quote_time)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='资产价格快照表';
-
 CREATE TABLE IF NOT EXISTS xo_asset_price_current (
   asset_id BIGINT PRIMARY KEY COMMENT '资产ID',
   price DECIMAL(28,8) NOT NULL COMMENT '最新价格',
@@ -285,10 +250,10 @@ CREATE TABLE IF NOT EXISTS xo_asset_snapshot (
   investment_cost DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '投资持仓成本',
   investment_profit DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '投资浮动盈亏',
   investment_profit_rate DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '投资收益率百分比',
-  monthly_income DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '当月普通收入',
-  monthly_expense DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '当月普通支出',
-  monthly_balance DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '当月结余',
-  budget_used_amount DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '预算已使用金额',
+  monthly_income DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '截至快照日的当月普通收入',
+  monthly_expense DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '截至快照日的当月普通支出',
+  monthly_balance DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '截至快照日的当月结余',
+  budget_used_amount DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '截至快照日的预算已使用金额',
   budget_total_amount DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '预算总金额',
   budget_usage_rate DECIMAL(18,4) NOT NULL DEFAULT 0 COMMENT '预算使用率百分比',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',

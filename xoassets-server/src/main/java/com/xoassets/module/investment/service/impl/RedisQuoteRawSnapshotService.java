@@ -25,7 +25,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class RedisQuoteRawSnapshotService implements QuoteRawSnapshotService {
 
-    private static final Duration SNAPSHOT_TTL = Duration.ofDays(35);
+    private static final Duration SNAPSHOT_TTL = Duration.ofDays(3);
     private static final DateTimeFormatter MONTH_FORMATTER = DateTimeFormatter.ofPattern("yyyyMM");
     private static final ZoneId ZONE_ID = ZoneId.systemDefault();
 

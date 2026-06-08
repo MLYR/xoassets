@@ -2,7 +2,7 @@ package com.xoassets.module.investment.service;
 
 import com.xoassets.module.investment.dto.ManualQuoteRequest;
 import com.xoassets.module.investment.vo.AssetPriceVO;
-import com.xoassets.persistence.entity.AssetPrice;
+import com.xoassets.persistence.entity.AssetPriceCurrent;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -35,5 +35,5 @@ public interface QuoteService {
     /**
      * 批量查询每个资产的最近价格。
      */
-    Map<Long, AssetPrice> latestPriceMap(Collection<Long> assetIds);
+    Map<Long, AssetPriceCurrent> latestPriceMap(Collection<Long> assetIds);
 }

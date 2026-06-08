@@ -9,7 +9,7 @@ import java.util.List;
 public interface QuoteRawSnapshotService {
 
     /**
-     * 写入单条原始行情快照，并给所在月份 key 设置 35 天 TTL。
+     * 写入单条原始行情快照，并给所在月份 key 设置 3 天 TTL。
      */
     void append(QuoteRawSnapshot snapshot);
 

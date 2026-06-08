@@ -1,4 +1,6 @@
 -- 投资行情分层改造：MySQL 存当前价/日级价/用户投资日快照，Redis 存短期原始快照。
+USE xoassets;
+
 CREATE TABLE IF NOT EXISTS xo_asset_price_current (
   asset_id BIGINT PRIMARY KEY COMMENT '资产ID',
   price DECIMAL(28,8) NOT NULL COMMENT '最新价格',
