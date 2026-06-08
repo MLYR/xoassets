@@ -61,7 +61,7 @@ public class InvestmentPositionHistoryServiceImpl implements InvestmentPositionH
                 .filter(this::isEffective)
                 .filter(transaction -> !effectiveDate(transaction).isAfter(date))
                 .forEach(transaction -> applyTransaction(positions, transaction));
-        addManualHoldingsWithoutTransactions(userId, date, positions);
+        addManualBaseHoldings(userId, date, positions);
         return positions.entrySet().stream()
                 .filter(entry -> entry.getValue().quantity.compareTo(BigDecimal.ZERO) > 0)
                 .collect(Collectors.toMap(
@@ -141,21 +141,45 @@ public class InvestmentPositionHistoryServiceImpl implements InvestmentPositionH
         }
     }
 
-    private void addManualHoldingsWithoutTransactions(Long userId, LocalDate date, Map<Long, PositionAccumulator> positions) {
-        Set<Long> transactionHoldingIds = positions.keySet();
-        holdingMapper.selectList(new LambdaQueryWrapper<Holding>()
+    private void addManualBaseHoldings(Long userId, LocalDate date, Map<Long, PositionAccumulator> positions) {
+        var holdings = holdingMapper.selectList(new LambdaQueryWrapper<Holding>()
                         .eq(Holding::getUserId, userId)
                         .eq(Holding::getStatus, 1)
-                        .le(Holding::getCreatedAt, date.atTime(LocalTime.MAX)))
+                        .le(Holding::getCreatedAt, date.atTime(LocalTime.MAX)));
+        if (holdings == null || holdings.isEmpty()) {
+            return;
+        }
+        Set<Long> holdingIds = holdings.stream().map(Holding::getId).collect(Collectors.toSet());
+        Map<Long, PositionAccumulator> transactionDeltas = allTransactionDeltas(userId, holdingIds);
+        holdings.forEach(holding -> {
+            PositionAccumulator delta = transactionDeltas.getOrDefault(holding.getId(), new PositionAccumulator(holding.getAssetId()));
+            BigDecimal baseQuantity = scaleQuantity(holding.getQuantity()).subtract(delta.quantity).max(BigDecimal.ZERO).setScale(10, RoundingMode.HALF_UP);
+            BigDecimal baseCost = scale4(holding.getTotalCost()).subtract(delta.totalCost).max(BigDecimal.ZERO).setScale(4, RoundingMode.HALF_UP);
+            if (baseQuantity.compareTo(BigDecimal.ZERO) <= 0 && baseCost.compareTo(BigDecimal.ZERO) <= 0) {
+                return;
+            }
+            PositionAccumulator state = positions.computeIfAbsent(holding.getId(), key -> new PositionAccumulator(holding.getAssetId()));
+            // 有后续交易的手工底仓也必须作为历史起点，否则追加买入确认后会把原始底仓从快照里排除。
+            state.quantity = state.quantity.add(baseQuantity).setScale(10, RoundingMode.HALF_UP);
+            state.totalCost = state.totalCost.add(baseCost).setScale(4, RoundingMode.HALF_UP);
+            state.assetId = holding.getAssetId();
+        });
+    }
+
+    private Map<Long, PositionAccumulator> allTransactionDeltas(Long userId, Set<Long> holdingIds) {
+        if (holdingIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, PositionAccumulator> deltas = new LinkedHashMap<>();
+        transactionMapper.selectList(new LambdaQueryWrapper<InvestmentTransaction>()
+                        .eq(InvestmentTransaction::getUserId, userId)
+                        .in(InvestmentTransaction::getHoldingId, holdingIds)
+                        .orderByAsc(InvestmentTransaction::getTransactionTime)
+                        .orderByAsc(InvestmentTransaction::getId))
                 .stream()
-                .filter(holding -> !transactionHoldingIds.contains(holding.getId()))
-                // 手工初始化持仓没有历史流水，只能按创建时的当前状态作为历史起点。
-                .forEach(holding -> {
-                    PositionAccumulator state = new PositionAccumulator(holding.getAssetId());
-                    state.quantity = scaleQuantity(holding.getQuantity());
-                    state.totalCost = scale4(holding.getTotalCost());
-                    positions.put(holding.getId(), state);
-                });
+                .filter(this::isEffective)
+                .forEach(transaction -> applyTransaction(deltas, transaction));
+        return deltas;
     }
 
     private boolean isEffective(InvestmentTransaction transaction) {

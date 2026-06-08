@@ -461,6 +461,34 @@ class MvpCoreServiceTest {
     }
 
     @Test
+    void investmentPositionHistoryShouldKeepManualBaseWhenHoldingHasFundBuyTransaction() {
+        HoldingMapper holdingMapper = mock(HoldingMapper.class);
+        InvestmentTransactionMapper transactionMapper = mock(InvestmentTransactionMapper.class);
+        InvestmentDailySnapshotMapper dailySnapshotMapper = mock(InvestmentDailySnapshotMapper.class);
+        InvestmentPositionHistoryServiceImpl service = new InvestmentPositionHistoryServiceImpl(holdingMapper, transactionMapper, dailySnapshotMapper);
+        Holding holding = holding(1L, USER_ID, 10L, "120.0000", "10.0000", "1200.0000");
+        holding.setCreatedAt(LocalDateTime.of(2026, 6, 1, 10, 0));
+        InvestmentTransaction fundBuy = investmentRecord(1L, "BUY", "20.0000", "10.0000", "200.0000", "0.0000", "200.0000");
+        fundBuy.setInputMode("AMOUNT_NAV");
+        fundBuy.setStatus("CONFIRMED");
+        fundBuy.setTransactionTime(LocalDateTime.of(2026, 6, 4, 9, 30));
+        fundBuy.setConfirmedDate(LocalDate.of(2026, 6, 8));
+
+        when(transactionMapper.selectList(any())).thenReturn(List.of(fundBuy));
+        when(holdingMapper.selectList(any())).thenReturn(List.of(holding));
+        when(dailySnapshotMapper.selectList(any())).thenReturn(List.of());
+
+        InvestmentPositionState beforeConfirm = service.positionsAt(USER_ID, LocalDate.of(2026, 6, 4)).get(1L);
+        InvestmentPositionState afterConfirm = service.positionsAt(USER_ID, LocalDate.of(2026, 6, 8)).get(1L);
+
+        // 手工初始化底仓不能因为同持仓后续有基金金额买入流水而从历史快照中消失。
+        assertEquals(bd("100.0000000000"), beforeConfirm.quantity());
+        assertEquals(bd("1000.0000"), beforeConfirm.totalCost());
+        assertEquals(bd("120.0000000000"), afterConfirm.quantity());
+        assertEquals(bd("1200.0000"), afterConfirm.totalCost());
+    }
+
+    @Test
     void confirmedFundBuyShouldKeepTenDecimalQuantity() {
         Holding holding = holding(1L, USER_ID, 10L, "0.0000", "0.0000", "0.0000");
         HoldingMapper holdingMapper = mock(HoldingMapper.class);
@@ -530,8 +558,9 @@ class MvpCoreServiceTest {
 
         when(assetService.findAsset(10L)).thenReturn(fund);
         when(accountService.findOwnedAccount(1L, USER_ID)).thenReturn(account);
+        when(confirmDateService.effectiveTradeDate(fund, request.getTransactionTime())).thenReturn(LocalDate.of(2026, 6, 4));
         when(confirmDateService.confirmedDate(fund, request.getTransactionTime())).thenReturn(LocalDate.of(2026, 6, 8));
-        when(dailyMapper.selectOne(any())).thenReturn(dailyPrice(10L, LocalDate.of(2026, 6, 8), "1.25000000", "CNY"));
+        when(dailyMapper.selectOne(any())).thenReturn(dailyPrice(10L, LocalDate.of(2026, 6, 4), "1.25000000", "CNY"));
         when(holdingService.applyConfirmedBuy(any(), any(), any(), any(), any())).thenReturn(new com.xoassets.module.investment.service.HoldingTradeResult(holding, null, null));
 
         service.create(request);
@@ -539,7 +568,7 @@ class MvpCoreServiceTest {
         ArgumentCaptor<InvestmentTransaction> captor = ArgumentCaptor.forClass(InvestmentTransaction.class);
         verify(transactionMapper).insert(captor.capture());
         InvestmentTransaction inserted = captor.getValue();
-        // 基金确认必须优先用日级净值表，避免 current 表的最新价覆盖历史确认日净值。
+        // 基金份额按有效申请日净值确认，确认日期只作为到账/状态日期保存。
         assertEquals("CONFIRMED", inserted.getStatus());
         assertEquals(bd("1.250000"), inserted.getConfirmedNav());
         assertEquals(LocalDate.of(2026, 6, 8), inserted.getConfirmedDate());
@@ -550,20 +579,25 @@ class MvpCoreServiceTest {
     }
 
     @Test
-    void pendingFundBuyShouldConfirmWithCurrentPriceOnlyWhenQuoteDateMatchesConfirmedDate() {
+    void pendingFundBuyShouldConfirmWithCurrentPriceOnlyWhenQuoteDateMatchesEffectiveTradeDate() {
         InvestmentTransactionMapper transactionMapper = mock(InvestmentTransactionMapper.class);
+        AssetMapper assetMapper = mock(AssetMapper.class);
         AssetPriceDailyMapper dailyMapper = mock(AssetPriceDailyMapper.class);
         AssetPriceCurrentMapper currentMapper = mock(AssetPriceCurrentMapper.class);
+        FundConfirmDateService confirmDateService = mock(FundConfirmDateService.class);
         HoldingService holdingService = mock(HoldingService.class);
         SnapshotService snapshotService = mock(SnapshotService.class);
         InvestmentDailySnapshotJob investmentDailySnapshotJob = mock(InvestmentDailySnapshotJob.class);
         InvestmentTransactionServiceImpl service = new InvestmentTransactionServiceImpl(
-                transactionMapper, mock(AssetMapper.class), dailyMapper, currentMapper, mock(AccountMapper.class),
-                mock(AssetService.class), mock(FundConfirmDateService.class), holdingService, mock(AccountService.class), snapshotService, investmentDailySnapshotJob);
+                transactionMapper, assetMapper, dailyMapper, currentMapper, mock(AccountMapper.class),
+                mock(AssetService.class), confirmDateService, holdingService, mock(AccountService.class), snapshotService, investmentDailySnapshotJob);
         InvestmentTransaction pending = pendingFundBuy(LocalDate.of(2026, 6, 8));
-        AssetPriceCurrent current = price(10L, "1.30000000", "CNY", LocalDateTime.of(2026, 6, 8, 21, 30));
+        Asset fund = asset(10L, "FUND-A", "QDII 基金", "FUND", "CNY");
+        AssetPriceCurrent current = price(10L, "1.30000000", "CNY", LocalDateTime.of(2026, 6, 4, 21, 30));
 
         when(transactionMapper.selectList(any())).thenReturn(List.of(pending));
+        when(assetMapper.selectById(10L)).thenReturn(fund);
+        when(confirmDateService.effectiveTradeDate(fund, pending.getTransactionTime())).thenReturn(LocalDate.of(2026, 6, 4));
         when(dailyMapper.selectOne(any())).thenReturn(null);
         when(currentMapper.selectById(10L)).thenReturn(current);
         when(transactionMapper.update(any(), any())).thenReturn(1);
@@ -574,7 +608,7 @@ class MvpCoreServiceTest {
         ArgumentCaptor<InvestmentTransaction> captor = ArgumentCaptor.forClass(InvestmentTransaction.class);
         verify(transactionMapper).update(captor.capture(), any());
         InvestmentTransaction updated = captor.getValue();
-        // current 只能作为“同确认日净值已入 current、daily 尚未聚合”的短暂兜底。
+        // current 只能作为“有效申请日净值已入 current、daily 尚未聚合”的短暂兜底。
         assertEquals("CONFIRMED", updated.getStatus());
         assertEquals(bd("1.300000"), updated.getConfirmedNav());
         verify(holdingService).applyConfirmedBuy(eq(USER_ID), eq(1L), eq(10L), any(), eq(bd("1000.0000")));
@@ -587,22 +621,27 @@ class MvpCoreServiceTest {
     @Test
     void pendingFundBuyShouldIgnoreStaleCurrentPriceAndRemainPending() {
         InvestmentTransactionMapper transactionMapper = mock(InvestmentTransactionMapper.class);
+        AssetMapper assetMapper = mock(AssetMapper.class);
         AssetPriceDailyMapper dailyMapper = mock(AssetPriceDailyMapper.class);
         AssetPriceCurrentMapper currentMapper = mock(AssetPriceCurrentMapper.class);
+        FundConfirmDateService confirmDateService = mock(FundConfirmDateService.class);
         HoldingService holdingService = mock(HoldingService.class);
         InvestmentTransactionServiceImpl service = new InvestmentTransactionServiceImpl(
-                transactionMapper, mock(AssetMapper.class), dailyMapper, currentMapper, mock(AccountMapper.class),
-                mock(AssetService.class), mock(FundConfirmDateService.class), holdingService, mock(AccountService.class), mock(SnapshotService.class), mock(InvestmentDailySnapshotJob.class));
+                transactionMapper, assetMapper, dailyMapper, currentMapper, mock(AccountMapper.class),
+                mock(AssetService.class), confirmDateService, holdingService, mock(AccountService.class), mock(SnapshotService.class), mock(InvestmentDailySnapshotJob.class));
         InvestmentTransaction pending = pendingFundBuy(LocalDate.of(2026, 6, 8));
+        Asset fund = asset(10L, "FUND-A", "QDII 基金", "FUND", "CNY");
         AssetPriceCurrent staleCurrent = price(10L, "1.30000000", "CNY", LocalDateTime.of(2026, 6, 7, 21, 30));
 
         when(transactionMapper.selectList(any())).thenReturn(List.of(pending));
+        when(assetMapper.selectById(10L)).thenReturn(fund);
+        when(confirmDateService.effectiveTradeDate(fund, pending.getTransactionTime())).thenReturn(LocalDate.of(2026, 6, 4));
         when(dailyMapper.selectOne(any())).thenReturn(null);
         when(currentMapper.selectById(10L)).thenReturn(staleCurrent);
 
         service.confirmPendingFundBuys();
 
-        // 确认日不匹配时不能拿 current 表旧净值冒充确认净值，交易继续待确认。
+        // 有效申请日不匹配时不能拿 current 表旧净值冒充确认净值，交易继续待确认。
         verify(transactionMapper, never()).update(any(), any());
         verify(holdingService, never()).applyConfirmedBuy(any(), any(), any(), any(), any());
     }
@@ -673,18 +712,20 @@ class MvpCoreServiceTest {
         HoldingMapper holdingMapper = mock(HoldingMapper.class);
         AssetMapper assetMapper = mock(AssetMapper.class);
         AssetPriceDailyMapper assetPriceDailyMapper = mock(AssetPriceDailyMapper.class);
+        MarketCalendarMapper marketCalendarMapper = mock(MarketCalendarMapper.class);
         QuoteService quoteService = mock(QuoteService.class);
         HoldingServiceImpl service = new HoldingServiceImpl(
                 holdingMapper, assetMapper, mock(AssetPriceCurrentMapper.class), assetPriceDailyMapper,
-                mock(InvestmentDailySnapshotMapper.class), mock(InvestmentTransactionMapper.class), mock(MarketCalendarMapper.class), mock(AccountMapper.class), mock(AssetService.class), mock(InvestmentPositionHistoryService.class), quoteService);
+                mock(InvestmentDailySnapshotMapper.class), mock(InvestmentTransactionMapper.class), marketCalendarMapper, mock(AccountMapper.class), mock(AssetService.class), mock(InvestmentPositionHistoryService.class), quoteService);
 
         when(holdingMapper.selectList(any())).thenReturn(List.of(holding));
         when(assetMapper.selectBatchIds(Set.of(10L))).thenReturn(List.of(asset(10L, "FUND-A", "基金 A", "FUND", "CNY")));
         when(quoteService.latestPriceMap(Set.of(10L))).thenReturn(Map.of(10L, price(10L, "11.00000000", "CNY", LocalDateTime.now().minusDays(1))));
         when(assetPriceDailyMapper.selectList(any())).thenReturn(List.of(dailyPrice(10L, LocalDate.now().minusDays(1), "10.00000000", "CNY")));
+        when(marketCalendarMapper.selectList(any())).thenReturn(List.of(marketCalendar(LocalDate.now().minusDays(1), true, "MANUAL")));
 
         InvestmentOverviewVO overview = service.overview();
-        // 今日净值未更新时总览和模块卡都返回 null，让 Web 显示 -- 而不是 ¥0.0000。
+        // 旧净值没有映射到今天展示时，总览和模块卡都返回 null，让 Web 显示 -- 而不是 ¥0.0000。
         assertEquals(false, overview.getTodayProfitAvailable());
         assertEquals(null, overview.getTodayProfit());
         assertEquals("今日净值未更新", overview.getTodayProfitStatusLabel());
@@ -726,18 +767,20 @@ class MvpCoreServiceTest {
         HoldingMapper holdingMapper = mock(HoldingMapper.class);
         AssetMapper assetMapper = mock(AssetMapper.class);
         AssetPriceDailyMapper assetPriceDailyMapper = mock(AssetPriceDailyMapper.class);
+        MarketCalendarMapper marketCalendarMapper = mock(MarketCalendarMapper.class);
         QuoteService quoteService = mock(QuoteService.class);
         HoldingServiceImpl service = new HoldingServiceImpl(
                 holdingMapper, assetMapper, mock(AssetPriceCurrentMapper.class), assetPriceDailyMapper,
-                mock(InvestmentDailySnapshotMapper.class), mock(InvestmentTransactionMapper.class), mock(MarketCalendarMapper.class), mock(AccountMapper.class), mock(AssetService.class), mock(InvestmentPositionHistoryService.class), quoteService);
+                mock(InvestmentDailySnapshotMapper.class), mock(InvestmentTransactionMapper.class), marketCalendarMapper, mock(AccountMapper.class), mock(AssetService.class), mock(InvestmentPositionHistoryService.class), quoteService);
 
         when(holdingMapper.selectList(any())).thenReturn(List.of(holding));
         when(assetMapper.selectBatchIds(Set.of(10L))).thenReturn(List.of(asset(10L, "FUND-A", "基金 A", "FUND", "CNY")));
         when(quoteService.latestPriceMap(Set.of(10L))).thenReturn(Map.of(10L, price(10L, "11.00000000", "CNY", LocalDateTime.now().minusDays(1))));
         when(assetPriceDailyMapper.selectList(any())).thenReturn(List.of(dailyPrice(10L, LocalDate.now().minusDays(1), "10.00000000", "CNY")));
+        when(marketCalendarMapper.selectList(any())).thenReturn(List.of(marketCalendar(LocalDate.now().minusDays(1), true, "MANUAL")));
 
         HoldingSummaryVO summary = service.summary();
-        // 持仓汇总接口同样不能把今日净值未更新展示成 0。
+        // 持仓汇总接口同样不能把未映射到今天的旧净值展示成 0。
         assertEquals(false, summary.getTodayProfitAvailable());
         assertEquals(null, summary.getTodayProfit());
     }
@@ -1045,6 +1088,39 @@ class MvpCoreServiceTest {
         assertEquals(false, vo.getTodayPriceAvailable());
         assertEquals(null, vo.getTodayProfit());
         assertEquals("TODAY_PRICE_NOT_AVAILABLE", vo.getPriceStatus());
+    }
+
+    @Test
+    void fundHoldingShouldUseNavDisplayDateForTodayProfit() {
+        LocalDate today = LocalDate.now();
+        LocalDate navDate = today.minusDays(3);
+        Holding holding = holding(1L, USER_ID, 10L, "100.0000", "10.0000", "1000.0000");
+        Asset fund = asset(10L, "FUND-A", "QDII 基金", "FUND", "CNY");
+        AssetPriceCurrent current = price(10L, "11.00000000", "CNY", navDate.atTime(15, 0));
+        current.setPreviousClose(bd("10.00000000"));
+        HoldingMapper holdingMapper = mock(HoldingMapper.class);
+        AssetMapper assetMapper = mock(AssetMapper.class);
+        AssetPriceDailyMapper assetPriceDailyMapper = mock(AssetPriceDailyMapper.class);
+        MarketCalendarMapper marketCalendarMapper = mock(MarketCalendarMapper.class);
+        QuoteService quoteService = mock(QuoteService.class);
+        HoldingServiceImpl service = new HoldingServiceImpl(
+                holdingMapper, assetMapper, mock(AssetPriceCurrentMapper.class), assetPriceDailyMapper,
+                mock(InvestmentDailySnapshotMapper.class), mock(InvestmentTransactionMapper.class), marketCalendarMapper, mock(AccountMapper.class), mock(AssetService.class), mock(InvestmentPositionHistoryService.class), quoteService);
+
+        when(holdingMapper.selectList(any())).thenReturn(List.of(holding));
+        when(assetMapper.selectBatchIds(Set.of(10L))).thenReturn(List.of(fund));
+        when(quoteService.latestPriceMap(Set.of(10L))).thenReturn(Map.of(10L, current));
+        when(assetPriceDailyMapper.selectList(any())).thenReturn(List.of(dailyPrice(10L, navDate, "11.00000000", "CNY")));
+        when(marketCalendarMapper.selectOne(any())).thenReturn(marketCalendar(today, true, "MANUAL"));
+        when(marketCalendarMapper.selectList(any())).thenReturn(List.of(marketCalendar(today, true, "MANUAL")));
+
+        HoldingVO vo = service.list().get(0);
+
+        // QDII 净值日期可能早于今天，但如果收益日历映射到今天，持仓列表今日收益也必须同步展示。
+        assertEquals(today, vo.getPriceDate().plusDays(3));
+        assertEquals(true, vo.getTodayPriceAvailable());
+        assertEquals("NORMAL", vo.getPriceStatus());
+        assertEquals(bd("100.0000"), vo.getTodayProfit());
     }
 
     @Test

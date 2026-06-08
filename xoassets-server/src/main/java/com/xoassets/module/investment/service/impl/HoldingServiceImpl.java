@@ -730,7 +730,8 @@ public class HoldingServiceImpl implements HoldingService {
                 ? BigDecimal.ZERO
                 : profit.multiply(BigDecimal.valueOf(100)).divide(holding.getTotalCost(), 4, RoundingMode.HALF_UP);
         LocalDate priceDate = matchedPrice == null || matchedPrice.getQuoteTime() == null ? null : matchedPrice.getQuoteTime().toLocalDate();
-        boolean todayPriceAvailable = todayPriceAvailable(asset, priceDate);
+        AssetMeta assetMeta = deriveAssetMeta(asset);
+        boolean todayPriceAvailable = todayPriceAvailable(asset, assetMeta, priceDate);
         // 今日收益同时返回当前份额和上一日份额两个口径，便于后续确认最终展示方案。
         BigDecimal todayProfitByCurrentQuantity = todayPriceAvailable ? priceDiffProfit(holding.getQuantity(), latestPrice, previous) : null;
         BigDecimal todayProfitBaseByCurrentQuantity = todayPriceAvailable && previous != null ? holding.getQuantity().multiply(previous).setScale(4, RoundingMode.HALF_UP) : null;
@@ -744,7 +745,6 @@ public class HoldingServiceImpl implements HoldingService {
         BigDecimal yesterdayProfitBase = beforePrevious == null || yesterdayBaselineQuantity == null ? null : yesterdayBaselineQuantity.multiply(beforePrevious).setScale(4, RoundingMode.HALF_UP);
         BigDecimal yesterdayChangeRate = changeRate(yesterdayPrevious, beforePrevious);
         BigDecimal breakEvenRate = matchedPrice == null ? null : breakEvenRate(holding.getAvgCost(), latestPrice);
-        AssetMeta assetMeta = deriveAssetMeta(asset);
         boolean marketClosedToday = marketClosedForAsset(asset, LocalDate.now());
         String priceStatus = marketClosedToday ? PRICE_STATUS_MARKET_CLOSED : todayPriceAvailable ? PRICE_STATUS_NORMAL : PRICE_STATUS_TODAY_PRICE_NOT_AVAILABLE;
         return HoldingVO.builder()
@@ -1518,12 +1518,18 @@ public class HoldingServiceImpl implements HoldingService {
     /**
      * 今日收益只允许使用今天有效价；CRYPTO 虽然不休市，也不能用昨天残留的当前价冒充今日价格。
      */
-    private boolean todayPriceAvailable(Asset asset, LocalDate priceDate) {
+    private boolean todayPriceAvailable(Asset asset, AssetMeta assetMeta, LocalDate priceDate) {
         if (asset == null || priceDate == null) {
             return false;
         }
         if (marketClosedForAsset(asset, LocalDate.now())) {
             return false;
+        }
+        if (ASSET_TYPE_FUND.equals(asset.getType())
+                && assetMeta != null
+                && (VALUATION_END_OF_DAY_NAV.equals(assetMeta.valuationMode()) || VALUATION_MONEY_FUND_YIELD.equals(assetMeta.valuationMode()))) {
+            // QDII 等基金会把较早净值延迟到今天展示；列表今日收益要和收益日历使用同一个展示日口径。
+            return LocalDate.now().equals(priceDate) || LocalDate.now().equals(calendarDisplayDate(assetMeta, priceDate));
         }
         if (ASSET_TYPE_FUND.equals(asset.getType()) || ASSET_TYPE_STOCK.equals(asset.getType())) {
             return LocalDate.now().equals(priceDate);

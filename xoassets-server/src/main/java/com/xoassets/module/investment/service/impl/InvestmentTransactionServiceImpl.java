@@ -327,10 +327,12 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
                 ? holdingService.applyConfirmedBuy(userId, null, asset.getId(), BigDecimal.ZERO, BigDecimal.ZERO).holding()
                 : holdingService.findOwnedHolding(request.getHoldingId(), userId);
         LocalDate tradeDate = request.getTransactionTime().toLocalDate();
+        LocalDate navDate = fundConfirmDateService.effectiveTradeDate(asset, request.getTransactionTime());
         LocalDate confirmedDate = request.getConfirmedDate() == null
                 ? fundConfirmDateService.confirmedDate(asset, request.getTransactionTime())
                 : request.getConfirmedDate();
-        BigDecimal confirmedNav = fundNavOnDate(asset.getId(), confirmedDate);
+        // 基金申购份额按有效申请日净值计算，确认日只表示份额到账/状态确认日期。
+        BigDecimal confirmedNav = fundNavOnDate(asset.getId(), navDate);
         BigDecimal netAmount = tradeAmount.subtract(fee).setScale(2, RoundingMode.HALF_UP);
         accountService.adjustBalance(userId, account.getId(), tradeAmount.negate());
         InvestmentTransaction transaction = new InvestmentTransaction();
@@ -369,7 +371,13 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
      * 确认单条待确认基金交易，使用状态条件更新保证定时任务幂等。
      */
     private void confirmPendingFundBuy(InvestmentTransaction transaction) {
-        BigDecimal confirmedNav = fundNavOnDate(transaction.getAssetId(), transaction.getConfirmedDate());
+        Asset asset = assetMapper.selectById(transaction.getAssetId());
+        if (asset == null) {
+            return;
+        }
+        LocalDate navDate = fundConfirmDateService.effectiveTradeDate(asset, transaction.getTransactionTime());
+        // 历史待确认交易同样按有效申请日净值确认，避免 QDII 等确认日净值延迟导致交易长期卡住。
+        BigDecimal confirmedNav = fundNavOnDate(transaction.getAssetId(), navDate);
         if (confirmedNav == null) {
             return;
         }
