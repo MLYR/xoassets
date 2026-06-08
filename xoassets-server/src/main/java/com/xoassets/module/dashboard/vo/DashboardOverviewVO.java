@@ -28,6 +28,7 @@ public class DashboardOverviewVO {
     private BigDecimal investmentMarketValue;
     private BigDecimal investmentFloatingProfit;
     private BigDecimal investmentTotalProfit;
+    private BigDecimal investmentYesterdayProfit;
     private BigDecimal investmentTodayProfit;
     private BigDecimal budgetUsageRate;
     private BigDecimal assetTrendRate;

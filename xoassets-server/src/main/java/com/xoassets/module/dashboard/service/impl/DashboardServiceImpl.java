@@ -64,6 +64,7 @@ public class DashboardServiceImpl implements DashboardService {
         BigDecimal investmentFloatingProfit = nullToZero(investmentOverview.getHoldingProfit());
         // 首页“投资盈亏(总)”展示投资总收益：已实现卖出收益 + 当前持仓浮动收益。
         BigDecimal investmentTotalProfit = investmentFloatingProfit.add(realizedInvestmentProfit(userId, LocalDate.now()));
+        BigDecimal investmentYesterdayProfit = investmentOverview.getYesterdayProfit();
         BigDecimal investmentTodayProfit = investmentOverview.getTodayProfit();
         BigDecimal totalAssets = accountSummary.cashAsset().add(investmentMarketValue);
         BigDecimal netAssets = totalAssets.subtract(accountSummary.liability());
@@ -100,6 +101,7 @@ public class DashboardServiceImpl implements DashboardService {
                 .investmentMarketValue(investmentMarketValue)
                 .investmentFloatingProfit(investmentFloatingProfit)
                 .investmentTotalProfit(investmentTotalProfit)
+                .investmentYesterdayProfit(investmentYesterdayProfit)
                 .investmentTodayProfit(investmentTodayProfit)
                 .budgetUsageRate(budgetUsageRate)
                 .assetTrendRate(null)

@@ -19,6 +19,7 @@ export interface DashboardOverview {
   investmentMarketValue: number;
   investmentFloatingProfit: number;
   investmentTotalProfit: number;
+  investmentYesterdayProfit?: number | null;
   investmentTodayProfit: number | null;
   budgetUsageRate: number;
   assetTrendRate?: number | null;

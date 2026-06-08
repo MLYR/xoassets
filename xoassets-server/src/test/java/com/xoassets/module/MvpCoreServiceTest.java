@@ -1726,6 +1726,7 @@ class MvpCoreServiceTest {
         when(holdingService.overview()).thenReturn(InvestmentOverviewVO.builder()
                 .totalInvestmentAsset(bd("638.3592"))
                 .holdingProfit(bd("109.5660"))
+                .yesterdayProfit(bd("-8.7600"))
                 .todayProfit(bd("12.3400"))
                 .build());
         // 首页投资总收益需要把已实现卖出收益和当前持仓浮动收益合并展示。
@@ -1736,6 +1737,7 @@ class MvpCoreServiceTest {
         DashboardOverviewVO overview = dashboard.overview(YearMonth.of(2026, 5));
         assertEquals(bd("1638.3592"), overview.getTotalAssets());
         assertEquals(bd("129.5660"), overview.getInvestmentTotalProfit());
+        assertEquals(bd("-8.7600"), overview.getInvestmentYesterdayProfit());
         assertEquals(bd("12.3400"), overview.getInvestmentTodayProfit());
 
         StatisticsServiceImpl statistics = new StatisticsServiceImpl(
