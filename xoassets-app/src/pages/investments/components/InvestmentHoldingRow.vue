@@ -8,12 +8,9 @@
     <view class="holding-cell holding-amount-cell">
       <text class="holding-market-value">¥ {{ fmtAmount(row.marketValue) }}</text>
       <view class="holding-daily-line">
-        <text class="holding-daily-value" :class="profitClass(row.yesterdayProfit)">
-          {{ fmtSignedOrFallback(row.yesterdayProfit) }}
-        </text>
-        <text class="holding-daily-separator">/</text>
-        <text class="holding-daily-value" :class="profitClass(row.todayProfit)">
-          {{ fmtSignedOrFallback(row.todayProfit) }}
+        <text class="holding-daily-label">{{ row.primaryProfitLabel }}</text>
+        <text class="holding-daily-value" :class="profitClass(row.primaryProfitAmount)">
+          {{ fmtSignedOrFallback(row.primaryProfitAmount) }}
         </text>
       </view>
     </view>
@@ -93,12 +90,16 @@ const emit = defineEmits<{
   column-gap: 10rpx;
 }
 
+.holding-daily-label,
 .holding-daily-value,
-.holding-daily-separator,
 .holding-profit-rate {
   font-size: $font-sm;
   color: var(--xo-text-regular);
   font-variant-numeric: tabular-nums;
+}
+
+.holding-daily-label {
+  color: var(--xo-text-secondary);
 }
 
 .holding-profit-cell {

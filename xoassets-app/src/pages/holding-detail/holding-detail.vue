@@ -19,8 +19,8 @@
 
       <view class="hero-metrics">
         <view class="hero-metric primary">
-          <text class="metric-label">今日收益</text>
-          <text class="metric-value" :class="toneClass(holding?.todayProfit)">{{ fmtSignedMoney(holding?.todayProfit) }}</text>
+          <text class="metric-label">{{ holding?.primaryProfitLabel || '主收益' }}</text>
+          <text class="metric-value" :class="toneClass(holding?.primaryProfitAmount)">{{ fmtSignedMoney(holding?.primaryProfitAmount) }}</text>
         </view>
         <view class="hero-metric">
           <text class="metric-label">持有收益</text>
@@ -67,6 +67,31 @@
       </view>
       <view class="chart-labels">
         <text v-for="point in chartPoints" :key="point.key">{{ point.label }}</text>
+      </view>
+    </AppCard>
+
+    <AppCard :padding="theme.spacing.lg" :radius="theme.radius.xl" class="calendar-card">
+      <view class="section-head">
+        <view>
+          <text class="section-title">收益日历</text>
+          <text class="section-subtitle">{{ calendarMonthLabel }} · 日期下展示当日收益</text>
+        </view>
+      </view>
+      <view class="calendar-weekdays">
+        <text v-for="day in calendarWeekdays" :key="day">{{ day }}</text>
+      </view>
+      <view class="calendar-grid">
+        <view
+          v-for="cell in calendarCells"
+          :key="cell.key"
+          class="calendar-cell"
+          :class="[cell.empty ? 'empty' : '', calendarTone(cell.profitAmount)]"
+        >
+          <template v-if="!cell.empty">
+            <text class="calendar-day">{{ formatDay(cell.date) }}</text>
+            <text class="calendar-profit">{{ cell.profitAmount == null ? '--' : fmtSignedMoney(cell.profitAmount) }}</text>
+          </template>
+        </view>
       </view>
     </AppCard>
 
@@ -144,6 +169,7 @@ const chartWindowStart = ref(Number.MAX_SAFE_INTEGER)
 const chartTouchStartX = ref(0)
 const chartTouchStartY = ref(0)
 const chartWindowSize = 7
+const calendarWeekdays = ['日', '一', '二', '三', '四', '五', '六']
 const theme = computed(() => currentTheme.value)
 const holding = computed(() => detail.value?.holding)
 const summary = computed(() => detail.value?.summary)
@@ -170,8 +196,8 @@ const positionStats = computed(() => [
   { label: '待确认金额', value: `¥ ${fmtAmount(summary.value?.pendingConfirmAmount)}`, tone: '' },
   { label: '持仓成本价', value: `¥ ${fmtAmount(holding.value?.avgCost, priceScale.value)}`, tone: '' },
   { label: '持有份额', value: fmtQuantity(holding.value?.quantity), tone: '' },
-  { label: '日涨幅', value: fmtPercent(holding.value?.todayChangeRate), tone: toneClass(holding.value?.todayChangeRate) },
-  { label: '基金净值', value: fmtNav(holding.value?.latestPrice), tone: '' }
+  { label: holding.value?.primaryProfitLabel || '主收益', value: fmtSignedMoney(holding.value?.primaryProfitAmount), tone: toneClass(holding.value?.primaryProfitAmount) },
+  { label: holding.value?.priceLabel || '最新价格', value: fmtNav(holding.value?.latestPrice), tone: '' }
 ])
 
 const priceScale = computed(() => holding.value?.priceScale ?? 4)
@@ -198,6 +224,19 @@ const chartPoints = computed(() => {
       bottom: Math.round(((value - min) / range) * 72 + 10)
     }
   })
+})
+const calendarMonthLabel = computed(() => {
+  const first = detail.value?.profitCalendar?.[0]?.date
+  return first ? `${first.slice(0, 7)} 月收益` : '本月收益'
+})
+const calendarCells = computed(() => {
+  const rows = detail.value?.profitCalendar || []
+  if (!rows.length) return []
+  const firstDate = rows[0]?.date
+  const offset = firstDate ? new Date(`${firstDate}T00:00:00`).getDay() : 0
+  const blanks = Array.from({ length: offset }, (_, index) => ({ key: `blank-${index}`, empty: true, date: '', profitAmount: null }))
+  // App 端同 Web 一样保留自然月空格，避免用户看日期位置时错位。
+  return [...blanks, ...rows.map((item) => ({ key: item.date, empty: false, ...item }))]
 })
 
 onMounted(() => {
@@ -301,6 +340,15 @@ function fmtDateTime(value: string) {
 function fmtDate(value: string | null | undefined) {
   if (!value) return '--'
   return value.slice(0, 10)
+}
+
+function formatDay(value?: string | null) {
+  return value ? String(Number(value.slice(8, 10))) : ''
+}
+
+function calendarTone(value: number | string | null | undefined) {
+  if (value == null) return 'calendar-muted'
+  return toNumber(value) >= 0 ? 'calendar-positive' : 'calendar-negative'
 }
 
 function formatChartLabel(value: string | undefined, index: number) {
@@ -433,6 +481,7 @@ function toNumber(value: number | string | null | undefined) {
 
 .position-card,
 .chart-card,
+.calendar-card,
 .tx-card {
   overflow: hidden;
 }
@@ -574,6 +623,75 @@ function toNumber(value: number | string | null | undefined) {
   margin-top: 12rpx;
   font-size: 20rpx;
   color: var(--xo-text-placeholder);
+}
+
+.calendar-weekdays,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8rpx;
+}
+
+.calendar-weekdays {
+  margin-top: 22rpx;
+  color: var(--xo-text-secondary);
+  font-size: 20rpx;
+  text-align: center;
+}
+
+.calendar-grid {
+  margin-top: 12rpx;
+}
+
+.calendar-cell {
+  min-height: 86rpx;
+  padding: 10rpx 6rpx;
+  border: 1rpx solid var(--xo-border-color);
+  border-radius: var(--xo-radius-md);
+  background: var(--xo-card-bg);
+  box-sizing: border-box;
+}
+
+.calendar-cell.empty {
+  border-color: transparent;
+  background: transparent;
+}
+
+.calendar-day {
+  display: block;
+  color: var(--xo-text-primary);
+  font-size: 22rpx;
+  font-weight: 800;
+}
+
+.calendar-profit {
+  display: block;
+  margin-top: 8rpx;
+  overflow: hidden;
+  font-size: 19rpx;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-positive {
+  background: rgba(33, 201, 137, 0.1);
+}
+
+.calendar-positive .calendar-profit {
+  color: var(--xo-profit-positive);
+}
+
+.calendar-negative {
+  background: rgba(255, 91, 91, 0.1);
+}
+
+.calendar-negative .calendar-profit {
+  color: var(--xo-profit-negative);
+}
+
+.calendar-muted .calendar-profit {
+  color: var(--xo-text-secondary);
 }
 
 .tx-list {

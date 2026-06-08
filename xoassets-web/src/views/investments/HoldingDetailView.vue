@@ -21,7 +21,7 @@
       <MetricCard title="当前市值" :value="holding?.marketValue || 0" :trend="holding?.floatingProfitRate || 0" description="数量 × 最新价格" :precision="4" :currency-symbol="currencySymbol" />
       <MetricCard title="持仓数量" :value="holding?.quantity || 0" :trend="0" description="当前剩余持仓" :precision="quantityPrecision" currency-symbol="" />
       <MetricCard title="持仓成本" :value="holding?.totalCost || 0" :trend="0" description="移动平均成本口径" :precision="4" :currency-symbol="currencySymbol" />
-      <MetricCard title="今日收益" :value="holding?.todayProfit || 0" :trend="holding?.todayChangeRate || 0" :description="todayProfitDescription" :precision="4" :currency-symbol="currencySymbol" :tone="profitTone(holding?.todayProfit || 0)" />
+      <MetricCard :title="holding?.primaryProfitLabel || '主收益'" :value="holding?.primaryProfitAmount || 0" :trend="primaryProfitTrend" :description="primaryProfitDescription" :precision="4" :currency-symbol="currencySymbol" :tone="profitTone(holding?.primaryProfitAmount || 0)" />
       <MetricCard title="总收益" :value="summary?.totalProfit || 0" :trend="summary?.totalProfitRate || 0" description="已实现 + 浮动盈亏" :precision="4" :currency-symbol="currencySymbol" :tone="profitTone(summary?.totalProfit || 0)" />
       <div class="rate-card panel panel-padding">
         <span>总收益率</span>
@@ -46,6 +46,27 @@
       </div>
       <el-empty v-if="!loading && priceSnapshots.length === 0" description="暂无价格记录" />
       <BaseChart v-else :option="priceChartOption" height="300px" />
+    </section>
+
+    <section class="panel calendar-panel">
+      <div class="section-head">
+        <div>
+          <h2>收益日历</h2>
+          <span class="muted-text">{{ calendarMonthLabel }} · 日期下直接展示当日收益</span>
+        </div>
+      </div>
+      <div class="calendar-weekdays">
+        <span v-for="day in calendarWeekdays" :key="day">{{ day }}</span>
+      </div>
+      <div class="profit-calendar-grid">
+        <div v-for="cell in calendarCells" :key="cell.key" class="calendar-cell" :class="[cell.empty ? 'empty' : '', calendarProfitClass(cell.profitAmount)]">
+          <template v-if="!cell.empty">
+            <div class="calendar-date">{{ formatDay(cell.date) }}</div>
+            <div class="calendar-profit">{{ cell.profitAmount === null || cell.profitAmount === undefined ? '--' : formatSignedAmount(cell.profitAmount) }}</div>
+            <small>{{ cell.hasPrice ? `${holding?.priceLabel || '价格'} ${formatPrice(cell.price)}` : '无价格' }}</small>
+          </template>
+        </div>
+      </div>
     </section>
 
     <section v-loading="loading" class="panel transactions-panel">
@@ -148,7 +169,7 @@ import MetricCard from '@/components/finance/MetricCard.vue';
 import StatusBadge from '@/components/finance/StatusBadge.vue';
 import { ROUTES } from '@/constants/routes';
 import { accountApi, type AccountItem } from '@/services/accountApi';
-import { investmentApi, type AssetPriceItem, type FundConfirmPreview, type HoldingDetailSummary, type HoldingItem, type InvestmentTransactionItem, type InvestmentTransactionType } from '@/services/investmentApi';
+import { investmentApi, type AssetPriceItem, type FundConfirmPreview, type HoldingDetailSummary, type HoldingItem, type InvestmentCalendarDayProfit, type InvestmentTransactionItem, type InvestmentTransactionType } from '@/services/investmentApi';
 
 const route = useRoute();
 const router = useRouter();
@@ -156,6 +177,7 @@ const holding = ref<HoldingItem | null>(null);
 const summary = ref<HoldingDetailSummary | null>(null);
 const transactions = ref<InvestmentTransactionItem[]>([]);
 const priceSnapshots = ref<AssetPriceItem[]>([]);
+const profitCalendar = ref<InvestmentCalendarDayProfit[]>([]);
 const accounts = ref<AccountItem[]>([]);
 const loading = ref(false);
 const submitting = ref(false);
@@ -171,6 +193,7 @@ const trendModeOptions = [
   { label: '总市值', value: 'MARKET_VALUE' },
   { label: '价格', value: 'PRICE' }
 ];
+const calendarWeekdays = ['日', '一', '二', '三', '四', '五', '六'];
 
 const holdingId = computed(() => String(route.params.id || ''));
 const currencySymbol = computed(() => (holding.value?.currency === 'USD' ? '$' : '¥'));
@@ -191,7 +214,27 @@ const fundConfirmPreviewText = computed(() => {
     : `将按 ${preview.effectiveTradeDate} 作为申请日`;
   return `${prefix}，${preview.qdii ? 'QDII 预计' : '预计'} ${preview.confirmedDate} 确认；净值未出时先保存为待确认。`;
 });
-const todayProfitDescription = computed(() => holding.value?.todayPriceAvailable === false ? '今日净值未更新' : '今日有效价对比昨价');
+const primaryProfitTrend = computed(() => holding.value?.profitDisplayMode === 'YESTERDAY' ? holding.value?.yesterdayChangeRate || 0 : holding.value?.todayChangeRate || 0);
+const primaryProfitDescription = computed(() => {
+  if (holding.value?.profitDisplayMode === 'YESTERDAY') {
+    return holding.value?.priceDate ? `${holding.value.priceLabel || '净值'}日期 ${holding.value.priceDate}` : '等待净值更新';
+  }
+  return holding.value?.todayPriceAvailable === false ? '今日价格未更新' : '今日有效价对比昨价';
+});
+const calendarMonthLabel = computed(() => {
+  const first = profitCalendar.value.find((item) => item.date);
+  return first?.date ? `${first.date.slice(0, 7)} 月收益` : '本月收益';
+});
+const calendarCells = computed(() => {
+  if (!profitCalendar.value.length) {
+    return [];
+  }
+  const firstDate = profitCalendar.value[0]?.date;
+  const offset = firstDate ? new Date(`${firstDate}T00:00:00`).getDay() : 0;
+  const blanks = Array.from({ length: offset }, (_, index) => ({ key: `blank-${index}`, empty: true, date: '', profitAmount: null, hasPrice: false, price: null }));
+  // 收益日历保留空白占位，确保日期位置符合自然月日历。
+  return [...blanks, ...profitCalendar.value.map((item) => ({ key: item.date, empty: false, ...item }))];
+});
 const priceChartOption = computed<EChartsOption>(() => {
   const points = [...priceSnapshots.value].reverse();
   const quantity = Number(holding.value?.quantity || 0);
@@ -245,6 +288,7 @@ async function loadPageData() {
     summary.value = detail.summary;
     transactions.value = detail.transactions;
     priceSnapshots.value = detail.priceSnapshots;
+    profitCalendar.value = detail.profitCalendar || [];
     accounts.value = accountList;
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '持仓详情加载失败');
@@ -418,6 +462,29 @@ function formatConfirmInfo(row: InvestmentTransactionItem) {
   return row.confirmedDate || '-';
 }
 
+function formatDay(value?: string | null) {
+  return value ? String(Number(value.slice(8, 10))) : '';
+}
+
+function formatPrice(value?: number | null) {
+  if (value === null || value === undefined) {
+    return '--';
+  }
+  return Number(value).toLocaleString('zh-CN', { minimumFractionDigits: Math.min(pricePrecision.value, 4), maximumFractionDigits: pricePrecision.value });
+}
+
+function formatSignedAmount(value: number) {
+  const prefix = value >= 0 ? '+' : '-';
+  return `${prefix}${currencySymbol.value}${Math.abs(round4(value)).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function calendarProfitClass(value?: number | null) {
+  if (value === null || value === undefined) {
+    return 'calendar-muted';
+  }
+  return value >= 0 ? 'calendar-positive' : 'calendar-negative';
+}
+
 function formatBreakEven(value: number | null | undefined) {
   // 回本涨幅只在亏损时展示需要上涨比例；盈利或打平展示已盈利。
   if (value === null || value === undefined) {
@@ -537,6 +604,7 @@ function roundTo(value: number, precision: number) {
 }
 
 .chart-panel,
+.calendar-panel,
 .transactions-panel {
   margin-top: 18px;
   overflow: hidden;
@@ -576,6 +644,80 @@ function roundTo(value: number, precision: number) {
 
 .warning-text {
   color: var(--xo-warning);
+}
+
+.calendar-weekdays,
+.profit-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0 18px;
+}
+
+.calendar-weekdays {
+  margin-top: 8px;
+  color: var(--xo-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.profit-calendar-grid {
+  padding-bottom: 18px;
+}
+
+.calendar-cell {
+  min-height: 86px;
+  padding: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 16px;
+  background: rgba(248, 250, 252, 0.78);
+  box-sizing: border-box;
+}
+
+.calendar-cell.empty {
+  border-color: transparent;
+  background: transparent;
+}
+
+.calendar-date {
+  color: var(--xo-text);
+  font-weight: 800;
+}
+
+.calendar-profit {
+  margin-top: 8px;
+  font-size: 16px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.calendar-cell small {
+  display: block;
+  margin-top: 6px;
+  color: var(--xo-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.calendar-positive {
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.calendar-positive .calendar-profit {
+  color: var(--xo-success);
+}
+
+.calendar-negative {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.calendar-negative .calendar-profit {
+  color: var(--xo-danger);
+}
+
+.calendar-muted .calendar-profit {
+  color: var(--xo-muted);
 }
 
 .full-width {

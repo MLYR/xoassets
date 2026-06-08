@@ -16,4 +16,5 @@ public class HoldingDetailVO {
     private List<InvestmentTransactionVO> transactions;
     private List<AssetPriceVO> priceSnapshots;
     private List<HoldingChartPointVO> chartPoints;
+    private List<InvestmentCalendarDayProfitVO> profitCalendar;
 }

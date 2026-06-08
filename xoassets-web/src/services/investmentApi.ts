@@ -48,6 +48,10 @@ export interface HoldingItem {
   assetName: string | null;
   symbol: string | null;
   assetType: AssetType | null;
+  assetSubType?: string | null;
+  profitDisplayMode?: string | null;
+  valuationMode?: string | null;
+  tradeVenue?: string | null;
   market?: string | null;
   quoteSource: QuoteSource | null;
   currency: string | null;
@@ -62,9 +66,15 @@ export interface HoldingItem {
   previousPriceTime?: string | null;
   priceDate?: string | null;
   todayPriceAvailable?: boolean | null;
+  todayProfitAvailable?: boolean | null;
   priceStatus?: string | null;
   latestPriceSource?: string | null;
   marketStatus?: string | null;
+  primaryProfitLabel?: string | null;
+  primaryProfitAmount?: number | null;
+  secondaryProfitLabel?: string | null;
+  secondaryProfitAmount?: number | null;
+  priceLabel?: string | null;
   marketValue: number;
   todayProfit?: number | null;
   todayChangeRate?: number | null;
@@ -125,18 +135,64 @@ export interface HoldingChartPoint {
   totalProfitAmount: number;
 }
 
+export interface InvestmentCalendarDayProfit {
+  date: string;
+  profitAmount?: number | null;
+  profitRate?: number | null;
+  marketValue?: number | null;
+  price?: number | null;
+  previousPrice?: number | null;
+  hasPrice: boolean;
+  priceLabel?: string | null;
+}
+
 export interface HoldingDetail {
   holding: HoldingItem;
   summary: HoldingDetailSummary;
   transactions: InvestmentTransactionItem[];
   priceSnapshots: AssetPriceItem[];
   chartPoints: HoldingChartPoint[];
+  profitCalendar?: InvestmentCalendarDayProfit[];
 }
 
 export interface InvestmentTrendPoint {
   date: string;
   marketValue: number;
   totalProfit: number;
+  assetAmount?: number | null;
+  holdingProfit?: number | null;
+  primaryProfitLabel?: string | null;
+  primaryProfitAmount?: number | null;
+}
+
+export interface InvestmentModuleAsset {
+  module: 'FUND' | 'STOCK' | 'CRYPTO';
+  name: string;
+  assetAmount: number;
+  assetRatio: number;
+  primaryProfitLabel: string;
+  primaryProfitAmount: number;
+  holdingProfit: number;
+  holdingProfitRate: number;
+  holdingCount: number;
+}
+
+export interface InvestmentOverview {
+  totalInvestmentAsset: number;
+  totalCost: number;
+  holdingProfit: number;
+  holdingProfitRate: number;
+  todayProfit: number;
+  todayProfitAssetScope: string;
+  yesterdayProfit: number;
+  yesterdayProfitAssetScope: string;
+  moduleAssets: InvestmentModuleAsset[];
+}
+
+export interface InvestmentTrend {
+  module: string;
+  period: string;
+  points: InvestmentTrendPoint[];
 }
 
 export interface HoldingRequest {
@@ -255,6 +311,19 @@ export const investmentApi = {
       method: 'GET'
     });
   },
+  overviewInvestments() {
+    return request<InvestmentOverview>({
+      url: '/investments/overview',
+      method: 'GET'
+    });
+  },
+  listInvestmentHoldings(params?: { module?: 'ALL' | 'FUND' | 'STOCK' | 'CRYPTO' }) {
+    return request<HoldingItem[]>({
+      url: '/investments/holdings',
+      method: 'GET',
+      params
+    });
+  },
   summaryHoldings() {
     return request<HoldingSummary>({
       url: '/holdings/summary',
@@ -270,6 +339,20 @@ export const investmentApi = {
   trendHoldings(params: { startDate?: string; endDate?: string }) {
     return request<InvestmentTrendPoint[]>({
       url: '/holdings/trend',
+      method: 'GET',
+      params
+    });
+  },
+  trendInvestments(params: { module?: 'ALL' | 'FUND' | 'STOCK' | 'CRYPTO'; period?: 'WEEK' | 'MONTH' | 'QUARTER' | 'YEAR'; startDate?: string; endDate?: string }) {
+    return request<InvestmentTrend>({
+      url: '/investments/trend',
+      method: 'GET',
+      params
+    });
+  },
+  profitCalendar(id: string, params?: { year?: number; month?: number }) {
+    return request<InvestmentCalendarDayProfit[]>({
+      url: `/investments/holdings/${id}/profit-calendar`,
       method: 'GET',
       params
     });

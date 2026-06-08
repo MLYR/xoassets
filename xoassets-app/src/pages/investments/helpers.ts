@@ -15,6 +15,8 @@ export type HoldingRow = {
   name: string
   code: string
   marketValue: number
+  primaryProfitLabel: string
+  primaryProfitAmount: number | null
   yesterdayProfit: number | null
   todayProfit: number | null
   floatingProfit: number
@@ -102,6 +104,19 @@ export function buildSummaryMetrics(summary: HoldingSummary | null) {
   }
 }
 
+export function buildOverviewSummaryMetrics(overview: { totalInvestmentAsset?: number; holdingProfit?: number; holdingProfitRate?: number; todayProfit?: number | null; yesterdayProfit?: number | null } | null, summary: HoldingSummary | null) {
+  const base = buildSummaryMetrics(summary)
+  // 投资总览优先使用后端拆桶后的 overview，缺失时回退旧 summary，避免阻断老接口数据展示。
+  return {
+    ...base,
+    totalAsset: overview?.totalInvestmentAsset ?? base.totalAsset,
+    accumulatedProfit: overview?.holdingProfit ?? base.accumulatedProfit,
+    accumulatedRate: overview?.holdingProfitRate ?? base.accumulatedRate,
+    vsTodayAmount: overview?.todayProfit ?? base.vsLastMonthAmount,
+    vsYesterdayAmount: overview?.yesterdayProfit ?? base.vsYesterdayAmount
+  }
+}
+
 export function buildDistributionItems(
   holdings: HoldingItem[],
   palette: Record<DistributionKey, string>,
@@ -136,6 +151,8 @@ export function buildHoldingRows(holdings: HoldingItem[]): HoldingRow[] {
     name: item.assetName || item.symbol || '未知资产',
     code: item.symbol || '--',
     marketValue: item.marketValue ?? 0,
+    primaryProfitLabel: item.primaryProfitLabel || (item.assetType === 'FUND' ? '昨日收益' : item.assetType === 'CRYPTO' ? '24h收益' : '今日收益'),
+    primaryProfitAmount: item.primaryProfitAmount ?? null,
     // 昨日收益由后端同一组价格快照计算，缺失时展示占位，不在前端反算。
     yesterdayProfit: item.yesterdayProfit ?? null,
     todayProfit: item.todayProfit ?? null,

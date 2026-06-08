@@ -6,6 +6,7 @@ import {
   type HoldingItem,
   type HoldingSummary,
   type HoldingDetail,
+  type InvestmentOverview,
   type InvestmentTrendPoint,
   type InvestmentTransactionRequest,
   type InvestmentConvertRequest
@@ -14,16 +15,19 @@ import {
 export const useInvestmentStore = defineStore('investment', () => {
   const holdings = ref<HoldingItem[]>([])
   const summary = ref<HoldingSummary | null>(null)
+  const overview = ref<InvestmentOverview | null>(null)
   const trend = ref<InvestmentTrendPoint[]>([])
   const loading = ref(false)
 
   async function fetchHoldings() {
     loading.value = true
     try {
-      const [hs, sm] = await Promise.all([
-        investmentApi.listHoldings(),
+      const [ov, hs, sm] = await Promise.all([
+        investmentApi.overviewInvestments(),
+        investmentApi.listInvestmentHoldings({ module: 'ALL' }),
         investmentApi.summaryHoldings()
       ])
+      overview.value = ov
       holdings.value = hs
       summary.value = sm
     } finally {
@@ -48,5 +52,5 @@ export const useInvestmentStore = defineStore('investment', () => {
     return investmentApi.convertTransaction(data)
   }
 
-  return { holdings, summary, trend, loading, fetchHoldings, fetchDetail, fetchTrend, createTransaction, convertTransaction }
+  return { holdings, summary, overview, trend, loading, fetchHoldings, fetchDetail, fetchTrend, createTransaction, convertTransaction }
 })

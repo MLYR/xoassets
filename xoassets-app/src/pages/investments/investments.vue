@@ -2,6 +2,18 @@
   <AppPage class="invest-page" safe-bottom gap="24rpx">
     <AppNavBar title="投资" />
 
+    <view class="module-tabs">
+      <view
+        v-for="item in moduleTabs"
+        :key="item.value"
+        class="module-tab"
+        :class="{ active: activeModule === item.value }"
+        @click="activeModule = item.value"
+      >
+        {{ item.label }}
+      </view>
+    </view>
+
     <!-- 顶部资产卡片：优先走真实汇总字段，缺口字段仅做受控兜底。 -->
     <AppCard
       class="summary-card"
@@ -30,6 +42,18 @@
             <text class="summary-side-profit-label">累计收益</text>
             <AppAmount class="summary-profit-amount" :value="summaryMetrics.accumulatedProfit" prefix="¥ " signed size="sm" semantic="profit" />
           </view>
+        </view>
+      </view>
+      <view class="summary-buckets">
+        <view class="summary-bucket">
+          <text>今日收益</text>
+          <AppAmount :value="overview?.todayProfit ?? 0" prefix="¥ " signed size="sm" semantic="profit" />
+          <text class="summary-bucket-scope">{{ overview?.todayProfitAssetScope || '股票 / ETF / 虚拟货币' }}</text>
+        </view>
+        <view class="summary-bucket">
+          <text>昨日收益</text>
+          <AppAmount :value="overview?.yesterdayProfit ?? 0" prefix="¥ " signed size="sm" semantic="profit" />
+          <text class="summary-bucket-scope">{{ overview?.yesterdayProfitAssetScope || '基金净值型资产' }}</text>
         </view>
       </view>
     </AppCard>
@@ -63,12 +87,12 @@
 
     <!-- 持仓卡片：保留现有持仓详情入口，只提升结构和视觉。 -->
     <AppCard :padding="theme.spacing.lg" :radius="theme.radius.xl" class="holdings-card">
-      <AppSectionHeader title="持仓" action-text="全部持仓" @action="handleAllHoldings" />
+      <AppSectionHeader :title="`${activeModuleLabel}持仓`" action-text="全部持仓" @action="handleAllHoldings" />
 
       <view class="holding-table">
         <view class="holding-header">
           <text class="holding-col holding-col-name">名称/代码</text>
-          <text class="holding-col holding-col-amount">总/昨/今日收益</text>
+          <text class="holding-col holding-col-amount">主收益</text>
           <text class="holding-col holding-col-profit">持有收益 / 率</text>
         </view>
 
@@ -149,11 +173,15 @@
         </view>
 
         <view class="trade-grid">
-          <view class="trade-field">
+          <view v-if="isFundAmountBuy" class="trade-field full-span">
+            <text class="trade-label">买入金额</text>
+            <input v-model="tradeForm.tradeAmount" class="trade-input" type="digit" placeholder="0.00" placeholder-class="trade-placeholder" />
+          </view>
+          <view v-if="!isFundAmountBuy" class="trade-field">
             <text class="trade-label">{{ tradeMode === 'convert' ? '转出份额' : '份额' }}</text>
             <input v-model="tradeForm.quantity" class="trade-input" type="digit" placeholder="0" placeholder-class="trade-placeholder" />
           </view>
-          <view class="trade-field">
+          <view v-if="!isFundAmountBuy" class="trade-field">
             <text class="trade-label">{{ tradeMode === 'convert' ? '转出价格' : '价格' }}</text>
             <input v-model="tradeForm.price" class="trade-input" type="digit" placeholder="0.0000" placeholder-class="trade-placeholder" />
           </view>
@@ -170,6 +198,7 @@
             <input v-model="tradeForm.fee" class="trade-input" type="digit" placeholder="0.00" placeholder-class="trade-placeholder" />
           </view>
         </view>
+        <view v-if="isFundAmountBuy" class="trade-tip">基金买入按金额提交，后端根据实际买入时间和确认净值自动确认份额。</view>
 
         <view class="trade-note-row">
           <text class="trade-label">备注</text>
@@ -202,6 +231,7 @@ import { useTheme } from '@/theme/useTheme'
 import {
   buildDistributionItems,
   buildHoldingRows,
+  buildOverviewSummaryMetrics,
   buildSummaryMetrics,
   fmtAmount,
   fmtPercentNumber,
@@ -213,6 +243,7 @@ const { currentTheme, investmentTokens } = useTheme()
 
 const holdings = computed(() => store.holdings)
 const summary = computed(() => store.summary)
+const overview = computed(() => store.overview)
 const loading = computed(() => store.loading)
 const theme = computed(() => currentTheme.value)
 const selectedDistributionIndex = ref(0)
@@ -222,10 +253,18 @@ const tradeVisible = ref(false)
 const tradeSaving = ref(false)
 const tradeMode = ref<'buy' | 'convert' | 'sell'>('buy')
 const tradeAccounts = ref<AccountItem[]>([])
+const activeModule = ref<'ALL' | 'FUND' | 'STOCK' | 'CRYPTO'>('ALL')
+const moduleTabs = [
+  { label: '总览', value: 'ALL' as const },
+  { label: '基金', value: 'FUND' as const },
+  { label: '股票', value: 'STOCK' as const },
+  { label: '虚拟货币', value: 'CRYPTO' as const }
+]
 const tradeForm = ref({
   holdingId: '',
   targetHoldingId: '',
   accountId: '',
+  tradeAmount: '',
   quantity: '',
   price: '',
   targetQuantity: '',
@@ -238,13 +277,46 @@ onShow(() => {
   store.fetchHoldings()
 })
 
-const summaryMetrics = computed(() => buildSummaryMetrics(summary.value))
-
-const distributionItems = computed(() => {
-  return buildDistributionItems(holdings.value, theme.value.charts.investmentDistribution, summary.value?.totalMarketValue)
+const summaryMetrics = computed(() => activeModule.value === 'ALL'
+  ? buildOverviewSummaryMetrics(overview.value, summary.value)
+  : buildSummaryMetrics(moduleSummary.value)
+)
+const visibleHoldings = computed(() => {
+  if (activeModule.value === 'ALL') return holdings.value
+  return holdings.value.filter((item) => item.assetType === activeModule.value)
+})
+const activeModuleLabel = computed(() => {
+  if (activeModule.value === 'FUND') return '基金'
+  if (activeModule.value === 'STOCK') return '股票'
+  if (activeModule.value === 'CRYPTO') return '虚拟货币'
+  return '最近'
+})
+const moduleSummary = computed(() => {
+  const rows = visibleHoldings.value
+  const totalMarketValue = rows.reduce((sum, item) => sum + Number(item.marketValue || 0), 0)
+  const totalCost = rows.reduce((sum, item) => sum + Number(item.totalCost || 0), 0)
+  const floatingProfit = rows.reduce((sum, item) => sum + Number(item.floatingProfit || 0), 0)
+  // 模块内 summary 只用于顶部卡兜底，主收益展示仍使用后端 primaryProfit 字段。
+  return {
+    totalMarketValue,
+    totalCost,
+    floatingProfit,
+    floatingProfitRate: totalCost > 0 ? (floatingProfit / totalCost) * 100 : 0,
+    todayProfit: rows.reduce((sum, item) => sum + Number(item.todayProfit || 0), 0),
+    todayProfitRate: null,
+    yesterdayProfit: rows.reduce((sum, item) => sum + Number(item.yesterdayProfit || 0), 0),
+    yesterdayProfitRate: null,
+    lastMonthProfit: null,
+    lastMonthProfitRate: null,
+    holdingCount: rows.length
+  }
 })
 
-const distributionTotalAmount = computed(() => summary.value?.totalMarketValue ?? 0)
+const distributionItems = computed(() => {
+  return buildDistributionItems(holdings.value, theme.value.charts.investmentDistribution, overview.value?.totalInvestmentAsset ?? summary.value?.totalMarketValue)
+})
+
+const distributionTotalAmount = computed(() => overview.value?.totalInvestmentAsset ?? summary.value?.totalMarketValue ?? 0)
 const selectedDistributionItem = computed(() => distributionItems.value[selectedDistributionIndex.value] || distributionItems.value[0] || null)
 const selectedDistributionKey = computed(() => selectedDistributionItem.value?.key || '')
 
@@ -269,10 +341,11 @@ const distributionRingStyle = computed(() => {
   }
 })
 
-const holdingRows = computed(() => buildHoldingRows(holdings.value))
+const holdingRows = computed(() => buildHoldingRows(visibleHoldings.value))
 const selectedSourceHolding = computed(() => holdings.value.find((item) => item.id === tradeForm.value.holdingId) || null)
 const selectedTargetHolding = computed(() => holdings.value.find((item) => item.id === tradeForm.value.targetHoldingId) || null)
 const selectedTradeAccount = computed(() => tradeAccounts.value.find((item) => item.id === tradeForm.value.accountId) || null)
+const isFundAmountBuy = computed(() => tradeMode.value === 'buy' && selectedSourceHolding.value?.assetType === 'FUND')
 const tradeTitle = computed(() => {
   if (tradeMode.value === 'buy') return '买入'
   if (tradeMode.value === 'sell') return '卖出'
@@ -345,6 +418,7 @@ function resetTradeForm(action: 'buy' | 'convert' | 'sell') {
     holdingId: source?.id || '',
     targetHoldingId: target?.id || '',
     accountId: tradeAccounts.value[0]?.id || '',
+    tradeAmount: '',
     quantity: action === 'sell' ? String(source?.quantity || '') : '',
     price: source?.latestPrice ? String(source.latestPrice) : '',
     targetQuantity: '',
@@ -398,10 +472,11 @@ async function submitTrade() {
   if (tradeSaving.value) return
   const source = selectedSourceHolding.value
   const accountId = tradeForm.value.accountId
+  const tradeAmount = Number(tradeForm.value.tradeAmount)
   const quantity = Number(tradeForm.value.quantity)
   const price = Number(tradeForm.value.price)
   const fee = Number(tradeForm.value.fee || 0)
-  if (!source || !accountId || quantity <= 0 || price <= 0 || fee < 0) {
+  if (!source || !accountId || fee < 0 || (isFundAmountBuy.value ? tradeAmount <= 0 : (quantity <= 0 || price <= 0))) {
     uni.showToast({ title: '请完整填写交易信息', icon: 'none' })
     return
   }
@@ -433,8 +508,10 @@ async function submitTrade() {
         assetId: source.assetId,
         accountId,
         type: tradeMode.value === 'buy' ? 'BUY' : 'SELL',
-        quantity,
-        price,
+        inputMode: isFundAmountBuy.value ? 'AMOUNT_NAV' : 'QUANTITY_PRICE',
+        tradeAmount: isFundAmountBuy.value ? tradeAmount : undefined,
+        quantity: isFundAmountBuy.value ? undefined : quantity,
+        price: isFundAmountBuy.value ? undefined : price,
         fee,
         transactionTime: formatLocalDateTime(new Date()),
         note: tradeForm.value.note.trim() || undefined
@@ -461,6 +538,32 @@ function formatLocalDateTime(date: Date) {
 
 .invest-page {
   min-height: 100vh;
+}
+
+.module-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10rpx;
+  padding: 8rpx;
+  border-radius: var(--xo-radius-round);
+  background: var(--xo-primary-soft);
+}
+
+.module-tab {
+  height: 58rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--xo-radius-round);
+  color: var(--xo-primary);
+  font-size: $font-xs;
+  font-weight: 700;
+}
+
+.module-tab.active {
+  color: var(--xo-white);
+  background: var(--xo-gradient-button-primary);
+  box-shadow: var(--xo-shadow-button);
 }
 
 .summary-card {
@@ -547,6 +650,39 @@ function formatLocalDateTime(date: Date) {
 .summary-total-amount,
 .summary-rate-amount,
 .summary-profit-amount {
+  white-space: nowrap;
+}
+
+.summary-buckets {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14rpx;
+  margin-top: 28rpx;
+}
+
+.summary-bucket {
+  min-width: 0;
+  padding: 18rpx;
+  border-radius: var(--xo-radius-lg);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.summary-bucket > text:first-child {
+  display: block;
+  margin-bottom: 8rpx;
+  color: var(--xo-white-75);
+  font-size: 22rpx;
+}
+
+.summary-bucket-scope {
+  display: block;
+  margin-top: 8rpx;
+  overflow: hidden;
+  color: var(--xo-white-75);
+  font-size: 20rpx;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -792,6 +928,17 @@ function formatLocalDateTime(date: Date) {
 .trade-field {
   min-width: 0;
   padding: 18rpx 20rpx;
+}
+
+.trade-field.full-span,
+.trade-tip {
+  grid-column: 1 / -1;
+}
+
+.trade-tip {
+  margin-top: 12rpx;
+  color: var(--xo-text-secondary);
+  font-size: 22rpx;
 }
 
 .trade-input {

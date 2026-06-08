@@ -1,6 +1,7 @@
 package com.xoassets.module.investment.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.xoassets.common.api.ErrorCode;
 import com.xoassets.common.exception.BusinessException;
 import com.xoassets.module.investment.dto.ManualQuoteRequest;
@@ -14,8 +15,11 @@ import com.xoassets.module.investment.vo.AssetPriceVO;
 import com.xoassets.persistence.entity.Asset;
 import com.xoassets.persistence.entity.AssetPrice;
 import com.xoassets.persistence.entity.AssetPriceCurrent;
+import com.xoassets.persistence.entity.AssetPriceDaily;
 import com.xoassets.persistence.mapper.AssetPriceCurrentMapper;
+import com.xoassets.persistence.mapper.AssetPriceDailyMapper;
 import com.xoassets.persistence.mapper.AssetPriceMapper;
+import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -40,9 +44,11 @@ public class QuoteServiceImpl implements QuoteService {
 
     private static final LocalTime STOCK_REFRESH_START = LocalTime.of(9, 30);
     private static final LocalTime STOCK_REFRESH_END = LocalTime.of(15, 0);
+    private static final String ASSET_TYPE_FUND = "FUND";
 
     private final AssetPriceMapper assetPriceMapper;
     private final AssetPriceCurrentMapper assetPriceCurrentMapper;
+    private final AssetPriceDailyMapper assetPriceDailyMapper;
     private final QuoteRawSnapshotService quoteRawSnapshotService;
     private final AssetService assetService;
     private final List<QuoteProvider> quoteProviders;
@@ -50,11 +56,13 @@ public class QuoteServiceImpl implements QuoteService {
     public QuoteServiceImpl(
             AssetPriceMapper assetPriceMapper,
             AssetPriceCurrentMapper assetPriceCurrentMapper,
+            AssetPriceDailyMapper assetPriceDailyMapper,
             QuoteRawSnapshotService quoteRawSnapshotService,
             AssetService assetService,
             List<QuoteProvider> quoteProviders) {
         this.assetPriceMapper = assetPriceMapper;
         this.assetPriceCurrentMapper = assetPriceCurrentMapper;
+        this.assetPriceDailyMapper = assetPriceDailyMapper;
         this.quoteRawSnapshotService = quoteRawSnapshotService;
         this.assetService = assetService;
         this.quoteProviders = quoteProviders;
@@ -159,6 +167,11 @@ public class QuoteServiceImpl implements QuoteService {
             throw exception;
         }
         AssetPrice price = toAssetPrice(asset.getId(), result);
+        upsertFundDailyPrice(asset, price);
+        if (sameOrOlderQuote(latestPrice, price)) {
+            // 第三方在非交易日或 QDII 延迟时会重复返回同一净值日期，不能反复更新 current.updated_at 误导为今日新价。
+            return toVO(latestPrice);
+        }
         upsertCurrent(toCurrent(price));
         appendRawSnapshot(toRawSnapshot(price));
         return toVO(price);
@@ -244,6 +257,87 @@ public class QuoteServiceImpl implements QuoteService {
             return;
         }
         assetPriceCurrentMapper.updateById(current);
+    }
+
+    /**
+     * 基金净值本身就是日级收盘价，刷新成功后直接沉淀到 daily，避免等夜间聚合任务导致确认和收益基准滞后。
+     */
+    private void upsertFundDailyPrice(Asset asset, AssetPrice price) {
+        if (!ASSET_TYPE_FUND.equals(asset.getType()) || price.getQuoteTime() == null || price.getPrice() == null) {
+            return;
+        }
+        AssetPriceDaily daily = toFundDailyPrice(price);
+        AssetPriceDaily exists = assetPriceDailyMapper.selectOne(new LambdaQueryWrapper<AssetPriceDaily>()
+                .eq(AssetPriceDaily::getAssetId, daily.getAssetId())
+                .eq(AssetPriceDaily::getTradeDate, daily.getTradeDate())
+                .last("limit 1"));
+        if (exists == null) {
+            assetPriceDailyMapper.insert(daily);
+            return;
+        }
+        if (sameDailyPayload(exists, daily)) {
+            return;
+        }
+        daily.setId(exists.getId());
+        assetPriceDailyMapper.update(daily, new LambdaUpdateWrapper<AssetPriceDaily>()
+                .eq(AssetPriceDaily::getId, exists.getId()));
+    }
+
+    private AssetPriceDaily toFundDailyPrice(AssetPrice price) {
+        AssetPriceDaily daily = new AssetPriceDaily();
+        daily.setAssetId(price.getAssetId());
+        daily.setTradeDate(price.getQuoteTime().toLocalDate());
+        daily.setOpenPrice(price.getPrice().setScale(8, RoundingMode.HALF_UP));
+        daily.setClosePrice(price.getPrice().setScale(8, RoundingMode.HALF_UP));
+        daily.setHighPrice(price.getPrice().setScale(8, RoundingMode.HALF_UP));
+        daily.setLowPrice(price.getPrice().setScale(8, RoundingMode.HALF_UP));
+        daily.setPreviousClose(price.getPreviousClose());
+        daily.setChangeAmount(price.getChangeAmount());
+        daily.setChangePercent(price.getChangePercent());
+        daily.setCurrency(price.getCurrency());
+        daily.setSource(price.getSource());
+        daily.setDeleted(0);
+        return daily;
+    }
+
+    private boolean sameOrOlderQuote(AssetPrice latestPrice, AssetPrice fetchedPrice) {
+        if (latestPrice == null || fetchedPrice == null || latestPrice.getQuoteTime() == null || fetchedPrice.getQuoteTime() == null) {
+            return false;
+        }
+        return !fetchedPrice.getQuoteTime().isAfter(latestPrice.getQuoteTime()) && samePricePayload(latestPrice, fetchedPrice);
+    }
+
+    private boolean samePricePayload(AssetPrice left, AssetPrice right) {
+        return sameAmount(left.getPrice(), right.getPrice())
+                && sameText(left.getCurrency(), right.getCurrency())
+                && sameAmount(left.getPreviousClose(), right.getPreviousClose())
+                && sameAmount(left.getChangeAmount(), right.getChangeAmount())
+                && sameAmount(left.getChangePercent(), right.getChangePercent())
+                && sameText(left.getSource(), right.getSource())
+                && sameText(left.getMarketStatus(), right.getMarketStatus());
+    }
+
+    private boolean sameDailyPayload(AssetPriceDaily left, AssetPriceDaily right) {
+        return sameAmount(left.getOpenPrice(), right.getOpenPrice())
+                && sameAmount(left.getClosePrice(), right.getClosePrice())
+                && sameAmount(left.getHighPrice(), right.getHighPrice())
+                && sameAmount(left.getLowPrice(), right.getLowPrice())
+                && sameAmount(left.getPreviousClose(), right.getPreviousClose())
+                && sameAmount(left.getChangeAmount(), right.getChangeAmount())
+                && sameAmount(left.getChangePercent(), right.getChangePercent())
+                && sameText(left.getCurrency(), right.getCurrency())
+                && sameText(left.getSource(), right.getSource());
+    }
+
+    private boolean sameAmount(BigDecimal left, BigDecimal right) {
+        if (left == null || right == null) {
+            return left == right;
+        }
+        return left.compareTo(right) == 0;
+    }
+
+    private boolean sameText(String left, String right) {
+        return left == null ? right == null : left.equals(right);
     }
 
     /**

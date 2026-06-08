@@ -15,4 +15,8 @@ public class InvestmentTrendPointVO {
     private LocalDate date;
     private BigDecimal marketValue;
     private BigDecimal totalProfit;
+    private BigDecimal assetAmount;
+    private BigDecimal holdingProfit;
+    private String primaryProfitLabel;
+    private BigDecimal primaryProfitAmount;
 }

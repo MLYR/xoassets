@@ -18,6 +18,10 @@ public class HoldingVO {
     private String assetName;
     private String symbol;
     private String assetType;
+    private String assetSubType;
+    private String profitDisplayMode;
+    private String valuationMode;
+    private String tradeVenue;
     private String market;
     private String quoteSource;
     private String currency;
@@ -32,9 +36,15 @@ public class HoldingVO {
     private LocalDateTime previousPriceTime;
     private LocalDate priceDate;
     private Boolean todayPriceAvailable;
+    private Boolean todayProfitAvailable;
     private String priceStatus;
     private String latestPriceSource;
     private String marketStatus;
+    private String primaryProfitLabel;
+    private BigDecimal primaryProfitAmount;
+    private String secondaryProfitLabel;
+    private BigDecimal secondaryProfitAmount;
+    private String priceLabel;
     private BigDecimal marketValue;
     private BigDecimal todayProfit;
     private BigDecimal todayProfitBase;

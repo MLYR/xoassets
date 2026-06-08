@@ -72,6 +72,15 @@
           <el-table-column v-if="columnVisible('totalCost')" label="总成本" prop="totalCost" min-width="150" align="right" header-align="right" sortable>
             <template #default="{ row }"><AmountText class="numeric-cell" :value="displayValue(row.totalCost, row.currency, 4)" :precision="4" :currency-symbol="currencySymbol" /></template>
           </el-table-column>
+          <el-table-column v-if="columnVisible('primaryProfit')" label="主收益" prop="primaryProfitAmount" min-width="160" align="right" header-align="right" sortable>
+            <template #default="{ row }">
+              <div class="numeric-stack">
+                <small class="muted-line">{{ row.primaryProfitLabel || primaryProfitLabel(row) }}</small>
+                <AmountText v-if="row.primaryProfitAmount !== null && row.primaryProfitAmount !== undefined" class="numeric-cell" :value="displayValue(row.primaryProfitAmount, row.currency, 4)" with-sign :precision="4" :currency-symbol="currencySymbol" />
+                <span v-else class="numeric-cell muted-text">暂无</span>
+              </div>
+            </template>
+          </el-table-column>
           <el-table-column v-if="columnVisible('todayProfit')" label="今日收益" prop="todayProfit" min-width="150" align="right" header-align="right" sortable>
             <template #default="{ row }">
               <div class="numeric-stack">
@@ -341,6 +350,7 @@ const columnOptions = [
   { key: 'todayChangeRate', label: '今日涨跌' },
   { key: 'marketValue', label: '总市值' },
   { key: 'totalCost', label: '总成本' },
+  { key: 'primaryProfit', label: '主收益' },
   { key: 'todayProfit', label: '今日收益' },
   { key: 'yesterdayProfit', label: '昨日收益' },
   { key: 'floatingProfit', label: '总收益' },
@@ -348,7 +358,7 @@ const columnOptions = [
   { key: 'breakEvenRate', label: '回本涨幅' }
 ];
 // 默认只展示用户最常比较的收益字段，其余字段可通过表格字段选择器打开。
-const visibleColumnKeys = ref(['assetType', 'marketValue', 'latestPrice','previousPrice','todayChangeRate','floatingProfit', 'floatingProfitRate', 'todayProfit', 'yesterdayProfit']);
+const visibleColumnKeys = ref(['assetType', 'marketValue', 'latestPrice','previousPrice','primaryProfit','floatingProfit', 'floatingProfitRate']);
 const typeOptions = [
   { label: '全部', value: 'ALL' },
   { label: '基金', value: 'FUND' },
@@ -834,6 +844,17 @@ function columnVisible(key: string) {
 
 function typeLabel(type?: string | null) {
   return ({ FUND: '基金', STOCK: '股票', CRYPTO: '虚拟货币', OTHER: '其他' } as Record<string, string>)[type || ''] || '-';
+}
+
+function primaryProfitLabel(row: HoldingItem) {
+  // 主收益文案兜底必须跟资产类型一致，避免基金行被默认展示为今日收益。
+  if (row.assetType === 'FUND') {
+    return row.assetSubType === 'ETF' ? '今日收益' : '昨日收益';
+  }
+  if (row.assetType === 'CRYPTO') {
+    return '24h收益';
+  }
+  return '今日收益';
 }
 
 function formatDateTime(date: Date) {

@@ -4,10 +4,14 @@ import com.xoassets.module.investment.dto.HoldingRequest;
 import com.xoassets.module.investment.vo.HoldingDetailVO;
 import com.xoassets.module.investment.vo.HoldingSummaryVO;
 import com.xoassets.module.investment.vo.HoldingVO;
+import com.xoassets.module.investment.vo.InvestmentCalendarDayProfitVO;
+import com.xoassets.module.investment.vo.InvestmentOverviewVO;
 import com.xoassets.module.investment.vo.InvestmentTrendPointVO;
+import com.xoassets.module.investment.vo.InvestmentTrendVO;
 import com.xoassets.persistence.entity.Holding;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 
 /**
@@ -21,9 +25,19 @@ public interface HoldingService {
     List<HoldingVO> list();
 
     /**
+     * 按投资模块查询当前用户持仓列表。
+     */
+    List<HoldingVO> list(String module);
+
+    /**
      * 查询当前用户持仓汇总。
      */
     HoldingSummaryVO summary();
+
+    /**
+     * 查询投资总览，拆分今日收益和昨日收益的资产范围。
+     */
+    InvestmentOverviewVO overview();
 
     /**
      * 查询当前用户投资资产趋势。
@@ -31,9 +45,19 @@ public interface HoldingService {
     List<InvestmentTrendPointVO> trend(LocalDate startDate, LocalDate endDate);
 
     /**
+     * 查询投资模块资产趋势。
+     */
+    InvestmentTrendVO trend(String module, String period, LocalDate startDate, LocalDate endDate);
+
+    /**
      * 查询当前用户某个持仓的详情。
      */
     HoldingDetailVO detail(Long id);
+
+    /**
+     * 查询单个持仓指定月份的收益日历。
+     */
+    List<InvestmentCalendarDayProfitVO> profitCalendar(Long id, YearMonth month);
 
     /**
      * 新增持仓。
