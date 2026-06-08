@@ -25,6 +25,7 @@ public class AccountBalanceAdjustment {
     private String reason;
     private String operatorType;
     private LocalDate bizDate;
+    private LocalDateTime bizTime;
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
     @TableField(fill = FieldFill.INSERT_UPDATE)

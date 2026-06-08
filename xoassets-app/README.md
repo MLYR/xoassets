@@ -236,7 +236,7 @@ src/assets/themes/classic-blue/icons/
 - 排序：默认（录入顺序）、名称、金额
 - 眼睛开关覆盖整个账户页面全部金额
 - 账户详情余额修正调用 `POST /api/accounts/{id}/balance-adjustments`，生成专用调整记录，不计入普通收支，但进入账本和余额曲线
-- 账户详情月度趋势使用 `dailyBalanceTrend.endBalance` 展示日终余额曲线，资金流趋势保留为辅助统计数据
+- 账户详情月度趋势使用 `dailyBalanceTrend.endBalance` 展示日终余额曲线；月度流入、流出、净变化使用 `/flow-statistics` 的汇总字段，不再依赖日流入 / 流出趋势字段
 
 **图标资源：**
 - 新增 SVG：`account-bank-card.svg`、`account-credit-card.svg`、`account-cash.svg`、`account-stock.svg`、`account-fund.svg`、`account-crypto.svg`、`account-other.svg`、`account-wechat.svg`

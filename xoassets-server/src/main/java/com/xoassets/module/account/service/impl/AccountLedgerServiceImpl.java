@@ -118,7 +118,7 @@ public class AccountLedgerServiceImpl implements AccountLedgerService {
         ledgerQuery.setEndDate(range.endDate());
         // MVP 阶段复用资金明细全量加载后聚合；后续可按分类、投资资产和日期分别改为 SQL GROUP BY 聚合。
         List<AccountLedgerVO> rows = loadLedgerRows(userId, accountId, ledgerQuery).stream()
-                // 撤销投资交易保留展示，但不参与资金流向统计。
+                // 撤销投资交易保留展示，但不参与账户详情汇总。
                 .filter(row -> isEffectiveInvestmentStatus(row.getStatus()))
                 .toList();
         BigDecimal income = sumByType(rows, "INCOME");
@@ -140,9 +140,8 @@ public class AccountLedgerServiceImpl implements AccountLedgerService {
                 .investmentSellAmount(investmentSell)
                 .adjustmentAmount(adjustment)
                 .netFlowAmount(inflow.subtract(outflow))
+                // 账户详情只保留支出分类和余额曲线，避免继续计算已下线的投资资金流向图。
                 .categoryExpenseStats(categoryExpenseStats(rows))
-                .investmentFlowStats(investmentFlowStats(rows))
-                .dailyFlowTrend(dailyFlowTrend(rows))
                 .dailyBalanceTrend(balanceTrendItems(accountId, range))
                 .build();
     }
@@ -288,7 +287,7 @@ public class AccountLedgerServiceImpl implements AccountLedgerService {
                 .accountId(accountId)
                 .accountName(account == null ? null : account.getName())
                 .status(STATUS_NORMAL)
-                .transactionTime(record.getBizDate().atStartOfDay())
+                .transactionTime(record.getBizTime() == null ? record.getBizDate().atStartOfDay() : record.getBizTime())
                 .note(record.getReason())
                 .build();
     }
@@ -408,42 +407,6 @@ public class AccountLedgerServiceImpl implements AccountLedgerService {
         });
         return grouped.entrySet().stream()
                 .map(entry -> AccountFlowStatisticsVO.NameAmountItem.builder().name(entry.getKey()).amount(entry.getValue()).build())
-                .toList();
-    }
-
-    /**
-     * 投资资金流按买入/卖出和资产名称分组。
-     */
-    private List<AccountFlowStatisticsVO.NameAmountItem> investmentFlowStats(List<AccountLedgerVO> rows) {
-        Map<String, BigDecimal> grouped = new LinkedHashMap<>();
-        rows.stream().filter(row -> row.getBizType().startsWith("INVEST_")).forEach(row -> {
-            String direction = "INVEST_BUY".equals(row.getBizType()) ? "买入 " : "卖出 ";
-            String name = direction + (StringUtils.hasText(row.getAssetName()) ? row.getAssetName() : nullToEmpty(row.getSymbol()));
-            grouped.merge(name.trim(), row.getAmount().abs(), BigDecimal::add);
-        });
-        return grouped.entrySet().stream()
-                .map(entry -> AccountFlowStatisticsVO.NameAmountItem.builder().name(entry.getKey()).amount(entry.getValue()).build())
-                .toList();
-    }
-
-    /**
-     * 按日聚合流入、流出和净流入。
-     */
-    private List<AccountFlowStatisticsVO.DailyFlowItem> dailyFlowTrend(List<AccountLedgerVO> rows) {
-        Map<LocalDate, List<AccountLedgerVO>> grouped = rows.stream()
-                .collect(Collectors.groupingBy(row -> row.getTransactionTime().toLocalDate(), LinkedHashMap::new, Collectors.toList()));
-        return grouped.entrySet().stream()
-                .sorted(Map.Entry.comparingByKey())
-                .map(entry -> {
-                    BigDecimal inflow = entry.getValue().stream().map(AccountLedgerVO::getAmount).filter(amount -> amount.compareTo(BigDecimal.ZERO) > 0).reduce(BigDecimal.ZERO, BigDecimal::add);
-                    BigDecimal outflow = entry.getValue().stream().map(AccountLedgerVO::getAmount).filter(amount -> amount.compareTo(BigDecimal.ZERO) < 0).map(BigDecimal::abs).reduce(BigDecimal.ZERO, BigDecimal::add);
-                    return AccountFlowStatisticsVO.DailyFlowItem.builder()
-                            .date(entry.getKey().toString())
-                            .inflow(inflow)
-                            .outflow(outflow)
-                            .netFlow(inflow.subtract(outflow))
-                            .build();
-                })
                 .toList();
     }
 

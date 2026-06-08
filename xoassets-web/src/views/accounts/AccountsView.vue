@@ -227,7 +227,7 @@ async function handleSubmit() {
         await accountApi.adjustBalance(editingAccount.value.id, {
           afterBalance: Number(form.balance ?? 0),
           reason: '账户编辑余额修正',
-          bizDate: formatDate(new Date())
+          bizTime: formatDateTimeInput(new Date())
         });
       }
       ElMessage.success('账户已更新');
@@ -268,6 +268,13 @@ function formatDate(date: Date) {
   const day = String(date.getDate()).padStart(2, '0');
   return `${date.getFullYear()}-${month}-${day}`;
 }
+
+function formatDateTimeInput(date: Date) {
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  return `${formatDate(date)} ${hours}:${minutes}:${seconds}`;
+}
 </script>
 
 <style scoped>
@@ -298,7 +305,7 @@ function formatDate(date: Date) {
 
 .account-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 18px;
 }
 
@@ -338,10 +345,17 @@ function formatDate(date: Date) {
   gap: 12px;
 }
 
+.account-top > div {
+  min-width: 0;
+}
+
 .account-top h3 {
   margin: 0 0 6px;
+  overflow: hidden;
   font-size: 17px;
   font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .account-top p,
@@ -349,6 +363,17 @@ function formatDate(date: Date) {
   margin: 0;
   color: var(--xo-muted);
   font-size: 13px;
+}
+
+.account-top p,
+.account-foot span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-foot span {
+  min-width: 0;
 }
 
 /* 账户操作按钮和底部信息保持在同一行，延续卡片紧凑布局。 */
@@ -383,7 +408,9 @@ function formatDate(date: Date) {
 .account-amount {
   display: block;
   margin: 22px 0;
+  overflow: hidden;
   font-size: 30px;
+  text-overflow: ellipsis;
 }
 
 .full-width {
@@ -403,9 +430,9 @@ function formatDate(date: Date) {
   line-height: 1.6;
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 1180px) {
   .account-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -416,6 +443,10 @@ function formatDate(date: Date) {
   }
 
   .account-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .account-grid {
     grid-template-columns: 1fr;
   }
 }

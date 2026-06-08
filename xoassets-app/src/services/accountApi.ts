@@ -87,13 +87,6 @@ export interface AccountFlowNameAmountItem {
   amount: number
 }
 
-export interface AccountDailyFlowItem {
-  date: string
-  inflow: number
-  outflow: number
-  netFlow: number
-}
-
 export interface AccountDailyBalanceItem {
   date: string
   endBalance: number
@@ -112,8 +105,6 @@ export interface AccountFlowStatistics {
   adjustmentAmount: number
   netFlowAmount: number
   categoryExpenseStats: AccountFlowNameAmountItem[]
-  investmentFlowStats: AccountFlowNameAmountItem[]
-  dailyFlowTrend: AccountDailyFlowItem[]
   dailyBalanceTrend: AccountDailyBalanceItem[]
 }
 
@@ -121,6 +112,7 @@ export interface AccountBalanceAdjustmentRequest {
   afterBalance: number
   reason?: string
   bizDate?: string
+  bizTime?: string
 }
 
 export interface AccountLedgerPage {

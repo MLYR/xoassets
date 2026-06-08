@@ -129,7 +129,7 @@ com.xoassets
 - 手动行情接口使用 `/api/quotes/**`。
 - 汇率展示接口使用 `/api/exchange-rates/**`，前端只读后端缓存汇率，不直连第三方汇率源。
 - 资产快照接口使用 `/api/snapshots/**`，用于首页净资产变化、趋势图、AI 报告和资产目标分析。
-- 账户资金明细接口使用 `/api/accounts/{id}/ledger`，资金流向统计使用 `/api/accounts/{id}/flow-statistics`，余额修正和账户余额曲线使用 `/api/accounts/{id}/balance-adjustments`、`/api/accounts/{id}/balance-trend`。
+- 账户资金明细接口使用 `/api/accounts/{id}/ledger`，账户详情统计使用 `/api/accounts/{id}/flow-statistics`，余额修正和账户余额曲线使用 `/api/accounts/{id}/balance-adjustments`、`/api/accounts/{id}/balance-trend`；账户详情只展示当前余额、累计流入、累计流出、余额修正、余额曲线和支出分类，不再展示投资资金流向图。
 - CSV 导出接口使用 `/api/export/**`，只允许导出当前登录用户自己的数据。
 - 预算接口使用 `/api/budgets/**`。
 - 资产目标接口使用 `/api/goals/**`。

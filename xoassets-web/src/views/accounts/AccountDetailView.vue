@@ -30,13 +30,6 @@
       <MetricCard title="当前余额" :value="summary.currentBalance" :trend="0" description="账户实时余额" />
       <MetricCard title="累计流入" :value="summary.totalInflow" :trend="summary.totalInflow" description="正向资金合计" tone="success" />
       <MetricCard title="累计流出" :value="summary.totalOutflow" :trend="-summary.totalOutflow" description="负向资金合计" tone="danger" />
-      <MetricCard title="净流入" :value="summary.netInflow" :trend="summary.netInflow" description="流入减流出" :tone="summary.netInflow >= 0 ? 'success' : 'danger'" />
-    </section>
-
-    <section class="grid-4">
-      <MetricCard title="本期流入" :value="periodInflow" :trend="periodInflow" description="收入/转入/卖出" tone="success" />
-      <MetricCard title="本期流出" :value="periodOutflow" :trend="-periodOutflow" description="支出/转出/买入" tone="danger" />
-      <MetricCard title="本期净流入" :value="flowStats.netFlowAmount" :trend="flowStats.netFlowAmount" description="本期资金净变化" :tone="flowStats.netFlowAmount >= 0 ? 'success' : 'danger'" />
       <MetricCard title="余额修正" :value="flowStats.adjustmentAmount" :trend="flowStats.adjustmentAmount" description="不计入普通收支" :tone="flowStats.adjustmentAmount >= 0 ? 'success' : 'danger'" />
     </section>
 
@@ -51,19 +44,14 @@
         <el-empty v-if="flowStats.categoryExpenseStats.length === 0" description="暂无支出分类数据" />
         <BaseChart v-else :option="categoryOption" height="260px" />
       </div>
-      <div class="panel chart-panel">
-        <div class="section-head"><h2>投资资金流向</h2></div>
-        <el-empty v-if="flowStats.investmentFlowStats.length === 0" description="暂无投资流向数据" />
-        <BaseChart v-else :option="investmentOption" height="260px" />
-      </div>
     </section>
 
     <section class="panel filter-panel">
-      <el-date-picker v-model="dateRange" type="daterange" start-placeholder="开始日期" end-placeholder="结束日期" value-format="YYYY-MM-DD" @change="reloadFromFirstPage" />
-      <el-select v-model="typeFilter" clearable placeholder="全部类型" @change="reloadFromFirstPage">
+      <el-date-picker class="ledger-date-range" v-model="dateRange" type="daterange" start-placeholder="开始日期" end-placeholder="结束日期" value-format="YYYY-MM-DD" @change="reloadFromFirstPage" />
+      <el-select class="ledger-type-select" v-model="typeFilter" clearable placeholder="全部类型" @change="reloadFromFirstPage">
         <el-option v-for="item in ledgerTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
-      <el-input v-model="keyword" placeholder="搜索标题、备注、分类或资产" clearable @change="reloadFromFirstPage" />
+      <el-input class="ledger-keyword-input" v-model="keyword" placeholder="搜索标题、备注、分类或资产" clearable @change="reloadFromFirstPage" />
     </section>
 
     <section v-loading="loading" class="panel">
@@ -99,12 +87,11 @@
           </el-table-column>
         </el-table>
         <div class="table-footer">
-          <span>共 {{ total }} 条明细</span>
           <el-pagination
             v-model:current-page="pageNo"
             v-model:page-size="pageSize"
             layout="total, sizes, prev, pager, next"
-            :page-sizes="[10, 20, 50]"
+            :page-sizes="[10, 50, 100, 300]"
             :total="total"
             @size-change="reloadFromFirstPage"
             @current-change="loadLedger"
@@ -113,22 +100,37 @@
       </template>
     </section>
 
-    <el-dialog v-model="adjustmentDialogVisible" title="余额修正" width="420px">
-      <el-form label-position="top" @submit.prevent="handleBalanceAdjustment">
-        <el-form-item label="修正后余额">
-          <el-input-number v-model="adjustmentForm.afterBalance" class="full-width" :precision="2" :step="100" />
-        </el-form-item>
-        <el-form-item label="业务日期">
-          <el-date-picker v-model="adjustmentForm.bizDate" class="full-width" type="date" value-format="YYYY-MM-DD" />
-        </el-form-item>
-        <el-form-item label="修正原因">
-          <el-input v-model.trim="adjustmentForm.reason" type="textarea" :rows="3" placeholder="例如：补记利息、对账调整" />
-        </el-form-item>
-        <p class="dialog-tip">余额修正会生成专用调整记录，不计入普通收支，但会进入账户账本和余额曲线。</p>
+    <el-dialog v-model="adjustmentDialogVisible" class="xo-form-dialog account-adjustment-dialog" width="520px" top="24px">
+      <template #header>
+        <div class="xo-dialog-header-content">
+          <span class="xo-dialog-kicker">账户对账</span>
+          <h2>余额修正</h2>
+          <p>记录非普通收支导致的余额校准，保留可追溯的业务发生时间。</p>
+        </div>
+      </template>
+      <el-form class="xo-dialog-form" label-position="top" @submit.prevent="handleBalanceAdjustment">
+        <section class="xo-dialog-section">
+          <div class="xo-dialog-section-title">
+            <strong>修正信息</strong>
+            <span>不计入普通收入或支出</span>
+          </div>
+          <el-form-item label="修正后余额">
+            <el-input-number v-model="adjustmentForm.afterBalance" class="full-width" :precision="2" :step="100" />
+          </el-form-item>
+          <el-form-item label="业务时间">
+            <el-date-picker v-model="adjustmentForm.bizTime" class="full-width" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" format="YYYY-MM-DD HH:mm" />
+          </el-form-item>
+          <el-form-item label="修正原因">
+            <el-input v-model.trim="adjustmentForm.reason" type="textarea" :rows="2" placeholder="例如：补记利息、对账调整" />
+          </el-form-item>
+          <p class="dialog-tip">余额修正会生成专用调整记录，不计入普通收支，但会进入账户账本和余额曲线。</p>
+        </section>
       </el-form>
       <template #footer>
-        <el-button @click="adjustmentDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="adjustingBalance" @click="handleBalanceAdjustment">确认修正</el-button>
+        <div class="xo-dialog-footer">
+          <el-button @click="adjustmentDialogVisible = false">取消</el-button>
+          <el-button type="primary" :loading="adjustingBalance" @click="handleBalanceAdjustment">确认修正</el-button>
+        </div>
       </template>
     </el-dialog>
   </div>
@@ -156,15 +158,15 @@ const adjustingBalance = ref(false);
 const adjustmentDialogVisible = ref(false);
 const account = ref<AccountItem | null>(null);
 const summary = ref<AccountLedgerSummary>({ currentBalance: 0, initialBalance: 0, totalInflow: 0, totalOutflow: 0, netInflow: 0, transactionCount: 0 });
-const flowStats = ref<AccountFlowStatistics>({ incomeAmount: 0, expenseAmount: 0, transferInAmount: 0, transferOutAmount: 0, investmentBuyAmount: 0, investmentSellAmount: 0, adjustmentAmount: 0, netFlowAmount: 0, categoryExpenseStats: [], investmentFlowStats: [], dailyFlowTrend: [], dailyBalanceTrend: [] });
+const flowStats = ref<AccountFlowStatistics>({ adjustmentAmount: 0, categoryExpenseStats: [], dailyBalanceTrend: [] });
 const records = ref<AccountLedgerItem[]>([]);
 const total = ref(0);
 const pageNo = ref(1);
-const pageSize = ref(20);
+const pageSize = ref(10);
 const typeFilter = ref<AccountLedgerBizType | ''>('');
 const keyword = ref('');
 const dateRange = ref<[string, string] | null>(null);
-const adjustmentForm = ref({ afterBalance: 0, reason: '', bizDate: formatDate(new Date()) });
+const adjustmentForm = ref({ afterBalance: 0, reason: '', bizTime: formatDateTimeInput(new Date()) });
 const ledgerTypeOptions = [
   { label: '收入', value: 'INCOME' },
   { label: '支出', value: 'EXPENSE' },
@@ -180,8 +182,6 @@ onMounted(() => {
   loadAll();
 });
 
-const periodInflow = computed(() => flowStats.value.incomeAmount + flowStats.value.transferInAmount + flowStats.value.investmentSellAmount);
-const periodOutflow = computed(() => flowStats.value.expenseAmount + flowStats.value.transferOutAmount + flowStats.value.investmentBuyAmount);
 const trendOption = computed<EChartsOption>(() => ({
   tooltip: { trigger: 'axis' },
   legend: { bottom: 0 },
@@ -196,13 +196,6 @@ const trendOption = computed<EChartsOption>(() => ({
 const categoryOption = computed<EChartsOption>(() => ({
   tooltip: { trigger: 'item' },
   series: [{ type: 'pie', radius: ['42%', '70%'], data: flowStats.value.categoryExpenseStats.map((item) => ({ name: item.name, value: item.amount })) }]
-}));
-const investmentOption = computed<EChartsOption>(() => ({
-  tooltip: { trigger: 'axis' },
-  grid: { top: 20, left: 80, right: 20, bottom: 30 },
-  xAxis: { type: 'value' },
-  yAxis: { type: 'category', data: flowStats.value.investmentFlowStats.map((item) => item.name) },
-  series: [{ type: 'bar', data: flowStats.value.investmentFlowStats.map((item) => item.amount) }]
 }));
 
 async function loadAll() {
@@ -231,7 +224,7 @@ async function loadFlowStatistics() {
       endDate: dateRange.value?.[1]
     });
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '资金流向统计加载失败');
+    ElMessage.error(error instanceof Error ? error.message : '账户详情统计加载失败');
   }
 }
 
@@ -255,7 +248,7 @@ function openBalanceAdjustment() {
   adjustmentForm.value = {
     afterBalance: Number(summary.value.currentBalance || account.value?.balance || 0),
     reason: '',
-    bizDate: formatDate(new Date())
+    bizTime: formatDateTimeInput(new Date())
   };
   adjustmentDialogVisible.value = true;
 }
@@ -271,7 +264,7 @@ async function handleBalanceAdjustment() {
     await accountApi.adjustBalance(accountId.value, {
       afterBalance: adjustmentForm.value.afterBalance,
       reason: adjustmentForm.value.reason || undefined,
-      bizDate: adjustmentForm.value.bizDate || undefined
+      bizTime: adjustmentForm.value.bizTime || undefined
     });
     ElMessage.success('余额已修正');
     adjustmentDialogVisible.value = false;
@@ -317,6 +310,13 @@ function formatDate(date: Date) {
   const day = String(date.getDate()).padStart(2, '0');
   return `${date.getFullYear()}-${month}-${day}`;
 }
+
+function formatDateTimeInput(date: Date) {
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  return `${formatDate(date)} ${hours}:${minutes}:${seconds}`;
+}
 </script>
 
 <style scoped>
@@ -347,7 +347,7 @@ function formatDate(date: Date) {
 
 .chart-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -367,10 +367,24 @@ function formatDate(date: Date) {
 
 .filter-panel {
   display: grid;
-  grid-template-columns: 320px 180px minmax(220px, 1fr);
+  /* 日期够用、类型保持窄列，搜索框吃掉剩余空间，符合账户明细高频检索场景。 */
+  grid-template-columns: minmax(360px, 380px) minmax(130px, 150px) minmax(420px, 1fr);
   gap: 12px;
   padding: 16px;
   align-items: center;
+}
+
+:deep(.ledger-date-range),
+:deep(.ledger-type-select),
+:deep(.ledger-keyword-input) {
+  width: 100% !important;
+  min-width: 0;
+}
+
+@media (max-width: 1270px) {
+  .filter-panel {
+    grid-template-columns: 1fr;
+  }
 }
 
 .dialog-tip {
@@ -409,7 +423,7 @@ function formatDate(date: Date) {
 .table-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   padding: 14px 16px;
   border-top: 1px solid var(--xo-border);
   color: var(--xo-muted);

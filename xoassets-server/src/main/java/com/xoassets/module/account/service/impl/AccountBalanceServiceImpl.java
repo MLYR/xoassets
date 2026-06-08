@@ -76,7 +76,9 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
         adjustment.setDeltaAmount(delta);
         adjustment.setReason(request.getReason());
         adjustment.setOperatorType("USER");
-        adjustment.setBizDate(request.getBizDate() == null ? LocalDate.now() : request.getBizDate());
+        LocalDateTime bizTime = resolveBizTime(request);
+        adjustment.setBizTime(bizTime);
+        adjustment.setBizDate(bizTime.toLocalDate());
         adjustment.setDeleted(0);
         adjustmentMapper.insert(adjustment);
         if (delta.compareTo(BigDecimal.ZERO) != 0 && accountMapper.incrementBalance(userId, accountId, delta) == 0) {
@@ -192,8 +194,19 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
                 .deltaAmount(adjustment.getDeltaAmount())
                 .reason(adjustment.getReason())
                 .bizDate(adjustment.getBizDate())
+                .bizTime(adjustment.getBizTime())
                 .createdAt(adjustment.getCreatedAt())
                 .build();
+    }
+
+    private LocalDateTime resolveBizTime(AccountBalanceAdjustmentRequest request) {
+        if (request.getBizTime() != null) {
+            return request.getBizTime();
+        }
+        if (request.getBizDate() != null) {
+            return LocalDateTime.of(request.getBizDate(), LocalTime.MIN);
+        }
+        return LocalDateTime.now();
     }
 
     private static class DailyFlow {

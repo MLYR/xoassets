@@ -5,7 +5,7 @@ import lombok.Data;
 import org.springframework.format.annotation.DateTimeFormat;
 
 /**
- * 账户资金流向统计查询参数，month 优先用于月度视图。
+ * 账户详情统计查询参数，month 优先用于移动端月度视图。
  */
 @Data
 public class AccountFlowStatisticsQuery {

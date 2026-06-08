@@ -16,7 +16,7 @@ public interface AccountLedgerService {
     AccountLedgerPageVO ledger(Long accountId, AccountLedgerQuery query);
 
     /**
-     * 查询账户资金流向统计。
+     * 查询账户详情统计。
      */
     AccountFlowStatisticsVO flowStatistics(Long accountId, AccountFlowStatisticsQuery query);
 }

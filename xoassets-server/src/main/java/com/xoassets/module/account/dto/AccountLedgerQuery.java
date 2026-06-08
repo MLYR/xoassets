@@ -11,7 +11,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 public class AccountLedgerQuery {
 
     private long pageNo = 1;
-    private long pageSize = 20;
+    private long pageSize = 10;
     private String type;
     @DateTimeFormat(pattern = "yyyy-MM-dd")
     private LocalDate startDate;

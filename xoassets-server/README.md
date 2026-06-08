@@ -139,7 +139,7 @@ http://localhost:8080/doc.html
 - 账户余额校准通过 `xo_account_balance_adjustment` 生成专用修正事件；`PUT /api/accounts/{id}` 仍兼容余额差异，但 Web/App 应优先调用 `POST /api/accounts/{id}/balance-adjustments`。
 - 余额修正不计入普通收入 / 支出统计，但会进入账户资金明细；账户日终余额曲线从普通流水、投资交易和余额修正事件实时重建。
 - 账户资金明细接口聚合 `xo_transaction`、`xo_investment_transaction` 和 `xo_account_balance_adjustment`，按当前账户方向展示收入、支出、转账转入/转出、退款、投资买入、投资卖出和余额修正。
-- 账户资金流向统计单独区分普通收支、转账、投资资金流和余额修正，投资买入不计入普通支出分类统计。
+- 账户详情统计保留普通收支、转账、投资买卖汇总、余额修正、支出分类和余额曲线；页面不再返回投资资金流向图和日流入 / 流出趋势。
 - 流水可保存 `image_url`，第一版允许前端传图片 Data URL，数据库使用 `MEDIUMTEXT`，后续可替换为对象存储 URL。
 - 公共资产表 `xo_asset`、当前价表 `xo_asset_price_current` 和日级价格表 `xo_asset_price_daily` 不带 `user_id`；前端不再暴露资产管理入口，`xo_asset` 仅作为持仓行情和价格的内部基础数据。
 - 旧价格快照表已退役；本地历史库删除旧表前先执行 `src/main/resources/db/migration-retire-asset-price.sql`，把历史价迁入 current/daily 后再 drop。

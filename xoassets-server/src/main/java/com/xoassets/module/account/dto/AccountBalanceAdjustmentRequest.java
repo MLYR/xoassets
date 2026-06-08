@@ -3,6 +3,7 @@ package com.xoassets.module.account.dto;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import lombok.Data;
 
 /**
@@ -16,4 +17,5 @@ public class AccountBalanceAdjustmentRequest {
 
     private String reason;
     private LocalDate bizDate;
+    private LocalDateTime bizTime;
 }

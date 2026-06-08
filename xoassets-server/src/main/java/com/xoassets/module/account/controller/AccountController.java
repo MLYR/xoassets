@@ -71,7 +71,7 @@ public class AccountController {
     }
 
     /**
-     * 查询账户资金流向统计。
+     * 查询账户详情统计。
      */
     @GetMapping("/{id}/flow-statistics")
     public Result<AccountFlowStatisticsVO> flowStatistics(@PathVariable Long id, AccountFlowStatisticsQuery query) {

@@ -6,7 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 
 /**
- * 账户资金流向统计，供账户详情页图表展示。
+ * 账户详情统计，供 Web 详情页和移动端月度资金概览展示。
  */
 @Data
 @Builder
@@ -21,8 +21,6 @@ public class AccountFlowStatisticsVO {
     private BigDecimal adjustmentAmount;
     private BigDecimal netFlowAmount;
     private List<NameAmountItem> categoryExpenseStats;
-    private List<NameAmountItem> investmentFlowStats;
-    private List<DailyFlowItem> dailyFlowTrend;
     private List<DailyBalanceItem> dailyBalanceTrend;
 
     /**
@@ -33,18 +31,6 @@ public class AccountFlowStatisticsVO {
     public static class NameAmountItem {
         private String name;
         private BigDecimal amount;
-    }
-
-    /**
-     * 按日期聚合的流入、流出和净流入。
-     */
-    @Data
-    @Builder
-    public static class DailyFlowItem {
-        private String date;
-        private BigDecimal inflow;
-        private BigDecimal outflow;
-        private BigDecimal netFlow;
     }
 
     /**

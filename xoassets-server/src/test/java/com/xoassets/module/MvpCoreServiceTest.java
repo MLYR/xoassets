@@ -331,7 +331,6 @@ class MvpCoreServiceTest {
         assertEquals(bd("1002.0000"), flow.getInvestmentBuyAmount());
         assertEquals(bd("1198.0000"), flow.getInvestmentSellAmount());
         assertEquals(1, flow.getCategoryExpenseStats().size());
-        assertEquals(2, flow.getInvestmentFlowStats().size());
     }
 
     @Test
@@ -389,10 +388,12 @@ class MvpCoreServiceTest {
         AccountBalanceAdjustmentRequest request = new AccountBalanceAdjustmentRequest();
         request.setAfterBalance(bd("1123.4500"));
         request.setReason("对账修正");
-        request.setBizDate(LocalDate.of(2026, 5, 2));
+        request.setBizTime(LocalDateTime.of(2026, 5, 2, 15, 26, 30));
         AccountBalanceAdjustmentVO adjustment = service.adjustBalance(1L, request);
 
         assertEquals(bd("123.4500"), adjustment.getDeltaAmount());
+        assertEquals(LocalDate.of(2026, 5, 2), adjustment.getBizDate());
+        assertEquals(LocalDateTime.of(2026, 5, 2, 15, 26, 30), adjustment.getBizTime());
         assertEquals(bd("1123.4500"), bank.getBalance());
         List<AccountBalanceTrendPointVO> trend = service.balanceTrend(1L, LocalDate.of(2026, 5, 2), LocalDate.of(2026, 5, 2));
         assertEquals(bd("1123.4500"), trend.get(0).getEndBalance());

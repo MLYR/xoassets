@@ -35,7 +35,7 @@
 - 暂用 mock 数据：暂无。
 - 请求封装：`src/services/http.ts` 统一处理 `/api` baseURL、JWT Header、业务响应和 401 跳转。
 - API 模块：`src/services/authApi.ts`、`src/services/accountApi.ts`、`src/services/categoryApi.ts`、`src/services/transactionApi.ts`、`src/services/investmentApi.ts`、`src/services/budgetApi.ts`、`src/services/dashboardApi.ts`、`src/services/statisticsApi.ts`、`src/services/snapshotApi.ts`、`src/services/goalApi.ts`、`src/services/reportApi.ts`。
-- 账户页：余额校准调用 `POST /api/accounts/{id}/balance-adjustments` 生成专用修正记录；账户卡片可进入 `/accounts/:id` 查看资金明细、账户余额曲线、流向统计和导出账户明细。
+- 账户页：余额校准调用 `POST /api/accounts/{id}/balance-adjustments` 生成专用修正记录；账户卡片可进入 `/accounts/:id` 查看资金明细、余额修正、账户余额曲线、支出分类和导出账户明细。
 - 记账页：支持分页、备注、单张 10MB 内图片上传和普通流水 CSV 导出，图片第一版以 Data URL 随流水保存。
 - 投资页：前端只保留“持仓”概念，支持通过资产类型 + 代码 / 名称搜索自动带出资产名称、代码、市场、币种、行情源、行情键和当前价格，也保留手动录入；投资模块按总览 / 基金 / 股票 / 虚拟货币拆分展示，各类型模块内完成新增、编辑、买入、卖出、单个刷新、批量刷新、手动价格和清仓后删除等操作，点击持仓行可进入 `/investments/holdings/:id` 查看单个持仓详情。
 - 行情提示：CRYPTO 使用 CoinGecko id，例如 `bitcoin`；基金使用代码，例如 `000001`；A 股使用 `600519.SH`；美股使用 `AAPL`。前端只调用 XOAssets 后端接口，不直连第三方行情。

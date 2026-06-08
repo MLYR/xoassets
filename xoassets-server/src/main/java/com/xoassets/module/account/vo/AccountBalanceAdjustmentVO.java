@@ -20,5 +20,6 @@ public class AccountBalanceAdjustmentVO {
     private BigDecimal deltaAmount;
     private String reason;
     private LocalDate bizDate;
+    private LocalDateTime bizTime;
     private LocalDateTime createdAt;
 }

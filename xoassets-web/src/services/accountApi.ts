@@ -78,23 +78,33 @@ export interface AccountLedgerPage {
   page: PageResult<AccountLedgerItem>;
 }
 
+type RawPageResult<T> = Omit<PageResult<T>, 'total' | 'pageNo' | 'pageSize'> & {
+  total: number | string;
+  pageNo: number | string;
+  pageSize: number | string;
+};
+
+type RawAccountLedgerPage = Omit<AccountLedgerPage, 'page'> & {
+  page: RawPageResult<AccountLedgerItem>;
+};
+
+// 后端 Long 会序列化成字符串；分页组件要求 number，这里只转换分页元数据。
+function normalizePageResult<T>(result: RawPageResult<T>): PageResult<T> {
+  return {
+    ...result,
+    total: Number(result.total || 0),
+    pageNo: Number(result.pageNo || 1),
+    pageSize: Number(result.pageSize || 10)
+  };
+}
+
 export interface AccountFlowStatistics {
-  incomeAmount: number;
-  expenseAmount: number;
-  transferInAmount: number;
-  transferOutAmount: number;
-  investmentBuyAmount: number;
-  investmentSellAmount: number;
   adjustmentAmount: number;
-  netFlowAmount: number;
   categoryExpenseStats: Array<{ name: string; amount: number }>;
-  investmentFlowStats: Array<{ name: string; amount: number }>;
-  dailyFlowTrend: Array<{ date: string; inflow: number; outflow: number; netFlow: number }>;
   dailyBalanceTrend: Array<{ date: string; endBalance: number; inflow: number; outflow: number; adjustmentAmount: number }>;
 }
 
 export interface AccountFlowStatisticsQuery {
-  month?: string;
   startDate?: string;
   endDate?: string;
 }
@@ -103,6 +113,7 @@ export interface AccountBalanceAdjustmentRequest {
   afterBalance: number;
   reason?: string;
   bizDate?: string;
+  bizTime?: string;
 }
 
 export const accountApi = {
@@ -137,14 +148,6 @@ export const accountApi = {
       data
     });
   },
-  // 查询账户日终余额曲线。
-  balanceTrend(id: string, params: AccountFlowStatisticsQuery) {
-    return request<Array<{ date: string; endBalance: number; inflow: number; outflow: number; adjustmentAmount: number }>>({
-      url: `/accounts/${id}/balance-trend`,
-      method: 'GET',
-      params
-    });
-  },
   // 删除账户；如果后端拒绝删除，错误会透传给页面提示。
   remove(id: string) {
     return request<void>({
@@ -153,14 +156,18 @@ export const accountApi = {
     });
   },
   // 查询账户资金明细，聚合普通流水和投资交易。
-  ledger(id: string, params: AccountLedgerQuery) {
-    return request<AccountLedgerPage>({
+  async ledger(id: string, params: AccountLedgerQuery) {
+    const result = await request<RawAccountLedgerPage>({
       url: `/accounts/${id}/ledger`,
       method: 'GET',
       params
     });
+    return {
+      ...result,
+      page: normalizePageResult(result.page)
+    };
   },
-  // 查询账户资金流向统计。
+  // 查询账户详情统计，供余额曲线和支出分类图使用。
   flowStatistics(id: string, params: AccountFlowStatisticsQuery) {
     return request<AccountFlowStatistics>({
       url: `/accounts/${id}/flow-statistics`,
