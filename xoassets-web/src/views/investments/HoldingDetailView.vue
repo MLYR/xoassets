@@ -42,11 +42,18 @@
       <BaseChart v-else :option="priceChartOption" height="300px" />
     </section>
 
-    <section class="panel calendar-panel">
+    <section v-loading="calendarLoading" class="panel calendar-panel">
       <div class="section-head">
         <div>
           <h2>收益日历</h2>
           <span class="muted-text">{{ calendarMonthLabel }} · 日期下直接展示当日收益</span>
+        </div>
+        <div class="calendar-month-actions">
+          <el-button-group>
+            <el-button :icon="ArrowLeft" aria-label="上一月" @click="changeCalendarMonth(-1)" />
+            <el-button :disabled="isCurrentCalendarMonth" @click="resetCalendarMonth">本月</el-button>
+            <el-button :icon="ArrowRight" :disabled="!canGoNextCalendarMonth" aria-label="下一月" @click="changeCalendarMonth(1)" />
+          </el-button-group>
         </div>
       </div>
       <div class="calendar-weekdays">
@@ -156,6 +163,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import type { EChartsOption } from 'echarts';
 import { useRoute, useRouter } from 'vue-router';
+import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import BaseChart from '@/components/charts/BaseChart.vue';
 import AmountText from '@/components/finance/AmountText.vue';
@@ -174,6 +182,7 @@ const priceSnapshots = ref<AssetPriceItem[]>([]);
 const profitCalendar = ref<InvestmentCalendarDayProfit[]>([]);
 const accounts = ref<AccountItem[]>([]);
 const loading = ref(false);
+const calendarLoading = ref(false);
 const submitting = ref(false);
 const refreshingQuote = ref(false);
 const trendMode = ref<'MARKET_VALUE' | 'PRICE'>('MARKET_VALUE');
@@ -182,6 +191,7 @@ const quoteDialogVisible = ref(false);
 const tradeForm = reactive({ type: 'BUY' as InvestmentTransactionType, accountId: '', quantity: 0, price: 0, tradeAmount: 0, fee: 0, transactionTime: new Date(), note: '' });
 const quoteForm = reactive({ price: 0, currency: 'CNY' });
 const fundConfirmPreview = ref<FundConfirmPreview | null>(null);
+const calendarMonth = ref(startOfMonth(new Date()));
 let fundConfirmPreviewSeq = 0;
 const trendModeOptions = [
   { label: '总市值', value: 'MARKET_VALUE' },
@@ -225,10 +235,9 @@ const primaryProfitDescription = computed(() => {
   }
   return holding.value?.priceDate ? `价格日期 ${holding.value.priceDate}` : '今日有效价对比昨价';
 });
-const calendarMonthLabel = computed(() => {
-  const first = profitCalendar.value.find((item) => item.date);
-  return first?.date ? `${first.date.slice(0, 7)} 月收益` : '本月收益';
-});
+const calendarMonthLabel = computed(() => `${calendarMonthKey(calendarMonth.value)} 月收益`);
+const isCurrentCalendarMonth = computed(() => isSameCalendarMonth(calendarMonth.value, new Date()));
+const canGoNextCalendarMonth = computed(() => !isAfterCalendarMonth(addMonths(calendarMonth.value, 1), new Date()));
 const calendarCells = computed(() => {
   if (!profitCalendar.value.length) {
     return [];
@@ -292,13 +301,57 @@ async function loadPageData() {
     summary.value = detail.summary;
     transactions.value = detail.transactions;
     priceSnapshots.value = detail.priceSnapshots;
-    profitCalendar.value = detail.profitCalendar || [];
     accounts.value = accountList;
+    if (isSameCalendarMonth(calendarMonth.value, new Date())) {
+      profitCalendar.value = detail.profitCalendar || [];
+    } else {
+      await loadProfitCalendar(false);
+    }
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '持仓详情加载失败');
   } finally {
     loading.value = false;
   }
+}
+
+async function loadProfitCalendar(showLoading = true) {
+  if (!holdingId.value) {
+    return;
+  }
+  if (showLoading) {
+    calendarLoading.value = true;
+  }
+  try {
+    // 收益日历按选中年月单独拉取，左右切换月份时不刷新整页详情。
+    profitCalendar.value = await investmentApi.profitCalendar(holdingId.value, {
+      year: calendarMonth.value.getFullYear(),
+      month: calendarMonth.value.getMonth() + 1
+    });
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '收益日历加载失败');
+  } finally {
+    if (showLoading) {
+      calendarLoading.value = false;
+    }
+  }
+}
+
+function changeCalendarMonth(delta: number) {
+  const nextMonth = addMonths(calendarMonth.value, delta);
+  if (delta > 0 && isAfterCalendarMonth(nextMonth, new Date())) {
+    return;
+  }
+  calendarMonth.value = nextMonth;
+  loadProfitCalendar();
+}
+
+function resetCalendarMonth() {
+  const currentMonth = startOfMonth(new Date());
+  if (isSameCalendarMonth(calendarMonth.value, currentMonth)) {
+    return;
+  }
+  calendarMonth.value = currentMonth;
+  loadProfitCalendar();
 }
 
 function goBack() {
@@ -448,6 +501,26 @@ async function handleRevokeTransaction(transaction: InvestmentTransactionItem) {
 function formatDateTime(date: Date) {
   const pad = (value: number) => `${value}`.padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+function startOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function addMonths(date: Date, delta: number) {
+  return new Date(date.getFullYear(), date.getMonth() + delta, 1);
+}
+
+function calendarMonthKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function isSameCalendarMonth(left: Date, right: Date) {
+  return left.getFullYear() === right.getFullYear() && left.getMonth() === right.getMonth();
+}
+
+function isAfterCalendarMonth(left: Date, right: Date) {
+  return left.getFullYear() > right.getFullYear() || (left.getFullYear() === right.getFullYear() && left.getMonth() > right.getMonth());
 }
 
 function formatTableTime(value?: string | null) {
@@ -657,6 +730,12 @@ function roundTo(value: number, precision: number) {
   font-weight: 800;
 }
 
+.calendar-month-actions {
+  display: flex;
+  justify-content: flex-end;
+  min-width: max-content;
+}
+
 .numeric-cell {
   display: inline-block;
   white-space: nowrap;
@@ -774,6 +853,16 @@ function roundTo(value: number, precision: number) {
 }
 
 @media (max-width: 640px) {
+  .section-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .calendar-month-actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
   .summary-grid {
     grid-template-columns: 1fr;
   }

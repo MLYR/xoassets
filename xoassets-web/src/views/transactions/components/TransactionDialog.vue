@@ -67,12 +67,12 @@
           </el-form-item>
           <el-form-item label="图片">
             <div class="image-upload">
-              <label class="upload-trigger">
+              <label v-if="!form.imageUrl" class="upload-trigger">
                 <input type="file" accept="image/*" @change="handleImageChange" />
                 <span>选择图片</span>
-                <small>1MB 内</small>
+                <small>仅 1 张，10MB 内</small>
               </label>
-              <el-button v-if="form.imageUrl" link type="danger" @click="form.imageUrl = null">移除图片</el-button>
+              <el-button v-if="form.imageUrl" link type="danger" @click="removeImage">移除图片</el-button>
             </div>
             <img v-if="form.imageUrl" class="preview-image" :src="form.imageUrl" alt="流水图片预览" />
           </el-form-item>
@@ -112,6 +112,9 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean];
   submit: [payload: TransactionRequest];
 }>();
+
+// 图片以 Data URL 存入流水字段；单张最大 10MB，避免用户一次上传多张或超大凭证。
+const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 
 // 将父组件的 v-model 映射为弹窗内部可读写状态。
 const visible = computed({
@@ -233,23 +236,32 @@ function submitForm() {
   });
 }
 
-// 第一版把图片转成 Data URL 随流水保存，后续可替换为对象存储上传后的 URL。
+// 移除后才重新显示选择入口，保证一笔流水只能保留一张凭证图片。
+function removeImage() {
+  form.imageUrl = null;
+}
+
+// 第一版把单张图片转成 Data URL 随流水保存，后续可替换为对象存储上传后的 URL。
 function handleImageChange(event: Event) {
-  const file = (event.target as HTMLInputElement).files?.[0];
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
   if (!file) {
     return;
   }
   if (!file.type.startsWith('image/')) {
     ElMessage.warning('只能上传图片文件');
+    input.value = '';
     return;
   }
-  if (file.size > 1024 * 1024) {
-    ElMessage.warning('图片不能超过 1MB');
+  if (file.size > MAX_IMAGE_SIZE_BYTES) {
+    ElMessage.warning('图片不能超过 10MB');
+    input.value = '';
     return;
   }
   const reader = new FileReader();
   reader.onload = () => {
     form.imageUrl = typeof reader.result === 'string' ? reader.result : null;
+    input.value = '';
   };
   reader.readAsDataURL(file);
 }
