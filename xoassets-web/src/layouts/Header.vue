@@ -18,40 +18,41 @@
         </template>
       </el-dropdown>
     </div>
-
-    <el-dialog v-model="profileDialogVisible" title="修改名称" width="420px">
-      <el-form label-position="top" @submit.prevent="handleUpdateProfile">
-        <el-form-item label="账号">
-          <el-input :model-value="user?.username || '-'" disabled />
-        </el-form-item>
-        <el-form-item label="名称">
-          <el-input v-model.trim="profileForm.nickname" placeholder="请输入名称" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="profileDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="profileSubmitting" @click="handleUpdateProfile">保存</el-button>
-      </template>
-    </el-dialog>
-
-    <el-dialog v-model="passwordDialogVisible" title="修改密码" width="420px">
-      <el-form label-position="top" @submit.prevent="handleChangePassword">
-        <el-form-item label="旧密码">
-          <el-input v-model="passwordForm.oldPassword" type="password" show-password placeholder="请输入旧密码" />
-        </el-form-item>
-        <el-form-item label="新密码">
-          <el-input v-model="passwordForm.newPassword" type="password" show-password placeholder="至少 6 位新密码" />
-        </el-form-item>
-        <el-form-item label="确认新密码">
-          <el-input v-model="passwordForm.confirmPassword" type="password" show-password placeholder="请再次输入新密码" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="passwordDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="passwordSubmitting" @click="handleChangePassword">保存</el-button>
-      </template>
-    </el-dialog>
   </header>
+
+  <!-- 用户资料弹窗显式挂到 body，避免 header flex 容器影响 Element Plus 弹窗定位。 -->
+  <el-dialog v-model="profileDialogVisible" title="修改名称" width="420px" append-to-body>
+    <el-form label-position="top" @submit.prevent="handleUpdateProfile">
+      <el-form-item label="账号">
+        <el-input :model-value="user?.username || '-'" disabled />
+      </el-form-item>
+      <el-form-item label="名称">
+        <el-input v-model.trim="profileForm.nickname" placeholder="请输入名称" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="profileDialogVisible = false">取消</el-button>
+      <el-button type="primary" :loading="profileSubmitting" @click="handleUpdateProfile">保存</el-button>
+    </template>
+  </el-dialog>
+
+  <el-dialog v-model="passwordDialogVisible" title="修改密码" width="420px" append-to-body>
+    <el-form label-position="top" @submit.prevent="handleChangePassword">
+      <el-form-item label="旧密码">
+        <el-input v-model="passwordForm.oldPassword" type="password" show-password placeholder="请输入旧密码" />
+      </el-form-item>
+      <el-form-item label="新密码">
+        <el-input v-model="passwordForm.newPassword" type="password" show-password placeholder="至少 6 位新密码" />
+      </el-form-item>
+      <el-form-item label="确认新密码">
+        <el-input v-model="passwordForm.confirmPassword" type="password" show-password placeholder="请再次输入新密码" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="passwordDialogVisible = false">取消</el-button>
+      <el-button type="primary" :loading="passwordSubmitting" @click="handleChangePassword">保存</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
