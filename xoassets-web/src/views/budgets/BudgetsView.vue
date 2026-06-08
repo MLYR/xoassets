@@ -1,15 +1,9 @@
 <!-- 预算管理页：接入真实预算接口，展示总预算、分类预算和使用进度。 -->
 <template>
   <div class="page">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">预算管理</h1>
-        <p class="page-subtitle">跟踪分类预算使用情况，提前发现超支风险</p>
-      </div>
-      <div class="header-actions">
-        <el-date-picker v-model="selectedMonth" type="month" value-format="YYYY-MM" :clearable="false" />
-        <el-button type="primary" :icon="Plus" @click="openCreateDialog">新增预算</el-button>
-      </div>
+    <div class="page-actions">
+      <el-date-picker v-model="selectedMonth" type="month" value-format="YYYY-MM" :clearable="false" />
+      <el-button type="primary" :icon="Plus" @click="openCreateDialog">新增预算</el-button>
     </div>
 
     <section class="grid-3">
@@ -36,26 +30,43 @@
       </article>
     </section>
 
-    <el-dialog v-model="dialogVisible" :title="editingBudget ? '编辑预算' : '新增预算'" width="440px">
-      <el-form label-position="top" @submit.prevent="handleSubmit">
-        <el-form-item label="月份">
-          <el-date-picker v-model="form.month" type="month" value-format="YYYY-MM" class="full-width" :clearable="false" />
-        </el-form-item>
-        <el-form-item label="预算类型">
-          <el-segmented v-model="form.budgetType" :options="budgetTypeOptions" />
-        </el-form-item>
-        <el-form-item v-if="form.budgetType === 'CATEGORY'" label="支出分类">
-          <el-select v-model="form.categoryId" class="full-width" placeholder="选择支出分类">
-            <el-option v-for="category in categories" :key="category.id" :label="category.name" :value="category.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="预算金额">
-          <el-input-number v-model="form.amount" class="full-width" :min="0.01" :precision="2" />
-        </el-form-item>
+    <el-dialog v-model="dialogVisible" class="xo-form-dialog budget-form-dialog" width="560px" top="12px">
+      <template #header>
+        <div class="xo-dialog-header-content">
+          <span class="xo-dialog-kicker">预算控制</span>
+          <h2>{{ editingBudget ? '编辑预算' : '新增预算' }}</h2>
+          <p>{{ editingBudget ? '调整当前预算金额或分类，保存后立即刷新本月预算进度。' : '设置总预算或分类预算，用于跟踪本月支出使用情况。' }}</p>
+        </div>
+      </template>
+      <el-form class="xo-dialog-form" label-position="top" @submit.prevent="handleSubmit">
+        <section class="xo-dialog-section">
+          <div class="xo-dialog-section-title">
+            <strong>预算范围</strong>
+            <span>按月份和类型统计支出</span>
+          </div>
+          <div class="budget-form-grid">
+            <el-form-item label="月份">
+              <el-date-picker v-model="form.month" type="month" value-format="YYYY-MM" class="full-width" :clearable="false" />
+            </el-form-item>
+            <el-form-item label="预算类型">
+              <el-segmented v-model="form.budgetType" :options="budgetTypeOptions" class="full-width" />
+            </el-form-item>
+            <el-form-item v-if="form.budgetType === 'CATEGORY'" label="支出分类">
+              <el-select v-model="form.categoryId" class="full-width" placeholder="选择支出分类">
+                <el-option v-for="category in categories" :key="category.id" :label="category.name" :value="category.id" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="预算金额">
+              <el-input-number v-model="form.amount" class="full-width budget-amount-input" :min="0.01" :precision="2" />
+            </el-form-item>
+          </div>
+        </section>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="handleSubmit">保存</el-button>
+        <div class="xo-dialog-footer">
+          <el-button @click="dialogVisible = false">取消</el-button>
+          <el-button type="primary" :loading="submitting" @click="handleSubmit">保存</el-button>
+        </div>
       </template>
     </el-dialog>
   </div>
@@ -200,13 +211,6 @@ function currentMonth() {
 </script>
 
 <style scoped>
-/* 顶部操作保持账户页同类布局，便于切换月份后快速新增预算。 */
-.header-actions {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
 /* 预算卡片强调进度条和状态，便于快速识别超支项目。 */
 .budget-grid {
   display: grid;
@@ -257,15 +261,24 @@ function currentMonth() {
   width: 100%;
 }
 
+.budget-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 14px;
+}
+
+.budget-amount-input :deep(.el-input__inner) {
+  font-size: 18px;
+  font-weight: 800;
+}
+
 @media (max-width: 780px) {
   .budget-grid {
     grid-template-columns: 1fr;
   }
 
-  .header-actions {
-    width: 100%;
-    justify-content: flex-start;
-    flex-wrap: wrap;
+  .budget-form-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

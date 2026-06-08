@@ -48,14 +48,31 @@ export interface PageResult<T> {
   pageSize: number;
 }
 
+type RawPageResult<T> = Omit<PageResult<T>, 'total' | 'pageNo' | 'pageSize'> & {
+  total: number | string;
+  pageNo: number | string;
+  pageSize: number | string;
+};
+
+// 后端会把 Long 统一序列化成字符串；分页组件需要 number，这里只转换分页元数据，不碰业务 ID。
+function normalizePageResult<T>(result: RawPageResult<T>): PageResult<T> {
+  return {
+    ...result,
+    total: Number(result.total || 0),
+    pageNo: Number(result.pageNo || 1),
+    pageSize: Number(result.pageSize || 10)
+  };
+}
+
 export const transactionApi = {
   // 分页查询当前登录用户的流水列表。
-  page(params: TransactionQuery) {
-    return request<PageResult<TransactionItem>>({
+  async page(params: TransactionQuery) {
+    const result = await request<RawPageResult<TransactionItem>>({
       url: '/transactions',
       method: 'GET',
       params
     });
+    return normalizePageResult(result);
   },
   // 新增流水，后端会同步调整账户余额。
   create(data: TransactionRequest) {

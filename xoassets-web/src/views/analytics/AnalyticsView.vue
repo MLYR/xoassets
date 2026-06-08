@@ -1,11 +1,7 @@
 <!-- 数据分析页：集中展示真实资产、收支、预算和投资图表。 -->
 <template>
   <div class="page">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">数据分析</h1>
-        <p class="page-subtitle">从趋势、分类和结余三个维度观察财务表现</p>
-      </div>
+    <div class="page-actions">
       <el-segmented v-model="period" :options="['本月', '近三月', '全年']" />
     </div>
 

@@ -1,16 +1,10 @@
 <!-- 账户详情页：聚合展示普通流水、转账和投资交易形成的资金变化。 -->
 <template>
   <div class="page">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">{{ account?.name || '账户详情' }}</h1>
-        <p class="page-subtitle">{{ accountSubtitle }}</p>
-      </div>
-      <div class="header-actions">
-        <el-button @click="$router.push('/accounts')">返回账户</el-button>
-        <el-button :icon="Edit" @click="openBalanceAdjustment">余额修正</el-button>
-        <el-button type="primary" :icon="Download" :loading="exporting" @click="handleExportLedger">导出账户明细</el-button>
-      </div>
+    <div class="page-actions">
+      <el-button @click="$router.push('/accounts')">返回账户</el-button>
+      <el-button :icon="Edit" @click="openBalanceAdjustment">余额修正</el-button>
+      <el-button type="primary" :icon="Download" :loading="exporting" @click="handleExportLedger">导出账户明细</el-button>
     </div>
 
     <section class="account-info panel panel-padding">
@@ -186,7 +180,6 @@ onMounted(() => {
   loadAll();
 });
 
-const accountSubtitle = computed(() => `${account.value?.currency || '-'} · ${account.value?.remark || '查看账户资金变化'}`);
 const periodInflow = computed(() => flowStats.value.incomeAmount + flowStats.value.transferInAmount + flowStats.value.investmentSellAmount);
 const periodOutflow = computed(() => flowStats.value.expenseAmount + flowStats.value.transferOutAmount + flowStats.value.investmentBuyAmount);
 const trendOption = computed<EChartsOption>(() => ({
@@ -327,12 +320,6 @@ function formatDate(date: Date) {
 </script>
 
 <style scoped>
-.header-actions {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
 .account-info {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

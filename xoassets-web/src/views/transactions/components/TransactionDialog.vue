@@ -1,64 +1,92 @@
 <!-- 流水弹窗：账户和分类全部来自后端，支持收入、支出和转账。 -->
 <template>
-  <el-dialog v-model="visible" :title="dialogTitle" width="500px" @open="resetForm">
-    <el-form :model="form" label-position="top" @submit.prevent>
-      <el-form-item label="类型">
-        <el-segmented v-model="form.type" :options="typeOptions" />
-      </el-form-item>
-      <el-form-item label="金额">
-        <el-input-number v-model="form.amount" :min="0.01" :precision="2" :step="10" class="full-input" />
-      </el-form-item>
-
-      <template v-if="form.type === 'TRANSFER'">
-        <el-form-item label="转出账户">
-          <el-select v-model="form.accountId" placeholder="请选择转出账户" class="full-input" :loading="loading">
-            <el-option v-for="item in accounts" :key="item.id" :label="item.name" :value="item.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="转入账户">
-          <el-select v-model="form.targetAccountId" placeholder="请选择转入账户" class="full-input" :loading="loading">
-            <el-option v-for="item in targetAccountOptions" :key="item.id" :label="item.name" :value="item.id" />
-          </el-select>
-        </el-form-item>
-      </template>
-
-      <template v-else>
-        <el-form-item label="账户">
-          <el-select v-model="form.accountId" placeholder="请选择账户" class="full-input" :loading="loading">
-            <el-option v-for="item in accounts" :key="item.id" :label="item.name" :value="item.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="分类">
-          <el-select v-model="form.categoryId" placeholder="请选择分类" class="full-input" :loading="loading">
-            <el-option v-for="item in availableCategories" :key="item.id" :label="item.name" :value="item.id" />
-          </el-select>
-          <el-alert v-if="!loading && availableCategories.length === 0" class="form-tip" type="info" :closable="false" show-icon>
-            <template #title>暂无可用分类，新用户注册后会自动初始化默认分类</template>
-          </el-alert>
-        </el-form-item>
-      </template>
-
-      <el-form-item label="日期时间">
-        <el-date-picker v-model="form.transactionTime" type="datetime" class="full-input" />
-      </el-form-item>
-      <el-form-item label="备注">
-        <el-input v-model.trim="form.note" type="textarea" :rows="3" placeholder="记录这笔流水的说明" />
-      </el-form-item>
-      <el-form-item label="图片">
-        <div class="image-upload">
-          <label class="upload-trigger">
-            <input type="file" accept="image/*" @change="handleImageChange" />
-            <span>选择图片</span>
-            <small>支持 1MB 内图片</small>
-          </label>
-          <el-button v-if="form.imageUrl" link type="danger" @click="form.imageUrl = null">移除图片</el-button>
+  <el-dialog v-model="visible" class="xo-form-dialog transaction-form-dialog" width="640px" top="12px" @open="resetForm">
+    <template #header>
+      <div class="xo-dialog-header-content">
+        <span class="xo-dialog-kicker">普通流水</span>
+        <h2>{{ dialogTitle }}</h2>
+        <p>{{ dialogSubtitle }}</p>
+      </div>
+    </template>
+    <el-form :model="form" class="xo-dialog-form" label-position="top" @submit.prevent>
+      <section class="xo-dialog-section">
+        <div class="xo-dialog-section-title">
+          <strong>交易信息</strong>
+          <span>{{ currentTypeHint }}</span>
         </div>
-        <img v-if="form.imageUrl" class="preview-image" :src="form.imageUrl" alt="流水图片预览" />
-      </el-form-item>
+        <div class="transaction-main-grid">
+          <el-form-item label="类型">
+            <el-segmented v-model="form.type" :options="typeOptions" class="type-segmented" />
+          </el-form-item>
+          <el-form-item label="金额">
+            <el-input-number v-model="form.amount" :min="0.01" :precision="2" :step="10" class="full-input amount-input" />
+          </el-form-item>
+        </div>
+        <template v-if="form.type === 'TRANSFER'">
+          <div class="transaction-account-grid">
+            <el-form-item label="转出账户">
+              <el-select v-model="form.accountId" placeholder="请选择转出账户" class="full-input" :loading="loading">
+                <el-option v-for="item in accounts" :key="item.id" :label="item.name" :value="item.id" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="转入账户">
+              <el-select v-model="form.targetAccountId" placeholder="请选择转入账户" class="full-input" :loading="loading">
+                <el-option v-for="item in targetAccountOptions" :key="item.id" :label="item.name" :value="item.id" />
+              </el-select>
+            </el-form-item>
+          </div>
+        </template>
+
+        <template v-else>
+          <div class="transaction-account-grid">
+            <el-form-item label="账户">
+              <el-select v-model="form.accountId" placeholder="请选择账户" class="full-input" :loading="loading">
+                <el-option v-for="item in accounts" :key="item.id" :label="item.name" :value="item.id" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="分类">
+              <el-select v-model="form.categoryId" placeholder="请选择分类" class="full-input" :loading="loading">
+                <el-option v-for="item in availableCategories" :key="item.id" :label="item.name" :value="item.id" />
+              </el-select>
+              <el-alert v-if="!loading && availableCategories.length === 0" class="form-tip" type="info" :closable="false" show-icon>
+                <template #title>暂无可用分类，新用户注册后会自动初始化默认分类</template>
+              </el-alert>
+            </el-form-item>
+          </div>
+        </template>
+      </section>
+
+      <section class="xo-dialog-section">
+        <div class="xo-dialog-section-title">
+          <strong>补充信息</strong>
+          <span>时间、备注和凭证图片</span>
+        </div>
+        <div class="transaction-extra-grid">
+          <el-form-item label="日期时间">
+            <el-date-picker v-model="form.transactionTime" type="datetime" class="full-input" />
+          </el-form-item>
+          <el-form-item label="图片">
+            <div class="image-upload">
+              <label class="upload-trigger">
+                <input type="file" accept="image/*" @change="handleImageChange" />
+                <span>选择图片</span>
+                <small>1MB 内</small>
+              </label>
+              <el-button v-if="form.imageUrl" link type="danger" @click="form.imageUrl = null">移除图片</el-button>
+            </div>
+            <img v-if="form.imageUrl" class="preview-image" :src="form.imageUrl" alt="流水图片预览" />
+          </el-form-item>
+          <el-form-item class="full-row" label="备注">
+            <el-input v-model.trim="form.note" type="textarea" :rows="2" placeholder="记录这笔流水的说明" />
+          </el-form-item>
+        </div>
+      </section>
     </el-form>
     <template #footer>
-      <el-button @click="visible = false">取消</el-button>
-      <el-button type="primary" :loading="submitting" @click="submitForm">保存</el-button>
+      <div class="xo-dialog-footer">
+        <el-button @click="visible = false">取消</el-button>
+        <el-button type="primary" :loading="submitting" @click="submitForm">保存</el-button>
+      </div>
     </template>
   </el-dialog>
 </template>
@@ -112,7 +140,18 @@ const form = reactive({
 });
 
 // 弹窗标题区分新增和编辑，减少用户误操作。
-const dialogTitle = computed(() => (props.transaction ? '编辑流水' : '新增流水'));
+const dialogTitle = computed(() => (props.transaction ? '编辑记账' : '新增记账'));
+const dialogSubtitle = computed(() => (props.transaction ? '调整已有流水，保存后会由后端同步修正账户余额。' : '记录收入、支出、退款或转账，保存后会立即刷新账户余额和首页统计。'));
+const currentTypeLabel = computed(() => typeOptions.find((item) => item.value === form.type)?.label || '流水');
+const currentTypeHint = computed(() => {
+  if (form.type === 'TRANSFER') {
+    return '转账只影响账户余额，不进入普通收支统计';
+  }
+  if (form.type === 'REFUND') {
+    return '退款用于抵扣支出，避免虚增收入';
+  }
+  return `${currentTypeLabel.value}会进入普通收支统计`;
+});
 // 收入和退款展示收入分类，支出展示支出分类；转账不需要分类。
 const availableCategories = computed(() => {
   const categoryType = form.type === 'EXPENSE' ? 'EXPENSE' : 'INCOME';
@@ -217,9 +256,30 @@ function handleImageChange(event: Event) {
 </script>
 
 <style scoped>
-/* 表单控件保持通栏宽度，弹窗内部也延续轻玻璃表单质感。 */
+/* 表单控件保持通栏宽度，弹窗内部按统一分区卡片组织复杂字段。 */
 .full-input {
   width: 100%;
+}
+
+.transaction-main-grid,
+.transaction-account-grid,
+.transaction-extra-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 14px;
+}
+
+.full-row {
+  grid-column: 1 / -1;
+}
+
+.type-segmented {
+  width: 100%;
+}
+
+.amount-input :deep(.el-input__inner) {
+  font-size: 18px;
+  font-weight: 800;
 }
 
 .form-tip {
@@ -229,7 +289,7 @@ function handleImageChange(event: Event) {
 .image-upload {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   width: 100%;
 }
 
@@ -237,7 +297,7 @@ function handleImageChange(event: Event) {
   display: grid;
   flex: 1;
   gap: 4px;
-  min-height: 74px;
+  min-height: 56px;
   place-items: center;
   border: 1px dashed rgba(37, 99, 235, 0.32);
   border-radius: var(--xo-radius-inner);
@@ -269,11 +329,19 @@ function handleImageChange(event: Event) {
   display: block;
   width: 168px;
   max-width: 100%;
-  max-height: 124px;
+  max-height: 96px;
   margin-top: 10px;
   border: 1px solid var(--xo-border);
   border-radius: var(--xo-radius-inner);
   box-shadow: var(--xo-shadow);
   object-fit: cover;
+}
+
+@media (max-width: 720px) {
+  .transaction-main-grid,
+  .transaction-account-grid,
+  .transaction-extra-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

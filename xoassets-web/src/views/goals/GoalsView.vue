@@ -1,11 +1,7 @@
 <!-- 资产目标页：接入真实目标接口，展示目标进度、截止日期和完成状态。 -->
 <template>
   <div class="page">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">资产目标</h1>
-        <p class="page-subtitle">规划储蓄、投资和专项资金目标</p>
-      </div>
+    <div class="page-actions">
       <el-button type="primary" :icon="Plus" @click="openCreateDialog">新增目标</el-button>
     </div>
 

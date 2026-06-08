@@ -1,21 +1,20 @@
 <!-- 账户管理页：展示账户总览、状态和余额明细。 -->
 <template>
   <div class="page">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">账户管理</h1>
-        <p class="page-subtitle">统一查看银行卡、钱包和投资账户余额</p>
-      </div>
-      <el-button type="primary" :icon="Plus" @click="openCreateDialog">新增账户</el-button>
-    </div>
-
     <section class="grid-3">
       <MetricCard title="账户总余额" :value="totalBalance" :trend="2.1" description="较上月" tone="success" />
       <MetricCard title="流动资金" :value="cashBalance" :trend="1.4" description="较上周" tone="primary" />
       <MetricCard title="信用负债" :value="creditDebt" :trend="-3.2" description="较上月" tone="danger" />
     </section>
 
-    <section v-loading="loading" class="panel panel-padding">
+    <section v-loading="loading" class="panel panel-padding account-list-panel">
+      <div class="account-panel-head">
+        <div>
+          <h3>账户列表</h3>
+          <p>点击账户卡片查看资金明细和余额曲线</p>
+        </div>
+        <el-button type="primary" :icon="Plus" @click="openCreateDialog">新增账户</el-button>
+      </div>
       <el-empty v-if="!loading && accounts.length === 0" description="还没有账户，创建第一个账户后即可开始记账" />
       <div v-else class="account-grid">
         <article v-for="account in accounts" :key="account.id" class="account-card" @click="openDetail(account)">
@@ -38,39 +37,65 @@
       </div>
     </section>
 
-    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="420px">
-      <el-form label-position="top" @submit.prevent="handleSubmit">
-        <el-form-item label="账户名称">
-          <el-input v-model.trim="form.name" placeholder="请输入账户名称" />
-        </el-form-item>
-        <el-form-item label="账户类型">
-          <el-select v-model="form.type" class="full-width" placeholder="请选择账户类型">
-            <el-option v-for="item in accountTypes" :key="item" :label="item" :value="item" />
-          </el-select>
-        </el-form-item>
-        <el-form-item :label="editingAccount ? '初始余额' : '初始余额 / 当前余额'">
-          <el-input-number v-model="form.initialBalance" class="full-width" :precision="2" :step="100" :disabled="Boolean(editingAccount)" />
-        </el-form-item>
-        <el-form-item v-if="editingAccount" label="当前余额">
-          <el-input-number v-model="form.balance" class="full-width" :precision="2" :step="100" />
-          <p class="form-tip">保存时会生成余额修正记录，不计入普通收支，但会进入账户账本和余额曲线。</p>
-        </el-form-item>
-        <el-form-item label="币种">
-          <el-input v-model.trim="form.currency" placeholder="CNY" />
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-switch v-model="form.status" :active-value="1" :inactive-value="0" active-text="正常" inactive-text="停用" />
-        </el-form-item>
-        <el-form-item label="排序">
-          <el-input-number v-model="form.sortOrder" class="full-width" :step="1" />
-        </el-form-item>
-        <el-form-item label="备注">
-          <el-input v-model.trim="form.remark" type="textarea" :rows="3" placeholder="请输入备注（可选）" />
-        </el-form-item>
+    <el-dialog v-model="dialogVisible" class="xo-form-dialog account-form-dialog" width="640px" top="12px">
+      <template #header>
+        <div class="xo-dialog-header-content">
+          <span class="xo-dialog-kicker">账户资产</span>
+          <h2>{{ dialogTitle }}</h2>
+          <p>{{ editingAccount ? '修改账户基础信息；余额变化会生成可追溯的修正记录。' : '创建用于记账、转账和资产统计的资金账户。' }}</p>
+        </div>
+      </template>
+      <el-form class="xo-dialog-form" label-position="top" @submit.prevent="handleSubmit">
+        <section class="xo-dialog-section">
+          <div class="xo-dialog-section-title">
+            <strong>基础信息</strong>
+            <span>名称、类型和展示顺序</span>
+          </div>
+          <div class="account-form-grid">
+            <el-form-item label="账户名称">
+              <el-input v-model.trim="form.name" placeholder="请输入账户名称" />
+            </el-form-item>
+            <el-form-item label="账户类型">
+              <el-select v-model="form.type" class="full-width" placeholder="请选择账户类型">
+                <el-option v-for="item in accountTypes" :key="item" :label="item" :value="item" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="币种">
+              <el-input v-model.trim="form.currency" placeholder="CNY" />
+            </el-form-item>
+            <el-form-item label="排序">
+              <el-input-number v-model="form.sortOrder" class="full-width" :step="1" />
+            </el-form-item>
+          </div>
+        </section>
+
+        <section class="xo-dialog-section">
+          <div class="xo-dialog-section-title">
+            <strong>余额与状态</strong>
+            <span>{{ editingAccount ? '余额修正不计入普通收支' : '初始余额会作为当前余额' }}</span>
+          </div>
+          <div class="account-form-grid">
+            <el-form-item :label="editingAccount ? '初始余额' : '初始余额 / 当前余额'">
+              <el-input-number v-model="form.initialBalance" class="full-width" :precision="2" :step="100" :disabled="Boolean(editingAccount)" />
+            </el-form-item>
+            <el-form-item v-if="editingAccount" label="当前余额">
+              <el-input-number v-model="form.balance" class="full-width" :precision="2" :step="100" />
+              <p class="form-tip">保存时生成余额修正记录，进入账户账本和余额曲线。</p>
+            </el-form-item>
+            <el-form-item label="状态">
+              <el-switch v-model="form.status" :active-value="1" :inactive-value="0" active-text="正常" inactive-text="停用" />
+            </el-form-item>
+          </div>
+          <el-form-item label="备注">
+            <el-input v-model.trim="form.remark" type="textarea" :rows="2" placeholder="请输入备注（可选）" />
+          </el-form-item>
+        </section>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="handleSubmit">保存</el-button>
+        <div class="xo-dialog-footer">
+          <el-button @click="dialogVisible = false">取消</el-button>
+          <el-button type="primary" :loading="submitting" @click="handleSubmit">保存</el-button>
+        </div>
       </template>
     </el-dialog>
   </div>
@@ -247,6 +272,30 @@ function formatDate(date: Date) {
 
 <style scoped>
 /* 账户卡片采用玻璃白底和大圆角，便于快速扫描各账户状态。 */
+.account-list-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.account-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.account-panel-head h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.account-panel-head p {
+  margin: 6px 0 0;
+  color: var(--xo-muted);
+  font-size: 13px;
+}
+
 .account-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -341,6 +390,12 @@ function formatDate(date: Date) {
   width: 100%;
 }
 
+.account-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 14px;
+}
+
 .form-tip {
   margin: 8px 0 0;
   color: var(--xo-muted);
@@ -350,6 +405,17 @@ function formatDate(date: Date) {
 
 @media (max-width: 1080px) {
   .account-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .account-panel-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .account-form-grid {
     grid-template-columns: 1fr;
   }
 }

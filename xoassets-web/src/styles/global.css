@@ -129,6 +129,133 @@ a {
   min-width: 88px;
 }
 
+/* 复杂表单弹框统一骨架：记账和新增持仓共用，避免每个页面重复写标题、分区和页脚样式。 */
+.xo-form-dialog .el-dialog__header {
+  padding: 0;
+  border-bottom: none;
+  background: transparent;
+}
+
+.xo-form-dialog .el-dialog__body {
+  padding: 0 20px 14px;
+  max-height: calc(100vh - 190px);
+  overflow: auto;
+}
+
+.xo-form-dialog .el-dialog__footer {
+  padding: 10px 20px 12px;
+  border-top: 1px solid rgba(226, 232, 240, 0.72);
+  background: rgba(248, 251, 255, 0.74);
+}
+
+.xo-dialog-header-content {
+  position: relative;
+  padding: 14px 48px 10px 18px;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.72);
+  background:
+    radial-gradient(circle at 18% 0%, rgba(96, 165, 250, 0.22), transparent 34%),
+    linear-gradient(135deg, rgba(239, 246, 255, 0.95), rgba(255, 255, 255, 0.88));
+}
+
+.xo-dialog-header-content::after {
+  content: '';
+  position: absolute;
+  right: 26px;
+  bottom: -34px;
+  width: 108px;
+  height: 108px;
+  border-radius: 34px;
+  background: rgba(37, 99, 235, 0.08);
+  transform: rotate(18deg);
+}
+
+.xo-dialog-kicker {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.10);
+  color: var(--xo-primary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.xo-dialog-header-content h2 {
+  position: relative;
+  z-index: 1;
+  margin: 6px 0 2px;
+  color: var(--xo-text);
+  font-size: 20px;
+  font-weight: 850;
+  line-height: 1.2;
+}
+
+.xo-dialog-header-content p {
+  position: relative;
+  z-index: 1;
+  max-width: 520px;
+  margin: 0;
+  color: var(--xo-muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.xo-dialog-form {
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+}
+
+.xo-dialog-section {
+  padding: 12px;
+  border: 1px solid rgba(226, 232, 240, 0.82);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.04);
+}
+
+.xo-dialog-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.xo-dialog-section-title strong {
+  color: var(--xo-text);
+  font-size: 15px;
+}
+
+.xo-dialog-section-title span {
+  color: var(--xo-muted);
+  font-size: 12px;
+}
+
+.xo-form-dialog .el-form-item {
+  margin-bottom: 12px;
+}
+
+.xo-dialog-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.xo-dialog-footer .el-button {
+  min-width: 96px;
+}
+
+.el-dialog.xo-form-dialog,
+.xo-form-dialog .el-dialog {
+  max-width: calc(100vw - 32px);
+}
+
 .el-form-item__label {
   color: #475569;
   font-weight: 700;

@@ -1,14 +1,6 @@
 <!-- 记账流水页：从后端读取账户、分类和流水，支持新增、编辑、删除。 -->
 <template>
   <div class="page">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">记账流水</h1>
-        <p class="page-subtitle">查看和管理您的所有交易记录</p>
-      </div>
-      <el-button type="primary" :icon="Plus" @click="openCreateDialog">新增流水</el-button>
-    </div>
-
     <section class="panel filter-panel">
       <el-input v-model="keyword" placeholder="搜索交易记录..." :prefix-icon="Search" clearable @change="reloadFromFirstPage" />
       <el-select v-model="typeFilter" placeholder="全部类型" clearable @change="reloadFromFirstPage">
@@ -22,10 +14,11 @@
       </el-select>
       <el-button :icon="Filter">更多筛选</el-button>
       <el-button :icon="Download" :loading="exporting" @click="handleExport">导出</el-button>
+      <el-button type="primary" :icon="Plus" @click="openCreateDialog">新增记账</el-button>
     </section>
 
     <section v-loading="loading" class="panel">
-      <el-empty v-if="!loading && transactions.length === 0" description="还没有流水，点击新增流水记录第一笔收支" />
+      <el-empty v-if="!loading && transactions.length === 0" description="还没有流水，点击新增记账记录第一笔收支" />
       <template v-else>
         <el-table :data="transactions" stripe>
           <el-table-column label="日期时间" min-width="160">
@@ -63,12 +56,11 @@
           </el-table-column>
         </el-table>
         <div class="table-footer">
-          <span>共 {{ total }} 条记录</span>
           <el-pagination
             v-model:current-page="pageNo"
             v-model:page-size="pageSize"
             layout="total, sizes, prev, pager, next"
-            :page-sizes="[8, 15, 30, 50]"
+            :page-sizes="pageSizeOptions"
             :total="total"
             @size-change="reloadFromFirstPage"
             @current-change="loadTransactions"
@@ -120,7 +112,9 @@ const keyword = ref('');
 const typeFilter = ref<TransactionApiType | ''>('');
 const accountFilter = ref<string | ''>('');
 const pageNo = ref(1);
-const pageSize = ref(8);
+// 列表统一默认 10 条，页大小选项和投资列表保持一致。
+const pageSize = ref(10);
+const pageSizeOptions = [10, 50, 100, 300];
 
 // 页面进入时并行加载账户、分类和流水。
 onMounted(() => {
@@ -168,7 +162,7 @@ function reloadFromFirstPage() {
   loadTransactions();
 }
 
-// 打开新增弹窗前刷新账户和分类，保证表单选项来自后端最新数据。
+// 打开新增记账弹窗前刷新账户和分类，保证表单选项来自后端最新数据。
 async function openCreateDialog() {
   await loadOptions();
   if (accounts.value.length === 0) {
@@ -281,7 +275,7 @@ function formatDateTime(value: string) {
 /* 筛选区沿用原型横向工具栏，白色玻璃底让表格入口更轻。 */
 .filter-panel {
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) 160px 180px auto auto;
+  grid-template-columns: minmax(240px, 1fr) 160px 180px auto auto auto;
   gap: 12px;
   padding: 16px;
   align-items: center;
@@ -290,7 +284,7 @@ function formatDateTime(value: string) {
 .table-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   padding: 14px 16px;
   border-top: 1px solid var(--xo-border);
   color: var(--xo-muted);
@@ -302,6 +296,13 @@ function formatDateTime(value: string) {
   width: 42px;
   height: 42px;
   border-radius: 10px;
+}
+
+@media (max-width: 1280px) {
+  .filter-panel {
+    /* 侧边栏存在时中等屏实际内容宽度不足，工具栏自动拆成两行，避免新增按钮被挤出屏幕。 */
+    grid-template-columns: minmax(240px, 1fr) 160px 180px;
+  }
 }
 
 @media (max-width: 980px) {

@@ -1,19 +1,14 @@
 <!-- 分类管理页：管理当前用户自己的收入和支出分类。 -->
 <template>
   <div class="page">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">分类管理</h1>
-        <p class="page-subtitle">维护记账时可选择的收入和支出分类</p>
-      </div>
-      <el-button type="primary" :icon="Plus" @click="openCreateDialog">新增分类</el-button>
-    </div>
-
     <section class="panel panel-padding">
-      <el-tabs v-model="activeType" @tab-change="loadCategories">
-        <el-tab-pane label="支出分类" name="EXPENSE" />
-        <el-tab-pane label="收入分类" name="INCOME" />
-      </el-tabs>
+      <div class="category-nav-row">
+        <el-tabs v-model="activeType" class="category-tabs" @tab-change="loadCategories">
+          <el-tab-pane label="支出分类" name="EXPENSE" />
+          <el-tab-pane label="收入分类" name="INCOME" />
+        </el-tabs>
+        <el-button type="primary" :icon="Plus" @click="openCreateDialog">新增分类</el-button>
+      </div>
 
       <el-table v-loading="loading" class="category-table" :data="categories" stripe>
         <template #empty>
@@ -46,30 +41,59 @@
       </el-table>
     </section>
 
-    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="420px">
-      <el-form label-position="top" @submit.prevent="handleSubmit">
-        <el-form-item label="分类方向">
-          <el-segmented v-model="form.type" :options="typeOptions" :disabled="Boolean(editingCategory)" />
-        </el-form-item>
-        <el-form-item label="分类名称">
-          <el-input v-model.trim="form.name" placeholder="请输入分类名称" />
-        </el-form-item>
-        <el-form-item label="图标">
-          <el-input v-model.trim="form.icon" placeholder="例如：🍜 或 food" />
-        </el-form-item>
-        <el-form-item label="颜色">
-          <el-color-picker v-model="form.color" />
-        </el-form-item>
-        <el-form-item label="排序">
-          <el-input-number v-model="form.sortOrder" class="full-width" :step="1" />
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-switch v-model="form.status" :active-value="1" :inactive-value="0" active-text="启用" inactive-text="停用" />
-        </el-form-item>
+    <el-dialog v-model="dialogVisible" class="xo-form-dialog category-form-dialog" width="560px" top="12px">
+      <template #header>
+        <div class="xo-dialog-header-content">
+          <span class="xo-dialog-kicker">收支分类</span>
+          <h2>{{ dialogTitle }}</h2>
+          <p>{{ editingCategory ? '调整分类名称、图标和状态；分类方向保持不变，避免影响历史流水。' : '新增收入或支出分类，用于记账筛选、预算和统计分析。' }}</p>
+        </div>
+      </template>
+      <el-form class="xo-dialog-form" label-position="top" @submit.prevent="handleSubmit">
+        <section class="xo-dialog-section">
+          <div class="xo-dialog-section-title">
+            <strong>分类信息</strong>
+            <span>方向、名称和排序</span>
+          </div>
+          <div class="category-form-grid">
+            <el-form-item label="分类方向">
+              <el-segmented v-model="form.type" :options="typeOptions" :disabled="Boolean(editingCategory)" class="full-width" />
+            </el-form-item>
+            <el-form-item label="分类名称">
+              <el-input v-model.trim="form.name" placeholder="请输入分类名称" />
+            </el-form-item>
+            <el-form-item label="图标">
+              <el-input v-model.trim="form.icon" placeholder="例如：🍜 或 food" />
+            </el-form-item>
+            <el-form-item label="排序">
+              <el-input-number v-model="form.sortOrder" class="full-width" :step="1" />
+            </el-form-item>
+          </div>
+        </section>
+
+        <section class="xo-dialog-section">
+          <div class="xo-dialog-section-title">
+            <strong>视觉与状态</strong>
+            <span>用于列表和记账入口展示</span>
+          </div>
+          <div class="category-visual-row">
+            <el-form-item label="颜色">
+              <div class="color-picker-row">
+                <el-color-picker v-model="form.color" />
+                <span>{{ form.color }}</span>
+              </div>
+            </el-form-item>
+            <el-form-item label="状态">
+              <el-switch v-model="form.status" :active-value="1" :inactive-value="0" active-text="启用" inactive-text="停用" />
+            </el-form-item>
+          </div>
+        </section>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="handleSubmit">保存</el-button>
+        <div class="xo-dialog-footer">
+          <el-button @click="dialogVisible = false">取消</el-button>
+          <el-button type="primary" :loading="submitting" @click="handleSubmit">保存</el-button>
+        </div>
       </template>
     </el-dialog>
   </div>
@@ -213,8 +237,29 @@ async function handleStatusChange(category: CategoryItem, status: number) {
 
 <style scoped>
 /* 分类页补齐视觉基线，色块和图标使用轻量卡片式细节。 */
+.category-nav-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--xo-border);
+}
+
+.category-tabs {
+  min-width: 0;
+  flex: 1;
+}
+
+.category-tabs :deep(.el-tabs__header) {
+  margin-bottom: 0;
+}
+
+.category-tabs :deep(.el-tabs__nav-wrap::after) {
+  display: none;
+}
+
 .category-table {
-  margin-top: 8px;
+  margin-top: 12px;
 }
 
 .color-cell {
@@ -246,5 +291,37 @@ async function handleStatusChange(category: CategoryItem, status: number) {
 
 .full-width {
   width: 100%;
+}
+
+.category-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 14px;
+}
+
+.category-visual-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 0.7fr);
+  gap: 0 14px;
+}
+
+.color-picker-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--xo-muted);
+  font-size: 13px;
+}
+
+@media (max-width: 720px) {
+  .category-nav-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .category-form-grid,
+  .category-visual-row {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

@@ -8,26 +8,16 @@
   padding: 28px;
 }
 
-.page-header {
+/* 页面内操作栏只承载按钮和筛选控件；页面标题统一放到全局 Header。 */
+.page-actions {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  align-items: center;
+  justify-content: flex-end;
   gap: 16px;
 }
 
-.page-title {
-  margin: 0;
-  font-size: 28px;
-  font-weight: 800;
-  line-height: 1.2;
-  color: var(--xo-text);
-  text-wrap: balance;
-}
-
-.page-subtitle {
-  margin: 8px 0 0;
-  color: var(--xo-muted);
-  font-size: 14px;
+.page-actions-between {
+  justify-content: space-between;
 }
 
 .panel {
@@ -77,7 +67,7 @@
     padding: 18px;
   }
 
-  .page-header,
+  .page-actions,
   .grid-4,
   .grid-3,
   .grid-2 {

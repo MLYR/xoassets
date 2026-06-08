@@ -1,7 +1,7 @@
-<!-- 顶部栏：搜索、提醒和用户中心入口，使用轻玻璃工具栏质感。 -->
+<!-- 顶部栏：展示当前页面标题、提醒和用户中心入口，使用轻玻璃工具栏质感。 -->
 <template>
   <header class="app-header">
-    <el-input class="search" placeholder="搜索交易、账户..." :prefix-icon="Search" clearable />
+    <h1 class="header-title">{{ pageTitle }}</h1>
     <div class="header-actions">
       <el-badge is-dot>
         <el-button :icon="Bell" circle />
@@ -57,8 +57,8 @@
 <script setup lang="ts">
 // Header 负责当前用户展示、资料维护和退出登录，不承载业务页面状态。
 import { computed, onMounted, reactive, ref } from 'vue';
-import { useRouter } from 'vue-router';
-import { Bell, Search, UserFilled } from '@element-plus/icons-vue';
+import { useRoute, useRouter } from 'vue-router';
+import { Bell, UserFilled } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { ROUTES } from '@/constants/routes';
 import { authApi, type AuthUser } from '@/services/authApi';
@@ -66,6 +66,7 @@ import { clearToken } from '@/services/token';
 
 // 当前用户信息从后端 /api/auth/me 获取，避免继续使用硬编码名称。
 const user = ref<AuthUser | null>(null);
+const route = useRoute();
 const router = useRouter();
 const profileDialogVisible = ref(false);
 const passwordDialogVisible = ref(false);
@@ -84,6 +85,8 @@ const passwordForm = reactive({
 
 // 顶部按钮优先展示昵称，昵称为空时回退到用户名。
 const displayName = computed(() => user.value?.nickname || user.value?.username || '用户');
+// 顶部标题统一读取路由 meta，避免各业务页重复渲染页面标题。
+const pageTitle = computed(() => String(route.meta.title || '小〇财迹'));
 
 onMounted(() => {
   loadCurrentUser();
@@ -207,8 +210,13 @@ function logoutToLogin() {
   backdrop-filter: var(--xo-blur);
 }
 
-.search {
-  max-width: 460px;
+.header-title {
+  margin: 0;
+  color: var(--xo-text);
+  font-size: 24px;
+  font-weight: 850;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
 }
 
 .header-actions {

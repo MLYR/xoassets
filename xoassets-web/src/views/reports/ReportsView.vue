@@ -1,19 +1,13 @@
 <!-- AI报告页：展示模板化报告列表、摘要和数据复盘。 -->
 <template>
   <div class="page">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">AI报告</h1>
-        <p class="page-subtitle">基于真实数据生成财务复盘，不提供投资买卖建议</p>
-      </div>
-      <div class="header-actions">
-        <el-select v-model="reportType" class="type-select">
-          <el-option label="日报" value="DAILY" />
-          <el-option label="周报" value="WEEKLY" />
-          <el-option label="月报" value="MONTHLY" />
-        </el-select>
-        <el-button type="primary" :icon="DocumentAdd" :loading="generating" @click="handleGenerate">生成报告</el-button>
-      </div>
+    <div class="page-actions">
+      <el-select v-model="reportType" class="type-select">
+        <el-option label="日报" value="DAILY" />
+        <el-option label="周报" value="WEEKLY" />
+        <el-option label="月报" value="MONTHLY" />
+      </el-select>
+      <el-button type="primary" :icon="DocumentAdd" :loading="generating" @click="handleGenerate">生成报告</el-button>
     </div>
 
     <section v-loading="loading" class="reports-layout">
@@ -120,12 +114,6 @@ function formatDateTime(value: string) {
 
 <style scoped>
 /* 报告页采用左列表右详情，浅蓝选中态和报告卡片保持统一。 */
-.header-actions {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
 .type-select {
   width: 120px;
 }
