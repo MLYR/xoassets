@@ -1,14 +1,8 @@
 <!-- 投资持仓详情页：聚焦单个基金、股票或虚拟货币的收益、交易和价格记录。 -->
 <template>
   <div class="page">
-    <div class="page-header">
-      <div>
-        <el-button class="back-button" @click="router.push(ROUTES.investmentDetails)">返回投资明细</el-button>
-        <h1 class="page-title">{{ holding?.assetName || '持仓详情' }}</h1>
-        <p class="page-subtitle">
-          {{ holding?.symbol || '-' }} · {{ holding?.market || '-' }} · {{ typeLabel(holding?.assetType) }} · {{ holding?.currency || '-' }} · {{ holding?.latestPriceSource || holding?.quoteSource || '暂无行情' }} · 最新报价 {{ formatTableTime(holding?.latestPriceTime) || '暂无' }}
-        </p>
-      </div>
+    <div class="page-actions page-actions-between">
+      <el-button class="back-button" @click="goBack">返回</el-button>
       <div class="header-actions">
         <el-button type="primary" @click="openTradeDialog('BUY')">买入</el-button>
         <el-button type="primary" plain @click="openTradeDialog('SELL')">卖出</el-button>
@@ -18,17 +12,17 @@
     </div>
 
     <section v-loading="loading" class="summary-grid">
-      <MetricCard title="当前市值" :value="holding?.marketValue || 0" :trend="holding?.floatingProfitRate || 0" description="数量 × 最新价格" :precision="4" :currency-symbol="currencySymbol" />
-      <MetricCard title="持仓数量" :value="holding?.quantity || 0" :trend="0" description="当前剩余持仓" :precision="quantityPrecision" currency-symbol="" />
-      <MetricCard title="持仓成本" :value="holding?.totalCost || 0" :trend="0" description="移动平均成本口径" :precision="4" :currency-symbol="currencySymbol" />
-      <MetricCard :title="holding?.primaryProfitLabel || '主收益'" :value="holding?.primaryProfitAmount || 0" :trend="primaryProfitTrend" :description="primaryProfitDescription" :precision="4" :currency-symbol="currencySymbol" :tone="profitTone(holding?.primaryProfitAmount || 0)" />
-      <MetricCard title="总收益" :value="summary?.totalProfit || 0" :trend="summary?.totalProfitRate || 0" description="已实现 + 浮动盈亏" :precision="4" :currency-symbol="currencySymbol" :tone="profitTone(summary?.totalProfit || 0)" />
+      <MetricCard title="当前市值" :value="holding?.marketValue ?? 0" :trend="holding?.floatingProfitRate ?? 0" description="数量 × 最新价格" :precision="4" :currency-symbol="currencySymbol" />
+      <MetricCard title="持仓数量" :value="holding?.quantity ?? 0" :trend="0" description="当前剩余持仓" :precision="quantityPrecision" currency-symbol="" />
+      <MetricCard title="持仓成本" :value="holding?.totalCost ?? 0" :trend="0" description="移动平均成本口径" :precision="4" :currency-symbol="currencySymbol" />
+      <MetricCard title="今日收益" :value="holding?.todayProfitByCurrentQuantity ?? null" :trend="primaryProfitTrend" :description="primaryProfitDescription" :precision="4" :currency-symbol="currencySymbol" :tone="todayProfitTone" />
+      <MetricCard title="总收益" :value="summary?.totalProfit ?? 0" :trend="summary?.totalProfitRate ?? 0" description="已实现 + 浮动盈亏" :precision="4" :currency-symbol="currencySymbol" :tone="profitTone(summary?.totalProfit ?? 0)" />
       <div class="rate-card panel panel-padding">
         <span>总收益率</span>
-        <strong :class="profitClass(summary?.totalProfitRate || 0)">{{ formatPercent(summary?.totalProfitRate || 0) }}</strong>
+        <strong :class="profitClass(summary?.totalProfitRate)">{{ formatPercent(summary?.totalProfitRate) }}</strong>
         <small>总收益 / 累计买入成本</small>
       </div>
-      <MetricCard title="已实现盈亏" :value="summary?.realizedProfit || 0" :trend="summary?.realizedProfit || 0" description="正常卖出交易合计" :precision="4" :currency-symbol="currencySymbol" :tone="profitTone(summary?.realizedProfit || 0)" />
+      <MetricCard title="已实现盈亏" :value="summary?.realizedProfit ?? 0" :trend="summary?.realizedProfit ?? 0" description="正常卖出交易合计" :precision="4" :currency-symbol="currencySymbol" :tone="profitTone(summary?.realizedProfit ?? 0)" />
       <div class="break-even-card panel panel-padding">
         <span>回本涨幅</span>
         <strong :class="breakEvenClass(holding?.breakEvenRate)">{{ formatBreakEven(holding?.breakEvenRate) }}</strong>
@@ -59,11 +53,11 @@
         <span v-for="day in calendarWeekdays" :key="day">{{ day }}</span>
       </div>
       <div class="profit-calendar-grid">
-        <div v-for="cell in calendarCells" :key="cell.key" class="calendar-cell" :class="[cell.empty ? 'empty' : '', calendarProfitClass(cell.profitAmount)]">
+        <div v-for="cell in calendarCells" :key="cell.key" class="calendar-cell" :class="[cell.empty ? 'empty' : '', cell.marketClosed ? 'calendar-closed' : calendarProfitClass(cell.profitAmount)]">
           <template v-if="!cell.empty">
             <div class="calendar-date">{{ formatDay(cell.date) }}</div>
-            <div class="calendar-profit">{{ cell.profitAmount === null || cell.profitAmount === undefined ? '--' : formatSignedAmount(cell.profitAmount) }}</div>
-            <small>{{ cell.hasPrice ? `${holding?.priceLabel || '价格'} ${formatPrice(cell.price)}` : '无价格' }}</small>
+            <div class="calendar-profit">{{ calendarProfitText(cell) }}</div>
+            <small>{{ calendarStatusText(cell) }}</small>
           </template>
         </div>
       </div>
@@ -214,12 +208,22 @@ const fundConfirmPreviewText = computed(() => {
     : `将按 ${preview.effectiveTradeDate} 作为申请日`;
   return `${prefix}，${preview.qdii ? 'QDII 预计' : '预计'} ${preview.confirmedDate} 确认；净值未出时先保存为待确认。`;
 });
-const primaryProfitTrend = computed(() => holding.value?.profitDisplayMode === 'YESTERDAY' ? holding.value?.yesterdayChangeRate || 0 : holding.value?.todayChangeRate || 0);
-const primaryProfitDescription = computed(() => {
-  if (holding.value?.profitDisplayMode === 'YESTERDAY') {
-    return holding.value?.priceDate ? `${holding.value.priceLabel || '净值'}日期 ${holding.value.priceDate}` : '等待净值更新';
+// 今日收益缺失时必须让 KPI 显示 --，不能把休市或净值未更新兜底成 0。
+const primaryProfitTrend = computed(() => holding.value?.todayProfitRateByCurrentQuantity ?? null);
+const todayProfitTone = computed(() => {
+  if (holding.value?.todayProfitByCurrentQuantity === null || holding.value?.todayProfitByCurrentQuantity === undefined) {
+    return 'warning';
   }
-  return holding.value?.todayPriceAvailable === false ? '今日价格未更新' : '今日有效价对比昨价';
+  return profitTone(holding.value.todayProfitByCurrentQuantity);
+});
+const primaryProfitDescription = computed(() => {
+  if (holding.value?.priceStatus === 'MARKET_CLOSED') {
+    return '今日休市';
+  }
+  if (holding.value?.todayPriceAvailable === false) {
+    return holding.value?.assetType === 'FUND' ? '今日净值未更新' : '今日价格未更新';
+  }
+  return holding.value?.priceDate ? `价格日期 ${holding.value.priceDate}` : '今日有效价对比昨价';
 });
 const calendarMonthLabel = computed(() => {
   const first = profitCalendar.value.find((item) => item.date);
@@ -231,7 +235,7 @@ const calendarCells = computed(() => {
   }
   const firstDate = profitCalendar.value[0]?.date;
   const offset = firstDate ? new Date(`${firstDate}T00:00:00`).getDay() : 0;
-  const blanks = Array.from({ length: offset }, (_, index) => ({ key: `blank-${index}`, empty: true, date: '', profitAmount: null, hasPrice: false, price: null }));
+  const blanks = Array.from({ length: offset }, (_, index) => ({ key: `blank-${index}`, empty: true, date: '', profitAmount: null, hasPrice: false, marketClosed: false, price: null }));
   // 收益日历保留空白占位，确保日期位置符合自然月日历。
   return [...blanks, ...profitCalendar.value.map((item) => ({ key: item.date, empty: false, ...item }))];
 });
@@ -275,7 +279,7 @@ watch(
 async function loadPageData() {
   if (!holdingId.value) {
     ElMessage.error('持仓不存在');
-    router.replace(ROUTES.investmentDetails);
+    router.replace(ROUTES.investments);
     return;
   }
   loading.value = true;
@@ -295,6 +299,19 @@ async function loadPageData() {
   } finally {
     loading.value = false;
   }
+}
+
+function goBack() {
+  // 持仓详情可能从基金 / 股票 / 虚拟货币模块进入，优先返回浏览器上一页以保留用户刚才所在模块。
+  if (window.history.length > 1 && window.history.state?.back) {
+    router.back();
+    return;
+  }
+  const fromModule = typeof route.query.fromModule === 'string' ? route.query.fromModule : '';
+  router.push({
+    path: ROUTES.investments,
+    query: ['FUND', 'STOCK', 'CRYPTO'].includes(fromModule) ? { module: fromModule } : {}
+  });
 }
 
 function openTradeDialog(type: InvestmentTransactionType) {
@@ -428,10 +445,6 @@ async function handleRevokeTransaction(transaction: InvestmentTransactionItem) {
   }
 }
 
-function typeLabel(type?: string | null) {
-  return ({ FUND: '基金', STOCK: '股票', CRYPTO: '虚拟货币', OTHER: '其他' } as Record<string, string>)[type || ''] || '-';
-}
-
 function formatDateTime(date: Date) {
   const pad = (value: number) => `${value}`.padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
@@ -485,6 +498,20 @@ function calendarProfitClass(value?: number | null) {
   return value >= 0 ? 'calendar-positive' : 'calendar-negative';
 }
 
+function calendarProfitText(cell: InvestmentCalendarDayProfit) {
+  if (cell.marketClosed) {
+    return '休市';
+  }
+  return cell.profitAmount === null || cell.profitAmount === undefined ? '--' : formatSignedAmount(cell.profitAmount);
+}
+
+function calendarStatusText(cell: InvestmentCalendarDayProfit) {
+  if (cell.marketClosed) {
+    return cell.statusLabel || '休市';
+  }
+  return cell.hasPrice ? `${holding.value?.priceLabel || '价格'} ${formatPrice(cell.price)}` : (cell.statusLabel || '无价格');
+}
+
 function formatBreakEven(value: number | null | undefined) {
   // 回本涨幅只在亏损时展示需要上涨比例；盈利或打平展示已盈利。
   if (value === null || value === undefined) {
@@ -510,7 +537,10 @@ function profitTone(value: number): 'success' | 'danger' | 'primary' {
   return 'primary';
 }
 
-function profitClass(value: number) {
+function profitClass(value?: number | null) {
+  if (value === null || value === undefined) {
+    return 'muted-text';
+  }
   if (value > 0) {
     return 'success-text';
   }
@@ -520,7 +550,10 @@ function profitClass(value: number) {
   return 'muted-text';
 }
 
-function formatPercent(value: number) {
+function formatPercent(value?: number | null) {
+  if (value === null || value === undefined) {
+    return '--';
+  }
   return `${round4(value).toFixed(4)}%`;
 }
 
@@ -550,7 +583,7 @@ function roundTo(value: number, precision: number) {
 </script>
 
 <style scoped>
-/* 详情页延续投资明细页的玻璃面板、表格和数字排版风格。 */
+/* 详情页延续投资模块的玻璃面板、表格和数字排版风格。 */
 .back-button {
   margin-bottom: 10px;
 }
@@ -717,6 +750,16 @@ function roundTo(value: number, precision: number) {
 }
 
 .calendar-muted .calendar-profit {
+  color: var(--xo-muted);
+}
+
+.calendar-closed {
+  border-style: dashed;
+  background: rgba(148, 163, 184, 0.10);
+}
+
+.calendar-closed .calendar-profit,
+.calendar-closed small {
   color: var(--xo-muted);
 }
 

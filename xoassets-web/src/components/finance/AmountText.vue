@@ -10,7 +10,7 @@ import { formatAmount } from '@/utils/format';
 
 const props = withDefaults(
   defineProps<{
-    value: number;
+    value: number | null | undefined;
     withSign?: boolean;
     muted?: boolean;
     precision?: number;
@@ -29,13 +29,13 @@ const displayValue = computed(() => formatAmount(props.value, props.withSign, pr
 
 // 根据金额正负和 muted 状态选择展示色。
 const toneClass = computed(() => {
-  if (props.muted) {
+  if (props.muted || props.value === null || props.value === undefined || Number.isNaN(props.value)) {
     return 'is-muted';
   }
-  if (props.value > 0 && props.withSign) {
+  if (props.value !== null && props.value !== undefined && props.value > 0 && props.withSign) {
     return 'is-positive';
   }
-  if (props.value < 0) {
+  if (props.value !== null && props.value !== undefined && props.value < 0) {
     return 'is-negative';
   }
   return '';

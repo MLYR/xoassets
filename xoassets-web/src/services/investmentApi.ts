@@ -77,6 +77,10 @@ export interface HoldingItem {
   priceLabel?: string | null;
   marketValue: number;
   todayProfit?: number | null;
+  todayProfitByCurrentQuantity?: number | null;
+  todayProfitRateByCurrentQuantity?: number | null;
+  todayProfitByPreviousSnapshotQuantity?: number | null;
+  todayProfitRateByPreviousSnapshotQuantity?: number | null;
   todayChangeRate?: number | null;
   yesterdayProfit?: number | null;
   yesterdayChangeRate?: number | null;
@@ -90,6 +94,7 @@ export interface HoldingItem {
 export interface HoldingSummary {
   totalMarketValue: number;
   totalCost: number;
+  todayProfitAvailable?: boolean | null;
   todayProfit?: number | null;
   todayProfitRate?: number | null;
   yesterdayProfit: number;
@@ -143,6 +148,9 @@ export interface InvestmentCalendarDayProfit {
   price?: number | null;
   previousPrice?: number | null;
   hasPrice: boolean;
+  tradingDay?: boolean | null;
+  marketClosed?: boolean | null;
+  statusLabel?: string | null;
   priceLabel?: string | null;
 }
 
@@ -171,7 +179,9 @@ export interface InvestmentModuleAsset {
   assetAmount: number;
   assetRatio: number;
   primaryProfitLabel: string;
-  primaryProfitAmount: number;
+  primaryProfitAvailable?: boolean | null;
+  primaryProfitAmount?: number | null;
+  primaryProfitStatusLabel?: string | null;
   holdingProfit: number;
   holdingProfitRate: number;
   holdingCount: number;
@@ -182,8 +192,10 @@ export interface InvestmentOverview {
   totalCost: number;
   holdingProfit: number;
   holdingProfitRate: number;
-  todayProfit: number;
+  todayProfit?: number | null;
+  todayProfitAvailable?: boolean | null;
   todayProfitAssetScope: string;
+  todayProfitStatusLabel?: string | null;
   yesterdayProfit: number;
   yesterdayProfitAssetScope: string;
   moduleAssets: InvestmentModuleAsset[];
@@ -354,6 +366,13 @@ export const investmentApi = {
     return request<InvestmentCalendarDayProfit[]>({
       url: `/investments/holdings/${id}/profit-calendar`,
       method: 'GET',
+      params
+    });
+  },
+  generateInvestmentSnapshot(params?: { snapshotDate?: string }) {
+    return request<void>({
+      url: '/investments/snapshots/generate',
+      method: 'POST',
       params
     });
   },

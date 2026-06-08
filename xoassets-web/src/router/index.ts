@@ -16,18 +16,17 @@ const router = createRouter({
       path: '/',
       component: AppLayout,
       children: [
-        { path: ROUTES.dashboard.slice(1), component: () => import('@/views/dashboard/DashboardView.vue') },
-        { path: ROUTES.transactions.slice(1), component: () => import('@/views/transactions/TransactionsView.vue') },
-        { path: ROUTES.accounts.slice(1), component: () => import('@/views/accounts/AccountsView.vue') },
-        { path: ROUTES.accountDetail.slice(1), component: () => import('@/views/accounts/AccountDetailView.vue') },
-        { path: ROUTES.categories.slice(1), component: () => import('@/views/categories/CategoriesView.vue') },
-        { path: ROUTES.investments.slice(1), component: () => import('@/views/investments/InvestmentsView.vue') },
-        { path: ROUTES.investmentDetails.slice(1), component: () => import('@/views/investments/InvestmentDetailsView.vue') },
-        { path: ROUTES.holdingDetail.slice(1), component: () => import('@/views/investments/HoldingDetailView.vue') },
-        { path: ROUTES.analytics.slice(1), component: () => import('@/views/analytics/AnalyticsView.vue') },
-        { path: ROUTES.reports.slice(1), component: () => import('@/views/reports/ReportsView.vue') },
-        { path: ROUTES.budgets.slice(1), component: () => import('@/views/budgets/BudgetsView.vue') },
-        { path: ROUTES.goals.slice(1), component: () => import('@/views/goals/GoalsView.vue') }
+        { path: ROUTES.dashboard.slice(1), component: () => import('@/views/dashboard/DashboardView.vue'), meta: { title: '首页' } },
+        { path: ROUTES.transactions.slice(1), component: () => import('@/views/transactions/TransactionsView.vue'), meta: { title: '记账流水' } },
+        { path: ROUTES.accounts.slice(1), component: () => import('@/views/accounts/AccountsView.vue'), meta: { title: '账户管理' } },
+        { path: ROUTES.accountDetail.slice(1), component: () => import('@/views/accounts/AccountDetailView.vue'), meta: { title: '账户详情' } },
+        { path: ROUTES.categories.slice(1), component: () => import('@/views/categories/CategoriesView.vue'), meta: { title: '分类管理' } },
+        { path: ROUTES.investments.slice(1), component: () => import('@/views/investments/InvestmentsView.vue'), meta: { title: '投资持仓' } },
+        { path: ROUTES.holdingDetail.slice(1), component: () => import('@/views/investments/HoldingDetailView.vue'), meta: { title: '持仓详情' } },
+        { path: ROUTES.analytics.slice(1), component: () => import('@/views/analytics/AnalyticsView.vue'), meta: { title: '数据分析' } },
+        { path: ROUTES.reports.slice(1), component: () => import('@/views/reports/ReportsView.vue'), meta: { title: 'AI报告' } },
+        { path: ROUTES.budgets.slice(1), component: () => import('@/views/budgets/BudgetsView.vue'), meta: { title: '预算管理' } },
+        { path: ROUTES.goals.slice(1), component: () => import('@/views/goals/GoalsView.vue'), meta: { title: '资产目标' } }
       ]
     }
   ]

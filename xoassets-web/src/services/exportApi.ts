@@ -3,14 +3,6 @@ import { request } from './http';
 import type { AccountLedgerQuery } from './accountApi';
 import type { TransactionQuery } from './transactionApi';
 
-export interface InvestmentTransactionExportQuery {
-  startDate?: string;
-  endDate?: string;
-  holdingId?: string;
-  assetId?: string;
-  accountId?: string;
-}
-
 export const exportApi = {
   // 导出账户资金明细。
   accountLedger(params: AccountLedgerQuery & { accountId: string }) {
@@ -19,10 +11,6 @@ export const exportApi = {
   // 导出普通流水。
   transactions(params: TransactionQuery) {
     return download('/export/transactions', params, `transactions-${today()}.csv`);
-  },
-  // 导出投资交易。
-  investmentTransactions(params: InvestmentTransactionExportQuery = {}) {
-    return download('/export/investment-transactions', params, `investment-transactions-${today()}.csv`);
   }
 };
 

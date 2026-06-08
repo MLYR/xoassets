@@ -1,137 +1,99 @@
-<!-- 首页仪表盘：展示真实资产指标、趋势图、支出结构和最近交易。 -->
+<!-- 首页仪表盘：按资产小块、收支汇总和趋势大图展示真实财务概览。 -->
 <template>
   <div class="page">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">首页</h1>
-        <p class="page-subtitle">欢迎回来，这是您的财务概览</p>
+    <section class="dashboard-hero-grid" v-loading="loading">
+      <div class="asset-card-grid">
+        <div v-for="metric in assetMetrics" :key="metric.title" class="asset-mini-card panel panel-padding">
+          <span class="asset-mini-title">{{ metric.title }}</span>
+          <AmountText class="asset-mini-value" :value="metric.value" :precision="2" />
+          <small>{{ metric.description }}</small>
+        </div>
+        <button class="snapshot-marker" type="button" title="生成今日快照" aria-label="生成今日快照" :aria-busy="snapshotGenerating" :disabled="snapshotGenerating" @click="handleGenerateSnapshot">
+          <el-icon :class="{ 'is-spinning': snapshotGenerating }"><RefreshRight /></el-icon>
+        </button>
       </div>
-      <el-button type="primary" :loading="snapshotGenerating" @click="handleGenerateSnapshot">生成今日快照</el-button>
-    </div>
 
-    <section class="dashboard-metrics" v-loading="loading">
-      <MetricCard v-for="metric in dashboardMetrics" :key="metric.title" v-bind="metric" />
+      <div class="panel panel-padding finance-summary-card">
+        <div class="panel-head compact">
+          <div>
+            <h3>收支与盈亏</h3>
+            <p>当月、当日和投资盈亏汇总</p>
+          </div>
+        </div>
+        <div class="finance-summary-grid">
+          <div v-for="item in financeSummaryItems" :key="item.title" class="finance-summary-item">
+            <span>{{ item.title }}</span>
+            <AmountText :value="item.value" :with-sign="item.withSign" :precision="2" />
+            <small>{{ item.description }}</small>
+          </div>
+        </div>
+      </div>
     </section>
 
-    <section class="dashboard-grid">
-      <div class="panel panel-padding chart-panel">
-        <div class="panel-head">
-          <div>
-            <h3>净资产趋势</h3>
-            <p>近 30 天资产变化</p>
-          </div>
+    <section class="panel panel-padding chart-panel hero-chart-panel">
+      <div class="panel-head">
+        <div>
+          <h3>资产趋势</h3>
+          <p>{{ range }}资产变化</p>
+        </div>
+        <div class="chart-actions">
+          <el-segmented v-model="assetTrendMode" :options="assetTrendOptions" />
           <el-segmented v-model="range" :options="['7天', '30天', '90天']" />
         </div>
-        <el-empty v-if="!loading && assetTrend.length === 0" description="暂无净资产趋势数据" />
-        <BaseChart v-else :option="assetOption" />
       </div>
-      <div class="panel panel-padding">
-        <div class="panel-head">
-          <div>
-            <h3>支出分析</h3>
-            <p>本月分类占比</p>
-          </div>
-        </div>
-        <el-empty v-if="!loading && expenseCategories.length === 0" description="暂无支出分类数据" />
-        <BaseChart v-else :option="expenseOption" height="210px" />
-        <div class="legend-list">
-          <div v-for="item in expenseBreakdown" :key="item.name" class="legend-row">
-            <span><i />{{ item.name }}</span>
-            <AmountText :value="item.value" muted />
-          </div>
-        </div>
-      </div>
+      <el-empty v-if="!loading && assetTrend.length === 0" description="暂无净资产趋势数据" />
+      <BaseChart v-else :option="assetOption" height="360px" />
     </section>
 
-    <section class="recent-grid">
-      <div class="panel panel-padding">
-        <div class="panel-head">
-          <h3>最近交易</h3>
-          <el-button link type="primary" @click="$router.push(ROUTES.transactions)">查看全部</el-button>
-        </div>
-        <el-empty v-if="overview.recentTransactions.length === 0" description="暂无最近交易" />
-        <el-table v-else :data="overview.recentTransactions" stripe>
-          <el-table-column label="日期" min-width="150">
-            <template #default="{ row }">{{ formatDateTime(row.transactionTime) }}</template>
-          </el-table-column>
-          <el-table-column label="类型" width="90">
-            <template #default="{ row }"><StatusBadge :label="transactionTypeLabel(row.type)" /></template>
-          </el-table-column>
-          <el-table-column label="分类">
-            <template #default="{ row }">{{ row.categoryName || '-' }}</template>
-          </el-table-column>
-          <el-table-column label="账户" min-width="150">
-            <template #default="{ row }">{{ row.accountName || '-' }}</template>
-          </el-table-column>
-          <el-table-column label="金额" align="right">
-            <template #default="{ row }"><AmountText :value="signedTransactionAmount(row)" with-sign /></template>
-          </el-table-column>
-        </el-table>
-      </div>
-
-      <div class="panel panel-padding">
-        <div class="panel-head">
-          <h3>最近投资交易</h3>
-          <el-button link type="primary" @click="$router.push(ROUTES.investments)">查看持仓</el-button>
-        </div>
-        <el-empty v-if="overview.recentInvestmentTransactions.length === 0" description="暂无投资交易" />
-        <el-table v-else :data="overview.recentInvestmentTransactions" stripe>
-          <el-table-column label="时间" min-width="150">
-            <template #default="{ row }">{{ formatDateTime(row.transactionTime) }}</template>
-          </el-table-column>
-          <el-table-column label="类型" width="90">
-            <template #default="{ row }"><StatusBadge :label="row.type === 'BUY' ? '买入' : '卖出'" /></template>
-          </el-table-column>
-          <el-table-column label="资产">
-            <template #default="{ row }">{{ row.assetName || row.symbol || '-' }}</template>
-          </el-table-column>
-          <el-table-column label="金额" align="right">
-            <template #default="{ row }"><AmountText :value="row.amount" /></template>
-          </el-table-column>
-        </el-table>
-      </div>
-    </section>
   </div>
 </template>
 
 <script setup lang="ts">
 // 首页从真实 dashboard/statistics 接口取数，避免继续依赖 mock。
 import { computed, onMounted, reactive, ref, watch } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import { RefreshRight } from '@element-plus/icons-vue';
 import type { EChartsOption } from 'echarts';
 import BaseChart from '@/components/charts/BaseChart.vue';
 import AmountText from '@/components/finance/AmountText.vue';
-import MetricCard from '@/components/finance/MetricCard.vue';
-import StatusBadge from '@/components/finance/StatusBadge.vue';
-import { ROUTES } from '@/constants/routes';
 import { dashboardApi, type DashboardOverview } from '@/services/dashboardApi';
-import { snapshotApi, type AssetSnapshotItem, type AssetSnapshotLatest } from '@/services/snapshotApi';
-import { statisticsApi, type ExpenseCategoryStat } from '@/services/statisticsApi';
-import type { TransactionItem } from '@/services/transactionApi';
+import { snapshotApi, type AssetSnapshotItem } from '@/services/snapshotApi';
 
 const range = ref('30天');
+const assetTrendMode = ref<'totalAsset' | 'cashAsset' | 'investmentAsset'>('totalAsset');
 const loading = ref(false);
 const snapshotGenerating = ref(false);
 const overview = reactive<DashboardOverview>({
   totalAssets: 0,
   netAssets: 0,
+  todayIncome: 0,
   todayExpense: 0,
+  yesterdayIncome: 0,
+  yesterdayExpense: 0,
   monthlyIncome: 0,
   monthlyExpense: 0,
+  todayBalance: 0,
   monthlyBalance: 0,
+  todayBalanceRateByIncome: null,
+  todayBalanceRateByExpense: null,
+  monthlyBalanceRateByIncome: null,
+  monthlyBalanceRateByExpense: null,
   investmentMarketValue: 0,
   investmentFloatingProfit: 0,
+  investmentTotalProfit: 0,
+  investmentTodayProfit: null,
   budgetUsageRate: 0,
-  assetTrendRate: 0,
-  incomeTrendRate: 0,
-  expenseTrendRate: 0,
-  balanceTrendRate: 0,
-  recentTransactions: [],
-  recentInvestmentTransactions: []
+  assetTrendRate: null,
+  incomeTrendRate: null,
+  expenseTrendRate: null,
+  balanceTrendRate: null
 });
-const snapshotLatest = ref<AssetSnapshotLatest | null>(null);
 const assetTrend = ref<AssetSnapshotItem[]>([]);
-const expenseCategories = ref<ExpenseCategoryStat[]>([]);
+const assetTrendOptions = [
+  { label: '总资产', value: 'totalAsset' },
+  { label: '账户', value: 'cashAsset' },
+  { label: '投资', value: 'investmentAsset' }
+];
 
 onMounted(() => {
   loadDashboard();
@@ -141,38 +103,43 @@ watch(range, () => {
   loadTrend();
 });
 
-const dashboardMetrics = computed(() => [
-  { title: '总资产', value: overview.totalAssets, trend: overview.assetTrendRate, description: '含投资市值', tone: 'primary' as const },
-  { title: '净资产', value: overview.netAssets, trend: overview.balanceTrendRate, description: '当前估算', tone: 'success' as const },
-  { title: '较昨日变化', value: snapshotLatest.value?.netAssetChangeFromYesterday || 0, trend: 0, description: '基于资产快照', tone: changeTone(snapshotLatest.value?.netAssetChangeFromYesterday || 0) },
-  { title: '较本月初变化', value: snapshotLatest.value?.netAssetChangeFromMonthStart || 0, trend: 0, description: '基于资产快照', tone: changeTone(snapshotLatest.value?.netAssetChangeFromMonthStart || 0) },
-  { title: '今日支出', value: overview.todayExpense, trend: overview.expenseTrendRate, description: '不含转账', tone: 'warning' as const },
-  { title: '投资盈亏', value: overview.investmentFloatingProfit, trend: 0, description: '浮动盈亏', tone: overview.investmentFloatingProfit >= 0 ? 'success' as const : 'danger' as const }
+const accountAsset = computed(() => {
+  // 首页四块资产必须来自同一实时口径：总资产 = 账户资产 + 投资资产。
+  return Number(overview.totalAssets || 0) - Number(overview.investmentMarketValue || 0);
+});
+
+const assetMetrics = computed(() => [
+  { title: '总资产', value: overview.totalAssets, description: '账户 + 投资' },
+  // 净资产不复用其他趋势率，避免把收支变化冒充资产变化。
+  { title: '净资产', value: overview.netAssets, description: '总资产 - 负债' },
+  { title: '账户资产', value: accountAsset.value, description: '现金类账户余额' },
+  { title: '投资资产', value: overview.investmentMarketValue, description: '当前持仓市值' }
 ]);
 
-const expenseBreakdown = computed(() => expenseCategories.value.map((item) => ({ name: item.categoryName || '未分类', value: item.amount })));
+const financeSummaryItems = computed(() => [
+  { title: '当月支出', value: overview.monthlyExpense, description: '普通流水支出', withSign: false },
+  { title: '当月收入', value: overview.monthlyIncome, description: '普通流水收入', withSign: false },
+  { title: '当日支出', value: overview.todayExpense, description: '不含转账', withSign: false },
+  { title: '当日收入', value: overview.todayIncome, description: '普通流水收入', withSign: false },
+  // 投资盈亏(总)按已实现 + 当前持仓浮动收益展示，和“持有收益”区分开。
+  { title: '投资盈亏(总)', value: overview.investmentTotalProfit, description: '投资总收益', withSign: true },
+  // 今日盈亏按投资今日收益展示，不再使用普通流水当日结余。
+  { title: '今日盈亏', value: overview.investmentTodayProfit, description: '投资今日收益', withSign: true }
+]);
 
 const assetOption = computed<EChartsOption>(() => ({
   grid: { left: 44, right: 16, top: 24, bottom: 32 },
   tooltip: { trigger: 'axis' },
   xAxis: { type: 'category', data: assetTrend.value.map((item) => item.snapshotDate), axisLine: { lineStyle: { color: '#e2e8f0' } } },
   yAxis: { type: 'value', axisLabel: { formatter: (value: number) => `${Math.round(value / 1000)}k` }, splitLine: { lineStyle: { color: '#e2e8f0' } } },
-  series: [{ type: 'line', smooth: true, data: assetTrend.value.map((item) => item.netAsset), symbolSize: 7, lineStyle: { color: '#2563eb', width: 3 }, itemStyle: { color: '#2563eb' }, areaStyle: { color: 'rgba(37, 99, 235, 0.12)' } }]
-}));
-
-const expenseOption = computed<EChartsOption>(() => ({
-  color: ['#3b82f6', '#2dd4bf', '#8b5cf6', '#f6c453', '#fb7185'],
-  tooltip: { trigger: 'item' },
-  series: [{ type: 'pie', radius: ['56%', '78%'], avoidLabelOverlap: true, label: { show: false }, data: expenseBreakdown.value }]
+  series: [{ type: 'line', smooth: true, data: assetTrend.value.map((item) => item[assetTrendMode.value]), symbolSize: 7, lineStyle: { color: '#2563eb', width: 3 }, itemStyle: { color: '#2563eb' }, areaStyle: { color: 'rgba(37, 99, 235, 0.12)' } }]
 }));
 
 async function loadDashboard() {
   loading.value = true;
   try {
-    const [overviewData, expenseData, snapshotData] = await Promise.all([dashboardApi.overview(), statisticsApi.expenseCategory(currentMonth()), snapshotApi.latest()]);
+    const overviewData = await dashboardApi.overview();
     Object.assign(overview, overviewData);
-    expenseCategories.value = expenseData;
-    snapshotLatest.value = snapshotData;
     await loadTrend();
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '首页数据加载失败');
@@ -191,6 +158,19 @@ async function loadTrend() {
 }
 
 async function handleGenerateSnapshot() {
+  try {
+    await ElMessageBox.confirm(
+      '生成今日快照会按当前账户资产、投资资产、负债和收支汇总覆盖今天唯一一条资产快照，用于首页趋势、资产目标和复盘统计。确认生成吗？',
+      '生成今日快照',
+      {
+        type: 'info',
+        confirmButtonText: '确认生成',
+        cancelButtonText: '取消'
+      }
+    );
+  } catch {
+    return;
+  }
   snapshotGenerating.value = true;
   try {
     // 后端按 userId + snapshotDate 做当天快照覆盖更新，避免一天生成多份快照。
@@ -204,27 +184,6 @@ async function handleGenerateSnapshot() {
   }
 }
 
-function transactionTypeLabel(type: TransactionItem['type']) {
-  return ({ INCOME: '收入', EXPENSE: '支出', TRANSFER: '转账', REFUND: '退款' } as Record<TransactionItem['type'], string>)[type];
-}
-
-function signedTransactionAmount(row: TransactionItem) {
-  return row.type === 'EXPENSE' || row.type === 'TRANSFER' ? -Number(row.amount) : Number(row.amount);
-}
-
-function formatDateTime(value: string) {
-  return value ? value.replace('T', ' ').slice(0, 16) : '-';
-}
-
-function changeTone(value: number) {
-  return value >= 0 ? 'success' as const : 'danger' as const;
-}
-
-function currentMonth() {
-  const date = new Date();
-  return `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, '0')}`;
-}
-
 function dateBefore(days: number) {
   const date = new Date();
   date.setDate(date.getDate() - days);
@@ -233,23 +192,137 @@ function dateBefore(days: number) {
 </script>
 
 <style scoped>
-/* 首页核心布局为 2:1 图表区，卡片留白和圆角对齐原型。 */
-.dashboard-grid {
+/* 首页首屏按草图分为左侧 2×2 资产小块，右侧收支与盈亏汇总。 */
+.dashboard-hero-grid {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: minmax(520px, 0.9fr) minmax(520px, 1.1fr);
   gap: 24px;
+  align-items: stretch;
 }
 
-.dashboard-metrics {
+.asset-card-grid {
+  position: relative;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
 }
 
-.recent-grid {
+.snapshot-marker {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  display: inline-grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid rgba(37, 99, 235, 0.22);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.95), rgba(239, 246, 255, 0.86)),
+    rgba(255, 255, 255, 0.92);
+  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.14), inset 0 0 0 6px rgba(37, 99, 235, 0.06);
+  color: var(--xo-primary);
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.snapshot-marker:hover {
+  border-color: rgba(37, 99, 235, 0.42);
+  box-shadow: 0 18px 36px rgba(37, 99, 235, 0.20), inset 0 0 0 6px rgba(37, 99, 235, 0.08);
+  transform: translate(-50%, -50%) scale(1.05);
+}
+
+.snapshot-marker:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.24);
+  outline-offset: 4px;
+}
+
+.snapshot-marker:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.snapshot-marker .el-icon {
+  font-size: 20px;
+}
+
+.snapshot-marker .is-spinning {
+  animation: snapshot-spin 0.8s linear infinite;
+}
+
+@keyframes snapshot-spin {
+  from {
+    transform: rotate(0);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.asset-mini-card {
+  min-height: 152px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+}
+
+.asset-mini-title,
+.finance-summary-item span {
+  color: #475569;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.asset-mini-card small,
+.finance-summary-item small {
+  color: var(--xo-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.asset-mini-value {
+  display: block;
+  margin: 10px 0;
+  font-size: clamp(28px, 1.6vw, 30px);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.asset-mini-card :deep(.asset-mini-value.amount-text) {
+  font-size: clamp(28px, 1.6vw, 30px);
+  font-weight: 800;
+}
+
+.finance-summary-card {
+  min-height: 294px;
+}
+
+.finance-summary-grid {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.finance-summary-item {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid rgba(226, 232, 240, 0.78);
+  border-radius: 16px;
+  background: rgba(248, 251, 255, 0.76);
+}
+
+.finance-summary-item :deep(.amount-text) {
+  font-size: 20px;
+  font-weight: 850;
+}
+
+.hero-chart-panel {
+  min-height: 500px;
 }
 
 .panel-head {
@@ -258,6 +331,10 @@ function dateBefore(days: number) {
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 20px;
+}
+
+.panel-head.compact {
+  margin-bottom: 14px;
 }
 
 .panel-head h3 {
@@ -272,41 +349,27 @@ function dateBefore(days: number) {
   font-size: 13px;
 }
 
-.legend-list {
+.chart-actions {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.legend-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 0;
-}
-
-.legend-row span {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--xo-text);
-  font-size: 14px;
-}
-
-.legend-row i {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
-  background: linear-gradient(135deg, #60a5fa, #2563eb);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 @media (max-width: 1080px) {
-  .dashboard-grid {
+  .dashboard-hero-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .asset-card-grid,
+  .finance-summary-grid {
     grid-template-columns: 1fr;
   }
 
-  .dashboard-metrics {
-    grid-template-columns: 1fr;
+  .asset-mini-value {
+    font-size: 30px;
   }
 }
 </style>

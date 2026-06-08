@@ -22,8 +22,8 @@ import TrendValue from './TrendValue.vue';
 const props = withDefaults(
   defineProps<{
     title: string;
-    value: number;
-    trend: number;
+    value: number | null | undefined;
+    trend: number | null | undefined;
     description: string;
     tone?: 'success' | 'danger' | 'warning' | 'primary';
     precision?: number;

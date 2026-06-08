@@ -1,24 +1,30 @@
-// 首页 API：封装概览、最近流水和最近投资交易。
+// 首页 API：封装首页聚合概览。
 import { request } from './http';
-import type { InvestmentTransactionItem } from './investmentApi';
-import type { TransactionItem } from './transactionApi';
 
 export interface DashboardOverview {
   totalAssets: number;
   netAssets: number;
+  todayIncome: number;
   todayExpense: number;
+  yesterdayIncome: number;
+  yesterdayExpense: number;
   monthlyIncome: number;
   monthlyExpense: number;
+  todayBalance: number;
   monthlyBalance: number;
+  todayBalanceRateByIncome?: number | null;
+  todayBalanceRateByExpense?: number | null;
+  monthlyBalanceRateByIncome?: number | null;
+  monthlyBalanceRateByExpense?: number | null;
   investmentMarketValue: number;
   investmentFloatingProfit: number;
+  investmentTotalProfit: number;
+  investmentTodayProfit: number | null;
   budgetUsageRate: number;
-  assetTrendRate: number;
-  incomeTrendRate: number;
-  expenseTrendRate: number;
-  balanceTrendRate: number;
-  recentTransactions: TransactionItem[];
-  recentInvestmentTransactions: InvestmentTransactionItem[];
+  assetTrendRate?: number | null;
+  incomeTrendRate?: number | null;
+  expenseTrendRate?: number | null;
+  balanceTrendRate?: number | null;
 }
 
 export const dashboardApi = {
@@ -28,14 +34,6 @@ export const dashboardApi = {
       url: '/dashboard/overview',
       method: 'GET',
       params: month ? { month } : undefined
-    });
-  },
-  // 保留独立最近流水接口，其他页面需要时可复用。
-  recentTransactions(limit = 5) {
-    return request<TransactionItem[]>({
-      url: '/dashboard/recent-transactions',
-      method: 'GET',
-      params: { limit }
     });
   }
 };

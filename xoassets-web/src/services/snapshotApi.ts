@@ -22,8 +22,8 @@ export interface AssetSnapshotItem {
 
 export interface AssetSnapshotLatest {
   latest: AssetSnapshotItem | null;
-  netAssetChangeFromYesterday: number;
-  netAssetChangeFromMonthStart: number;
+  netAssetChangeFromYesterday: number | null;
+  netAssetChangeFromMonthStart: number | null;
 }
 
 export const snapshotApi = {
@@ -47,6 +47,14 @@ export const snapshotApi = {
     return request<AssetSnapshotItem>({
       url: '/snapshots/generate-today',
       method: 'POST'
+    });
+  },
+  // 手动重建指定日期快照，用于本地对账和历史数据修复。
+  generate(params?: { snapshotDate?: string }) {
+    return request<AssetSnapshotItem>({
+      url: '/snapshots/generate',
+      method: 'POST',
+      params
     });
   }
 };
