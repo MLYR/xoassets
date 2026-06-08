@@ -325,14 +325,16 @@ public class HoldingServiceImpl implements HoldingService {
             CalendarProfitData profitData = profitByDisplayDate.get(date);
             boolean tradingDay = tradingDayForAsset(asset, date);
             boolean marketClosed = marketClosedForAsset(asset, date);
+            CalendarProfitData displayProfitData = marketClosed ? null : profitData;
             result.add(InvestmentCalendarDayProfitVO.builder()
                     .date(date)
-                    .profitAmount(profitData == null ? null : profitData.profit())
-                    .profitRate(profitData == null ? null : profitData.profitRate())
-                    .marketValue(profitData == null ? null : profitData.marketValue())
-                    .price(profitData == null ? null : profitData.price())
-                    .previousPrice(profitData == null ? null : profitData.previousPrice())
-                    .hasPrice(profitData != null)
+                    // 休市日只展示状态，不展示误落入休市日期的价格/收益，避免日历出现“休市但有盈亏”。
+                    .profitAmount(displayProfitData == null ? null : displayProfitData.profit())
+                    .profitRate(displayProfitData == null ? null : displayProfitData.profitRate())
+                    .marketValue(displayProfitData == null ? null : displayProfitData.marketValue())
+                    .price(displayProfitData == null ? null : displayProfitData.price())
+                    .previousPrice(displayProfitData == null ? null : displayProfitData.previousPrice())
+                    .hasPrice(displayProfitData != null)
                     .tradingDay(tradingDay)
                     .marketClosed(marketClosed)
                     .statusLabel(marketClosed ? "休市" : profitData == null ? "无价格" : "有收益")
@@ -807,7 +809,7 @@ public class HoldingServiceImpl implements HoldingService {
     }
 
     /**
-     * 收益日历只读取日级价格表；旧价格快照表退役后，历史缺口直接展示为空。
+     * 收益日历以日级价格表为主，并合并不晚于结束日的 current 兜住当天聚合滞后；旧价格快照表退役后不再兜底。
      */
     private List<DailyPricePoint> calendarPricePoints(Asset asset, Long assetId, LocalDate end) {
         Map<LocalDate, DailyPricePoint> priceMap = new LinkedHashMap<>();
@@ -819,6 +821,13 @@ public class HoldingServiceImpl implements HoldingService {
                 .stream()
                 .filter(price -> priceMatchesAssetCurrency(asset, price))
                 .forEach(price -> priceMap.put(price.getTradeDate(), new DailyPricePoint(price.getTradeDate(), price.getClosePrice(), price.getPreviousClose())));
+        AssetPriceCurrent current = assetPriceCurrentMapper.selectById(assetId);
+        if (priceMatchesAssetCurrency(asset, current) && current.getPrice() != null && current.getQuoteTime() != null && !current.getQuoteTime().toLocalDate().isAfter(end)) {
+            DailyPricePoint existingPoint = priceMap.get(current.getQuoteTime().toLocalDate());
+            BigDecimal previousClose = current.getPreviousClose() == null && existingPoint != null ? existingPoint.previousClose() : current.getPreviousClose();
+            // 股票盘中/收盘后 current 往往先于 daily 聚合更新；收益日历合并 current，避免今日格子继续展示旧日级价。
+            priceMap.put(current.getQuoteTime().toLocalDate(), new DailyPricePoint(current.getQuoteTime().toLocalDate(), current.getPrice(), previousClose));
+        }
         return priceMap.values().stream()
                 .sorted(Comparator.comparing(DailyPricePoint::tradeDate))
                 .toList();
@@ -972,7 +981,7 @@ public class HoldingServiceImpl implements HoldingService {
             return List.of();
         }
         Set<Long> moduleAssetIds = moduleHoldings.stream().map(Holding::getAssetId).collect(Collectors.toSet());
-        Map<Long, List<AssetPriceDaily>> priceMap = dailyPricesUntil(moduleAssetIds, end);
+        Map<Long, List<AssetPriceDaily>> priceMap = dailyPricesUntil(moduleAssetIds, end, assetMap);
         List<InvestmentTrendPointVO> points = new ArrayList<>();
         for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
             Map<Long, InvestmentPositionState> positions = positionHistoryService.positionsAt(userId, date);
@@ -1009,7 +1018,7 @@ public class HoldingServiceImpl implements HoldingService {
     /**
      * 读取模块趋势需要的日级价格，包含 start 之前价格以便找到指定日可用收盘价。
      */
-    private Map<Long, List<AssetPriceDaily>> dailyPricesUntil(Set<Long> assetIds, LocalDate end) {
+    private Map<Long, List<AssetPriceDaily>> dailyPricesUntil(Set<Long> assetIds, LocalDate end, Map<Long, Asset> assetMap) {
         if (assetIds.isEmpty()) {
             return Map.of();
         }
@@ -1017,9 +1026,32 @@ public class HoldingServiceImpl implements HoldingService {
                 .in(AssetPriceDaily::getAssetId, assetIds)
                 .le(AssetPriceDaily::getTradeDate, end)
                 .orderByAsc(AssetPriceDaily::getTradeDate));
-        return (rows == null ? List.<AssetPriceDaily>of() : rows)
+        Map<Long, List<AssetPriceDaily>> grouped = (rows == null ? List.<AssetPriceDaily>of() : rows)
                 .stream()
+                // 模块趋势同样只使用与资产币种一致的日线，避免脏数据跨币种污染市值。
+                .filter(price -> priceMatchesAssetCurrency(assetMap.get(price.getAssetId()), price))
                 .collect(Collectors.groupingBy(AssetPriceDaily::getAssetId, LinkedHashMap::new, Collectors.toList()));
+        List<AssetPriceCurrent> currentRows = assetPriceCurrentMapper.selectBatchIds(assetIds);
+        Map<Long, AssetPriceCurrent> currentMap = (currentRows == null ? List.<AssetPriceCurrent>of() : currentRows).stream()
+                .collect(Collectors.toMap(AssetPriceCurrent::getAssetId, price -> price, (left, right) -> left));
+        for (Map.Entry<Long, AssetPriceCurrent> entry : currentMap.entrySet()) {
+            Asset asset = assetMap.get(entry.getKey());
+            AssetPriceCurrent current = entry.getValue();
+            if (!priceMatchesAssetCurrency(asset, current) || current.getPrice() == null || current.getQuoteTime() == null || current.getQuoteTime().toLocalDate().isAfter(end)) {
+                continue;
+            }
+            List<AssetPriceDaily> prices = new ArrayList<>(grouped.getOrDefault(entry.getKey(), List.of()));
+            LocalDate latestDailyDate = prices.isEmpty() ? null : prices.get(prices.size() - 1).getTradeDate();
+            if (latestDailyDate != null && current.getQuoteTime().toLocalDate().isBefore(latestDailyDate)) {
+                continue;
+            }
+            // 模块趋势和收益日历保持同一兜底口径：同日 current 可覆盖旧 daily，但不能用更早 current 覆盖新日线。
+            prices.removeIf(price -> current.getQuoteTime().toLocalDate().equals(price.getTradeDate()));
+            prices.add(toDailyPrice(current));
+            prices.sort(Comparator.comparing(AssetPriceDaily::getTradeDate));
+            grouped.put(entry.getKey(), prices);
+        }
+        return grouped;
     }
 
     private BigDecimal closePriceOnOrBefore(List<AssetPriceDaily> prices, LocalDate date) {
@@ -1157,7 +1189,7 @@ public class HoldingServiceImpl implements HoldingService {
         List<AssetPriceVO> snapshots = new ArrayList<>();
         AssetPriceCurrent current = assetPriceCurrentMapper.selectById(assetId);
         LocalDate currentDate = null;
-        if (priceMatchesAssetCurrency(asset, current)) {
+        if (priceMatchesAssetCurrency(asset, current) && current.getPrice() != null) {
             snapshots.add(toAssetPriceVO(current));
             currentDate = current.getQuoteTime() == null ? null : current.getQuoteTime().toLocalDate();
         }
@@ -1366,6 +1398,26 @@ public class HoldingServiceImpl implements HoldingService {
                 .quoteTime(price.getQuoteTime())
                 .marketStatus(price.getMarketStatus())
                 .build();
+    }
+
+    /**
+     * 将 current 转为单点日价供趋势计算临时合并，不落库，避免同日旧 daily 污染模块趋势。
+     */
+    private AssetPriceDaily toDailyPrice(AssetPriceCurrent price) {
+        AssetPriceDaily daily = new AssetPriceDaily();
+        daily.setAssetId(price.getAssetId());
+        daily.setTradeDate(price.getQuoteTime().toLocalDate());
+        daily.setOpenPrice(price.getPrice());
+        daily.setClosePrice(price.getPrice());
+        daily.setHighPrice(price.getPrice());
+        daily.setLowPrice(price.getPrice());
+        daily.setPreviousClose(price.getPreviousClose());
+        daily.setChangeAmount(price.getChangeAmount());
+        daily.setChangePercent(price.getChangePercent());
+        daily.setCurrency(price.getCurrency());
+        daily.setSource(price.getSource());
+        daily.setDeleted(0);
+        return daily;
     }
 
     /**
@@ -1598,7 +1650,7 @@ public class HoldingServiceImpl implements HoldingService {
         price.setQuoteTime(request.getQuoteTime() == null ? java.time.LocalDateTime.now() : request.getQuoteTime());
         price.setMarketStatus(StringUtils.hasText(request.getMarketStatus()) ? request.getMarketStatus() : "LOOKUP");
         upsertCurrentPrice(price);
-        upsertLookupDailyPrice(price);
+        upsertLookupDailyPrice(asset, price);
     }
 
     /**
@@ -1615,8 +1667,12 @@ public class HoldingServiceImpl implements HoldingService {
     /**
      * 识别价没有 Redis intraday 明细，按单点日价写 daily，支撑删表后的详情曲线和快照估值。
      */
-    private void upsertLookupDailyPrice(AssetPriceCurrent price) {
+    private void upsertLookupDailyPrice(Asset asset, AssetPriceCurrent price) {
         if (price.getQuoteTime() == null || price.getPrice() == null) {
+            return;
+        }
+        if (ASSET_TYPE_STOCK.equals(asset.getType())) {
+            // 股票识别价只适合做 current 估值，日线必须由 Redis 聚合或手动录价沉淀，避免把盘中/延迟价当收盘价。
             return;
         }
         AssetPriceDaily daily = new AssetPriceDaily();

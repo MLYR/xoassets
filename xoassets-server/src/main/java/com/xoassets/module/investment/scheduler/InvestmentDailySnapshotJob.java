@@ -150,20 +150,23 @@ public class InvestmentDailySnapshotJob {
     }
 
     private BigDecimal resolvePrice(Long assetId, LocalDate snapshotDate) {
+        AssetPriceCurrent current = assetPriceCurrentMapper.selectById(assetId);
         AssetPriceDaily daily = assetPriceDailyMapper.selectOne(new LambdaQueryWrapper<AssetPriceDaily>()
                 .eq(AssetPriceDaily::getAssetId, assetId)
                 .le(AssetPriceDaily::getTradeDate, snapshotDate)
                 .orderByDesc(AssetPriceDaily::getTradeDate)
                 .last("LIMIT 1"));
+        if (current != null && current.getPrice() != null && current.getQuoteTime() != null && !current.getQuoteTime().toLocalDate().isAfter(snapshotDate)
+                && (daily == null || !current.getQuoteTime().toLocalDate().isBefore(daily.getTradeDate()))
+                && (daily == null || daily.getCurrency() == null || daily.getCurrency().equals(current.getCurrency()))) {
+            // 同一交易日 current 可能比 daily 更晚写入；投资快照估值优先使用不早于 daily 的当前价，避免旧日线污染当天快照。
+            return current.getPrice();
+        }
         if (daily != null) {
             return daily.getClosePrice();
         }
-        AssetPriceCurrent current = assetPriceCurrentMapper.selectById(assetId);
-        if (current == null || current.getQuoteTime() == null || current.getQuoteTime().toLocalDate().isAfter(snapshotDate)) {
-            // 投资快照补跑要使用已沉淀的权威日级价格；缺价时由调用方按成本价兜底。
-            return null;
-        }
-        return current.getPrice();
+        // 历史补跑缺日级价时不再读旧价格表；缺价由调用方按成本价兜底。
+        return null;
     }
 
     private BigDecimal inTransitFundBuyAmount(Long userId, LocalDate snapshotDate) {

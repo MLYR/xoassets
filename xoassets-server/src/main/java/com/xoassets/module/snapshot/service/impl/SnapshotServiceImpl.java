@@ -376,25 +376,27 @@ public class SnapshotServiceImpl implements SnapshotService {
     }
 
     /**
-     * 快照估值优先使用日级价和当前价；旧价格快照表退役后缺价不再读旧审计表。
+     * 快照估值以日级价为主，同日 current 可覆盖旧日线；旧价格快照表退役后缺价不再读旧审计表。
      */
     private BigDecimal latestMatchedPrice(Asset asset, LocalDate snapshotDate) {
         if (asset == null) {
             return null;
         }
+        AssetPriceCurrent current = assetPriceCurrentMapper.selectById(asset.getId());
         AssetPriceDaily daily = assetPriceDailyMapper.selectOne(new LambdaQueryWrapper<AssetPriceDaily>()
                 .eq(AssetPriceDaily::getAssetId, asset.getId())
                 .eq(AssetPriceDaily::getCurrency, asset.getCurrency())
                 .le(AssetPriceDaily::getTradeDate, snapshotDate)
                 .orderByDesc(AssetPriceDaily::getTradeDate)
                 .last("limit 1"));
+        if (current != null && current.getPrice() != null && asset.getCurrency().equals(current.getCurrency())
+                && current.getQuoteTime() != null && !current.getQuoteTime().toLocalDate().isAfter(snapshotDate)
+                && (daily == null || !current.getQuoteTime().toLocalDate().isBefore(daily.getTradeDate()))) {
+            // 当前价可能先于日级聚合修正，资产快照要优先使用不早于 daily 的 current，避免首页资产被旧日线带偏。
+            return current.getPrice();
+        }
         if (daily != null) {
             return daily.getClosePrice();
-        }
-        AssetPriceCurrent current = assetPriceCurrentMapper.selectById(asset.getId());
-        if (current != null && asset.getCurrency().equals(current.getCurrency())
-                && current.getQuoteTime() != null && !current.getQuoteTime().toLocalDate().isAfter(snapshotDate)) {
-            return current.getPrice();
         }
         return null;
     }
