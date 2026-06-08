@@ -137,38 +137,42 @@ http://localhost:8080/doc.html
 - 转账只影响账户余额，不计入收入支出统计。
 - 删除或修改流水会在同一事务中反向修正账户余额。
 - 账户余额校准通过 `xo_account_balance_adjustment` 生成专用修正事件；`PUT /api/accounts/{id}` 仍兼容余额差异，但 Web/App 应优先调用 `POST /api/accounts/{id}/balance-adjustments`。
-- 余额修正不计入普通收入 / 支出统计，但会进入账户资金明细和 `xo_account_daily_balance_snapshot` 日终余额曲线。
+- 余额修正不计入普通收入 / 支出统计，但会进入账户资金明细；账户日终余额曲线从普通流水、投资交易和余额修正事件实时重建。
 - 账户资金明细接口聚合 `xo_transaction`、`xo_investment_transaction` 和 `xo_account_balance_adjustment`，按当前账户方向展示收入、支出、转账转入/转出、退款、投资买入、投资卖出和余额修正。
 - 账户资金流向统计单独区分普通收支、转账、投资资金流和余额修正，投资买入不计入普通支出分类统计。
 - 流水可保存 `image_url`，第一版允许前端传图片 Data URL，数据库使用 `MEDIUMTEXT`，后续可替换为对象存储 URL。
-- 公共资产表 `xo_asset` 和价格表 `xo_asset_price` 不带 `user_id`；前端不再暴露资产管理入口，`xo_asset` 仅作为持仓行情和价格快照的内部基础数据。
-- 已有本地库升级行情字段时，执行 `src/main/resources/db/migration-quote-fields.sql`。
+- 公共资产表 `xo_asset`、当前价表 `xo_asset_price_current` 和日级价格表 `xo_asset_price_daily` 不带 `user_id`；前端不再暴露资产管理入口，`xo_asset` 仅作为持仓行情和价格的内部基础数据。
+- 旧价格快照表已退役；本地历史库删除旧表前先执行 `src/main/resources/db/migration-retire-asset-price.sql`，把历史价迁入 current/daily 后再 drop。
 - 投资买入会创建或更新持仓并按移动平均成本重算；投资卖出必须校验持仓数量，数量不足时拒绝。
 - 投资买入必须选择扣款账户并扣减账户余额；投资卖出必须选择到账账户并增加账户余额，已实现盈亏写入投资交易记录。
-- 基金可先创建 0 份额持仓，再使用金额确认模式买入：`input_mode = AMOUNT_NAV` 时先按买入总金额扣减资金账户，`transaction_time` 表示用户实际买入时间；后端按 `xo_market_calendar` 计算有效申请日和确认日，15:00:00 及以前按当天申请，15:00 后或非交易日顺延，普通基金 T+1，名称包含 `QDII` 的基金 T+2。确认净值优先读取 `xo_asset_price_daily.close_price`，旧 `xo_asset_price` 同日正价兜底，`xo_asset_price_current.quote_time` 等于确认日时可兜底；没有净值则保存为 `PENDING_CONFIRM`，由基金确认定时任务后续更新为 `CONFIRMED`。
+- 基金可先创建 0 份额持仓，再使用金额确认模式买入：`input_mode = AMOUNT_NAV` 时先按买入总金额扣减资金账户，`transaction_time` 表示用户实际买入时间；后端按 `xo_market_calendar` 计算有效申请日和确认日，15:00:00 及以前按当天申请，15:00 后或非交易日顺延，普通基金 T+1，名称包含 `QDII` 的基金 T+2。确认净值优先读取 `xo_asset_price_daily.close_price`，`xo_asset_price_current.quote_time` 等于确认日时可兜底；没有净值则保存为 `PENDING_CONFIRM`，由基金确认定时任务后续更新为 `CONFIRMED`，确认成功后同步 upsert 实际买入日至确认日区间以及今日的投资日快照、资产快照。
 - 投资交易、资金账户和持仓联动在同一事务中完成，避免交易记录与账户余额、持仓数量、成本不一致。
 - 投资交易支持撤销，不物理删除；撤销状态写入 `status = REVOKED`，账户余额和持仓通过原交易 `cost_amount` 反向恢复。
 - 投资数量和基金确认份额统一保留 10 位小数，手续费、持仓成本、市值、盈亏和收益率统一按 4 位小数归一化后计算，避免不同调用入口产生精度口径差异。
-- 持仓接口返回最新价、昨价、前日价、今日收益、昨日收益、浮动盈亏、收益率、回本涨幅和报价时间；基金和股票只有当前价格日期等于今天时才计算今日收益，否则 `todayPriceAvailable=false`、`priceStatus=TODAY_PRICE_NOT_AVAILABLE`；收益基准价格或基准持仓数量缺失时返回 `null`，前端展示 `--`。
-- 今日收益按上一交易日日终持仓数量计算，昨日收益按上上交易日日终持仓数量计算；投资总今日 / 本月收益按 `当前市值 - 基准市值 - 净入金` 计算，避免当日买卖放大或压低收益。
-- 行情价格快照使用 `DECIMAL(28,8)`，第三方行情和手动报价入库前统一保留 8 位；`xo_asset_price` 记录 `previous_close`、`change_amount`、`change_percent`、`market_status`，持仓返回 `priceScale`，CRYPTO 当前价至少展示 6 位，FUND / STOCK 展示 4 位。
+- 持仓接口返回最新价、昨价、前日价、今日收益、昨日收益、浮动盈亏、收益率、回本涨幅和报价时间；所有资产只有当前价格日期等于今天时才计算今日收益，其中基金和股票还必须当天为交易日，非交易日返回 `todayPriceAvailable=false`、`priceStatus=MARKET_CLOSED`，交易日未更新或虚拟货币当前价过期返回 `priceStatus=TODAY_PRICE_NOT_AVAILABLE`；收益基准价格或基准持仓数量缺失时返回 `null`，前端展示 `--`；投资总览和模块卡通过 `todayProfitStatusLabel` / `primaryProfitStatusLabel` 暴露“今日休市”等不可用原因。
+- 今日收益同时返回当前 / 今日有效份额口径和上一交易日日终份额归因口径，Web 默认展示当前份额口径；昨日收益按上上交易日日终持仓数量计算；持仓汇总、投资总览和模块卡通过 `todayProfitAvailable` / `primaryProfitAvailable` 标记今日收益是否可展示，不可用时金额返回 `null` 并显示 `--`；投资总今日 / 本月收益按 `当前市值 - 基准市值 - 净入金` 计算，避免期间买卖带来的资金流入 / 流出影响收益判断。
+- 行情当前价和日级价格使用 `DECIMAL(28,8)`，第三方行情和手动报价入库前统一保留 8 位；`xo_asset_price_current` / `xo_asset_price_daily` 记录 `previous_close`、`change_amount`、`change_percent` 等行情字段，持仓返回 `priceScale`，CRYPTO 当前价至少展示 6 位，FUND / STOCK 展示 4 位。
 - 公共资产表 `xo_asset` 使用 `market` 区分交易市场，股票为 `SH` / `SZ` / `BJ` / `US`，基金为 `CN_FUND`，虚拟货币为 `CRYPTO`；唯一性按 `type + market + symbol + deleted` 控制。
 - 持仓估值使用与资产币种一致的最近价格；没有价格或价格币种不一致时使用平均成本兜底，避免当前价和市值口径不一致。
 - 行情刷新通过 `QuoteProvider` 抽象扩展；当前支持 `ManualQuoteProvider`、`CoinGeckoQuoteProvider`、`EastMoneyFundQuoteProvider`、`StockQuoteProvider`。基金优先读取天天基金 F10 历史净值表，最新价使用最新单位净值，昨价使用上一交易日单位净值，失败时再回退实时净值接口。
-- `GET /api/assets/lookup` 支持新增持仓时按类型查询基金、股票、虚拟货币基础信息和当前价格；前端选择结果后保存持仓，后端创建或复用 `xo_asset` 并写入 `xo_asset_price`。
+- `GET /api/assets/lookup` 支持新增持仓时按类型查询基金、股票、虚拟货币基础信息和当前价格；前端选择结果后保存持仓，后端创建或复用 `xo_asset` 并写入 `xo_asset_price_current`，带报价日期的初始价同步写入 `xo_asset_price_daily`。
 - 资产查询失败会在后端 WARN 日志中输出行情源、代码 / 市场、响应摘要和原始异常堆栈，便于区分网络失败、第三方格式变更和代码无效。
 - CoinGecko 支持 CRYPTO 资产 BTC、ETH、SOL、BNB、DOGE；天天基金支持基金单位净值；新浪支持 A 股；Yahoo Finance 支持美股。
 - `POST /api/quotes/refresh-batch` 支持按当前持仓资产批量刷新；刷新失败保留旧价格，不删除历史快照。
-- 行情缓存按资产类型控制刷新频率：CRYPTO 1 小时、STOCK 15 分钟、FUND 1 天；MANUAL 价格不过期；股票只在 09:30-15:00 之间拉取第三方行情。`GET /api/exchange-rates/usd-cny` 返回 USD/CNY 日缓存汇率，MVP 使用进程内缓存，后续可替换为 Redis。
+- 行情缓存按资产类型控制刷新频率：CRYPTO 15 分钟、STOCK 15 分钟、FUND 1 天；MANUAL 价格不过期；股票只在 09:30-15:30 之间拉取第三方行情，基金净值在 19:30-23:30 每半小时强制尝试刷新。股票和虚拟货币原始行情写入 Redis ZSET `price:snapshot:{assetId}:{yyyyMM}`，TTL 3 天，日级汇总读取某天数据时按当天起止毫秒 score 范围查询，不全量拉取整月数据。`GET /api/exchange-rates/usd-cny` 返回 USD/CNY 日缓存汇率，MVP 使用进程内缓存，后续可替换为 Redis。
 - 后端启用 `QuoteRefreshScheduler` 定时刷新持仓涉及资产，任务或单个资产失败只记录日志，不影响主应用启动。
-- 市场交易日历使用 `xo_market_calendar` 存储，`MarketCalendarRefreshScheduler` 每年 1 月 1 日补齐当年和下一年基础周末日历；春节、国庆等交易所特殊休市以数据库修正记录为准，不写死在 Java 或配置文件里。
+- 市场交易日历使用 `xo_market_calendar` 存储，`MarketCalendarRefreshScheduler` 在应用启动和每年 1 月 1 日补齐当前年、下一年基础周末日历；春节、国庆等交易所特殊休市以数据库修正记录为准，不写死在 Java 或配置文件里。
 - 预算表 `xo_budget` 按当前用户隔离；每个用户每月只能有一个总预算，每个支出分类每月只能有一个分类预算。
 - 预算使用额从 `xo_transaction` 汇总，转账不计入预算，退款抵扣支出。
-- 资产快照表 `xo_asset_snapshot` 每天记录现金资产、投资资产、负债、净资产、月度收支和预算使用率；同一用户同一天只保留一条，重复生成会更新。
+- 资产快照表 `xo_asset_snapshot` 每天记录现金资产、投资资产、负债、净资产、截至快照日的月度收支和预算使用率；同一用户同一天只保留一条，重复生成会更新。
+- `/api/snapshots/latest` 的较昨日 / 较月初变化缺少基准快照时返回 `null`，前端展示 `--`；本月只有最新一条且最新日期不是 1 号时，较月初也返回 `null`，不能把缺失对比冒充为 0。
 - 投资日快照表 `xo_investment_daily_snapshot` 按 `xo_investment_transaction` 截至快照日重建历史持仓、成本、市值、已实现收益和净入金，补跑用户覆盖近期有交易、已有快照或当前有持仓的用户。
-- 资产快照中现金资产只统计正余额账户，负余额账户按绝对值计入负债；投资资产使用持仓数量和同币种最新价格快照计算。
+- 基金金额买入从实际申购日至确认日前按在途投资资产计入；交易后续确认后，补跑确认日前历史快照仍必须保留这段在途金额，避免已扣款但未确认份额导致净资产假跌。
+- 投资日快照补跑按 `trade_date` 使用已回填的 `xo_asset_price_daily` 日级价格，不用价格行 `created_at` 判断是否晚于快照日，确保周末后和净值延迟时历史市值可被修正。
+- 资产快照中现金资产按账户初始余额 + 普通流水 / 投资交易 / 余额修正重建快照日历史余额，正余额计入现金资产、负余额按绝对值计入负债；投资资产按快照日通过交易流水重建历史头寸，再使用同币种日级价 / 当前价估值，补跑历史快照不能用当前账户余额或当前持仓数量倒推。
+- 本地对账可手动重建当前用户指定日期：`POST /api/investments/snapshots/generate?snapshotDate=yyyy-MM-dd` 重建投资日快照，`POST /api/snapshots/generate?snapshotDate=yyyy-MM-dd` 重建用户资产快照；不允许生成未来日期快照。
 - 首页总资产 = 快照现金资产 + 投资持仓市值；净资产 = 总资产 - 负债。
-- 后端启用 `AssetSnapshotScheduler`，默认每天 23:55 为所有启用用户生成资产快照，单个用户失败只记录日志。
+- 后端启用 `AssetSnapshotScheduler`，默认每天 23:50 为所有启用用户生成资产快照，单个用户失败只记录日志。
 - 统计接口全部按当前 `user_id` 隔离，支出统计排除转账，退款抵扣支出。
 - 资产目标表 `xo_goal` 按当前用户隔离；当前金额可手动填写，也可按当前净资产口径写入。
 - AI 报告表 `xo_ai_report` 按当前用户隔离；阶段七只基于首页、预算、投资等真实数据生成模板化复盘，不调用真实 AI，不提供投资买卖建议。
@@ -177,9 +181,10 @@ http://localhost:8080/doc.html
 ## 开发验收
 
 - 初始化表结构：`mysql -uroot -p < src/main/resources/db/schema.sql`。
+- 初始化市场日历：`mysql -uroot -p xoassets < src/main/resources/db/migration-market-calendar.sql`。
 - 导入开发数据：`mysql -uroot -p xoassets < src/main/resources/db/dev-data.sql`。
 - 测试账号：`demo / xoassets123`。
-- Docker 一键启动从仓库根目录执行 `docker compose up -d`，MySQL 首次启动会自动执行 `schema.sql` 和 `dev-data.sql`。
+- Docker 一键启动从仓库根目录执行 `docker compose up -d`，MySQL 首次启动会自动执行 `schema.sql`、`migration-market-calendar.sql` 和 `dev-data.sql`。
 - 核心测试在 `src/test/java/com/xoassets/module/MvpCoreServiceTest.java`，覆盖流水余额联动、余额修正、账户账本、账户余额曲线、预算退款抵扣、投资账户联动、移动平均成本、历史投资头寸、收益分析、首页总资产和数据隔离基础路径。
 - `mvn test` 会生成 JaCoCo 覆盖率报告，不设置阻断阈值。
 - CSV 导出接口只导出当前用户数据，包含账户资金明细、普通流水和投资交易；输出 UTF-8 BOM，金额保留 4 位小数。
@@ -228,4 +233,22 @@ mysql -u root -p xoassets < src/main/resources/db/migration-market-calendar.sql
 
 ```bash
 mysql -u root -p xoassets < src/main/resources/db/migration-account-adjustment-balance-trend.sql
+```
+
+已有库升级到 Redis 行情分层版本时，执行：
+
+```bash
+mysql -u root -p xoassets < src/main/resources/db/migration-redis-quote-layer.sql
+```
+
+已有库退役旧价格快照表时，先确认已备份旧表，再执行：
+
+```bash
+mysql -u root -p xoassets < src/main/resources/db/migration-retire-asset-price.sql
+```
+
+已有库退役账户日余额快照表时，执行：
+
+```bash
+mysql -u root -p xoassets < src/main/resources/db/migration-retire-account-daily-balance-snapshot.sql
 ```
