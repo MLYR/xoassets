@@ -135,7 +135,7 @@ const financeSummaryItems = computed(() => [
   { title: '当月支出', value: overview.monthlyExpense, description: '普通流水支出', withSign: false, tone: 'danger' },
   { title: '当月收入', value: overview.monthlyIncome, description: '普通流水收入', withSign: false, tone: 'success' },
   { title: '昨日支出', value: overview.yesterdayExpense, description: '不含转账', withSign: false, tone: 'danger' },
-  { title: '昨日投资盈亏', value: overview.investmentYesterdayProfit, description: '上一交易日', withSign: true, tone: 'purple' },
+  { title: '昨日投资盈亏', value: overview.investmentYesterdayProfit, description: '上一收益日', withSign: true, tone: 'purple' },
   { title: '当日支出', value: overview.todayExpense, description: '不含转账', withSign: false, tone: 'danger' },
   { title: '当日收入', value: overview.todayIncome, description: '普通流水收入', withSign: false, tone: 'success' },
   // 投资盈亏(总)按已实现 + 当前持仓浮动收益展示，和“持有收益”区分开。
@@ -161,8 +161,9 @@ async function loadDashboard() {
       investmentApi.overviewInvestments().catch(() => null)
     ]);
     Object.assign(overview, overviewData);
-    // 运行中的旧后端可能还没有 dashboard 字段；这里直接兜底取投资总览同源数据，避免昨日投资盈亏显示 --。
+    // 首页投资收益必须和投资总览同源；Dashboard 字段缺失时也不能退回普通流水或快照差值。
     overview.investmentYesterdayProfit = overviewData.investmentYesterdayProfit ?? investmentOverview?.yesterdayProfit ?? null;
+    overview.investmentTodayProfit = overviewData.investmentTodayProfit ?? investmentOverview?.todayProfit ?? null;
     await loadTrend();
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '首页数据加载失败');

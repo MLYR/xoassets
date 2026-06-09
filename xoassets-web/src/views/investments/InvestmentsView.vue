@@ -15,9 +15,9 @@
 
     <template v-if="activeModule === 'ALL'">
       <section v-loading="loading" class="grid-4">
-        <MetricCard title="投资总资产" :value="overview?.totalInvestmentAsset ?? totalMarketValue" :trend="overview?.holdingProfitRate ?? totalProfitRate" description="基金 + 股票 + 虚拟货币" tone="primary" :precision="4" :currency-symbol="currencySymbol" />
-        <MetricCard title="持有收益" :value="overview?.holdingProfit ?? totalProfit" :trend="overview?.holdingProfitRate ?? totalProfitRate" description="全部资产当前市值 - 总成本" :tone="profitTone(overview?.holdingProfit ?? totalProfit)" :precision="4" :currency-symbol="currencySymbol" />
-        <MetricCard title="持仓成本" :value="overview?.totalCost ?? totalCost" :trend="overview?.holdingProfitRate ?? totalProfitRate" description="趋势为持有收益率" tone="primary" :precision="4" :currency-symbol="currencySymbol" />
+        <MetricCard title="投资总资产" :value="overviewTotalInvestmentAssetValue" :trend="overview?.holdingProfitRate ?? totalProfitRate" description="基金 + 股票 + 虚拟货币" tone="primary" :precision="4" :currency-symbol="currencySymbol" />
+        <MetricCard title="持有收益" :value="overviewHoldingProfitValue" :trend="overview?.holdingProfitRate ?? totalProfitRate" description="全部资产当前市值 - 总成本" :tone="profitTone(overviewHoldingProfitValue)" :precision="4" :currency-symbol="currencySymbol" />
+        <MetricCard title="持仓成本" :value="overviewTotalCostValue" :trend="overview?.holdingProfitRate ?? totalProfitRate" description="趋势为持有收益率" tone="primary" :precision="4" :currency-symbol="currencySymbol" />
         <MetricCard title="今日收益" :value="overviewTodayProfitValue" :trend="null" :description="overview?.todayProfitStatusLabel || overview?.todayProfitAssetScope || '今日有效价资产'" :tone="profitTone(overviewTodayProfitValue)" :precision="4" :currency-symbol="currencySymbol">
           <template #extra>
             <div class="metric-extra-row">
@@ -41,7 +41,7 @@
           </div>
           <div class="module-card-meta muted-text">
             <span>昨日收益</span>
-            <AmountText :value="moduleYesterdayProfit(item.module)" with-sign :precision="4" :currency-symbol="currencySymbol" />
+            <AmountText :value="moduleCardYesterdayProfit(item)" with-sign :precision="4" :currency-symbol="currencySymbol" />
           </div>
           <div class="module-card-meta muted-text">
             <span>持有收益</span>
@@ -68,31 +68,30 @@
         </div>
       </section>
 
-      <section class="panel panel-padding contribution-panel">
+      <section class="panel panel-padding daily-profit-panel">
         <div class="panel-head">
           <div>
-            <h3>收益贡献</h3>
-            <p class="panel-subtitle">今日收益只统计今日价格或净值已更新的持仓</p>
+            <h3>每日收益</h3>
+            <p class="panel-subtitle">{{ dailyProfitSubtitle }}</p>
           </div>
-          <el-segmented v-model="contributionMode" :options="contributionOptions" />
         </div>
-        <el-empty v-if="!loading && contributionData.length === 0" description="暂无收益贡献数据" />
-        <BaseChart v-else :option="profitOption" height="320px" />
+        <el-empty v-if="!loading && dailyProfitData.length === 0" description="暂无每日收益数据" />
+        <BaseChart v-else :option="dailyProfitOption" height="320px" />
       </section>
     </template>
 
     <template v-else>
       <section v-loading="loading" class="grid-3 module-summary-grid">
-        <MetricCard :title="`${moduleLabel(activeModule)}总资产`" :value="currentModuleAsset?.assetAmount ?? 0" :trend="currentModuleAsset?.assetRatio ?? 0" description="当前模块持仓市值" tone="primary" :precision="4" :currency-symbol="currencySymbol" />
+        <MetricCard :title="`${moduleLabel(activeModule)}总资产`" :value="currentModuleAssetAmountValue" :trend="currentModuleAsset?.assetRatio ?? 0" description="当前模块持仓市值" tone="primary" :precision="4" :currency-symbol="currencySymbol" />
         <MetricCard :title="currentModuleAsset?.primaryProfitLabel || modulePrimaryLabel(activeModule)" :value="currentModuleProfitValue" :trend="null" :description="currentModuleProfitDescription" :tone="profitTone(currentModuleProfitValue)" :precision="4" :currency-symbol="currencySymbol">
           <template #extra>
             <div class="metric-extra-row">
               <span>昨日收益</span>
-              <AmountText :value="moduleYesterdayProfit(activeModule)" with-sign :precision="4" :currency-symbol="currencySymbol" />
+              <AmountText :value="currentModuleAsset ? moduleCardYesterdayProfit(currentModuleAsset) : null" with-sign :precision="4" :currency-symbol="currencySymbol" />
             </div>
           </template>
         </MetricCard>
-        <MetricCard title="持有收益" :value="currentModuleAsset?.holdingProfit ?? 0" :trend="currentModuleAsset?.holdingProfitRate ?? 0" description="当前市值 - 持仓成本" :tone="profitTone(currentModuleAsset?.holdingProfit ?? 0)" :precision="4" :currency-symbol="currencySymbol" />
+        <MetricCard title="持有收益" :value="currentModuleHoldingProfitValue" :trend="currentModuleAsset?.holdingProfitRate ?? 0" description="当前市值 - 持仓成本" :tone="profitTone(currentModuleHoldingProfitValue)" :precision="4" :currency-symbol="currencySymbol" />
       </section>
 
       <section class="panel panel-padding module-holdings-panel">
@@ -123,7 +122,7 @@
           <el-table-column label="今日收益/收益率" min-width="170" align="right" header-align="right">
             <template #default="{ row }">
               <div class="primary-profit-cell">
-                <AmountText v-if="row.todayProfitByCurrentQuantity !== null && row.todayProfitByCurrentQuantity !== undefined" :value="convertAmount(row.todayProfitByCurrentQuantity, row.currency)" with-sign :precision="4" :currency-symbol="currencySymbol" />
+                <AmountText v-if="row.todayProfit !== null && row.todayProfit !== undefined" :value="convertAmount(row.todayProfit, row.currency)" with-sign :precision="4" :currency-symbol="currencySymbol" />
                 <span v-else class="muted-text">--</span>
                 <small>{{ todayProfitRateText(row) }}</small>
               </div>
@@ -207,7 +206,6 @@
               <el-select v-model="holdingForm.currency" class="full-width">
                 <el-option label="人民币 CNY" value="CNY" />
                 <el-option label="美元 USD" value="USD" />
-                <el-option label="港币 HKD" value="HKD" />
               </el-select>
             </el-form-item>
             <el-form-item label="行情来源">
@@ -272,10 +270,9 @@ import AmountText from '@/components/finance/AmountText.vue';
 import MetricCard from '@/components/finance/MetricCard.vue';
 import { ROUTES } from '@/constants/routes';
 import { exchangeRateApi } from '@/services/exchangeRateApi';
-import { investmentApi, type AssetLookupItem, type AssetType, type HoldingItem, type HoldingRequest, type InvestmentModuleAsset, type InvestmentOverview, type InvestmentTransactionItem, type InvestmentTrendPoint, type QuoteSource } from '@/services/investmentApi';
+import { investmentApi, type AssetLookupItem, type AssetType, type HoldingItem, type HoldingRequest, type InvestmentModuleAsset, type InvestmentOverview, type InvestmentTrendPoint, type QuoteSource } from '@/services/investmentApi';
 
 type DisplayCurrency = 'CNY' | 'USD';
-type ContributionMode = 'TOTAL' | 'PRIMARY' | 'MONTH' | 'YEAR';
 type InvestmentModule = 'ALL' | 'FUND' | 'STOCK' | 'CRYPTO';
 
 const moduleTabs: Array<{ label: string; value: InvestmentModule }> = [
@@ -290,18 +287,12 @@ const currencyOptions = [
   { label: '人民币', value: 'CNY' },
   { label: 'USD', value: 'USD' }
 ];
-const contributionOptions = [
-  { label: '持有', value: 'TOTAL' },
-  { label: '主收益', value: 'PRIMARY' },
-  { label: '当月', value: 'MONTH' },
-  { label: '当年', value: 'YEAR' }
-];
-
 const overview = ref<InvestmentOverview | null>(null);
 const holdings = ref<HoldingItem[]>([]);
 const moduleHoldings = ref<HoldingItem[]>([]);
 const investmentTrend = ref<InvestmentTrendPoint[]>([]);
-const transactions = ref<InvestmentTransactionItem[]>([]);
+const dailyProfitCalendarEntries = ref<Array<{ date: string; value: number; currency?: string | null }>>([]);
+const dailyProfitCalendarFailed = ref(false);
 const loading = ref(false);
 const submitting = ref(false);
 const holdingDialogVisible = ref(false);
@@ -316,7 +307,6 @@ const displayCurrency = ref<DisplayCurrency>('CNY');
 const activeModule = ref<InvestmentModule>(routeModule(route.query.module));
 const trendModule = ref<InvestmentModule>('ALL');
 const activeSubType = ref('ALL');
-const contributionMode = ref<ContributionMode>('TOTAL');
 const usdCnyRate = ref(7.2);
 // 投资模块持仓表格前端分页展示，统计类数据仍使用完整持仓列表计算。
 const pageSizeOptions = [10, 50, 100, 300];
@@ -394,15 +384,20 @@ const quoteKeyTip = computed(() => {
 });
 const moduleAssets = computed(() => overview.value?.moduleAssets || fallbackModuleAssets.value);
 const currentModuleAsset = computed(() => moduleAssets.value.find((item) => item.module === activeModule.value) || null);
+const overviewTotalInvestmentAssetValue = computed(() => overview.value ? convertAmount(overview.value.totalInvestmentAsset, 'CNY') : totalMarketValue.value);
+const overviewHoldingProfitValue = computed(() => overview.value ? convertAmount(overview.value.holdingProfit, 'CNY') : totalProfit.value);
+const overviewTotalCostValue = computed(() => overview.value ? convertAmount(overview.value.totalCost, 'CNY') : totalCost.value);
 // 今日收益没有今日有效价格时显示 --，不能把未更新净值或休市收益兜底为 0。
 const overviewTodayProfitValue = computed(() => {
-  if (!overview.value) return 0;
-  return overview.value.todayProfitAvailable === false ? null : overview.value.todayProfit;
+  if (!overview.value) return null;
+  return overview.value.todayProfitAvailable === false ? null : convertNullableAmount(overview.value.todayProfit, 'CNY');
 });
+const currentModuleAssetAmountValue = computed(() => currentModuleAsset.value ? convertAmount(currentModuleAsset.value.assetAmount, 'CNY') : 0);
 const currentModuleProfitValue = computed(() => {
-  if (!currentModuleAsset.value) return 0;
-  return currentModuleAsset.value.primaryProfitAvailable === false ? null : currentModuleAsset.value.primaryProfitAmount;
+  if (!currentModuleAsset.value) return null;
+  return currentModuleAsset.value.primaryProfitAvailable === false ? null : convertNullableAmount(currentModuleAsset.value.primaryProfitAmount, 'CNY');
 });
+const currentModuleHoldingProfitValue = computed(() => currentModuleAsset.value ? convertAmount(currentModuleAsset.value.holdingProfit, 'CNY') : 0);
 // 模块顶部 KPI 缺少今日收益时要把休市原因暴露出来，避免用户只看到 -- 不知道是休市还是行情故障。
 const currentModuleProfitDescription = computed(() => {
   if (!currentModuleAsset.value) return '按模块收益口径展示';
@@ -413,20 +408,21 @@ const currentModuleProfitDescription = computed(() => {
 });
 const fallbackModuleAssets = computed<InvestmentModuleAsset[]>(() => (['FUND', 'STOCK', 'CRYPTO'] as const).map((module) => {
   const items = holdings.value.filter((item) => item.assetType === module);
-  const assetAmount = round4(items.reduce((sum, item) => sum + convertAmount(item.marketValue, item.currency), 0));
-  const cost = round4(items.reduce((sum, item) => sum + convertAmount(item.totalCost, item.currency), 0));
-  const holdingProfit = round4(items.reduce((sum, item) => sum + convertAmount(item.floatingProfit, item.currency), 0));
-  const primaryProfitAvailable = items.some((item) => item.todayPriceAvailable === true && item.todayProfitByCurrentQuantity !== null && item.todayProfitByCurrentQuantity !== undefined);
+  const assetAmount = round4(items.reduce((sum, item) => sum + amountToCny(item.marketValue, item.currency), 0));
+  const cost = round4(items.reduce((sum, item) => sum + amountToCny(item.totalCost, item.currency), 0));
+  const holdingProfit = round4(items.reduce((sum, item) => sum + amountToCny(item.floatingProfit, item.currency), 0));
+  const totalMarketValueCny = round4(holdings.value.reduce((sum, item) => sum + amountToCny(item.marketValue, item.currency), 0));
+  const primaryProfitAvailable = items.some((item) => item.todayPriceAvailable === true && item.todayProfit !== null && item.todayProfit !== undefined);
   return {
     module,
     name: moduleLabel(module),
     assetAmount,
-    assetRatio: totalMarketValue.value > 0 ? round4((assetAmount / totalMarketValue.value) * 100) : 0,
+    assetRatio: totalMarketValueCny > 0 ? round4((assetAmount / totalMarketValueCny) * 100) : 0,
     primaryProfitLabel: modulePrimaryLabel(module),
     primaryProfitAvailable,
     primaryProfitAmount: primaryProfitAvailable ? round4(items
-      .filter((item) => item.todayPriceAvailable === true && item.todayProfitByCurrentQuantity !== null && item.todayProfitByCurrentQuantity !== undefined)
-      .reduce((sum, item) => sum + convertAmount(item.todayProfitByCurrentQuantity || 0, item.currency), 0)) : null,
+      .filter((item) => item.todayPriceAvailable === true && item.todayProfit !== null && item.todayProfit !== undefined)
+      .reduce((sum, item) => sum + amountToCny(Number(item.todayProfit), item.currency), 0)) : null,
     primaryProfitStatusLabel: primaryProfitAvailable ? '今日有效价资产' : moduleUnavailableLabel(module, items),
     holdingProfit,
     holdingProfitRate: rate4(holdingProfit, cost),
@@ -498,38 +494,101 @@ const investmentTrendOption = computed<EChartsOption>(() => ({
     areaStyle: { color: 'rgba(37, 99, 235, 0.12)' }
   }]
 }));
-const profitOption = computed<EChartsOption>(() => ({
-  grid: { left: 50, right: 18, top: 24, bottom: 36 },
-  xAxis: { type: 'category', data: contributionData.value.map((item) => item.name), axisLabel: { interval: 0, rotate: contributionData.value.length > 6 ? 25 : 0 } },
-  yAxis: { type: 'value', axisLabel: { formatter: (value: number) => compactMoney(value) } },
-  tooltip: { trigger: 'axis', valueFormatter: (value) => formatMoney(Number(value)) },
-  series: [{ type: 'bar', data: contributionData.value.map((item) => item.value), itemStyle: { color: '#3b82f6', borderRadius: [10, 10, 0, 0] } }]
+const dailyProfitOption = computed<EChartsOption>(() => ({
+  grid: { left: 54, right: 18, top: 24, bottom: 36 },
+  tooltip: { trigger: 'axis', valueFormatter: (value) => formatSignedMoney(Number(value)) },
+  xAxis: { type: 'category', data: dailyProfitData.value.map((item) => item.date), axisLine: { lineStyle: { color: '#e2e8f0' } } },
+  yAxis: { type: 'value', axisLabel: { formatter: (value: number) => compactMoney(value) }, splitLine: { lineStyle: { color: '#e2e8f0' } } },
+  series: [{
+    name: '每日收益',
+    type: 'bar',
+    barMaxWidth: 34,
+    // 正负收益分别着色，条形图比曲线更适合对比每天单点收益。
+    data: dailyProfitData.value.map((item) => ({
+      value: item.value,
+      itemStyle: {
+        color: item.value >= 0 ? '#10b981' : '#ef4444',
+        borderRadius: item.value >= 0 ? [8, 8, 0, 0] : [0, 0, 8, 8]
+      }
+    })),
+    markLine: { symbol: 'none', lineStyle: { color: '#cbd5e1', type: 'dashed' }, data: [{ yAxis: 0 }] }
+  }]
 }));
-const contributionData = computed(() => contributionRows()
-  .map((item) => ({ name: item.name, value: round4(item.value) }))
-  .filter((item) => item.value !== 0)
-  .sort((a, b) => Math.abs(b.value) - Math.abs(a.value)));
+const dailyProfitData = computed(() => {
+  const calendarRows = aggregateDailyProfitCalendarEntries();
+  if (calendarRows.length > 0) {
+    return calendarRows;
+  }
+  if (dailyProfitCalendarFailed.value) {
+    return [];
+  }
+  // 每日收益只认持仓日历逐日汇总，缺少日历明细时直接空态，避免展示错误收益。
+  return [];
+});
+const dailyProfitSubtitle = computed(() => {
+  if (dailyProfitCalendarEntries.value.length > 0) {
+    return '基于所有持仓收益日历逐日汇总，和持仓详情日历口径一致';
+  }
+  if (dailyProfitCalendarFailed.value) {
+    return '每日收益加载失败，暂不展示每日收益';
+  }
+  return '暂无精确每日收益数据';
+});
 
 // 加载页面数据。
 async function loadPageData() {
   loading.value = true;
   try {
-    const [overviewResult, holdingList, trendResult, transactionList] = await Promise.all([
+    const [overviewResult, holdingList, trendResult] = await Promise.all([
       investmentApi.overviewInvestments(),
       investmentApi.listInvestmentHoldings({ module: 'ALL' }),
-      investmentApi.trendInvestments({ module: trendModule.value, period: 'MONTH' }),
-      investmentApi.listTransactions()
+      investmentApi.trendInvestments({ module: trendModule.value, period: 'MONTH' })
     ]);
     overview.value = overviewResult;
     holdings.value = holdingList;
     moduleHoldings.value = activeModule.value === 'ALL' ? [] : await investmentApi.listInvestmentHoldings({ module: activeModule.value });
     investmentTrend.value = trendResult.points || [];
-    transactions.value = transactionList;
+    // 每日收益统计图固定使用持仓收益日历，不跟随资产趋势模块切换。
+    dailyProfitCalendarEntries.value = await loadDailyProfitCalendarEntries();
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '投资数据加载失败');
   } finally {
     loading.value = false;
   }
+}
+
+// 加载全持仓每日收益聚合结果，后端保证和持仓详情日历同一算法。
+async function loadDailyProfitCalendarEntries() {
+  dailyProfitCalendarFailed.value = false;
+  const targetMonth = currentCalendarMonth();
+  try {
+    const calendar = await investmentApi.dailyProfitCalendar(targetMonth);
+    return calendar
+      .filter((item) => item.profitAmount !== null && item.profitAmount !== undefined)
+      .map((item) => ({ date: item.date, value: Number(item.profitAmount), currency: 'CNY' }));
+  } catch {
+    // 聚合接口失败时不能展示旧口径收益，避免把错误数据当作每日收益。
+    dailyProfitCalendarFailed.value = true;
+    ElMessage.warning('每日收益加载失败，暂不展示每日收益');
+    return [];
+  }
+}
+
+// 聚合收益日历明细。
+function aggregateDailyProfitCalendarEntries() {
+  const result = new Map<string, number>();
+  dailyProfitCalendarEntries.value.forEach((item) => {
+    result.set(item.date, round4((result.get(item.date) || 0) + convertAmount(item.value, item.currency)));
+  });
+  return [...result.entries()]
+    .map(([date, value]) => ({ date, value: round4(value) }))
+    .sort((left, right) => left.date.localeCompare(right.date));
+}
+
+// 当前每日收益图展示自然月收益。
+function currentCalendarMonth() {
+  const now = new Date();
+  return { year: now.getFullYear(), month: now.getMonth() + 1 };
 }
 
 // 加载趋势数据。
@@ -577,19 +636,6 @@ async function loadExchangeRate() {
   } catch {
     // 汇率接口失败时保留默认值，避免影响投资页主体展示。
   }
-}
-
-// 生成收益贡献行。
-function contributionRows() {
-  if (contributionMode.value === 'PRIMARY') {
-    return holdings.value
-      .filter((item) => item.todayPriceAvailable === true && item.todayProfitByCurrentQuantity !== null && item.todayProfitByCurrentQuantity !== undefined)
-      .map((item) => ({ name: item.assetName || item.symbol || '-', value: convertAmount(Number(item.todayProfitByCurrentQuantity), item.currency) }));
-  }
-  if (contributionMode.value === 'MONTH' || contributionMode.value === 'YEAR') {
-    return realizedContributionRows(contributionMode.value);
-  }
-  return holdings.value.map((item) => ({ name: item.assetName || item.symbol || '-', value: convertAmount(Number(item.floatingProfit || 0), item.currency) }));
 }
 
 // 打开新增持仓弹窗。
@@ -815,30 +861,19 @@ async function handleDeleteHolding(holding: HoldingItem) {
   }
 }
 
-// 生成已实现收益贡献行。
-function realizedContributionRows(mode: Extract<ContributionMode, 'MONTH' | 'YEAR'>) {
-  const begin = periodStart(mode);
-  const holdingMap = new Map(holdings.value.map((item) => [item.assetId, item]));
-  const result = new Map<string, number>();
-  transactions.value
-    .filter((item) => item.status !== 'REVOKED' && item.type === 'SELL' && item.realizedProfit !== null && item.realizedProfit !== undefined)
-    .filter((item) => new Date(item.transactionTime).getTime() >= begin.getTime())
-    .forEach((item) => {
-      const holding = holdingMap.get(item.assetId);
-      const name = item.assetName || holding?.assetName || item.symbol || '-';
-      // 月/年贡献当前只统计已实现卖出盈亏，不用缺失的历史市值曲线冒充周期贡献。
-      const value = convertAmount(Number(item.realizedProfit || 0), holding?.currency || 'CNY');
-      result.set(name, round4((result.get(name) || 0) + value));
-    });
-  return [...result.entries()].map(([name, value]) => ({ name, value }));
-}
-
 // 按展示币种换算金额。
 function convertAmount(value: number, sourceCurrency?: string | null) {
   const source = sourceCurrency || 'CNY';
   if (source === displayCurrency.value) return round4(Number(value));
   if (source === 'USD' && displayCurrency.value === 'CNY') return round4(Number(value) * usdCnyRate.value);
   if (source === 'CNY' && displayCurrency.value === 'USD') return round4(Number(value) / usdCnyRate.value);
+  return round4(Number(value));
+}
+
+// 聚合 fallback 固定先折算成人民币，避免展示币种切换后被二次换算。
+function amountToCny(value: number, sourceCurrency?: string | null) {
+  const source = sourceCurrency || 'CNY';
+  if (source === 'USD') return round4(Number(value) * usdCnyRate.value);
   return round4(Number(value));
 }
 
@@ -850,14 +885,9 @@ function convertNullableAmount(value?: number | null, sourceCurrency?: string | 
   return convertAmount(value, sourceCurrency);
 }
 
-// 模块卡片的昨日收益来自持仓列表逐项汇总，避免新增后端字段才能展示。
-function moduleYesterdayProfit(module: string) {
-  const profitItems = holdings.value
-    .filter((item) => item.assetType === module && item.yesterdayProfit !== null && item.yesterdayProfit !== undefined);
-  if (profitItems.length === 0) {
-    return null;
-  }
-  return round4(profitItems.reduce((sum, item) => sum + convertAmount(Number(item.yesterdayProfit), item.currency), 0));
+// 模块昨日收益只认后端按收益日历聚合后的结果，避免前端用持仓行旧字段拼出不同日期的收益。
+function moduleCardYesterdayProfit(item: InvestmentModuleAsset) {
+  return convertNullableAmount(item.yesterdayProfit, 'CNY');
 }
 
 // 计算四位收益率。
@@ -880,6 +910,12 @@ function compactMoney(value: number) {
 // 格式化金额。
 function formatMoney(value: number) {
   return `${currencySymbol.value}${round4(value).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`;
+}
+
+// 格式化带正负号的金额。
+function formatSignedMoney(value: number) {
+  const prefix = value > 0 ? '+' : value < 0 ? '-' : '';
+  return `${prefix}${currencySymbol.value}${Math.abs(round4(value)).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`;
 }
 
 // 格式化比例。
@@ -917,12 +953,6 @@ function roundTo(value: number, precision: number) {
 // 按资产类型处理数量精度。
 function roundQuantity(value: number, assetType: AssetType) {
   return roundTo(value, assetType === 'CRYPTO' ? 10 : 4);
-}
-
-// 计算周期开始日期。
-function periodStart(mode: Extract<ContributionMode, 'MONTH' | 'YEAR'>) {
-  const now = new Date();
-  return mode === 'MONTH' ? new Date(now.getFullYear(), now.getMonth(), 1) : new Date(now.getFullYear(), 0, 1);
 }
 
 // 转换模块名称。
@@ -977,8 +1007,8 @@ function moduleUnavailableLabel(module: string, items: HoldingItem[] = []) {
 
 // 生成今日收益率文案。
 function todayProfitRateText(row: HoldingItem) {
-  if (row.todayProfitRateByCurrentQuantity !== null && row.todayProfitRateByCurrentQuantity !== undefined) {
-    return formatRatio(row.todayProfitRateByCurrentQuantity);
+  if (row.todayProfitRate !== null && row.todayProfitRate !== undefined) {
+    return formatRatio(row.todayProfitRate);
   }
   return priceStatusLabel(row);
 }
@@ -1151,7 +1181,7 @@ function profitTone(value?: number | null): 'success' | 'danger' | 'warning' | '
   gap: 4px;
 }
 
-.contribution-panel {
+.daily-profit-panel {
   margin-top: 24px;
 }
 

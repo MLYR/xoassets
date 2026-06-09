@@ -106,14 +106,14 @@ export function buildSummaryMetrics(summary: HoldingSummary | null) {
 
 export function buildOverviewSummaryMetrics(overview: { totalInvestmentAsset?: number; holdingProfit?: number; holdingProfitRate?: number; todayProfit?: number | null; yesterdayProfit?: number | null } | null, summary: HoldingSummary | null) {
   const base = buildSummaryMetrics(summary)
-  // 投资总览优先使用后端拆桶后的 overview，缺失时回退旧 summary，避免阻断老接口数据展示。
+  // 投资总览优先使用后端拆桶后的 overview；字段为 null 时代表不可展示，不能回退成旧 summary 的 0。
   return {
     ...base,
     totalAsset: overview?.totalInvestmentAsset ?? base.totalAsset,
     accumulatedProfit: overview?.holdingProfit ?? base.accumulatedProfit,
     accumulatedRate: overview?.holdingProfitRate ?? base.accumulatedRate,
-    vsTodayAmount: overview?.todayProfit ?? base.vsLastMonthAmount,
-    vsYesterdayAmount: overview?.yesterdayProfit ?? base.vsYesterdayAmount
+    vsTodayAmount: overview?.todayProfit === undefined ? base.vsLastMonthAmount : overview.todayProfit,
+    vsYesterdayAmount: overview?.yesterdayProfit === undefined ? base.vsYesterdayAmount : overview.yesterdayProfit
   }
 }
 

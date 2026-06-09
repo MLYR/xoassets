@@ -47,13 +47,13 @@
       <view class="summary-buckets">
         <view class="summary-bucket">
           <text>今日收益</text>
-          <AppAmount :value="overview?.todayProfit ?? 0" prefix="¥ " signed size="sm" semantic="profit" />
-          <text class="summary-bucket-scope">{{ overview?.todayProfitAssetScope || '股票 / ETF / 虚拟货币' }}</text>
+          <AppAmount :value="summaryMetrics.vsLastMonthAmount" prefix="¥ " signed size="sm" semantic="profit" />
+          <text class="summary-bucket-scope">{{ activeModule === 'ALL' ? (overview?.todayProfitAssetScope || '今日有效价资产') : '当前模块' }}</text>
         </view>
         <view class="summary-bucket">
           <text>昨日收益</text>
-          <AppAmount :value="overview?.yesterdayProfit ?? 0" prefix="¥ " signed size="sm" semantic="profit" />
-          <text class="summary-bucket-scope">{{ overview?.yesterdayProfitAssetScope || '基金净值型资产' }}</text>
+          <AppAmount :value="summaryMetrics.vsYesterdayAmount" prefix="¥ " signed size="sm" semantic="profit" />
+          <text class="summary-bucket-scope">{{ activeModule === 'ALL' ? (overview?.yesterdayProfitAssetScope || '上一收益日') : '当前模块上一收益日' }}</text>
         </view>
       </view>
     </AppCard>
@@ -291,20 +291,38 @@ const activeModuleLabel = computed(() => {
   if (activeModule.value === 'CRYPTO') return '虚拟货币'
   return '最近'
 })
+const currentModuleAsset = computed(() => overview.value?.moduleAssets?.find((item) => item.module === activeModule.value) || null)
 const moduleSummary = computed(() => {
+  const moduleAsset = currentModuleAsset.value
+  if (moduleAsset) {
+    // 模块顶部收益优先使用后端按收益日历聚合后的模块值，避免 App 用持仓行拼出不同日期的收益。
+    return {
+      totalMarketValue: moduleAsset.assetAmount,
+      totalCost: 0,
+      floatingProfit: moduleAsset.holdingProfit,
+      floatingProfitRate: moduleAsset.holdingProfitRate,
+      todayProfit: moduleAsset.primaryProfitAvailable === false ? null : moduleAsset.primaryProfitAmount ?? null,
+      todayProfitRate: null,
+      yesterdayProfit: moduleAsset.yesterdayProfit ?? null,
+      yesterdayProfitRate: moduleAsset.yesterdayProfitRate ?? null,
+      lastMonthProfit: null,
+      lastMonthProfitRate: null,
+      holdingCount: moduleAsset.holdingCount
+    }
+  }
   const rows = visibleHoldings.value
   const totalMarketValue = rows.reduce((sum, item) => sum + Number(item.marketValue || 0), 0)
   const totalCost = rows.reduce((sum, item) => sum + Number(item.totalCost || 0), 0)
   const floatingProfit = rows.reduce((sum, item) => sum + Number(item.floatingProfit || 0), 0)
-  // 模块内 summary 只用于顶部卡兜底，主收益展示仍使用后端 primaryProfit 字段。
+  // 缺少模块聚合字段时只兜底资产和持有收益；昨日/今日收益保持 null，避免把缺失收益冒充成 0。
   return {
     totalMarketValue,
     totalCost,
     floatingProfit,
     floatingProfitRate: totalCost > 0 ? (floatingProfit / totalCost) * 100 : 0,
-    todayProfit: rows.reduce((sum, item) => sum + Number(item.todayProfit || 0), 0),
+    todayProfit: null,
     todayProfitRate: null,
-    yesterdayProfit: rows.reduce((sum, item) => sum + Number(item.yesterdayProfit || 0), 0),
+    yesterdayProfit: null,
     yesterdayProfitRate: null,
     lastMonthProfit: null,
     lastMonthProfitRate: null,

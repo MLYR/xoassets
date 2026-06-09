@@ -1,6 +1,8 @@
 package com.xoassets.module.investment.controller;
 
 import com.xoassets.common.api.Result;
+import com.xoassets.common.api.ErrorCode;
+import com.xoassets.common.exception.BusinessException;
 import com.xoassets.common.security.LoginUserContext;
 import com.xoassets.module.investment.scheduler.InvestmentDailySnapshotJob;
 import com.xoassets.module.investment.service.HoldingService;
@@ -72,6 +74,16 @@ public class InvestmentController {
     }
 
     /**
+     * 查询全持仓每日收益，按持仓收益日历同日汇总。
+     */
+    @GetMapping("/daily-profit")
+    public Result<List<InvestmentCalendarDayProfitVO>> dailyProfit(
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) Integer month) {
+        return Result.success(holdingService.dailyProfitCalendar(targetMonth(year, month)));
+    }
+
+    /**
      * 查询单持仓收益日历，前端按月历格子直接展示每天收益。
      */
     @GetMapping("/holdings/{id}/profit-calendar")
@@ -79,8 +91,7 @@ public class InvestmentController {
             @PathVariable Long id,
             @RequestParam(required = false) Integer year,
             @RequestParam(required = false) Integer month) {
-        YearMonth targetMonth = year == null || month == null ? YearMonth.now() : YearMonth.of(year, month);
-        return Result.success(holdingService.profitCalendar(id, targetMonth));
+        return Result.success(holdingService.profitCalendar(id, targetMonth(year, month)));
     }
 
     /**
@@ -91,5 +102,24 @@ public class InvestmentController {
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate snapshotDate) {
         investmentDailySnapshotJob.snapshotForUser(LoginUserContext.getUserId(), snapshotDate == null ? LocalDate.now() : snapshotDate);
         return Result.success(null);
+    }
+
+    /**
+     * 解析月度参数，避免非法月份直接抛系统异常。
+     */
+    private YearMonth targetMonth(Integer year, Integer month) {
+        if (year == null && month == null) {
+            return YearMonth.now();
+        }
+        if (year == null || month == null) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "年份和月份必须同时传入");
+        }
+        if (year < 1 || year > 9999) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "年份必须在 1 到 9999 之间");
+        }
+        if (month < 1 || month > 12) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "月份必须在 1 到 12 之间");
+        }
+        return YearMonth.of(year, month);
     }
 }

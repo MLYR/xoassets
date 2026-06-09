@@ -85,11 +85,11 @@
           v-for="cell in calendarCells"
           :key="cell.key"
           class="calendar-cell"
-          :class="[cell.empty ? 'empty' : '', calendarTone(cell.profitAmount)]"
+          :class="[cell.empty ? 'empty' : '', calendarTone(cell)]"
         >
           <template v-if="!cell.empty">
             <text class="calendar-day">{{ formatDay(cell.date) }}</text>
-            <text class="calendar-profit">{{ cell.profitAmount == null ? '--' : fmtSignedMoney(cell.profitAmount) }}</text>
+            <text class="calendar-profit">{{ calendarProfitText(cell) }}</text>
           </template>
         </view>
       </view>
@@ -234,7 +234,7 @@ const calendarCells = computed(() => {
   if (!rows.length) return []
   const firstDate = rows[0]?.date
   const offset = firstDate ? new Date(`${firstDate}T00:00:00`).getDay() : 0
-  const blanks = Array.from({ length: offset }, (_, index) => ({ key: `blank-${index}`, empty: true, date: '', profitAmount: null }))
+  const blanks = Array.from({ length: offset }, (_, index) => ({ key: `blank-${index}`, empty: true, date: '', profitAmount: null, marketClosed: false, statusLabel: null }))
   // App 端同 Web 一样保留自然月空格，避免用户看日期位置时错位。
   return [...blanks, ...rows.map((item) => ({ key: item.date, empty: false, ...item }))]
 })
@@ -346,9 +346,15 @@ function formatDay(value?: string | null) {
   return value ? String(Number(value.slice(8, 10))) : ''
 }
 
-function calendarTone(value: number | string | null | undefined) {
-  if (value == null) return 'calendar-muted'
-  return toNumber(value) >= 0 ? 'calendar-positive' : 'calendar-negative'
+function calendarProfitText(cell: { profitAmount?: number | string | null; marketClosed?: boolean | null; statusLabel?: string | null }) {
+  if (cell.marketClosed) return cell.statusLabel || '休市'
+  return cell.profitAmount == null ? '--' : fmtSignedMoney(cell.profitAmount)
+}
+
+function calendarTone(cell: { profitAmount?: number | string | null; marketClosed?: boolean | null }) {
+  if (cell.marketClosed) return 'calendar-closed'
+  if (cell.profitAmount == null) return 'calendar-muted'
+  return toNumber(cell.profitAmount) >= 0 ? 'calendar-positive' : 'calendar-negative'
 }
 
 function formatChartLabel(value: string | undefined, index: number) {
@@ -688,6 +694,14 @@ function toNumber(value: number | string | null | undefined) {
 
 .calendar-negative .calendar-profit {
   color: var(--xo-profit-negative);
+}
+
+.calendar-closed {
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.calendar-closed .calendar-profit {
+  color: var(--xo-text-muted);
 }
 
 .calendar-muted .calendar-profit {

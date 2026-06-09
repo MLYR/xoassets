@@ -222,13 +222,16 @@ public class AssetPriceDailyAggregateJob {
                         .eq(Holding::getStatus, 1)
                         .gt(Holding::getQuantity, 0))
                 .stream()
+                // 历史脏持仓可能缺少 asset_id，日级聚合只处理能匹配公共资产的持仓。
                 .map(Holding::getAssetId)
+                .filter(java.util.Objects::nonNull)
                 .collect(Collectors.toSet());
         if (assetIds.isEmpty()) {
             return Set.of();
         }
         // Redis 原始快照只承载股票和虚拟货币；基金净值由基金刷新直接写 current/daily，不参与 Redis 聚合。
-        return assetMapper.selectBatchIds(assetIds).stream()
+        List<Asset> assets = assetMapper.selectBatchIds(assetIds);
+        return (assets == null ? List.<Asset>of() : assets).stream()
                 .filter(asset -> ASSET_TYPE_STOCK.equals(asset.getType()) || ASSET_TYPE_CRYPTO.equals(asset.getType()))
                 .map(Asset::getId)
                 .collect(Collectors.toSet());

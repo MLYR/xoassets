@@ -33,6 +33,14 @@ public class InvestmentTrendPointVO {
      */
     private BigDecimal holdingProfit;
     /**
+     * 当日收益，ALL 趋势按所有持仓收益日历同日汇总。
+     */
+    private BigDecimal dailyProfit;
+    /**
+     * 当日收益率。
+     */
+    private BigDecimal dailyProfitRate;
+    /**
      * 主收益指标名称。
      */
     private String primaryProfitLabel;

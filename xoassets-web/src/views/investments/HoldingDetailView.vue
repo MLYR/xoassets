@@ -13,9 +13,22 @@
 
     <section v-loading="loading" class="summary-grid">
       <MetricCard title="当前市值" :value="holding?.marketValue ?? 0" :trend="holding?.floatingProfitRate ?? 0" description="数量 × 最新价格" :precision="4" :currency-symbol="currencySymbol" />
-      <MetricCard title="持仓数量" :value="holding?.quantity ?? 0" :trend="0" description="当前剩余持仓" :precision="quantityPrecision" currency-symbol="" />
-      <MetricCard title="持仓成本" :value="holding?.totalCost ?? 0" :trend="0" description="移动平均成本口径" :precision="4" :currency-symbol="currencySymbol" />
-      <MetricCard title="今日收益" :value="holding?.todayProfitByCurrentQuantity ?? null" :trend="primaryProfitTrend" :description="primaryProfitDescription" :precision="4" :currency-symbol="currencySymbol" :tone="todayProfitTone">
+      <MetricCard title="持仓数量" :value="holding?.quantity ?? 0" :trend="null" description="" :precision="quantityPrecision" currency-symbol="">
+        <template #extra>
+          <!-- 数量本身没有涨跌率，底部留空避免展示无意义的 0.0%。 -->
+          <span class="metric-empty-extra" aria-hidden="true"></span>
+        </template>
+      </MetricCard>
+      <MetricCard title="持仓成本" :value="holding?.totalCost ?? 0" :trend="null" description="" :precision="4" :currency-symbol="currencySymbol">
+        <template #extra>
+          <!-- 成本卡底部展示券商常见的成本价，避免把 0.0% 误读成收益率。 -->
+          <div class="metric-extra-row">
+            <span>成本价</span>
+            <AmountText :value="holding?.avgCost ?? null" :precision="pricePrecision" :currency-symbol="currencySymbol" />
+          </div>
+        </template>
+      </MetricCard>
+      <MetricCard title="今日收益" :value="holding?.todayProfit ?? null" :trend="primaryProfitTrend" :description="primaryProfitDescription" :precision="4" :currency-symbol="currencySymbol" :tone="todayProfitTone">
         <template #extra>
           <!-- 今日收益主值仍按今日价门禁，辅助区固定展示独立的昨日收益。 -->
           <div class="metric-extra-row">
@@ -24,13 +37,12 @@
           </div>
         </template>
       </MetricCard>
-      <MetricCard title="总收益" :value="summary?.totalProfit ?? 0" :trend="summary?.totalProfitRate ?? 0" description="已实现 + 浮动盈亏" :precision="4" :currency-symbol="currencySymbol" :tone="profitTone(summary?.totalProfit ?? 0)" />
-      <div class="rate-card panel panel-padding">
-        <span>总收益率</span>
-        <strong :class="profitClass(summary?.totalProfitRate)">{{ formatPercent(summary?.totalProfitRate) }}</strong>
-        <small>总收益 / 累计买入成本</small>
-      </div>
-      <MetricCard title="已实现盈亏" :value="summary?.realizedProfit ?? 0" :trend="summary?.realizedProfit ?? 0" description="正常卖出交易合计" :precision="4" :currency-symbol="currencySymbol" :tone="profitTone(summary?.realizedProfit ?? 0)" />
+      <MetricCard title="总收益" :value="summary?.totalProfit ?? 0" :trend="null" description="" :precision="4" :currency-symbol="currencySymbol" :tone="profitTone(summary?.totalProfit ?? 0)">
+        <template #extra>
+          <!-- 总收益率单独放在右侧卡片，金额卡只解释金额组成，减少重复百分比。 -->
+          <span class="metric-text-extra">已实现盈亏 + 浮动盈亏</span>
+        </template>
+      </MetricCard>
       <div class="break-even-card panel panel-padding">
         <span>回本涨幅</span>
         <strong :class="breakEvenClass(holding?.breakEvenRate)">{{ formatBreakEven(holding?.breakEvenRate) }}</strong>
@@ -84,7 +96,7 @@
         <span class="muted-text">撤销记录保留展示，但不参与汇总统计</span>
       </div>
       <el-empty v-if="!loading && transactions.length === 0" description="暂无该持仓的交易记录" />
-      <el-table v-else :data="transactions" stripe height="420">
+      <el-table v-else :data="pagedTransactions" stripe height="420">
         <el-table-column label="时间" prop="transactionTime" min-width="170" />
         <el-table-column label="类型" width="90">
           <template #default="{ row }"><StatusBadge :label="row.type === 'BUY' ? '买入' : '卖出'" /></template>
@@ -123,6 +135,9 @@
           </template>
         </el-table-column>
       </el-table>
+      <div v-if="transactions.length > 0" class="table-pagination">
+        <el-pagination v-model:current-page="transactionPage" v-model:page-size="transactionPageSize" :page-sizes="transactionPageSizes" :total="transactions.length" layout="total, sizes, prev, pager, next" background />
+      </div>
     </section>
 
     <el-dialog v-model="tradeDialogVisible" :title="tradeForm.type === 'BUY' ? '买入' : '卖出'" width="440px">
@@ -189,6 +204,9 @@ const transactions = ref<InvestmentTransactionItem[]>([]);
 const priceSnapshots = ref<AssetPriceItem[]>([]);
 const profitCalendar = ref<InvestmentCalendarDayProfit[]>([]);
 const accounts = ref<AccountItem[]>([]);
+const transactionPage = ref(1);
+const transactionPageSize = ref(10);
+const transactionPageSizes = [10, 50, 100, 300];
 const loading = ref(false);
 const calendarLoading = ref(false);
 const submitting = ref(false);
@@ -227,12 +245,12 @@ const fundConfirmPreviewText = computed(() => {
   return `${prefix}，${preview.qdii ? 'QDII 预计' : '预计'} ${preview.confirmedDate} 确认；净值未出时先保存为待确认。`;
 });
 // 今日收益缺失时必须让 KPI 显示 --，不能把休市或净值未更新兜底成 0。
-const primaryProfitTrend = computed(() => holding.value?.todayProfitRateByCurrentQuantity ?? null);
+const primaryProfitTrend = computed(() => holding.value?.todayProfitRate ?? null);
 const todayProfitTone = computed(() => {
-  if (holding.value?.todayProfitByCurrentQuantity === null || holding.value?.todayProfitByCurrentQuantity === undefined) {
+  if (holding.value?.todayProfit === null || holding.value?.todayProfit === undefined) {
     return 'warning';
   }
-  return profitTone(holding.value.todayProfitByCurrentQuantity);
+  return profitTone(holding.value.todayProfit);
 });
 const primaryProfitDescription = computed(() => {
   if (holding.value?.priceStatus === 'MARKET_CLOSED') {
@@ -246,6 +264,11 @@ const primaryProfitDescription = computed(() => {
 const calendarMonthLabel = computed(() => `${calendarMonthKey(calendarMonth.value)} 月收益`);
 const isCurrentCalendarMonth = computed(() => isSameCalendarMonth(calendarMonth.value, new Date()));
 const canGoNextCalendarMonth = computed(() => !isAfterCalendarMonth(addMonths(calendarMonth.value, 1), new Date()));
+const pagedTransactions = computed(() => {
+  const start = (transactionPage.value - 1) * transactionPageSize.value;
+  // 交易记录本地分页，详情接口仍一次返回完整交易，避免本轮扩大后端改动。
+  return transactions.value.slice(start, start + transactionPageSize.value);
+});
 const calendarCells = computed(() => {
   if (!profitCalendar.value.length) {
     return [];
@@ -293,6 +316,10 @@ watch(
   }
 );
 
+watch(transactionPageSize, () => {
+  clampTransactionPage();
+});
+
 // 加载页面数据。
 async function loadPageData() {
   if (!holdingId.value) {
@@ -309,6 +336,7 @@ async function loadPageData() {
     holding.value = detail.holding;
     summary.value = detail.summary;
     transactions.value = detail.transactions;
+    clampTransactionPage();
     priceSnapshots.value = detail.priceSnapshots;
     accounts.value = accountList;
     if (isSameCalendarMonth(calendarMonth.value, new Date())) {
@@ -320,6 +348,14 @@ async function loadPageData() {
     ElMessage.error(error instanceof Error ? error.message : '持仓详情加载失败');
   } finally {
     loading.value = false;
+  }
+}
+
+// 交易记录刷新或撤销后校正页码，避免停留在已经不存在的空页。
+function clampTransactionPage() {
+  const totalPage = Math.max(1, Math.ceil(transactions.value.length / transactionPageSize.value));
+  if (transactionPage.value > totalPage) {
+    transactionPage.value = totalPage;
   }
 }
 
@@ -649,28 +685,6 @@ function profitTone(value: number): 'success' | 'danger' | 'primary' {
   return 'primary';
 }
 
-// 生成收益颜色样式。
-function profitClass(value?: number | null) {
-  if (value === null || value === undefined) {
-    return 'muted-text';
-  }
-  if (value > 0) {
-    return 'success-text';
-  }
-  if (value < 0) {
-    return 'danger-text';
-  }
-  return 'muted-text';
-}
-
-// 格式化展示文案。
-function formatPercent(value?: number | null) {
-  if (value === null || value === undefined) {
-    return '--';
-  }
-  return `${round4(value).toFixed(4)}%`;
-}
-
 // 格式化展示文案。
 function formatChartAxis(value: number) {
   const abs = Math.abs(value);
@@ -716,12 +730,12 @@ function roundTo(value: number, precision: number) {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
 }
 
 .break-even-card,
-.rate-card {
+.break-even-card {
   min-height: 154px;
   display: flex;
   flex-direction: column;
@@ -730,8 +744,7 @@ function roundTo(value: number, precision: number) {
   overflow: hidden;
 }
 
-.break-even-card::after,
-.rate-card::after {
+.break-even-card::after {
   position: absolute;
   inset: auto -28px -42px auto;
   width: 110px;
@@ -742,14 +755,11 @@ function roundTo(value: number, precision: number) {
 }
 
 .break-even-card span,
-.break-even-card small,
-.rate-card span,
-.rate-card small {
+.break-even-card small {
   color: var(--xo-muted);
 }
 
-.break-even-card strong,
-.rate-card strong {
+.break-even-card strong {
   font-size: 28px;
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
@@ -811,6 +821,23 @@ function roundTo(value: number, precision: number) {
   color: var(--xo-muted);
   font-size: 13px;
   font-weight: 500;
+}
+
+.metric-empty-extra {
+  display: block;
+  min-height: 18px;
+}
+
+.metric-text-extra {
+  color: var(--xo-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.table-pagination {
+  display: flex;
+  justify-content: flex-end;
+  padding: 14px 18px 18px;
 }
 
 .calendar-weekdays,

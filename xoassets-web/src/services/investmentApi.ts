@@ -146,6 +146,8 @@ export interface HoldingItem {
   marketValue: number;
   /** 今日收益。 */
   todayProfit?: number | null;
+  /** 今日收益率。 */
+  todayProfitRate?: number | null;
   /** 按当前份额计算的今日收益。 */
   todayProfitByCurrentQuantity?: number | null;
   /** 按当前份额计算的今日收益率。 */
@@ -185,7 +187,7 @@ export interface HoldingSummary {
   /** 今日收益率。 */
   todayProfitRate?: number | null;
   /** 昨日收益。 */
-  yesterdayProfit: number;
+  yesterdayProfit?: number | null;
   /** 昨日收益率。 */
   yesterdayProfitRate?: number | null;
   /** 上月以来收益。 */
@@ -316,6 +318,10 @@ export interface InvestmentTrendPoint {
   assetAmount?: number | null;
   /** 持有收益。 */
   holdingProfit?: number | null;
+  /** 当日收益。 */
+  dailyProfit?: number | null;
+  /** 当日收益率。 */
+  dailyProfitRate?: number | null;
   /** 主收益名称。 */
   primaryProfitLabel?: string | null;
   /** 主收益金额。 */
@@ -340,6 +346,10 @@ export interface InvestmentModuleAsset {
   primaryProfitAmount?: number | null;
   /** 主收益状态。 */
   primaryProfitStatusLabel?: string | null;
+  /** 昨日收益。 */
+  yesterdayProfit?: number | null;
+  /** 昨日收益率。 */
+  yesterdayProfitRate?: number | null;
   /** 持有收益。 */
   holdingProfit: number;
   /** 持有收益率。 */
@@ -367,7 +377,7 @@ export interface InvestmentOverview {
   /** 今日收益状态。 */
   todayProfitStatusLabel?: string | null;
   /** 昨日收益。 */
-  yesterdayProfit: number;
+  yesterdayProfit?: number | null;
   /** 昨日收益范围。 */
   yesterdayProfitAssetScope: string;
   /** 模块资产列表。 */
@@ -627,6 +637,14 @@ export const investmentApi = {
   profitCalendar(id: string, params?: { year?: number; month?: number }) {
     return request<InvestmentCalendarDayProfit[]>({
       url: `/investments/holdings/${id}/profit-calendar`,
+      method: 'GET',
+      params
+    });
+  },
+  // 查询全持仓每日收益。
+  dailyProfitCalendar(params?: { year?: number; month?: number }) {
+    return request<InvestmentCalendarDayProfit[]>({
+      url: '/investments/daily-profit',
       method: 'GET',
       params
     });

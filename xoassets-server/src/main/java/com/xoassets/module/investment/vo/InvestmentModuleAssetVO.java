@@ -44,6 +44,14 @@ public class InvestmentModuleAssetVO {
      */
     private String primaryProfitStatusLabel;
     /**
+     * 昨日收益。
+     */
+    private BigDecimal yesterdayProfit;
+    /**
+     * 昨日收益率。
+     */
+    private BigDecimal yesterdayProfitRate;
+    /**
      * 持有收益。
      */
     private BigDecimal holdingProfit;

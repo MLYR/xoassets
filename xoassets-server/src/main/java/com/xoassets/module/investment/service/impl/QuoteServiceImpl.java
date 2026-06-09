@@ -30,6 +30,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -226,7 +228,12 @@ public class QuoteServiceImpl implements QuoteService {
         if (assetIds == null || assetIds.isEmpty()) {
             return Map.of();
         }
-        return assetPriceCurrentMapper.selectBatchIds(assetIds).stream()
+        // 公共批量入口先过滤空 ID，避免历史脏持仓或调用方漏校验导致 selectBatchIds 异常。
+        Set<Long> cleanAssetIds = assetIds.stream().filter(Objects::nonNull).collect(Collectors.toSet());
+        if (cleanAssetIds.isEmpty()) {
+            return Map.of();
+        }
+        return assetPriceCurrentMapper.selectBatchIds(cleanAssetIds).stream()
                 .collect(Collectors.toMap(AssetPriceCurrent::getAssetId, price -> price, (left, right) -> left));
     }
 

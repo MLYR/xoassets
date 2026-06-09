@@ -11,7 +11,7 @@ type AmountTone = 'auto' | 'positive' | 'negative' | 'neutral'
 type AmountSemantic = 'amount' | 'profit'
 
 const props = withDefaults(defineProps<{
-  value: number | string
+  value: number | string | null | undefined
   prefix?: string
   decimals?: number
   signed?: boolean
@@ -31,18 +31,22 @@ const props = withDefaults(defineProps<{
 
 const { currentTheme } = useTheme()
 
-const numericValue = computed(() => Number(props.value || 0))
+const isEmptyValue = computed(() => props.value === null || props.value === undefined || props.value === '')
+const numericValue = computed(() => isEmptyValue.value ? null : Number(props.value))
 
 const displayValue = computed(() => {
+  if (isEmptyValue.value) {
+    return '--'
+  }
   const value = numericValue.value
-  const numberText = Number.isFinite(value)
+  const numberText = value !== null && Number.isFinite(value)
     ? value.toLocaleString('zh-CN', {
         minimumFractionDigits: props.decimals,
         maximumFractionDigits: props.decimals
       })
     : String(props.value)
 
-  if (props.signed && Number.isFinite(value) && value > 0) {
+  if (props.signed && value !== null && Number.isFinite(value) && value > 0) {
     return `${props.prefix}+${numberText}`
   }
   return `${props.prefix}${numberText}`
@@ -55,12 +59,12 @@ const resolvedColor = computed(() => {
   if (props.tone === 'negative') return theme.colors.negative
   if (props.tone === 'neutral') return theme.colors.textPrimary
   if (props.semantic === 'profit') {
-    if (numericValue.value > 0) return theme.colors.profitPositive
-    if (numericValue.value < 0) return theme.colors.profitNegative
+    if (numericValue.value !== null && numericValue.value > 0) return theme.colors.profitPositive
+    if (numericValue.value !== null && numericValue.value < 0) return theme.colors.profitNegative
     return theme.colors.textPrimary
   }
-  if (numericValue.value > 0) return theme.colors.positive
-  if (numericValue.value < 0) return theme.colors.negative
+  if (numericValue.value !== null && numericValue.value > 0) return theme.colors.positive
+  if (numericValue.value !== null && numericValue.value < 0) return theme.colors.negative
   return theme.colors.textPrimary
 })
 

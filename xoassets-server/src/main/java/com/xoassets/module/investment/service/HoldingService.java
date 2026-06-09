@@ -60,6 +60,11 @@ public interface HoldingService {
     List<InvestmentCalendarDayProfitVO> profitCalendar(Long id, YearMonth month);
 
     /**
+     * 查询当前用户指定月份的全持仓每日收益。
+     */
+    List<InvestmentCalendarDayProfitVO> dailyProfitCalendar(YearMonth month);
+
+    /**
      * 新增持仓。
      */
     HoldingVO create(HoldingRequest request);

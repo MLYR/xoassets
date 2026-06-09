@@ -154,6 +154,10 @@ public class HoldingVO {
      */
     private BigDecimal todayProfitBase;
     /**
+     * 今日收益率。
+     */
+    private BigDecimal todayProfitRate;
+    /**
      * 今日涨跌幅。
      */
     private BigDecimal todayChangeRate;
