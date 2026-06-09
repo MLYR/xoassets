@@ -1372,6 +1372,40 @@ class MvpCoreServiceTest {
     }
 
     @Test
+    void stockProfitCalendarShouldPreferCurrentPreviousCloseForTodayProfit() {
+        LocalDate today = LocalDate.now();
+        Holding holding = holding(1L, USER_ID, 10L, "100.0000", "10.0000", "1000.0000");
+        Asset stock = asset(10L, "600666.SH", "奥瑞德", "STOCK", "CNY");
+        stock.setMarket("SH");
+        HoldingMapper holdingMapper = mock(HoldingMapper.class);
+        AssetMapper assetMapper = mock(AssetMapper.class);
+        AssetPriceCurrentMapper currentMapper = mock(AssetPriceCurrentMapper.class);
+        AssetPriceDailyMapper dailyMapper = mock(AssetPriceDailyMapper.class);
+        InvestmentTransactionMapper transactionMapper = mock(InvestmentTransactionMapper.class);
+        InvestmentPositionHistoryService positionHistoryService = mock(InvestmentPositionHistoryService.class);
+        HoldingServiceImpl service = new HoldingServiceImpl(
+                holdingMapper, assetMapper, currentMapper, dailyMapper,
+                mock(InvestmentDailySnapshotMapper.class), transactionMapper, mock(MarketCalendarMapper.class), mock(AccountMapper.class), mock(AssetService.class), positionHistoryService, mock(QuoteService.class), testExchangeRateService());
+        AssetPriceCurrent current = price(10L, "12.00000000", "CNY", today.atTime(15, 0));
+        current.setPreviousClose(bd("10.00000000"));
+
+        when(holdingMapper.selectOne(any())).thenReturn(holding);
+        when(assetMapper.selectById(10L)).thenReturn(stock);
+        when(currentMapper.selectById(10L)).thenReturn(current);
+        when(dailyMapper.selectList(any())).thenReturn(List.of(
+                dailyPrice(10L, today.minusDays(1), "10.18490000", "CNY")));
+        when(positionHistoryService.quantityAt(any(), any(), any(), any())).thenReturn(holding.getQuantity());
+
+        InvestmentCalendarDayProfitVO todayCell = service.profitCalendar(1L, YearMonth.from(today)).stream()
+                .filter(item -> today.equals(item.getDate()))
+                .findFirst()
+                .orElseThrow();
+        // 今日收益日历必须和持仓今日收益一样优先使用 current.previousClose，不能被旧 daily close 拉偏。
+        assertEquals(bd("10.00000000"), todayCell.getPreviousPrice());
+        assertEquals(bd("200.0000"), todayCell.getProfitAmount());
+    }
+
+    @Test
     void stockProfitCalendarShouldKeepDailyWhenCurrentPriceIsMissing() {
         LocalDate today = LocalDate.now();
         Holding holding = holding(1L, USER_ID, 10L, "100.0000", "10.0000", "1000.0000");
@@ -2000,6 +2034,74 @@ class MvpCoreServiceTest {
         assertEquals(LocalDate.of(2026, 6, 8), result.get(0).getDate());
         assertEquals(bd("56.0000"), result.get(0).getProfitAmount());
         assertEquals(bd("32.5581"), result.get(0).getProfitRate());
+    }
+
+    @Test
+    void dailyProfitCalendarShouldPreferCurrentPreviousCloseForTodayProfit() {
+        LocalDate today = LocalDate.now();
+        Holding holding = holding(1L, USER_ID, 10L, "100.0000", "10.0000", "1000.0000");
+        HoldingMapper holdingMapper = mock(HoldingMapper.class);
+        AssetMapper assetMapper = mock(AssetMapper.class);
+        AssetPriceCurrentMapper currentMapper = mock(AssetPriceCurrentMapper.class);
+        AssetPriceDailyMapper dailyMapper = mock(AssetPriceDailyMapper.class);
+        InvestmentTransactionMapper transactionMapper = mock(InvestmentTransactionMapper.class);
+        InvestmentPositionHistoryService positionHistoryService = mock(InvestmentPositionHistoryService.class);
+        HoldingServiceImpl service = new HoldingServiceImpl(
+                holdingMapper, assetMapper, currentMapper, dailyMapper,
+                mock(InvestmentDailySnapshotMapper.class), transactionMapper, mock(MarketCalendarMapper.class),
+                mock(AccountMapper.class), mock(AssetService.class), positionHistoryService, mock(QuoteService.class), testExchangeRateService());
+        Asset asset = asset(10L, "600666.SH", "奥瑞德", "STOCK", "CNY");
+        AssetPriceCurrent current = price(10L, "12.00000000", "CNY", today.atTime(15, 0));
+        current.setPreviousClose(bd("10.00000000"));
+
+        when(holdingMapper.selectList(any())).thenReturn(List.of(holding));
+        when(assetMapper.selectBatchIds(any())).thenReturn(List.of(asset));
+        when(currentMapper.selectById(10L)).thenReturn(current);
+        when(dailyMapper.selectList(any())).thenReturn(List.of(
+                dailyPrice(10L, today.minusDays(1), "10.18490000", "CNY")));
+        when(transactionMapper.selectCount(any())).thenReturn(0L);
+        when(positionHistoryService.quantityAt(any(), any(), any(), any())).thenReturn(holding.getQuantity());
+
+        InvestmentCalendarDayProfitVO todayCell = service.dailyProfitCalendar(YearMonth.from(today)).stream()
+                .filter(item -> today.equals(item.getDate()))
+                .findFirst()
+                .orElseThrow();
+
+        // 全持仓今日收益日历要和顶部今日收益使用同一个 current.previousClose 口径。
+        assertEquals(bd("200.0000"), todayCell.getProfitAmount());
+    }
+
+    @Test
+    void dailyProfitCalendarShouldUseNavDateQuantityForShiftedFundDisplayDate() {
+        Holding holding = holding(1L, USER_ID, 10L, "120.0000", "10.0000", "1200.0000");
+        HoldingMapper holdingMapper = mock(HoldingMapper.class);
+        AssetMapper assetMapper = mock(AssetMapper.class);
+        AssetPriceDailyMapper dailyMapper = mock(AssetPriceDailyMapper.class);
+        InvestmentTransactionMapper transactionMapper = mock(InvestmentTransactionMapper.class);
+        MarketCalendarMapper marketCalendarMapper = mock(MarketCalendarMapper.class);
+        InvestmentPositionHistoryService positionHistoryService = mock(InvestmentPositionHistoryService.class);
+        HoldingServiceImpl service = new HoldingServiceImpl(
+                holdingMapper, assetMapper, mock(AssetPriceCurrentMapper.class), dailyMapper,
+                mock(InvestmentDailySnapshotMapper.class), transactionMapper, marketCalendarMapper,
+                mock(AccountMapper.class), mock(AssetService.class), positionHistoryService, mock(QuoteService.class), testExchangeRateService());
+
+        when(holdingMapper.selectList(any())).thenReturn(List.of(holding));
+        when(assetMapper.selectBatchIds(any())).thenReturn(List.of(asset(10L, "QDII-A", "全球精选 QDII", "FUND", "CNY")));
+        when(transactionMapper.selectCount(any())).thenReturn(1L);
+        when(positionHistoryService.quantityAt(USER_ID, 1L, 10L, LocalDate.of(2026, 6, 5))).thenReturn(bd("100.0000"));
+        when(positionHistoryService.quantityAt(USER_ID, 1L, 10L, LocalDate.of(2026, 6, 8))).thenReturn(bd("120.0000"));
+        when(marketCalendarMapper.selectList(any())).thenReturn(List.of(marketCalendar(LocalDate.of(2026, 6, 9), true, "SYSTEM_WEEKDAY")));
+        when(dailyMapper.selectList(any())).thenReturn(List.of(
+                dailyPrice(10L, LocalDate.of(2026, 6, 5), "10.00000000", "CNY"),
+                dailyPrice(10L, LocalDate.of(2026, 6, 8), "12.00000000", "CNY")));
+
+        InvestmentCalendarDayProfitVO displayCell = service.dailyProfitCalendar(YearMonth.of(2026, 6)).stream()
+                .filter(item -> LocalDate.of(2026, 6, 9).equals(item.getDate()))
+                .findFirst()
+                .orElseThrow();
+
+        // QDII 净值 6/8 顺延到 6/9 展示时，收益份额要取 6/8 日终，避免漏掉净值日已确认份额。
+        assertEquals(bd("240.0000"), displayCell.getProfitAmount());
     }
 
     @Test

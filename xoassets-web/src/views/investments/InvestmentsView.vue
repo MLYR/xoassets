@@ -68,15 +68,61 @@
         </div>
       </section>
 
-      <section class="panel panel-padding daily-profit-panel">
-        <div class="panel-head">
+      <section v-loading="loading || dailyProfitCalendarLoading" class="panel panel-padding daily-profit-panel">
+        <div class="panel-head daily-profit-head">
           <div>
             <h3>每日收益</h3>
             <p class="panel-subtitle">{{ dailyProfitSubtitle }}</p>
           </div>
+          <div class="daily-profit-actions">
+            <el-button-group>
+              <el-button :icon="ArrowLeft" aria-label="上一月" @click="changeProfitMonth(-1)" />
+              <el-button :disabled="isCurrentProfitMonth" @click="resetProfitMonth">本月</el-button>
+              <el-button :icon="ArrowRight" :disabled="!canGoNextProfitMonth" aria-label="下一月" @click="changeProfitMonth(1)" />
+            </el-button-group>
+            <el-date-picker
+              v-model="profitCalendarMonth"
+              class="profit-month-picker"
+              type="month"
+              format="YYYY年MM月"
+              :clearable="false"
+              :editable="false"
+              :disabled-date="disabledFutureProfitMonth"
+            />
+          </div>
         </div>
-        <el-empty v-if="!loading && dailyProfitData.length === 0" description="暂无每日收益数据" />
-        <BaseChart v-else :option="dailyProfitOption" height="320px" />
+        <el-empty v-if="!loading && !dailyProfitCalendarLoading && dailyProfitCalendarEntries.length === 0" description="暂无每日收益数据" />
+        <div v-else class="daily-profit-calendar">
+          <div class="daily-profit-summary">
+            <div>
+              <span>本月合计</span>
+              <strong :class="dailyProfitValueClass(dailyProfitMonthlyTotal)">{{ formatSignedMoney(dailyProfitMonthlyTotal) }}</strong>
+            </div>
+            <div>
+              <span>统计天数</span>
+              <strong>{{ dailyProfitAvailableDays }} 天</strong>
+            </div>
+            <div>
+              <span>盈利 / 回撤</span>
+              <strong>{{ dailyProfitPositiveDays }} / {{ dailyProfitNegativeDays }}</strong>
+            </div>
+          </div>
+          <div class="profit-calendar-weekdays">
+            <span v-for="day in profitCalendarWeekdays" :key="day">{{ day }}</span>
+          </div>
+          <div class="profit-calendar-grid">
+            <div v-for="cell in profitCalendarCells" :key="cell.key" class="profit-calendar-cell" :class="profitCalendarCellClass(cell)">
+              <template v-if="!cell.empty">
+                <div class="profit-calendar-date">
+                  <span>{{ cell.dayNumber }}</span>
+                  <em v-if="cell.isToday">今天</em>
+                </div>
+                <div class="profit-calendar-amount">{{ profitCalendarAmountText(cell) }}</div>
+                <small>{{ profitCalendarStatusText(cell) }}</small>
+              </template>
+            </div>
+          </div>
+        </div>
       </section>
     </template>
 
@@ -265,15 +311,29 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import type { EChartsOption } from 'echarts';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
 import BaseChart from '@/components/charts/BaseChart.vue';
 import AmountText from '@/components/finance/AmountText.vue';
 import MetricCard from '@/components/finance/MetricCard.vue';
 import { ROUTES } from '@/constants/routes';
 import { exchangeRateApi } from '@/services/exchangeRateApi';
-import { investmentApi, type AssetLookupItem, type AssetType, type HoldingItem, type HoldingRequest, type InvestmentModuleAsset, type InvestmentOverview, type InvestmentTrendPoint, type QuoteSource } from '@/services/investmentApi';
+import { investmentApi, type AssetLookupItem, type AssetType, type HoldingItem, type HoldingRequest, type InvestmentCalendarDayProfit, type InvestmentModuleAsset, type InvestmentOverview, type InvestmentTrendPoint, type QuoteSource } from '@/services/investmentApi';
 
 type DisplayCurrency = 'CNY' | 'USD';
 type InvestmentModule = 'ALL' | 'FUND' | 'STOCK' | 'CRYPTO';
+type DailyProfitCalendarCell = {
+  key: string;
+  empty: boolean;
+  date: string;
+  dayNumber?: number;
+  profitAmount?: number | null;
+  profitRate?: number | null;
+  hasPrice?: boolean | null;
+  marketClosed?: boolean | null;
+  statusLabel?: string | null;
+  isToday?: boolean;
+  isFuture?: boolean;
+};
 
 const moduleTabs: Array<{ label: string; value: InvestmentModule }> = [
   { label: '总览', value: 'ALL' },
@@ -291,7 +351,8 @@ const overview = ref<InvestmentOverview | null>(null);
 const holdings = ref<HoldingItem[]>([]);
 const moduleHoldings = ref<HoldingItem[]>([]);
 const investmentTrend = ref<InvestmentTrendPoint[]>([]);
-const dailyProfitCalendarEntries = ref<Array<{ date: string; value: number; currency?: string | null }>>([]);
+const dailyProfitCalendarEntries = ref<InvestmentCalendarDayProfit[]>([]);
+const dailyProfitCalendarLoading = ref(false);
 const dailyProfitCalendarFailed = ref(false);
 const loading = ref(false);
 const submitting = ref(false);
@@ -307,6 +368,7 @@ const displayCurrency = ref<DisplayCurrency>('CNY');
 const activeModule = ref<InvestmentModule>(routeModule(route.query.module));
 const trendModule = ref<InvestmentModule>('ALL');
 const activeSubType = ref('ALL');
+const profitCalendarMonth = ref(startOfMonth(new Date()));
 const usdCnyRate = ref(7.2);
 // 投资模块持仓表格前端分页展示，统计类数据仍使用完整持仓列表计算。
 const pageSizeOptions = [10, 50, 100, 300];
@@ -344,6 +406,10 @@ watch(activeModule, () => {
 
 watch(activeSubType, () => {
   modulePageNo.value = 1;
+});
+
+watch(profitCalendarMonth, () => {
+  loadDailyProfitCalendar();
 });
 
 watch(
@@ -494,45 +560,57 @@ const investmentTrendOption = computed<EChartsOption>(() => ({
     areaStyle: { color: 'rgba(37, 99, 235, 0.12)' }
   }]
 }));
-const dailyProfitOption = computed<EChartsOption>(() => ({
-  grid: { left: 54, right: 18, top: 24, bottom: 36 },
-  tooltip: { trigger: 'axis', valueFormatter: (value) => formatSignedMoney(Number(value)) },
-  xAxis: { type: 'category', data: dailyProfitData.value.map((item) => item.date), axisLine: { lineStyle: { color: '#e2e8f0' } } },
-  yAxis: { type: 'value', axisLabel: { formatter: (value: number) => compactMoney(value) }, splitLine: { lineStyle: { color: '#e2e8f0' } } },
-  series: [{
-    name: '每日收益',
-    type: 'bar',
-    barMaxWidth: 34,
-    // 正负收益分别着色，条形图比曲线更适合对比每天单点收益。
-    data: dailyProfitData.value.map((item) => ({
-      value: item.value,
-      itemStyle: {
-        color: item.value >= 0 ? '#10b981' : '#ef4444',
-        borderRadius: item.value >= 0 ? [8, 8, 0, 0] : [0, 0, 8, 8]
-      }
-    })),
-    markLine: { symbol: 'none', lineStyle: { color: '#cbd5e1', type: 'dashed' }, data: [{ yAxis: 0 }] }
-  }]
-}));
-const dailyProfitData = computed(() => {
-  const calendarRows = aggregateDailyProfitCalendarEntries();
-  if (calendarRows.length > 0) {
-    return calendarRows;
-  }
-  if (dailyProfitCalendarFailed.value) {
-    return [];
-  }
-  // 每日收益只认持仓日历逐日汇总，缺少日历明细时直接空态，避免展示错误收益。
-  return [];
+const profitCalendarWeekdays = ['日', '一', '二', '三', '四', '五', '六'];
+const profitCalendarMonthLabel = computed(() => `${calendarMonthKey(profitCalendarMonth.value)} 月收益`);
+const isCurrentProfitMonth = computed(() => isSameCalendarMonth(profitCalendarMonth.value, new Date()));
+const canGoNextProfitMonth = computed(() => !isAfterCalendarMonth(addMonths(profitCalendarMonth.value, 1), new Date()));
+const dailyProfitMonthlyTotal = computed(() => round4(dailyProfitCalendarEntries.value.reduce((sum, item) => {
+  return item.profitAmount === null || item.profitAmount === undefined ? sum : sum + convertAmount(item.profitAmount, 'CNY');
+}, 0)));
+const dailyProfitAvailableDays = computed(() => dailyProfitCalendarEntries.value.filter((item) => item.profitAmount !== null && item.profitAmount !== undefined).length);
+const dailyProfitPositiveDays = computed(() => dailyProfitCalendarEntries.value.filter((item) => Number(item.profitAmount || 0) > 0).length);
+const dailyProfitNegativeDays = computed(() => dailyProfitCalendarEntries.value.filter((item) => Number(item.profitAmount || 0) < 0).length);
+const profitCalendarCells = computed<DailyProfitCalendarCell[]>(() => {
+  const monthStart = startOfMonth(profitCalendarMonth.value);
+  const year = monthStart.getFullYear();
+  const month = monthStart.getMonth();
+  const totalDays = new Date(year, month + 1, 0).getDate();
+  const todayKey = formatDateKey(new Date());
+  const entryMap = new Map(dailyProfitCalendarEntries.value.map((item) => [item.date, item]));
+  const blanks: DailyProfitCalendarCell[] = Array.from({ length: monthStart.getDay() }, (_, index) => ({
+    key: `blank-${index}`,
+    empty: true,
+    date: ''
+  }));
+  // 总览日历按自然月补齐日期格，接口没返回的日期仍保留位置，方便按月复盘。
+  const days = Array.from({ length: totalDays }, (_, index) => {
+    const dayNumber = index + 1;
+    const date = `${year}-${pad(month + 1)}-${pad(dayNumber)}`;
+    const entry = entryMap.get(date);
+    return {
+      key: date,
+      empty: false,
+      date,
+      dayNumber,
+      profitAmount: entry?.profitAmount ?? null,
+      profitRate: entry?.profitRate ?? null,
+      hasPrice: entry?.hasPrice ?? false,
+      marketClosed: entry?.marketClosed ?? false,
+      statusLabel: entry?.statusLabel ?? null,
+      isToday: date === todayKey,
+      isFuture: date > todayKey
+    };
+  });
+  return [...blanks, ...days];
 });
 const dailyProfitSubtitle = computed(() => {
   if (dailyProfitCalendarEntries.value.length > 0) {
-    return '基于所有持仓收益日历逐日汇总，和持仓详情日历口径一致';
+    return `${profitCalendarMonthLabel.value} · 基于所有持仓收益日历逐日汇总`;
   }
   if (dailyProfitCalendarFailed.value) {
     return '每日收益加载失败，暂不展示每日收益';
   }
-  return '暂无精确每日收益数据';
+  return `${profitCalendarMonthLabel.value} · 暂无精确每日收益数据`;
 });
 
 // 加载页面数据。
@@ -548,8 +626,8 @@ async function loadPageData() {
     holdings.value = holdingList;
     moduleHoldings.value = activeModule.value === 'ALL' ? [] : await investmentApi.listInvestmentHoldings({ module: activeModule.value });
     investmentTrend.value = trendResult.points || [];
-    // 每日收益统计图固定使用持仓收益日历，不跟随资产趋势模块切换。
-    dailyProfitCalendarEntries.value = await loadDailyProfitCalendarEntries();
+    // 每日收益月历固定使用全持仓聚合结果，不跟随资产趋势模块切换。
+    await loadDailyProfitCalendar(false);
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '投资数据加载失败');
   } finally {
@@ -558,37 +636,89 @@ async function loadPageData() {
 }
 
 // 加载全持仓每日收益聚合结果，后端保证和持仓详情日历同一算法。
-async function loadDailyProfitCalendarEntries() {
+async function loadDailyProfitCalendar(showLoading = true) {
+  if (showLoading) {
+    dailyProfitCalendarLoading.value = true;
+  }
   dailyProfitCalendarFailed.value = false;
-  const targetMonth = currentCalendarMonth();
   try {
-    const calendar = await investmentApi.dailyProfitCalendar(targetMonth);
-    return calendar
-      .filter((item) => item.profitAmount !== null && item.profitAmount !== undefined)
-      .map((item) => ({ date: item.date, value: Number(item.profitAmount), currency: 'CNY' }));
+    dailyProfitCalendarEntries.value = await investmentApi.dailyProfitCalendar(selectedProfitMonthParams());
   } catch {
     // 聚合接口失败时不能展示旧口径收益，避免把错误数据当作每日收益。
+    dailyProfitCalendarEntries.value = [];
     dailyProfitCalendarFailed.value = true;
     ElMessage.warning('每日收益加载失败，暂不展示每日收益');
-    return [];
+  } finally {
+    if (showLoading) {
+      dailyProfitCalendarLoading.value = false;
+    }
   }
 }
 
-// 聚合收益日历明细。
-function aggregateDailyProfitCalendarEntries() {
-  const result = new Map<string, number>();
-  dailyProfitCalendarEntries.value.forEach((item) => {
-    result.set(item.date, round4((result.get(item.date) || 0) + convertAmount(item.value, item.currency)));
-  });
-  return [...result.entries()]
-    .map(([date, value]) => ({ date, value: round4(value) }))
-    .sort((left, right) => left.date.localeCompare(right.date));
+// 当前月历请求参数，和后端 year/month 查询保持一致。
+function selectedProfitMonthParams() {
+  return {
+    year: profitCalendarMonth.value.getFullYear(),
+    month: profitCalendarMonth.value.getMonth() + 1
+  };
 }
 
-// 当前每日收益图展示自然月收益。
-function currentCalendarMonth() {
-  const now = new Date();
-  return { year: now.getFullYear(), month: now.getMonth() + 1 };
+// 切换每日收益月份，只刷新月历数据。
+function changeProfitMonth(delta: number) {
+  const nextMonth = addMonths(profitCalendarMonth.value, delta);
+  if (delta > 0 && isAfterCalendarMonth(nextMonth, new Date())) {
+    return;
+  }
+  profitCalendarMonth.value = nextMonth;
+}
+
+// 回到当前自然月。
+function resetProfitMonth() {
+  const currentMonth = startOfMonth(new Date());
+  if (isSameCalendarMonth(profitCalendarMonth.value, currentMonth)) {
+    return;
+  }
+  profitCalendarMonth.value = currentMonth;
+}
+
+// 禁止选择未来月份，避免请求还未产生的收益日历。
+function disabledFutureProfitMonth(date: Date) {
+  return isAfterCalendarMonth(date, new Date());
+}
+
+// 获取月份开始日期。
+function startOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+// 增减月份。
+function addMonths(date: Date, delta: number) {
+  return new Date(date.getFullYear(), date.getMonth() + delta, 1);
+}
+
+// 生成日历月份键。
+function calendarMonthKey(date: Date) {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}`;
+}
+
+// 判断是否同月。
+function isSameCalendarMonth(left: Date, right: Date) {
+  return left.getFullYear() === right.getFullYear() && left.getMonth() === right.getMonth();
+}
+
+// 判断是否晚于指定月份。
+function isAfterCalendarMonth(left: Date, right: Date) {
+  return left.getFullYear() > right.getFullYear() || (left.getFullYear() === right.getFullYear() && left.getMonth() > right.getMonth());
+}
+
+// 生成 YYYY-MM-DD，字符串比较可用于同格式日期先后判断。
+function formatDateKey(date: Date) {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+// 两位补零。
+function pad(value: number) {
+  return String(value).padStart(2, '0');
 }
 
 // 加载趋势数据。
@@ -918,6 +1048,55 @@ function formatSignedMoney(value: number) {
   return `${prefix}${currencySymbol.value}${Math.abs(round4(value)).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`;
 }
 
+// 生成日历收益文案。
+function profitCalendarAmountText(cell: DailyProfitCalendarCell) {
+  if (cell.marketClosed) {
+    return '休市';
+  }
+  if (cell.profitAmount === null || cell.profitAmount === undefined) {
+    return '--';
+  }
+  return formatSignedMoney(convertAmount(cell.profitAmount, 'CNY'));
+}
+
+// 生成日历状态文案。
+function profitCalendarStatusText(cell: DailyProfitCalendarCell) {
+  if (cell.isFuture) {
+    return '未到日期';
+  }
+  if (cell.marketClosed) {
+    return cell.statusLabel || '休市';
+  }
+  if (cell.profitAmount !== null && cell.profitAmount !== undefined) {
+    return cell.profitRate !== null && cell.profitRate !== undefined ? `收益率 ${formatRatio(cell.profitRate)}` : (cell.statusLabel || '已统计');
+  }
+  return cell.statusLabel || (cell.hasPrice ? '无收益' : '无价格');
+}
+
+// 生成日历单元格样式。
+function profitCalendarCellClass(cell: DailyProfitCalendarCell) {
+  if (cell.empty) {
+    return 'is-empty';
+  }
+  if (cell.isFuture) {
+    return ['is-muted', cell.isToday ? 'is-today' : ''];
+  }
+  if (cell.marketClosed) {
+    return ['is-closed', cell.isToday ? 'is-today' : ''];
+  }
+  if (cell.profitAmount === null || cell.profitAmount === undefined) {
+    return ['is-muted', cell.isToday ? 'is-today' : ''];
+  }
+  return [convertAmount(cell.profitAmount, 'CNY') >= 0 ? 'is-positive' : 'is-negative', cell.isToday ? 'is-today' : ''];
+}
+
+// 生成汇总金额样式。
+function dailyProfitValueClass(value: number) {
+  if (value > 0) return 'is-positive-text';
+  if (value < 0) return 'is-negative-text';
+  return 'is-muted-text';
+}
+
 // 格式化比例。
 function formatRatio(value?: number | null) {
   return `${round4(Number(value || 0)).toFixed(2)}%`;
@@ -1185,6 +1364,164 @@ function profitTone(value?: number | null): 'success' | 'danger' | 'warning' | '
   margin-top: 24px;
 }
 
+.daily-profit-head {
+  align-items: flex-start;
+}
+
+.daily-profit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.profit-month-picker {
+  width: 150px;
+}
+
+.daily-profit-calendar {
+  display: grid;
+  gap: 14px;
+}
+
+.daily-profit-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.daily-profit-summary > div {
+  padding: 14px 16px;
+  border: 1px solid rgba(226, 232, 240, 0.82);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.86));
+}
+
+.daily-profit-summary span {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--xo-muted);
+  font-size: 13px;
+}
+
+.daily-profit-summary strong {
+  display: block;
+  color: var(--xo-text);
+  font-size: 20px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.profit-calendar-weekdays,
+.profit-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.profit-calendar-weekdays {
+  color: var(--xo-muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.profit-calendar-cell {
+  min-height: 104px;
+  padding: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 18px;
+  background: rgba(248, 250, 252, 0.82);
+  box-sizing: border-box;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.profit-calendar-cell:not(.is-empty):hover {
+  transform: translateY(-2px);
+  border-color: rgba(37, 99, 235, 0.22);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+}
+
+.profit-calendar-cell.is-empty {
+  border-color: transparent;
+  background: transparent;
+}
+
+.profit-calendar-cell.is-today {
+  border-color: rgba(37, 99, 235, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.16);
+}
+
+.profit-calendar-cell.is-positive {
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.profit-calendar-cell.is-negative {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.profit-calendar-cell.is-closed {
+  border-style: dashed;
+  background: rgba(148, 163, 184, 0.10);
+}
+
+.profit-calendar-cell.is-muted {
+  background: rgba(248, 250, 252, 0.68);
+}
+
+.profit-calendar-date {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--xo-text);
+  font-weight: 900;
+}
+
+.profit-calendar-date em {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.10);
+  color: var(--xo-primary);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.profit-calendar-amount {
+  margin-top: 12px;
+  font-size: 17px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.profit-calendar-cell small {
+  display: block;
+  margin-top: 8px;
+  color: var(--xo-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profit-calendar-cell.is-positive .profit-calendar-amount,
+.is-positive-text {
+  color: var(--xo-success);
+}
+
+.profit-calendar-cell.is-negative .profit-calendar-amount,
+.is-negative-text {
+  color: var(--xo-danger);
+}
+
+.profit-calendar-cell.is-muted .profit-calendar-amount,
+.profit-calendar-cell.is-closed .profit-calendar-amount,
+.is-muted-text {
+  color: var(--xo-muted);
+}
+
 .lookup-panel {
   margin-bottom: 8px;
 }
@@ -1251,8 +1588,23 @@ function profitTone(value?: number | null): 'success' | 'danger' | 'warning' | '
 
 @media (max-width: 1080px) {
   .module-card-grid,
-  .module-summary-grid {
+  .module-summary-grid,
+  .daily-profit-summary {
     grid-template-columns: 1fr;
+  }
+
+  .profit-calendar-grid {
+    gap: 8px;
+  }
+
+  .profit-calendar-cell {
+    min-height: 92px;
+    padding: 10px;
+    border-radius: 14px;
+  }
+
+  .profit-calendar-amount {
+    font-size: 14px;
   }
 }
 
@@ -1264,6 +1616,40 @@ function profitTone(value?: number | null): 'success' | 'danger' | 'warning' | '
 
   .investment-nav-actions {
     justify-content: flex-start;
+  }
+
+  .daily-profit-head {
+    flex-direction: column;
+  }
+
+  .daily-profit-actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .profit-month-picker {
+    width: 100%;
+  }
+
+  .daily-profit-calendar {
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .profit-calendar-weekdays,
+  .profit-calendar-grid {
+    gap: 6px;
+    min-width: 680px;
+  }
+
+  .profit-calendar-cell {
+    min-height: 88px;
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  .profit-calendar-amount {
+    font-size: 13px;
   }
 
   .form-grid,

@@ -838,7 +838,10 @@ public class HoldingServiceImpl implements HoldingService {
                 : previousDaily == null ? null : previousDaily.getClosePrice();
         BigDecimal beforePrevious = yesterdayBeforePreviousPrice(beforePreviousDaily);
         LocalDate previousDate = previousPriceDate(matchedPrice, previousDaily);
-        BigDecimal todayBaselineQuantity = previousDate == null ? holding.getQuantity() : positionHistoryService.quantityAt(holding.getUserId(), holding.getId(), holding.getAssetId(), previousDate);
+        LocalDate priceDate = matchedPrice == null || matchedPrice.getQuoteTime() == null ? null : matchedPrice.getQuoteTime().toLocalDate();
+        AssetMeta assetMeta = deriveAssetMeta(asset);
+        LocalDate todayBaseQuantityDate = calendarProfitBaseQuantityDate(assetMeta, previousDate, priceDate);
+        BigDecimal todayBaselineQuantity = todayBaseQuantityDate == null ? holding.getQuantity() : positionHistoryService.quantityAt(holding.getUserId(), holding.getId(), holding.getAssetId(), todayBaseQuantityDate);
         if (todayBaselineQuantity == null) {
             todayBaselineQuantity = holding.getQuantity();
         }
@@ -847,8 +850,6 @@ public class HoldingServiceImpl implements HoldingService {
         BigDecimal profitRate = holding.getTotalCost().compareTo(BigDecimal.ZERO) == 0
                 ? BigDecimal.ZERO
                 : profit.multiply(BigDecimal.valueOf(100)).divide(holding.getTotalCost(), 4, RoundingMode.HALF_UP);
-        LocalDate priceDate = matchedPrice == null || matchedPrice.getQuoteTime() == null ? null : matchedPrice.getQuoteTime().toLocalDate();
-        AssetMeta assetMeta = deriveAssetMeta(asset);
         boolean todayPriceAvailable = todayPriceAvailable(asset, assetMeta, priceDate);
         CalendarProfitData previousCalendarProfit = latestHoldingCalendarProfitBefore(holding.getUserId(), holding, asset, assetMeta, LocalDate.now());
         // 今日收益同时返回当前份额和上一日份额两个口径，便于后续确认最终展示方案。
@@ -857,7 +858,7 @@ public class HoldingServiceImpl implements HoldingService {
         BigDecimal todayProfitByPreviousSnapshotQuantity = todayPriceAvailable ? priceDiffProfit(todayBaselineQuantity, latestPrice, previous) : null;
         BigDecimal todayProfitBaseByPreviousSnapshotQuantity = todayPriceAvailable && previous != null ? todayBaselineQuantity.multiply(previous).setScale(4, RoundingMode.HALF_UP) : null;
         DailySegmentProfitData todaySegmentProfit = todayPriceAvailable
-                ? dailySegmentProfit(holding.getUserId(), holding, assetMeta, previousDate, priceDate, latestPrice, previous, effectiveTransactionCount(holding.getUserId(), holding.getId()) == 0)
+                ? dailySegmentProfit(holding.getUserId(), holding, assetMeta, todayBaseQuantityDate, priceDate, latestPrice, previous, effectiveTransactionCount(holding.getUserId(), holding.getId()) == 0)
                 : null;
         // 券商软件会把今日新增仓位按成交价计算当日盈亏，不能把新增股数也按昨收价算。
         BigDecimal todayProfit = todaySegmentProfit == null ? todayProfitByCurrentQuantity : todaySegmentProfit.profit();
@@ -966,12 +967,13 @@ public class HoldingServiceImpl implements HoldingService {
         DailyPricePoint previous = null;
         boolean manualOnly = effectiveTransactionCount(userId, holding.getId()) == 0;
         for (DailyPricePoint price : prices) {
-            BigDecimal previousPrice = previous == null ? price.previousClose() : previous.closePrice();
+            BigDecimal previousPrice = price.previousClose() != null ? price.previousClose() : previous == null ? null : previous.closePrice();
             LocalDate previousPriceDate = previous == null ? price.tradeDate().minusDays(1) : previous.tradeDate();
             if (previousPrice != null) {
                 LocalDate displayDate = calendarDisplayDate(assetMeta, price.tradeDate());
                 if (!displayDate.isBefore(start) && !displayDate.isAfter(end)) {
-                    DailySegmentProfitData segmentProfit = dailySegmentProfit(userId, holding, assetMeta, previousPriceDate, price.tradeDate(), price.closePrice(), previousPrice, manualOnly);
+                    LocalDate baseQuantityDate = calendarProfitBaseQuantityDate(assetMeta, previousPriceDate, price.tradeDate());
+                    DailySegmentProfitData segmentProfit = dailySegmentProfit(userId, holding, assetMeta, baseQuantityDate, price.tradeDate(), price.closePrice(), previousPrice, manualOnly);
                     BigDecimal profit = segmentProfit.profit();
                     BigDecimal baseAmount = segmentProfit.baseAmount();
                     BigDecimal marketValueQuantity = segmentProfit.endQuantity();
@@ -1095,7 +1097,7 @@ public class HoldingServiceImpl implements HoldingService {
         LocalDate selectedPreviousPriceDate = null;
         LocalDate selectedDisplayDate = null;
         for (DailyPricePoint price : calendarPricePoints(asset, holding.getAssetId(), end)) {
-            BigDecimal previousPrice = previous == null ? price.previousClose() : previous.closePrice();
+            BigDecimal previousPrice = price.previousClose() != null ? price.previousClose() : previous == null ? null : previous.closePrice();
             LocalDate previousPriceDate = previous == null ? price.tradeDate().minusDays(1) : previous.tradeDate();
             LocalDate displayDate = calendarDisplayDate(assetMeta, price.tradeDate());
             if (previousPrice != null && !displayDate.isBefore(start) && !displayDate.isAfter(end) && !marketClosedForAsset(asset, displayDate)) {
@@ -1110,7 +1112,8 @@ public class HoldingServiceImpl implements HoldingService {
             return null;
         }
         // 行级昨日收益只需要最近一个收益日，定位后再算一次历史份额，避免列表逐日重算 40 天持仓。
-        DailySegmentProfitData segmentProfit = dailySegmentProfit(userId, holding, assetMeta, selectedPreviousPriceDate, selectedPrice.tradeDate(), selectedPrice.closePrice(), selectedPreviousPrice, effectiveTransactionCount(userId, holding.getId()) == 0);
+        LocalDate baseQuantityDate = calendarProfitBaseQuantityDate(assetMeta, selectedPreviousPriceDate, selectedPrice.tradeDate());
+        DailySegmentProfitData segmentProfit = dailySegmentProfit(userId, holding, assetMeta, baseQuantityDate, selectedPrice.tradeDate(), selectedPrice.closePrice(), selectedPreviousPrice, effectiveTransactionCount(userId, holding.getId()) == 0);
         BigDecimal profit = segmentProfit.profit();
         BigDecimal baseAmount = segmentProfit.baseAmount();
         return new CalendarProfitData(
@@ -1279,6 +1282,16 @@ public class HoldingServiceImpl implements HoldingService {
             return nextTradingDate(priceDate);
         }
         return priceDate;
+    }
+
+    /**
+     * 净值类收益展示日会顺延，但收益基准份额应取净值日，避免确认日在净值日的份额被日历漏算。
+     */
+    private LocalDate calendarProfitBaseQuantityDate(AssetMeta assetMeta, LocalDate previousPriceDate, LocalDate priceDate) {
+        if (assetMeta != null && (VALUATION_END_OF_DAY_NAV.equals(assetMeta.valuationMode()) || VALUATION_MONEY_FUND_YIELD.equals(assetMeta.valuationMode()))) {
+            return priceDate;
+        }
+        return previousPriceDate;
     }
 
     /**
