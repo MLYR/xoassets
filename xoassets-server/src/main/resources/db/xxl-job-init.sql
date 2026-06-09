@@ -152,7 +152,9 @@ VALUES (101, 1, '股票/虚拟货币行情刷新', now(), now(), 'XOAssets', '',
        (110, 1, '市场交易日历年度补齐', now(), now(), 'XOAssets', '', 'CRON', '0 5 0 1 1 ? *',
         'DO_NOTHING', 'FIRST', 'refreshYearlyMarketCalendar', '', 'SERIAL_EXECUTION', 0, 1, 'BEAN', '', 'XOAssets 初始化', now(), '', 0, 0, 0),
        (111, 1, 'USD/CNY 汇率日缓存刷新', now(), now(), 'XOAssets', '', 'CRON', '0 20 6 * * ? *',
-        'DO_NOTHING', 'FIRST', 'refreshDailyUsdCnyExchangeRate', '', 'SERIAL_EXECUTION', 0, 1, 'BEAN', '', 'XOAssets 初始化', now(), '', 0, 0, 0)
+        'DO_NOTHING', 'FIRST', 'refreshDailyUsdCnyExchangeRate', '', 'SERIAL_EXECUTION', 0, 1, 'BEAN', '', 'XOAssets 初始化', now(), '', 0, 0, 0),
+       (112, 1, '待重建资产快照处理', now(), now(), 'XOAssets', '', 'CRON', '0 0/10 * * * ? *',
+        'DO_NOTHING', 'FIRST', 'rebuildPendingAssetSnapshots', '', 'SERIAL_EXECUTION', 0, 1, 'BEAN', '', 'XOAssets 初始化', now(), '', 0, 0, 0)
 ON DUPLICATE KEY UPDATE `job_group` = VALUES(`job_group`),
                         `job_desc` = VALUES(`job_desc`),
                         `update_time` = now(),

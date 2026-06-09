@@ -129,7 +129,7 @@ com.xoassets
 - 投资交易接口使用 `/api/investment-transactions/**`。
 - 手动行情接口使用 `/api/quotes/**`。
 - 汇率展示接口使用 `/api/exchange-rates/**`，前端只读后端缓存汇率，不直连第三方汇率源。
-- 资产快照接口使用 `/api/snapshots/**`，用于首页净资产变化、趋势图、AI 报告和资产目标分析。
+- 资产快照接口使用 `/api/snapshots/**`，用于首页净资产变化、趋势图、AI 报告和资产目标分析；`POST /api/snapshots/rebuild` 用于批量补录或对账后按日期区间重建当前用户资产快照。
 - 账户资金明细接口使用 `/api/accounts/{id}/ledger`，账户详情统计使用 `/api/accounts/{id}/flow-statistics`，余额修正和账户余额曲线使用 `/api/accounts/{id}/balance-adjustments`、`/api/accounts/{id}/balance-trend`；账户详情只展示当前余额、累计流入、累计流出、余额修正、余额曲线和支出分类，不再展示投资资金流向图。
 - CSV 导出接口使用 `/api/export/**`，只允许导出当前登录用户自己的数据。
 - 预算接口使用 `/api/budgets/**`。
@@ -158,7 +158,7 @@ com.xoassets
 - 基金金额买入从实际申购日至确认日前按在途投资资产计入；交易后续确认后，补跑确认日前历史快照仍必须保留这段在途金额，避免已扣款但未确认份额导致净资产假跌。
 - `xo_market_calendar` 是交易日判断的数据库权威来源；年度补齐任务只生成基础周末日历，交易所特殊休市日通过迁移脚本或人工修正写入数据库，禁止把年度休市日写死在 Java 或 yml。
 - 预算使用额从 `xo_transaction` 汇总，转账不计入，退款抵扣支出；预算接口必须按当前 user_id 隔离。
-- 资产快照写入 `xo_asset_snapshot`，同一用户同一天重复生成必须更新原记录；现金资产必须按账户初始余额 + 快照日前普通流水 / 投资交易 / 余额修正重建历史余额，正余额计入现金资产、负余额绝对值计入负债，不能用当前 `xo_account.balance` 回填历史；投资资产必须通过 `InvestmentPositionHistoryService.positionsAt(snapshotDate)` 重建快照日历史头寸，再使用同币种日级价 / 当前价估值，不能用当前 `xo_holding` 数量回填历史。
+- 资产快照写入 `xo_asset_snapshot`，同一用户同一天重复生成必须更新原记录；现金资产必须按账户初始余额 + 快照日前普通流水 / 投资交易 / 余额修正重建历史余额，正余额计入现金资产、负余额绝对值计入负债，不能用当前 `xo_account.balance` 回填历史；投资资产必须通过 `InvestmentPositionHistoryService.positionsAt(snapshotDate)` 重建快照日历史头寸，再使用同币种日级价 / 当前价估值，不能用当前 `xo_holding` 数量回填历史；普通流水补录、修改或删除后必须从受影响日期起触发资产快照重建，31 天内同步重建，长跨度任务写入 `xo_snapshot_rebuild_task` 后由 `rebuildPendingAssetSnapshots` 批量处理。
 - `/api/snapshots/latest` 的较昨日 / 较月初变化缺少基准快照时必须返回 `null`，前端展示 `--`，不能用 0 冒充缺失对比。
 - 首页和统计总资产口径优先使用资产快照：总资产 = 现金资产 + 投资资产，净资产 = 总资产 - 负债；没有快照时页面可退回当前实时概览。
 - 资产目标当前金额可手动填写，也可按当前净资产口径写入；目标接口必须按当前 user_id 隔离。

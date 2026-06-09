@@ -1,6 +1,7 @@
 package com.xoassets.module.snapshot.controller;
 
 import com.xoassets.common.api.Result;
+import com.xoassets.module.snapshot.service.SnapshotRebuildService;
 import com.xoassets.module.snapshot.service.SnapshotService;
 import com.xoassets.module.snapshot.vo.AssetSnapshotLatestVO;
 import com.xoassets.module.snapshot.vo.AssetSnapshotVO;
@@ -24,12 +25,17 @@ public class SnapshotController {
      * 资产快照服务。
      */
     private final SnapshotService snapshotService;
+    /**
+     * 资产快照重建服务。
+     */
+    private final SnapshotRebuildService snapshotRebuildService;
 
     /**
      * 注入接口依赖。
      */
-    public SnapshotController(SnapshotService snapshotService) {
+    public SnapshotController(SnapshotService snapshotService, SnapshotRebuildService snapshotRebuildService) {
         this.snapshotService = snapshotService;
+        this.snapshotRebuildService = snapshotRebuildService;
     }
 
     /**
@@ -65,5 +71,16 @@ public class SnapshotController {
     public Result<AssetSnapshotVO> generate(
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate snapshotDate) {
         return Result.success(snapshotService.generate(snapshotDate));
+    }
+
+    /**
+     * 手动重建指定区间资产快照，适合批量补录或导入后对账修复。
+     */
+    @PostMapping("/rebuild")
+    public Result<Void> rebuild(
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate endDate) {
+        snapshotRebuildService.rebuildCurrentUser(startDate, endDate);
+        return Result.success(null);
     }
 }

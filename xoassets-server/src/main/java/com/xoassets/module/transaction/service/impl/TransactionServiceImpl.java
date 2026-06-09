@@ -9,6 +9,7 @@ import com.xoassets.common.exception.BusinessException;
 import com.xoassets.common.security.LoginUserContext;
 import com.xoassets.module.account.service.AccountService;
 import com.xoassets.module.category.service.CategoryService;
+import com.xoassets.module.snapshot.service.SnapshotRebuildService;
 import com.xoassets.module.transaction.dto.TransactionQuery;
 import com.xoassets.module.transaction.dto.TransactionRequest;
 import com.xoassets.module.transaction.service.TransactionService;
@@ -20,6 +21,7 @@ import com.xoassets.persistence.mapper.AccountMapper;
 import com.xoassets.persistence.mapper.CategoryMapper;
 import com.xoassets.persistence.mapper.TransactionRecordMapper;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Collections;
@@ -28,13 +30,17 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 /**
  * 流水服务：封装流水校验、余额变更和分页查询。
  */
+@Slf4j
 @Service
 public class TransactionServiceImpl implements TransactionService {
 
@@ -83,6 +89,10 @@ public class TransactionServiceImpl implements TransactionService {
      * 业务服务组件。
      */
     private final CategoryService categoryService;
+    /**
+     * 快照重建服务。
+     */
+    private final SnapshotRebuildService snapshotRebuildService;
 
     /**
      * 注入业务依赖。
@@ -92,12 +102,14 @@ public class TransactionServiceImpl implements TransactionService {
             AccountMapper accountMapper,
             CategoryMapper categoryMapper,
             AccountService accountService,
-            CategoryService categoryService) {
+            CategoryService categoryService,
+            SnapshotRebuildService snapshotRebuildService) {
         this.transactionRecordMapper = transactionRecordMapper;
         this.accountMapper = accountMapper;
         this.categoryMapper = categoryMapper;
         this.accountService = accountService;
         this.categoryService = categoryService;
+        this.snapshotRebuildService = snapshotRebuildService;
     }
 
     /**
@@ -132,6 +144,7 @@ public class TransactionServiceImpl implements TransactionService {
         TransactionRecord record = toEntity(userId, request);
         transactionRecordMapper.insert(record);
         applyBalance(record);
+        requestSnapshotRebuildAfterCommit(userId, record.getTransactionTime().toLocalDate());
         return toVO(record);
     }
 
@@ -152,6 +165,7 @@ public class TransactionServiceImpl implements TransactionService {
                 .eq(TransactionRecord::getId, id)
                 .eq(TransactionRecord::getUserId, userId));
         applyBalance(newRecord);
+        requestSnapshotRebuildAfterCommit(userId, earlierDate(oldRecord.getTransactionTime(), newRecord.getTransactionTime()));
         return toVO(newRecord);
     }
 
@@ -167,6 +181,51 @@ public class TransactionServiceImpl implements TransactionService {
         transactionRecordMapper.delete(new LambdaQueryWrapper<TransactionRecord>()
                 .eq(TransactionRecord::getId, id)
                 .eq(TransactionRecord::getUserId, userId));
+        requestSnapshotRebuildAfterCommit(userId, record.getTransactionTime().toLocalDate());
+    }
+
+    /**
+     * 流水补录、修改或删除会影响交易日起至今天的资产快照；事务提交后再重建，避免读取未提交数据。
+     */
+    private void requestSnapshotRebuildAfterCommit(Long userId, LocalDate startDate) {
+        if (startDate == null) {
+            return;
+        }
+        Runnable request = () -> {
+            try {
+                snapshotRebuildService.requestRebuild(userId, startDate, "TRANSACTION");
+            } catch (Exception exception) {
+                log.warn("流水变更后请求资产快照重建失败 userId={} startDate={}", userId, startDate, exception);
+            }
+        };
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                /**
+                 * 事务提交后再读取流水重算快照，保证补录数据已落库。
+                 */
+                @Override
+                public void afterCommit() {
+                    request.run();
+                }
+            });
+            return;
+        }
+        request.run();
+    }
+
+    /**
+     * 修改流水时从新旧交易日期中较早的一天开始修复，覆盖跨日期修改导致的历史差异。
+     */
+    private LocalDate earlierDate(LocalDateTime oldTime, LocalDateTime newTime) {
+        if (oldTime == null) {
+            return newTime == null ? null : newTime.toLocalDate();
+        }
+        if (newTime == null) {
+            return oldTime.toLocalDate();
+        }
+        LocalDate oldDate = oldTime.toLocalDate();
+        LocalDate newDate = newTime.toLocalDate();
+        return oldDate.isBefore(newDate) ? oldDate : newDate;
     }
 
     /**

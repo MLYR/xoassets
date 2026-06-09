@@ -63,6 +63,7 @@ import com.xoassets.module.investment.vo.InvestmentOverviewVO;
 import com.xoassets.module.investment.vo.InvestmentTransactionVO;
 import com.xoassets.module.investment.vo.InvestmentTrendVO;
 import com.xoassets.module.snapshot.service.SnapshotService;
+import com.xoassets.module.snapshot.service.SnapshotRebuildService;
 import com.xoassets.module.snapshot.service.impl.SnapshotServiceImpl;
 import com.xoassets.module.snapshot.vo.AssetSnapshotLatestVO;
 import com.xoassets.module.snapshot.vo.AssetSnapshotVO;
@@ -145,7 +146,7 @@ class MvpCoreServiceTest {
         CategoryService categoryService = mock(CategoryService.class);
         AccountServiceImpl accountService = new AccountServiceImpl(accountMapper, transactionMapper, mock(com.xoassets.module.account.service.AccountBalanceService.class));
         TransactionServiceImpl transactionService = new TransactionServiceImpl(
-                transactionMapper, accountMapper, mock(CategoryMapper.class), accountService, categoryService);
+                transactionMapper, accountMapper, mock(CategoryMapper.class), accountService, categoryService, mock(SnapshotRebuildService.class));
 
         mockAtomicBalance(accountMapper, bank, alipay);
         when(accountMapper.selectOne(any())).thenReturn(bank, bank, bank, bank, bank, alipay, bank, alipay);
