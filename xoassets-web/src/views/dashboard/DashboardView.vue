@@ -1,6 +1,22 @@
 <!-- 首页仪表盘：按资产小块、收支汇总和趋势大图展示真实财务概览。 -->
 <template>
   <div class="page dashboard-page">
+    <section class="dashboard-command-band">
+      <div>
+        <span class="dashboard-eyebrow">Overview</span>
+        <h2>总资产</h2>
+        <p>{{ dashboardDate }} · 聚合账户、投资、预算和快照趋势</p>
+      </div>
+      <div class="dashboard-signal-grid">
+        <div v-for="item in dashboardSignalItems" :key="item.title" :class="['dashboard-signal', `tone-${item.tone}`]">
+          <span>{{ item.title }}</span>
+          <AmountText v-if="item.kind === 'amount'" :value="item.value" :with-sign="item.withSign" :precision="2" />
+          <strong v-else>{{ formatPercentValue(item.value) }}</strong>
+          <small>{{ item.description }}</small>
+        </div>
+      </div>
+    </section>
+
     <section class="dashboard-hero-grid" v-loading="loading">
       <div class="asset-card-grid">
         <div v-for="(metric, index) in assetMetrics" :key="metric.title" :class="['premium-shell', 'asset-mini-shell', `tone-${metric.tone}`]" :style="{ animationDelay: `${index * 70}ms` }">
@@ -12,6 +28,10 @@
             <div>
               <AmountText class="asset-mini-value" :value="metric.value" :precision="2" />
               <small>{{ metric.description }}</small>
+            </div>
+            <div class="asset-mini-foot">
+              <span>{{ metric.meta }}</span>
+              <strong>{{ metric.percentLabel }}</strong>
             </div>
           </div>
         </div>
@@ -46,7 +66,7 @@
           <div>
             <span class="dashboard-eyebrow">Trajectory</span>
             <h3>资产趋势</h3>
-            <p>{{ range }}资产变化</p>
+            <p>{{ range }} · {{ assetTrendModeLabel }}</p>
           </div>
           <div class="chart-actions">
             <el-segmented v-model="assetTrendMode" :options="assetTrendOptions" />
@@ -55,6 +75,13 @@
         </div>
         <el-empty v-if="!loading && assetTrend.length === 0" description="暂无净资产趋势数据" />
         <BaseChart v-else :option="assetOption" height="360px" />
+        <div class="asset-mix-strip">
+          <div v-for="item in assetMixItems" :key="item.title" class="asset-mix-item">
+            <span>{{ item.title }}</span>
+            <strong>{{ item.percentLabel }}</strong>
+            <i :style="{ width: item.barWidth }" aria-hidden="true"></i>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -109,6 +136,11 @@ const assetTrendOptions = [
   { label: '账户', value: 'cashAsset' },
   { label: '投资', value: 'investmentAsset' }
 ];
+const trendPalette = {
+  totalAsset: { line: '#2563eb', area: 'rgba(37, 99, 235, 0.12)' },
+  cashAsset: { line: '#0ea5e9', area: 'rgba(14, 165, 233, 0.12)' },
+  investmentAsset: { line: '#8b5cf6', area: 'rgba(139, 92, 246, 0.12)' }
+} as const;
 
 onMounted(() => {
   loadDashboard();
@@ -123,12 +155,19 @@ const accountAsset = computed(() => {
   return Number(overview.totalAssets || 0) - Number(overview.investmentMarketValue || 0);
 });
 
+const dashboardDate = computed(() => new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' }).format(new Date()));
+const assetTrendModeLabel = computed(() => assetTrendOptions.find((item) => item.value === assetTrendMode.value)?.label || '总资产');
+const dashboardSignalItems = computed(() => [
+  { title: '本月结余', value: overview.monthlyBalance, description: '收入 - 支出', kind: 'amount', withSign: true, tone: overview.monthlyBalance >= 0 ? 'success' : 'danger' },
+  { title: '预算使用率', value: overview.budgetUsageRate, description: '本月预算消耗', kind: 'percent', withSign: false, tone: overview.budgetUsageRate >= 90 ? 'danger' : 'primary' },
+  { title: '投资浮盈', value: overview.investmentFloatingProfit, description: '当前持仓盈亏', kind: 'amount', withSign: true, tone: overview.investmentFloatingProfit >= 0 ? 'success' : 'danger' }
+]);
 const assetMetrics = computed(() => [
-  { title: '总资产', value: overview.totalAssets, description: '账户 + 投资', tone: 'primary' },
+  { title: '总资产', value: overview.totalAssets, description: '账户 + 投资', tone: 'primary', meta: '资产合计', percentLabel: '100%' },
   // 净资产不复用其他趋势率，避免把收支变化冒充资产变化。
-  { title: '净资产', value: overview.netAssets, description: '总资产 - 负债', tone: 'success' },
-  { title: '账户资产', value: accountAsset.value, description: '现金类账户余额', tone: 'cyan' },
-  { title: '投资资产', value: overview.investmentMarketValue, description: '当前持仓市值', tone: 'purple' }
+  { title: '净资产', value: overview.netAssets, description: '总资产 - 负债', tone: 'success', meta: '净值占比', percentLabel: formatPercentValue(percentOfTotal(overview.netAssets, overview.totalAssets)) },
+  { title: '账户资产', value: accountAsset.value, description: '现金类账户余额', tone: 'cyan', meta: '资产占比', percentLabel: formatPercentValue(percentOfTotal(accountAsset.value, overview.totalAssets)) },
+  { title: '投资资产', value: overview.investmentMarketValue, description: '当前持仓市值', tone: 'purple', meta: '资产占比', percentLabel: formatPercentValue(percentOfTotal(overview.investmentMarketValue, overview.totalAssets)) }
 ]);
 
 const financeSummaryItems = computed(() => [
@@ -144,13 +183,22 @@ const financeSummaryItems = computed(() => [
   { title: '投资今日收益', value: overview.investmentTodayProfit, description: '今日有效价', withSign: true, tone: 'primary' }
 ]);
 
-const assetOption = computed<EChartsOption>(() => ({
+const assetMixItems = computed(() => [
+  { title: '账户资产', percentLabel: formatPercentValue(percentOfTotal(accountAsset.value, overview.totalAssets)), barWidth: `${Math.min(100, Math.max(6, percentOfTotal(accountAsset.value, overview.totalAssets)))}%` },
+  { title: '投资资产', percentLabel: formatPercentValue(percentOfTotal(overview.investmentMarketValue, overview.totalAssets)), barWidth: `${Math.min(100, Math.max(6, percentOfTotal(overview.investmentMarketValue, overview.totalAssets)))}%` },
+  { title: '净资产', percentLabel: formatPercentValue(percentOfTotal(overview.netAssets, overview.totalAssets)), barWidth: `${Math.min(100, Math.max(6, percentOfTotal(overview.netAssets, overview.totalAssets)))}%` }
+]);
+
+const assetOption = computed<EChartsOption>(() => {
+  const color = trendPalette[assetTrendMode.value];
+  return {
   grid: { left: 44, right: 16, top: 24, bottom: 32 },
   tooltip: { trigger: 'axis', backgroundColor: 'rgba(15, 23, 42, 0.88)', borderWidth: 0, textStyle: { color: '#ffffff' } },
   xAxis: { type: 'category', data: assetTrend.value.map((item) => item.snapshotDate), axisLine: { lineStyle: { color: '#dbe7f5' } }, axisLabel: { color: '#94a3b8' } },
   yAxis: { type: 'value', axisLabel: { color: '#64748b', formatter: (value: number) => `${Math.round(value / 1000)}k` }, splitLine: { lineStyle: { color: '#e8eef7' } } },
-  series: [{ type: 'line', smooth: true, data: assetTrend.value.map((item) => item[assetTrendMode.value]), symbolSize: 8, lineStyle: { color: '#2563eb', width: 3 }, itemStyle: { color: '#2563eb', borderColor: '#ffffff', borderWidth: 2 }, areaStyle: { color: 'rgba(37, 99, 235, 0.10)' } }]
-}));
+  series: [{ type: 'line', smooth: true, data: assetTrend.value.map((item) => item[assetTrendMode.value]), symbolSize: 8, lineStyle: { color: color.line, width: 3 }, itemStyle: { color: color.line, borderColor: '#ffffff', borderWidth: 2 }, areaStyle: { color: color.area } }]
+  };
+});
 
 // 加载首页数据。
 async function loadDashboard() {
@@ -216,6 +264,23 @@ function dateBefore(days: number) {
   date.setDate(date.getDate() - days);
   return `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, '0')}-${`${date.getDate()}`.padStart(2, '0')}`;
 }
+
+// 统一百分比展示，避免首页不同模块的小数口径漂移。
+function formatPercentValue(value: number | null | undefined) {
+  if (value === null || value === undefined || !Number.isFinite(Number(value))) {
+    return '0.0%';
+  }
+  return `${Number(value).toFixed(1)}%`;
+}
+
+// 资产结构百分比只做展示，权威金额仍来自后端聚合接口。
+function percentOfTotal(value: number | null | undefined, total: number | null | undefined) {
+  const denominator = Number(total || 0);
+  if (denominator <= 0) {
+    return 0;
+  }
+  return Math.max(0, (Number(value || 0) / denominator) * 100);
+}
 </script>
 
 <style scoped>
@@ -242,6 +307,97 @@ function dateBefore(days: number) {
     radial-gradient(circle at 52% 42%, rgba(139, 92, 246, 0.08), transparent 34%),
     linear-gradient(135deg, rgba(239, 246, 255, 0.86), rgba(255, 255, 255, 0));
   pointer-events: none;
+}
+
+.dashboard-command-band {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(320px, 0.78fr) minmax(520px, 1.22fr);
+  gap: 24px;
+  align-items: end;
+  padding: 8px 4px 0;
+}
+
+.dashboard-command-band h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: clamp(30px, 2.4vw, 42px);
+  font-weight: 950;
+  line-height: 1.05;
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+}
+
+.dashboard-command-band p {
+  margin: 12px 0 0;
+  color: var(--xo-muted);
+  font-size: 14px;
+}
+
+.dashboard-signal-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.dashboard-signal {
+  --signal-accent: var(--xo-primary);
+  position: relative;
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 14px 15px;
+  border: 1px solid rgba(217, 228, 244, 0.82);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86), 0 14px 34px rgba(15, 23, 42, 0.045);
+  backdrop-filter: blur(14px);
+}
+
+.dashboard-signal::before {
+  content: '';
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--signal-accent);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--signal-accent) 12%, transparent);
+}
+
+.dashboard-signal.tone-success {
+  --signal-accent: var(--xo-success);
+}
+
+.dashboard-signal.tone-danger {
+  --signal-accent: var(--xo-danger);
+}
+
+.dashboard-signal.tone-primary {
+  --signal-accent: var(--xo-primary);
+}
+
+.dashboard-signal span,
+.dashboard-signal small {
+  color: var(--xo-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.dashboard-signal span {
+  max-width: calc(100% - 18px);
+  font-weight: 800;
+}
+
+.dashboard-signal strong,
+.dashboard-signal :deep(.amount-text) {
+  color: #0f172a;
+  font-size: 20px;
+  font-weight: 950;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
 }
 
 .dashboard-hero-grid {
@@ -288,18 +444,6 @@ function dateBefore(days: number) {
   --card-accent: linear-gradient(90deg, #2563eb, #60a5fa);
   --card-glow: rgba(37, 99, 235, 0.10);
   transition: transform 720ms var(--dashboard-ease), box-shadow 720ms var(--dashboard-ease), border-color 720ms var(--dashboard-ease);
-}
-
-.asset-mini-shell::before {
-  content: '';
-  position: absolute;
-  inset: 5px 5px auto;
-  z-index: 2;
-  height: 4px;
-  border-radius: 999px;
-  background: var(--card-accent);
-  opacity: 0.96;
-  pointer-events: none;
 }
 
 .asset-mini-shell:hover {
@@ -404,6 +548,27 @@ function dateBefore(days: number) {
 
 .asset-mini-card :deep(.asset-mini-value.amount-text) {
   font-size: clamp(30px, 1.86vw, 35px);
+  font-weight: 900;
+}
+
+.asset-mini-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(226, 232, 240, 0.72);
+}
+
+.asset-mini-foot span {
+  color: var(--xo-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.asset-mini-foot strong {
+  color: #1e293b;
+  font-size: 13px;
   font-weight: 900;
 }
 
@@ -576,6 +741,41 @@ function dateBefore(days: number) {
     linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.88));
 }
 
+.asset-mix-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.asset-mix-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  align-items: center;
+  padding: 13px 14px;
+  border: 1px solid rgba(217, 228, 244, 0.78);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--xo-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.asset-mix-item strong {
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.asset-mix-item i {
+  grid-column: 1 / -1;
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2563eb, #60a5fa);
+}
+
 .panel-head {
   display: flex;
   align-items: flex-start;
@@ -660,6 +860,11 @@ function dateBefore(days: number) {
 }
 
 @media (max-width: 1080px) {
+  .dashboard-command-band {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
   .dashboard-hero-grid {
     grid-template-columns: 1fr;
   }
@@ -681,7 +886,9 @@ function dateBefore(days: number) {
   }
 
   .asset-card-grid,
-  .finance-summary-grid {
+  .finance-summary-grid,
+  .dashboard-signal-grid,
+  .asset-mix-strip {
     grid-template-columns: 1fr;
   }
 
