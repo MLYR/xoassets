@@ -13,8 +13,20 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class PageResult<T> {
 
+    /**
+     * 分页记录。
+     */
     private List<T> records;
+    /**
+     * 总条数。
+     */
     private long total;
+    /**
+     * 页码。
+     */
     private long pageNo;
+    /**
+     * 每页条数。
+     */
     private long pageSize;
 }

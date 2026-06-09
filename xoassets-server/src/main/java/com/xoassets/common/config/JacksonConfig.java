@@ -23,7 +23,13 @@ import java.util.List;
 @Configuration
 public class JacksonConfig {
 
+    /**
+     * 时间输出格式化器。
+     */
     private static final DateTimeFormatter LOCAL_DATE_TIME_OUTPUT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    /**
+     * 时间输入格式列表。
+     */
     private static final List<DateTimeFormatter> LOCAL_DATE_TIME_INPUTS = List.of(
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"),
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"),
@@ -45,6 +51,9 @@ public class JacksonConfig {
      * LocalDateTime 输出保持后端接口现有空格分隔格式，减少前端展示端兼容成本。
      */
     private static class LocalDateTimeJsonSerializer extends JsonSerializer<LocalDateTime> {
+        /**
+         * 序列化本地日期时间。
+         */
         @Override
         public void serialize(LocalDateTime value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
             gen.writeString(value.format(LOCAL_DATE_TIME_OUTPUT));
@@ -55,6 +64,9 @@ public class JacksonConfig {
      * 兼容 uni-app time picker 只返回 HH:mm 导致的分钟级时间，同时保留秒级和 ISO 输入。
      */
     private static class LocalDateTimeJsonDeserializer extends JsonDeserializer<LocalDateTime> {
+        /**
+         * 反序列化本地日期时间。
+         */
         @Override
         public LocalDateTime deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
             String value = p.getText();

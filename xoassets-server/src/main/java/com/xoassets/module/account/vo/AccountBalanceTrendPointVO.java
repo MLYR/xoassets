@@ -11,9 +11,24 @@ import lombok.Data;
 @Builder
 public class AccountBalanceTrendPointVO {
 
+    /**
+     * 日期。
+     */
     private String date;
+    /**
+     * 日终余额。
+     */
     private BigDecimal endBalance;
+    /**
+     * 流入金额。
+     */
     private BigDecimal inflow;
+    /**
+     * 流出金额。
+     */
     private BigDecimal outflow;
+    /**
+     * 余额修正金额。
+     */
     private BigDecimal adjustmentAmount;
 }

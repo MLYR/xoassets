@@ -35,14 +35,35 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AccountBalanceServiceImpl implements AccountBalanceService {
 
+    /**
+     * 已撤销状态常量。
+     */
     private static final String STATUS_REVOKED = "REVOKED";
+    /**
+     * 已取消状态常量。
+     */
     private static final String STATUS_CANCELLED = "CANCELLED";
 
+    /**
+     * 账户数据访问组件。
+     */
     private final AccountMapper accountMapper;
+    /**
+     * 流水数据访问组件。
+     */
     private final TransactionRecordMapper transactionRecordMapper;
+    /**
+     * 投资交易数据访问组件。
+     */
     private final InvestmentTransactionMapper investmentTransactionMapper;
+    /**
+     * 余额修正数据访问组件。
+     */
     private final AccountBalanceAdjustmentMapper adjustmentMapper;
 
+    /**
+     * 注入业务依赖。
+     */
     public AccountBalanceServiceImpl(
             AccountMapper accountMapper,
             TransactionRecordMapper transactionRecordMapper,
@@ -104,6 +125,9 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
         return rebuildTrend(userId, account, start, end);
     }
 
+    /**
+     * 重建账户余额趋势。
+     */
     private List<AccountBalanceTrendPointVO> rebuildTrend(Long userId, Account account, LocalDate start, LocalDate end) {
         LocalDate firstDate = account.getCreatedAt() == null ? start : account.getCreatedAt().toLocalDate();
         LocalDate cursor = firstDate.isBefore(start) ? firstDate : start;
@@ -127,6 +151,9 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
         return points;
     }
 
+    /**
+     * 按日期汇总账户资金流。
+     */
     private Map<LocalDate, DailyFlow> groupedFlows(Long userId, Long accountId, LocalDate start, LocalDate end) {
         Map<LocalDate, DailyFlow> result = new LinkedHashMap<>();
         LocalDateTime startTime = start.atStartOfDay();
@@ -153,6 +180,9 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
         return result;
     }
 
+    /**
+     * 追加账户资金流。
+     */
     private void addFlow(Map<LocalDate, DailyFlow> result, LocalDate date, BigDecimal amount, BigDecimal adjustment) {
         DailyFlow flow = result.computeIfAbsent(date, key -> new DailyFlow());
         if (amount.compareTo(BigDecimal.ZERO) >= 0) {
@@ -163,6 +193,9 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
         flow.adjustment = flow.adjustment.add(adjustment).setScale(4, RoundingMode.HALF_UP);
     }
 
+    /**
+     * 计算普通流水对账户余额的有符号影响。
+     */
     private BigDecimal signedTransactionAmount(Long accountId, TransactionRecord record) {
         if ("TRANSFER".equals(record.getType())) {
             return Objects.equals(accountId, record.getTargetAccountId()) ? record.getAmount() : record.getAmount().negate();
@@ -173,6 +206,9 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
         return record.getAmount();
     }
 
+    /**
+     * 计算投资交易对账户余额的有符号影响。
+     */
     private BigDecimal signedInvestmentAmount(InvestmentTransaction record) {
         if ("BUY".equals(record.getType())) {
             BigDecimal amount = record.getTradeAmount() == null ? record.getAmount().add(record.getFee()) : record.getTradeAmount();
@@ -181,10 +217,16 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
         return record.getAmount().subtract(record.getFee());
     }
 
+    /**
+     * 按金额精度保留四位小数。
+     */
     private BigDecimal scale4(BigDecimal value) {
         return value == null ? BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP) : value.setScale(4, RoundingMode.HALF_UP);
     }
 
+    /**
+     * 转换为返回对象。
+     */
     private AccountBalanceAdjustmentVO toVO(AccountBalanceAdjustment adjustment) {
         return AccountBalanceAdjustmentVO.builder()
                 .id(adjustment.getId())
@@ -199,6 +241,9 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
                 .build();
     }
 
+    /**
+     * 解析业务发生时间。
+     */
     private LocalDateTime resolveBizTime(AccountBalanceAdjustmentRequest request) {
         if (request.getBizTime() != null) {
             return request.getBizTime();
@@ -210,10 +255,22 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
     }
 
     private static class DailyFlow {
+        /**
+         * 流入金额。
+         */
         private BigDecimal inflow = BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
+        /**
+         * 流出金额。
+         */
         private BigDecimal outflow = BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
+        /**
+         * 余额修正记录。
+         */
         private BigDecimal adjustment = BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
 
+        /**
+         * 计算净额。
+         */
         private BigDecimal net() {
             return inflow.subtract(outflow).setScale(4, RoundingMode.HALF_UP);
         }

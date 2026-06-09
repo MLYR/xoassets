@@ -12,17 +12,32 @@ import lombok.Data;
 @Data
 public class BudgetRequest {
 
+    /**
+     * 月份。
+     */
     @NotBlank(message = "预算月份不能为空")
     private String month;
 
+    /**
+     * 分类ID。
+     */
     private Long categoryId;
 
+    /**
+     * 预算类型。
+     */
     @NotBlank(message = "预算类型不能为空")
     private String budgetType;
 
+    /**
+     * 金额。
+     */
     @NotNull(message = "预算金额不能为空")
     @DecimalMin(value = "0.0001", message = "预算金额必须大于0")
     private BigDecimal amount;
 
+    /**
+     * 状态。
+     */
     private Integer status = 1;
 }

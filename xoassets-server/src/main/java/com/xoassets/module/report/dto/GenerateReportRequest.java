@@ -9,6 +9,12 @@ import lombok.Data;
 @Data
 public class GenerateReportRequest {
 
+    /**
+     * 报告类型。
+     */
     private String reportType = "DAILY";
+    /**
+     * 日期。
+     */
     private LocalDate reportDate;
 }

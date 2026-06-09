@@ -21,8 +21,17 @@ import org.springframework.web.client.RestClientException;
 @Component
 public class CoinGeckoQuoteProvider implements QuoteProvider {
 
+    /**
+     * 虚拟货币资产类型常量。
+     */
     private static final String ASSET_TYPE_CRYPTO = "CRYPTO";
+    /**
+     * CoinGecko行情来源常量。
+     */
     private static final String SOURCE_COINGECKO = "COINGECKO";
+    /**
+     * 支持的虚拟货币代码映射。
+     */
     private static final Map<String, String> SUPPORTED_COINS = Map.of(
             "BTC", "bitcoin",
             "ETH", "ethereum",
@@ -30,20 +39,35 @@ public class CoinGeckoQuoteProvider implements QuoteProvider {
             "BNB", "binancecoin",
             "DOGE", "dogecoin");
 
+    /**
+     * HTTP客户端。
+     */
     private final RestClient restClient;
+    /**
+     * JSON序列化组件。
+     */
     private final ObjectMapper objectMapper;
 
+    /**
+     * 初始化行情提供方。
+     */
     public CoinGeckoQuoteProvider(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
         // 使用 CoinGecko keyless public API，后续如需 Pro API 再抽配置。
         this.restClient = RestClient.builder().baseUrl("https://api.coingecko.com/api/v3").build();
     }
 
+    /**
+     * 判断是否支持该资产。
+     */
     @Override
     public boolean supports(Asset asset) {
         return ASSET_TYPE_CRYPTO.equals(asset.getType()) && SOURCE_COINGECKO.equals(asset.getQuoteSource());
     }
 
+    /**
+     * 拉取行情数据。
+     */
     @Override
     public QuoteFetchResult fetch(Asset asset) {
         String coinId = resolveCoinId(asset);

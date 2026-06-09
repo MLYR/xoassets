@@ -21,8 +21,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/assets")
 public class AssetController {
 
+    /**
+     * 资产服务。
+     */
     private final AssetService assetService;
 
+    /**
+     * 注入接口依赖。
+     */
     public AssetController(AssetService assetService) {
         this.assetService = assetService;
     }

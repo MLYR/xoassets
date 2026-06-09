@@ -20,8 +20,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/quotes")
 public class QuoteController {
 
+    /**
+     * 行情服务。
+     */
     private final QuoteService quoteService;
 
+    /**
+     * 注入接口依赖。
+     */
     public QuoteController(QuoteService quoteService) {
         this.quoteService = quoteService;
     }

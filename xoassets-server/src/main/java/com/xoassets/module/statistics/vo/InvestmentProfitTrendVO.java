@@ -12,8 +12,20 @@ import lombok.Data;
 @Builder
 public class InvestmentProfitTrendVO {
 
+    /**
+     * 月份。
+     */
     private YearMonth month;
+    /**
+     * 持仓市值。
+     */
     private BigDecimal marketValue;
+    /**
+     * 总成本。
+     */
     private BigDecimal totalCost;
+    /**
+     * 浮动盈亏。
+     */
     private BigDecimal floatingProfit;
 }

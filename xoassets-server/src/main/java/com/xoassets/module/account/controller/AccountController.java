@@ -34,11 +34,26 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/accounts")
 public class AccountController {
 
+    /**
+     * 账户服务。
+     */
     private final AccountService accountService;
+    /**
+     * 账户余额服务。
+     */
     private final AccountBalanceService accountBalanceService;
+    /**
+     * 账户账本服务。
+     */
     private final AccountLedgerService accountLedgerService;
+    /**
+     * 业务服务组件。
+     */
     private final AccountOverviewService accountOverviewService;
 
+    /**
+     * 注入接口依赖。
+     */
     public AccountController(AccountService accountService, AccountBalanceService accountBalanceService, AccountLedgerService accountLedgerService, AccountOverviewService accountOverviewService) {
         this.accountService = accountService;
         this.accountBalanceService = accountBalanceService;

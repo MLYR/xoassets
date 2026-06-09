@@ -19,15 +19,30 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class MarketCalendarServiceImpl implements MarketCalendarService {
 
+    /**
+     * 系统工作日来源常量。
+     */
     private static final String SOURCE_SYSTEM_WEEKDAY = "SYSTEM_WEEKDAY";
+    /**
+     * 交易日历优先级排序SQL。
+     */
     private static final String CALENDAR_PRIORITY_SQL = "order by case source when 'MANUAL' then 3 when 'EXCHANGE_ANNOUNCEMENT' then 2 when 'SYSTEM_WEEKDAY' then 1 else 0 end desc, id desc limit 1";
 
+    /**
+     * 交易日历数据访问组件。
+     */
     private final MarketCalendarMapper marketCalendarMapper;
 
+    /**
+     * 注入业务依赖。
+     */
     public MarketCalendarServiceImpl(MarketCalendarMapper marketCalendarMapper) {
         this.marketCalendarMapper = marketCalendarMapper;
     }
 
+    /**
+     * 判断是否交易日。
+     */
     @Override
     public boolean isTradingDay(String market, LocalDate date) {
         if (market == null || market.isBlank() || date == null) {
@@ -42,6 +57,9 @@ public class MarketCalendarServiceImpl implements MarketCalendarService {
         return calendar == null ? isWeekday(date) : Boolean.TRUE.equals(calendar.getTradingDay());
     }
 
+    /**
+     * 确保年份交易日历已初始化。
+     */
     @Transactional(rollbackFor = Exception.class)
     @Override
     public void ensureYearInitialized(String market, int year) {
@@ -63,6 +81,9 @@ public class MarketCalendarServiceImpl implements MarketCalendarService {
         }
     }
 
+    /**
+     * 查询交易日历配置。
+     */
     private MarketCalendar findCalendar(String market, LocalDate date) {
         return marketCalendarMapper.selectOne(new LambdaQueryWrapper<MarketCalendar>()
                 .eq(MarketCalendar::getMarket, market)
@@ -71,6 +92,9 @@ public class MarketCalendarServiceImpl implements MarketCalendarService {
                 .last(CALENDAR_PRIORITY_SQL));
     }
 
+    /**
+     * 写入基础交易日。
+     */
     private void insertBaselineDay(String market, LocalDate date) {
         MarketCalendar calendar = new MarketCalendar();
         calendar.setId(IdWorker.getId());
@@ -83,6 +107,9 @@ public class MarketCalendarServiceImpl implements MarketCalendarService {
         marketCalendarMapper.insert(calendar);
     }
 
+    /**
+     * 判断业务条件是否成立。
+     */
     private boolean isWeekday(LocalDate date) {
         DayOfWeek dayOfWeek = date.getDayOfWeek();
         return dayOfWeek != DayOfWeek.SATURDAY && dayOfWeek != DayOfWeek.SUNDAY;

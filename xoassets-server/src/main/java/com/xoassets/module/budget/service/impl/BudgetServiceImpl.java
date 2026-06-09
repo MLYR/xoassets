@@ -37,16 +37,43 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class BudgetServiceImpl implements BudgetService {
 
+    /**
+     * 总预算类型常量。
+     */
     private static final String TYPE_TOTAL = "TOTAL";
+    /**
+     * 分类预算类型常量。
+     */
     private static final String TYPE_CATEGORY = "CATEGORY";
+    /**
+     * 支出流水类型常量。
+     */
     private static final String TRANSACTION_EXPENSE = "EXPENSE";
+    /**
+     * 退款流水类型常量。
+     */
     private static final String TRANSACTION_REFUND = "REFUND";
 
+    /**
+     * 预算数据访问组件。
+     */
     private final BudgetMapper budgetMapper;
+    /**
+     * 分类数据访问组件。
+     */
     private final CategoryMapper categoryMapper;
+    /**
+     * 流水数据访问组件。
+     */
     private final TransactionRecordMapper transactionRecordMapper;
+    /**
+     * 业务服务组件。
+     */
     private final CategoryService categoryService;
 
+    /**
+     * 注入业务依赖。
+     */
     public BudgetServiceImpl(
             BudgetMapper budgetMapper,
             CategoryMapper categoryMapper,

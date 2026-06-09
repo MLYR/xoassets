@@ -8,9 +8,21 @@ import lombok.Data;
 @Data
 public class Result<T> {
 
+    /**
+     * 业务码。
+     */
     private int code;
+    /**
+     * 提示信息。
+     */
     private String message;
+    /**
+     * 业务数据。
+     */
     private T data;
+    /**
+     * 链路追踪ID。
+     */
     private String traceId;
 
     /**

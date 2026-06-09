@@ -24,14 +24,35 @@ import org.springframework.web.client.RestClientException;
 @Component
 public class StockQuoteProvider implements QuoteProvider {
 
+    /**
+     * 股票资产类型常量。
+     */
     private static final String ASSET_TYPE_STOCK = "STOCK";
+    /**
+     * 新浪行情来源常量。
+     */
     private static final String SOURCE_SINA = "SINA";
+    /**
+     * 雅虎行情来源常量。
+     */
     private static final String SOURCE_YAHOO = "YAHOO";
 
+    /**
+     * 新浪行情HTTP客户端。
+     */
     private final RestClient sinaClient;
+    /**
+     * 雅虎行情HTTP客户端。
+     */
     private final RestClient yahooClient;
+    /**
+     * JSON序列化组件。
+     */
     private final ObjectMapper objectMapper;
 
+    /**
+     * 初始化行情提供方。
+     */
     public StockQuoteProvider(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
         this.sinaClient = RestClient.builder()
@@ -44,11 +65,17 @@ public class StockQuoteProvider implements QuoteProvider {
                 .build();
     }
 
+    /**
+     * 判断是否支持该资产。
+     */
     @Override
     public boolean supports(Asset asset) {
         return ASSET_TYPE_STOCK.equals(asset.getType()) && (SOURCE_SINA.equals(asset.getQuoteSource()) || SOURCE_YAHOO.equals(asset.getQuoteSource()));
     }
 
+    /**
+     * 拉取行情数据。
+     */
     @Override
     public QuoteFetchResult fetch(Asset asset) {
         if (SOURCE_SINA.equals(asset.getQuoteSource())) {
@@ -150,6 +177,9 @@ public class StockQuoteProvider implements QuoteProvider {
         }
     }
 
+    /**
+     * 构建行情响应数据。
+     */
     private String quotePayload(String body) {
         int start = body.indexOf('"');
         int end = body.lastIndexOf('"');
@@ -159,6 +189,9 @@ public class StockQuoteProvider implements QuoteProvider {
         return body.substring(start + 1, end);
     }
 
+    /**
+     * 生成新浪行情查询键。
+     */
     private String sinaKey(Asset asset) {
         String key = StringUtils.hasText(asset.getQuoteKey()) ? asset.getQuoteKey() : asset.getSymbol();
         if (!StringUtils.hasText(key)) {

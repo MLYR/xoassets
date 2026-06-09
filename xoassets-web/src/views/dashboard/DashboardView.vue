@@ -152,6 +152,7 @@ const assetOption = computed<EChartsOption>(() => ({
   series: [{ type: 'line', smooth: true, data: assetTrend.value.map((item) => item[assetTrendMode.value]), symbolSize: 8, lineStyle: { color: '#2563eb', width: 3 }, itemStyle: { color: '#2563eb', borderColor: '#ffffff', borderWidth: 2 }, areaStyle: { color: 'rgba(37, 99, 235, 0.10)' } }]
 }));
 
+// 加载首页数据。
 async function loadDashboard() {
   loading.value = true;
   try {
@@ -170,6 +171,7 @@ async function loadDashboard() {
   }
 }
 
+// 加载趋势数据。
 async function loadTrend() {
   try {
     const days = range.value === '7天' ? 7 : range.value === '90天' ? 90 : 30;
@@ -179,6 +181,7 @@ async function loadTrend() {
   }
 }
 
+// 生成今日快照。
 async function handleGenerateSnapshot() {
   try {
     await ElMessageBox.confirm(
@@ -206,6 +209,7 @@ async function handleGenerateSnapshot() {
   }
 }
 
+// 计算指定天数前的日期。
 function dateBefore(days: number) {
   const date = new Date();
   date.setDate(date.getDate() - days);

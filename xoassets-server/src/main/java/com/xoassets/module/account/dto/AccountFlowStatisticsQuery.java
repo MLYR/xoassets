@@ -10,9 +10,18 @@ import org.springframework.format.annotation.DateTimeFormat;
 @Data
 public class AccountFlowStatisticsQuery {
 
+    /**
+     * 月份。
+     */
     private String month;
+    /**
+     * 开始日期。
+     */
     @DateTimeFormat(pattern = "yyyy-MM-dd")
     private LocalDate startDate;
+    /**
+     * 结束日期。
+     */
     @DateTimeFormat(pattern = "yyyy-MM-dd")
     private LocalDate endDate;
 }

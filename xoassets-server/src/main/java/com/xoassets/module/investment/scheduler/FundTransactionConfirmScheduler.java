@@ -12,8 +12,14 @@ import org.springframework.stereotype.Component;
 @Component
 public class FundTransactionConfirmScheduler {
 
+    /**
+     * 流水服务。
+     */
     private final InvestmentTransactionService transactionService;
 
+    /**
+     * 注入定时任务依赖。
+     */
     public FundTransactionConfirmScheduler(InvestmentTransactionService transactionService) {
         this.transactionService = transactionService;
     }
@@ -24,6 +30,9 @@ public class FundTransactionConfirmScheduler {
     @Scheduled(
             fixedDelayString = "${xoassets.fund-confirm.fixed-delay-ms:1800000}",
             initialDelayString = "${xoassets.fund-confirm.initial-delay-ms:120000}")
+    /**
+     * 定时确认待确认基金买入。
+     */
     public void confirmPendingFundTransactions() {
         try {
             transactionService.confirmPendingFundBuys();

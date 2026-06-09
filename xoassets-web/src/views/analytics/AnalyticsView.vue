@@ -145,6 +145,7 @@ const incomeExpenseOption = computed<EChartsOption>(() => ({
   ]
 }));
 
+// 加载统计分析数据。
 async function loadAnalytics() {
   loading.value = true;
   try {
@@ -170,6 +171,7 @@ async function loadAnalytics() {
   }
 }
 
+// 获取选中时间范围。
 function selectedRange() {
   const days = selectedDays();
   return {
@@ -180,6 +182,7 @@ function selectedRange() {
   };
 }
 
+// 获取选中天数。
 function selectedDays() {
   if (period.value === '全年') {
     return 365;
@@ -190,17 +193,20 @@ function selectedDays() {
   return new Date().getDate();
 }
 
+// 获取当前月份。
 function currentMonth() {
   const date = new Date();
   return `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, '0')}`;
 }
 
+// 计算指定月数前的月份。
 function monthBefore(months: number) {
   const date = new Date();
   date.setMonth(date.getMonth() - months);
   return `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, '0')}`;
 }
 
+// 计算指定天数前的日期。
 function dateBefore(days: number) {
   const date = new Date();
   date.setDate(date.getDate() - days);

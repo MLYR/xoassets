@@ -24,8 +24,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/budgets")
 public class BudgetController {
 
+    /**
+     * 预算服务。
+     */
     private final BudgetService budgetService;
 
+    /**
+     * 注入接口依赖。
+     */
     public BudgetController(BudgetService budgetService) {
         this.budgetService = budgetService;
     }

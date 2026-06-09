@@ -13,8 +13,14 @@ import org.springframework.stereotype.Component;
 @Component
 public class AssetSnapshotScheduler {
 
+    /**
+     * 资产快照服务。
+     */
     private final SnapshotService snapshotService;
 
+    /**
+     * 注入定时任务依赖。
+     */
     public AssetSnapshotScheduler(SnapshotService snapshotService) {
         this.snapshotService = snapshotService;
     }

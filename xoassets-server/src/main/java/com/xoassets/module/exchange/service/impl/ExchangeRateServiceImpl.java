@@ -18,9 +18,18 @@ import org.springframework.web.client.RestClient;
 @Service
 public class ExchangeRateServiceImpl implements ExchangeRateService {
 
+    /**
+     * 默认美元兑人民币汇率。
+     */
     private static final BigDecimal DEFAULT_USD_CNY = new BigDecimal("7.2000");
 
+    /**
+     * HTTP客户端。
+     */
     private final RestClient restClient = RestClient.builder().baseUrl("https://open.er-api.com").build();
+    /**
+     * 美元兑人民币汇率进程内缓存。
+     */
     private volatile ExchangeRateVO usdCnyCache = ExchangeRateVO.builder()
             .baseCurrency("USD")
             .targetCurrency("CNY")

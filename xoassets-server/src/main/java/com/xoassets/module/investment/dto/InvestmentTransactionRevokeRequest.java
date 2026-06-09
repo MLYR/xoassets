@@ -9,6 +9,9 @@ import lombok.Data;
 @Data
 public class InvestmentTransactionRevokeRequest {
 
+    /**
+     * 原因。
+     */
     @Size(max = 255, message = "撤销原因不能超过255个字符")
     private String reason;
 }

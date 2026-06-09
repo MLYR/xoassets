@@ -41,8 +41,17 @@ import org.springframework.web.client.RestClientException;
 @Service
 public class AssetServiceImpl implements AssetService {
 
+    /**
+     * 支持的资产类型列表。
+     */
     private static final List<String> ASSET_TYPES = List.of("STOCK", "FUND", "CRYPTO", "OTHER");
+    /**
+     * 支持的行情来源列表。
+     */
     private static final List<String> QUOTE_SOURCES = List.of("MANUAL", "COINGECKO", "EASTMONEY", "SINA", "YAHOO", "ALPHA_VANTAGE", "TUSHARE", "AKSHARE");
+    /**
+     * 虚拟货币代码到 CoinGecko ID 的映射。
+     */
     private static final Map<String, String> COIN_IDS = Map.of(
             "BTC", "bitcoin",
             "BITCOIN", "bitcoin",
@@ -53,28 +62,61 @@ public class AssetServiceImpl implements AssetService {
             "BNB", "binancecoin",
             "DOGE", "dogecoin",
             "DOGECOIN", "dogecoin");
+    /**
+     * CoinGecko ID 到展示代码的映射。
+     */
     private static final Map<String, String> COIN_SYMBOLS = Map.of(
             "bitcoin", "BTC",
             "ethereum", "ETH",
             "solana", "SOL",
             "binancecoin", "BNB",
             "dogecoin", "DOGE");
+    /**
+     * CoinGecko ID 到展示名称的映射。
+     */
     private static final Map<String, String> COIN_NAMES = Map.of(
             "bitcoin", "Bitcoin",
             "ethereum", "Ethereum",
             "solana", "Solana",
             "binancecoin", "BNB",
             "dogecoin", "Dogecoin");
+    /**
+     * 基金历史净值行匹配规则。
+     */
     private static final Pattern FUND_HISTORY_ROW_PATTERN = Pattern.compile("<tr><td>(\\d{4}-\\d{2}-\\d{2})</td><td[^>]*>([0-9.]+)</td><td[^>]*>[0-9.]+</td><td[^>]*>([-+0-9.]+)%</td>");
 
+    /**
+     * 资产数据访问组件。
+     */
     private final AssetMapper assetMapper;
+    /**
+     * JSON序列化组件。
+     */
     private final ObjectMapper objectMapper;
+    /**
+     * CoinGecko行情HTTP客户端。
+     */
     private final RestClient coinGeckoClient;
+    /**
+     * 天天基金实时行情HTTP客户端。
+     */
     private final RestClient fundClient;
+    /**
+     * 天天基金历史净值HTTP客户端。
+     */
     private final RestClient fundHistoryClient;
+    /**
+     * 新浪行情HTTP客户端。
+     */
     private final RestClient sinaClient;
+    /**
+     * 雅虎行情HTTP客户端。
+     */
     private final RestClient yahooClient;
 
+    /**
+     * 注入业务依赖。
+     */
     public AssetServiceImpl(AssetMapper assetMapper, ObjectMapper objectMapper) {
         this.assetMapper = assetMapper;
         this.objectMapper = objectMapper;
@@ -289,6 +331,9 @@ public class AssetServiceImpl implements AssetService {
         return existingLookup("STOCK", keyword);
     }
 
+    /**
+     * 识别A股资产。
+     */
     private List<AssetLookupVO> lookupAshare(String keyword, String market) {
         String code = keyword.trim().toUpperCase(Locale.ROOT).replace("." + market, "");
         String sinaKey = market.toLowerCase(Locale.ROOT) + code;
@@ -329,6 +374,9 @@ public class AssetServiceImpl implements AssetService {
         }
     }
 
+    /**
+     * 识别美股资产。
+     */
     private List<AssetLookupVO> lookupUsStock(String keyword) {
         String symbol = keyword.trim().toUpperCase(Locale.ROOT);
         try {
@@ -366,6 +414,9 @@ public class AssetServiceImpl implements AssetService {
         }
     }
 
+    /**
+     * 从已有公共资产中构造识别结果。
+     */
     private List<AssetLookupVO> existingLookup(String type, String keyword) {
         List<AssetLookupVO> rows = search(keyword, type).stream()
                 .map(asset -> AssetLookupVO.builder()
@@ -384,6 +435,9 @@ public class AssetServiceImpl implements AssetService {
         return rows;
     }
 
+    /**
+     * 推断交易市场。
+     */
     private String inferMarket(String keyword) {
         String normalized = keyword.trim().toUpperCase(Locale.ROOT);
         if (normalized.endsWith(".SH")) return "SH";
@@ -416,6 +470,9 @@ public class AssetServiceImpl implements AssetService {
         return "UNKNOWN";
     }
 
+    /**
+     * 解析JSON响应。
+     */
     private String jsonBody(String body) {
         return jsonBody(body, "UNKNOWN", null);
     }
@@ -437,6 +494,9 @@ public class AssetServiceImpl implements AssetService {
         return body.substring(start, end + 1);
     }
 
+    /**
+     * 构建行情响应数据。
+     */
     private String quotePayload(String body) {
         int start = body.indexOf('"');
         int end = body.lastIndexOf('"');
@@ -447,6 +507,9 @@ public class AssetServiceImpl implements AssetService {
         return body.substring(start + 1, end);
     }
 
+    /**
+     * 解析基金报价时间。
+     */
     private LocalDateTime fundQuoteTime(String dateText) {
         return StringUtils.hasText(dateText) ? LocalDateTime.of(LocalDate.parse(dateText), LocalTime.of(15, 0)) : LocalDateTime.now();
     }
@@ -476,6 +539,9 @@ public class AssetServiceImpl implements AssetService {
         }
     }
 
+    /**
+     * 解析金额。
+     */
     private BigDecimal decimal(JsonNode node, int scale) {
         if (node == null || node.isMissingNode() || !StringUtils.hasText(node.asText())) {
             throw new BusinessException(ErrorCode.BUSINESS_ERROR, "行情未返回有效价格");
@@ -483,6 +549,9 @@ public class AssetServiceImpl implements AssetService {
         return new BigDecimal(node.asText()).setScale(scale, RoundingMode.HALF_UP);
     }
 
+    /**
+     * 解析可为空金额。
+     */
     private BigDecimal decimalOrNull(JsonNode node, int scale) {
         if (node == null || node.isMissingNode() || !StringUtils.hasText(node.asText())) {
             return null;
@@ -490,6 +559,9 @@ public class AssetServiceImpl implements AssetService {
         return new BigDecimal(node.asText()).setScale(scale, RoundingMode.HALF_UP);
     }
 
+    /**
+     * 根据涨跌幅反推上一交易日价格。
+     */
     private BigDecimal previousClose(BigDecimal price, BigDecimal changePercent) {
         if (price == null || changePercent == null) {
             return null;
@@ -498,6 +570,9 @@ public class AssetServiceImpl implements AssetService {
         return divisor.compareTo(BigDecimal.ZERO) == 0 ? null : price.divide(divisor, 8, RoundingMode.HALF_UP);
     }
 
+    /**
+     * 根据当前价和昨收价计算涨跌幅。
+     */
     private BigDecimal changePercent(BigDecimal price, BigDecimal previousClose) {
         if (price == null || previousClose == null || previousClose.compareTo(BigDecimal.ZERO) == 0) {
             return null;
@@ -505,6 +580,9 @@ public class AssetServiceImpl implements AssetService {
         return price.subtract(previousClose).multiply(BigDecimal.valueOf(100)).divide(previousClose, 4, RoundingMode.HALF_UP);
     }
 
+    /**
+     * 基金历史净值行。
+     */
     private record FundNavRow(LocalDate date, BigDecimal price, BigDecimal changePercent) {
     }
 

@@ -14,6 +14,7 @@ export const exportApi = {
   }
 };
 
+// 下载导出文件。
 async function download(url: string, params: object, filename: string) {
   const blob = await request<Blob>({
     url,
@@ -30,6 +31,7 @@ async function download(url: string, params: object, filename: string) {
   URL.revokeObjectURL(objectUrl);
 }
 
+// 获取今天日期。
 function today() {
   return new Date().toISOString().slice(0, 10);
 }

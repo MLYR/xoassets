@@ -87,6 +87,7 @@ onMounted(() => {
   loadGoals();
 });
 
+// 加载目标数据。
 async function loadGoals() {
   loading.value = true;
   try {
@@ -100,12 +101,14 @@ async function loadGoals() {
   }
 }
 
+// 打开新增弹窗。
 function openCreateDialog() {
   editingGoal.value = null;
   resetForm();
   dialogVisible.value = true;
 }
 
+// 打开编辑弹窗。
 function openEditDialog(goal: GoalItem) {
   editingGoal.value = goal;
   form.name = goal.name;
@@ -117,6 +120,7 @@ function openEditDialog(goal: GoalItem) {
   dialogVisible.value = true;
 }
 
+// 提交表单。
 async function handleSubmit() {
   if (!form.name || form.targetAmount <= 0) {
     ElMessage.warning('请输入目标名称和有效目标金额');
@@ -139,6 +143,7 @@ async function handleSubmit() {
   }
 }
 
+// 删除记录。
 async function handleDelete(goal: GoalItem) {
   try {
     await ElMessageBox.confirm(`确认删除目标「${goal.name}」吗？`, '删除目标', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' });
@@ -152,6 +157,7 @@ async function handleDelete(goal: GoalItem) {
   }
 }
 
+// 重置表单。
 function resetForm() {
   form.name = '';
   form.targetAmount = 0;

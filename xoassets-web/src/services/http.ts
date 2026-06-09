@@ -2,10 +2,15 @@
 import axios, { AxiosError, type AxiosRequestConfig } from 'axios';
 import { clearToken, getToken } from './token';
 
+/** 后端统一响应结构。 */
 interface ApiResult<T> {
+  /** 编码。 */
   code: number;
+  /** 提示信息。 */
   message: string;
+  /** 响应数据。 */
   data: T;
+  /** 链路ID。 */
   traceId?: string;
 }
 

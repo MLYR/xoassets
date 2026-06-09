@@ -15,18 +15,51 @@ import lombok.Data;
 @TableName("xo_ai_report")
 public class AiReport {
 
+    /**
+     * 主键ID。
+     */
     private Long id;
+    /**
+     * 所属用户ID。
+     */
     private Long userId;
+    /**
+     * 报告类型。
+     */
     private String reportType;
+    /**
+     * 日期。
+     */
     private LocalDate reportDate;
+    /**
+     * 标题。
+     */
     private String title;
+    /**
+     * 内容。
+     */
     private String content;
+    /**
+     * 摘要JSON。
+     */
     private String summaryJson;
+    /**
+     * 状态。
+     */
     private String status;
+    /**
+     * 创建时间。
+     */
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
+    /**
+     * 更新时间。
+     */
     @TableField(fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updatedAt;
+    /**
+     * 逻辑删除标记。
+     */
     @TableLogic
     private Integer deleted;
 }

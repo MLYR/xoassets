@@ -17,8 +17,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/dashboard")
 public class DashboardController {
 
+    /**
+     * 首页服务。
+     */
     private final DashboardService dashboardService;
 
+    /**
+     * 注入接口依赖。
+     */
     public DashboardController(DashboardService dashboardService) {
         this.dashboardService = dashboardService;
     }

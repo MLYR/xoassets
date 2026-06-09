@@ -49,22 +49,67 @@ import org.springframework.util.StringUtils;
 @Service
 public class AccountLedgerServiceImpl implements AccountLedgerService {
 
+    /**
+     * 普通流水来源常量。
+     */
     private static final String SOURCE_TRANSACTION = "TRANSACTION";
+    /**
+     * 投资交易来源常量。
+     */
     private static final String SOURCE_INVESTMENT = "INVESTMENT";
+    /**
+     * 余额修正来源常量。
+     */
     private static final String SOURCE_ADJUSTMENT = "ADJUSTMENT";
+    /**
+     * 正常状态常量。
+     */
     private static final String STATUS_NORMAL = "NORMAL";
+    /**
+     * 已撤销状态常量。
+     */
     private static final String STATUS_REVOKED = "REVOKED";
+    /**
+     * 已取消状态常量。
+     */
     private static final String STATUS_CANCELLED = "CANCELLED";
 
+    /**
+     * 账户服务。
+     */
     private final AccountService accountService;
+    /**
+     * 账户余额服务。
+     */
     private final AccountBalanceService accountBalanceService;
+    /**
+     * 账户数据访问组件。
+     */
     private final AccountMapper accountMapper;
+    /**
+     * 余额修正数据访问组件。
+     */
     private final AccountBalanceAdjustmentMapper adjustmentMapper;
+    /**
+     * 流水数据访问组件。
+     */
     private final TransactionRecordMapper transactionRecordMapper;
+    /**
+     * 投资交易数据访问组件。
+     */
     private final InvestmentTransactionMapper investmentTransactionMapper;
+    /**
+     * 分类数据访问组件。
+     */
     private final CategoryMapper categoryMapper;
+    /**
+     * 资产数据访问组件。
+     */
     private final AssetMapper assetMapper;
 
+    /**
+     * 注入业务依赖。
+     */
     public AccountLedgerServiceImpl(
             AccountService accountService,
             AccountBalanceService accountBalanceService,
@@ -384,14 +429,23 @@ public class AccountLedgerServiceImpl implements AccountLedgerService {
         return text.toLowerCase().contains(keyword.trim().toLowerCase());
     }
 
+    /**
+     * 将空文本按空串处理。
+     */
     private String nullToEmpty(String value) {
         return value == null ? "" : value;
     }
 
+    /**
+     * 按类型汇总金额。
+     */
     private BigDecimal sumByType(List<AccountLedgerVO> rows, String type) {
         return rows.stream().filter(row -> type.equals(row.getBizType())).map(AccountLedgerVO::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
+    /**
+     * 按类型汇总绝对金额。
+     */
     private BigDecimal sumByTypeAbs(List<AccountLedgerVO> rows, String type) {
         return rows.stream().filter(row -> type.equals(row.getBizType())).map(AccountLedgerVO::getAmount).map(BigDecimal::abs).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
@@ -441,6 +495,9 @@ public class AccountLedgerServiceImpl implements AccountLedgerService {
         return new DateRange(current.atDay(1), current.atEndOfMonth());
     }
 
+    /**
+     * 批量查询账户映射。
+     */
     private Map<Long, Account> accountMap(Long userId, List<TransactionRecord> transactions, List<InvestmentTransaction> investments, List<AccountBalanceAdjustment> adjustments) {
         Set<Long> ids = java.util.stream.Stream.concat(
                         java.util.stream.Stream.concat(
@@ -457,6 +514,9 @@ public class AccountLedgerServiceImpl implements AccountLedgerService {
                 .collect(Collectors.toMap(Account::getId, Function.identity()));
     }
 
+    /**
+     * 批量查询分类映射。
+     */
     private Map<Long, Category> categoryMap(Long userId, List<TransactionRecord> transactions) {
         Set<Long> ids = transactions.stream().map(TransactionRecord::getCategoryId).filter(Objects::nonNull).collect(Collectors.toSet());
         if (ids.isEmpty()) {
@@ -467,6 +527,9 @@ public class AccountLedgerServiceImpl implements AccountLedgerService {
                 .collect(Collectors.toMap(Category::getId, Function.identity()));
     }
 
+    /**
+     * 批量查询资产映射。
+     */
     private Map<Long, Asset> assetMap(List<InvestmentTransaction> investments) {
         Set<Long> ids = investments.stream().map(InvestmentTransaction::getAssetId).filter(Objects::nonNull).collect(Collectors.toSet());
         if (ids.isEmpty()) {
@@ -475,6 +538,9 @@ public class AccountLedgerServiceImpl implements AccountLedgerService {
         return assetMapper.selectBatchIds(ids).stream().collect(Collectors.toMap(Asset::getId, Function.identity()));
     }
 
+    /**
+     * 转换为账户返回对象。
+     */
     private AccountVO toAccountVO(Account account) {
         return AccountVO.builder()
                 .id(account.getId())
@@ -489,6 +555,9 @@ public class AccountLedgerServiceImpl implements AccountLedgerService {
                 .build();
     }
 
+    /**
+     * 账户账本查询日期范围。
+     */
     private record DateRange(LocalDate startDate, LocalDate endDate) {
     }
 }

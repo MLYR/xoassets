@@ -12,7 +12,16 @@ import lombok.Data;
 @Builder
 public class HoldingChartPointVO {
 
+    /**
+     * 报价时间。
+     */
     private LocalDateTime quoteTime;
+    /**
+     * 总资产金额。
+     */
     private BigDecimal totalAssetAmount;
+    /**
+     * 总收益金额。
+     */
     private BigDecimal totalProfitAmount;
 }

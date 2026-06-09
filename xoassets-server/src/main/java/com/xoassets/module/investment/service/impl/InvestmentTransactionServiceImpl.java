@@ -47,29 +47,95 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class InvestmentTransactionServiceImpl implements InvestmentTransactionService {
 
+    /**
+     * 买入类型常量。
+     */
     private static final String TYPE_BUY = "BUY";
+    /**
+     * 卖出类型常量。
+     */
     private static final String TYPE_SELL = "SELL";
+    /**
+     * 基金资产类型常量。
+     */
     private static final String ASSET_TYPE_FUND = "FUND";
+    /**
+     * 数量价格录入模式常量。
+     */
     private static final String INPUT_MODE_QUANTITY_PRICE = "QUANTITY_PRICE";
+    /**
+     * 金额净值录入模式常量。
+     */
     private static final String INPUT_MODE_AMOUNT_NAV = "AMOUNT_NAV";
+    /**
+     * 正常状态常量。
+     */
     private static final String STATUS_NORMAL = "NORMAL";
+    /**
+     * 已撤销状态常量。
+     */
     private static final String STATUS_REVOKED = "REVOKED";
+    /**
+     * 待确认状态常量。
+     */
     private static final String STATUS_PENDING_CONFIRM = "PENDING_CONFIRM";
+    /**
+     * 已确认状态常量。
+     */
     private static final String STATUS_CONFIRMED = "CONFIRMED";
+    /**
+     * 已取消状态常量。
+     */
     private static final String STATUS_CANCELLED = "CANCELLED";
 
+    /**
+     * 流水数据访问组件。
+     */
     private final InvestmentTransactionMapper transactionMapper;
+    /**
+     * 资产数据访问组件。
+     */
     private final AssetMapper assetMapper;
+    /**
+     * 日级价格数据访问组件。
+     */
     private final AssetPriceDailyMapper assetPriceDailyMapper;
+    /**
+     * 当前价格数据访问组件。
+     */
     private final AssetPriceCurrentMapper assetPriceCurrentMapper;
+    /**
+     * 账户数据访问组件。
+     */
     private final AccountMapper accountMapper;
+    /**
+     * 资产服务。
+     */
     private final AssetService assetService;
+    /**
+     * 基金确认日服务。
+     */
     private final FundConfirmDateService fundConfirmDateService;
+    /**
+     * 持仓服务。
+     */
     private final HoldingService holdingService;
+    /**
+     * 账户服务。
+     */
     private final AccountService accountService;
+    /**
+     * 资产快照服务。
+     */
     private final SnapshotService snapshotService;
+    /**
+     * 投资日快照任务。
+     */
     private final InvestmentDailySnapshotJob investmentDailySnapshotJob;
 
+    /**
+     * 注入业务依赖。
+     */
     public InvestmentTransactionServiceImpl(
             InvestmentTransactionMapper transactionMapper,
             AssetMapper assetMapper,
@@ -393,6 +459,9 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
         }
     }
 
+    /**
+     * 基金确认后刷新相关快照。
+     */
     private void refreshSnapshotsAfterConfirmation(InvestmentTransaction transaction) {
         Long userId = transaction.getUserId();
         LocalDate today = LocalDate.now();
@@ -402,6 +471,9 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
         }
     }
 
+    /**
+     * 计算确认后需要刷新的快照日期。
+     */
     private Set<LocalDate> confirmationSnapshotDates(InvestmentTransaction transaction, LocalDate today) {
         Set<LocalDate> dates = new LinkedHashSet<>();
         LocalDate start = transaction.getTransactionTime() == null ? transaction.getTradeDate() : transaction.getTransactionTime().toLocalDate();
@@ -467,12 +539,18 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
         return null;
     }
 
+    /**
+     * 判断是否基金金额买入。
+     */
     private boolean isFundAmountBuy(InvestmentTransactionRequest request, Asset asset) {
         return TYPE_BUY.equals(request.getType())
                 && ASSET_TYPE_FUND.equals(asset.getType())
                 && (INPUT_MODE_AMOUNT_NAV.equals(request.getInputMode()) || request.getTradeAmount() != null);
     }
 
+    /**
+     * 生成转换交易备注。
+     */
     private String convertNote(String note, String prefix) {
         if (note == null || note.isBlank()) {
             return prefix;

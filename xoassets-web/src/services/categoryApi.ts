@@ -1,24 +1,40 @@
 // 分类 API：封装当前用户分类查询，流水表单按类型加载分类。
 import { request } from './http';
 
+/** CategoryType 类型。 */
 export type CategoryType = 'INCOME' | 'EXPENSE';
 
+/** 分类列表项。 */
 export interface CategoryItem {
+  /** ID。 */
   id: string;
+  /** 名称。 */
   name: string;
+  /** 类型。 */
   type: CategoryType;
+  /** 图标。 */
   icon?: string | null;
+  /** 颜色。 */
   color?: string | null;
+  /** 状态。 */
   status: number;
+  /** 排序。 */
   sortOrder: number;
 }
 
+/** 分类保存参数。 */
 export interface CategoryRequest {
+  /** 名称。 */
   name: string;
+  /** 类型。 */
   type: CategoryType;
+  /** 图标。 */
   icon?: string;
+  /** 颜色。 */
   color?: string;
+  /** 状态。 */
   status: number;
+  /** 排序。 */
   sortOrder: number;
 }
 

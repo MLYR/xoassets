@@ -65,38 +65,131 @@ import org.springframework.util.StringUtils;
 @Service
 public class HoldingServiceImpl implements HoldingService {
 
+    /**
+     * 支持的资产类型列表。
+     */
     private static final List<String> ASSET_TYPES = List.of("STOCK", "FUND", "CRYPTO", "OTHER");
+    /**
+     * 支持的行情来源列表。
+     */
     private static final List<String> QUOTE_SOURCES = List.of("MANUAL", "COINGECKO", "EASTMONEY", "SINA", "YAHOO", "ALPHA_VANTAGE", "TUSHARE", "AKSHARE");
+    /**
+     * 基金资产类型常量。
+     */
     private static final String ASSET_TYPE_FUND = "FUND";
+    /**
+     * 股票资产类型常量。
+     */
     private static final String ASSET_TYPE_STOCK = "STOCK";
+    /**
+     * 虚拟货币资产类型常量。
+     */
     private static final String ASSET_TYPE_CRYPTO = "CRYPTO";
+    /**
+     * 全部投资模块常量。
+     */
     private static final String MODULE_ALL = "ALL";
+    /**
+     * 今日收益展示模式常量。
+     */
     private static final String PROFIT_MODE_TODAY = "TODAY";
+    /**
+     * ETF资产子类型常量。
+     */
     private static final String ASSET_SUB_TYPE_ETF = "ETF";
+    /**
+     * 实时价格估值模式常量。
+     */
     private static final String VALUATION_REALTIME_PRICE = "REALTIME_PRICE";
+    /**
+     * 日终净值估值模式常量。
+     */
     private static final String VALUATION_END_OF_DAY_NAV = "END_OF_DAY_NAV";
+    /**
+     * 货币基金收益估值模式常量。
+     */
     private static final String VALUATION_MONEY_FUND_YIELD = "MONEY_FUND_YIELD";
+    /**
+     * 场内交易场所常量。
+     */
     private static final String TRADE_VENUE_EXCHANGE = "EXCHANGE";
+    /**
+     * 场外交易场所常量。
+     */
     private static final String TRADE_VENUE_OTC = "OTC";
+    /**
+     * 虚拟货币交易场所常量。
+     */
     private static final String TRADE_VENUE_CRYPTO_EXCHANGE = "CRYPTO_EXCHANGE";
+    /**
+     * 价格正常状态常量。
+     */
     private static final String PRICE_STATUS_NORMAL = "NORMAL";
+    /**
+     * 今日价格未更新状态常量。
+     */
     private static final String PRICE_STATUS_TODAY_PRICE_NOT_AVAILABLE = "TODAY_PRICE_NOT_AVAILABLE";
+    /**
+     * 休市状态常量。
+     */
     private static final String PRICE_STATUS_MARKET_CLOSED = "MARKET_CLOSED";
+    /**
+     * 交易日历优先级排序SQL。
+     */
     private static final String CALENDAR_PRIORITY_SQL = "order by case source when 'MANUAL' then 3 when 'EXCHANGE_ANNOUNCEMENT' then 2 when 'SYSTEM_WEEKDAY' then 1 else 0 end desc, id desc limit 1";
+    /**
+     * 下一交易日查询排序SQL。
+     */
     private static final String NEXT_TRADING_DATE_SQL = "order by trade_date asc, case source when 'MANUAL' then 3 when 'EXCHANGE_ANNOUNCEMENT' then 2 when 'SYSTEM_WEEKDAY' then 1 else 0 end desc, id desc limit 370";
 
+    /**
+     * 持仓数据访问组件。
+     */
     private final HoldingMapper holdingMapper;
+    /**
+     * 资产数据访问组件。
+     */
     private final AssetMapper assetMapper;
+    /**
+     * 当前价格数据访问组件。
+     */
     private final AssetPriceCurrentMapper assetPriceCurrentMapper;
+    /**
+     * 日级价格数据访问组件。
+     */
     private final AssetPriceDailyMapper assetPriceDailyMapper;
+    /**
+     * 数据访问组件。
+     */
     private final InvestmentDailySnapshotMapper investmentDailySnapshotMapper;
+    /**
+     * 投资交易数据访问组件。
+     */
     private final InvestmentTransactionMapper investmentTransactionMapper;
+    /**
+     * 交易日历数据访问组件。
+     */
     private final MarketCalendarMapper marketCalendarMapper;
+    /**
+     * 账户数据访问组件。
+     */
     private final AccountMapper accountMapper;
+    /**
+     * 资产服务。
+     */
     private final AssetService assetService;
+    /**
+     * 持仓历史服务。
+     */
     private final InvestmentPositionHistoryService positionHistoryService;
+    /**
+     * 行情服务。
+     */
     private final QuoteService quoteService;
 
+    /**
+     * 注入业务依赖。
+     */
     public HoldingServiceImpl(
             HoldingMapper holdingMapper,
             AssetMapper assetMapper,
@@ -862,6 +955,9 @@ public class HoldingServiceImpl implements HoldingService {
         return result;
     }
 
+    /**
+     * 计算日历日期持仓数量。
+     */
     private BigDecimal calendarQuantity(Long userId, Holding holding, LocalDate previousPriceDate, boolean manualOnly) {
         BigDecimal quantity = positionHistoryService.quantityAt(userId, holding.getId(), holding.getAssetId(), previousPriceDate);
         // 手工初始化持仓的 created_at 是录入时间，不等于真实买入时间；无有效交易流水时用当前份额对齐用户截图历史收益。
@@ -871,6 +967,9 @@ public class HoldingServiceImpl implements HoldingService {
         return quantity;
     }
 
+    /**
+     * 统计持仓的有效交易次数。
+     */
     private long effectiveTransactionCount(Long userId, Long holdingId) {
         return investmentTransactionMapper.selectCount(new LambdaQueryWrapper<InvestmentTransaction>()
                 .eq(InvestmentTransaction::getUserId, userId)
@@ -878,6 +977,9 @@ public class HoldingServiceImpl implements HoldingService {
                 .in(InvestmentTransaction::getStatus, List.of("NORMAL", "CONFIRMED")));
     }
 
+    /**
+     * 确定收益日历展示日期。
+     */
     private LocalDate calendarDisplayDate(AssetMeta assetMeta, LocalDate priceDate) {
         if (VALUATION_END_OF_DAY_NAV.equals(assetMeta.valuationMode()) || VALUATION_MONEY_FUND_YIELD.equals(assetMeta.valuationMode())) {
             return nextTradingDate(priceDate);
@@ -885,6 +987,9 @@ public class HoldingServiceImpl implements HoldingService {
         return priceDate;
     }
 
+    /**
+     * 查询下一交易日。
+     */
     private LocalDate nextTradingDate(LocalDate date) {
         List<MarketCalendar> calendars = marketCalendarMapper.selectList(new LambdaQueryWrapper<MarketCalendar>()
                         .eq(MarketCalendar::getMarket, "A_SHARE")
@@ -910,6 +1015,9 @@ public class HoldingServiceImpl implements HoldingService {
         return next;
     }
 
+    /**
+     * 构建模块资产统计。
+     */
     private InvestmentModuleAssetVO moduleAsset(String module, String name, List<HoldingVO> holdings, BigDecimal totalMarketValue) {
         List<HoldingVO> moduleHoldings = holdings.stream()
                 .filter(item -> module.equals(moduleOf(item.getAssetType())))
@@ -957,6 +1065,9 @@ public class HoldingServiceImpl implements HoldingService {
         return onlyFund ? "今日净值未更新" : "今日价格未更新";
     }
 
+    /**
+     * 判断业务数据是否存在。
+     */
     private boolean hasTodayProfit(HoldingVO holding) {
         return holding != null && Boolean.TRUE.equals(holding.getTodayPriceAvailable()) && holding.getTodayProfitByCurrentQuantity() != null;
     }
@@ -1054,6 +1165,9 @@ public class HoldingServiceImpl implements HoldingService {
         return grouped;
     }
 
+    /**
+     * 查询指定日期前最近收盘价。
+     */
     private BigDecimal closePriceOnOrBefore(List<AssetPriceDaily> prices, LocalDate date) {
         BigDecimal result = null;
         for (AssetPriceDaily price : prices) {
@@ -1065,6 +1179,9 @@ public class HoldingServiceImpl implements HoldingService {
         return result;
     }
 
+    /**
+     * 构建上一价格日期映射。
+     */
     private Map<LocalDate, LocalDate> previousPriceDateMap(List<AssetPriceDaily> prices) {
         Map<LocalDate, LocalDate> result = new HashMap<>();
         AssetPriceDaily previous = null;
@@ -1077,6 +1194,9 @@ public class HoldingServiceImpl implements HoldingService {
         return result;
     }
 
+    /**
+     * 构建上一价格映射。
+     */
     private Map<LocalDate, BigDecimal> previousPriceMap(List<AssetPriceDaily> prices) {
         Map<LocalDate, BigDecimal> result = new HashMap<>();
         AssetPriceDaily previous = null;
@@ -1126,6 +1246,9 @@ public class HoldingServiceImpl implements HoldingService {
         return new AssetMeta("OTHER", "HOLDING", VALUATION_REALTIME_PRICE, TRADE_VENUE_EXCHANGE);
     }
 
+    /**
+     * 生成价格文案。
+     */
     private String priceLabel(AssetMeta assetMeta) {
         if (VALUATION_END_OF_DAY_NAV.equals(assetMeta.valuationMode()) || VALUATION_MONEY_FUND_YIELD.equals(assetMeta.valuationMode())) {
             return "最新净值";
@@ -1133,6 +1256,9 @@ public class HoldingServiceImpl implements HoldingService {
         return "当前价";
     }
 
+    /**
+     * 生成模块主收益指标名称。
+     */
     private String modulePrimaryProfitLabel(String module) {
         if ("CRYPTO".equals(module)) {
             return "今日收益";
@@ -1140,6 +1266,9 @@ public class HoldingServiceImpl implements HoldingService {
         return "今日收益";
     }
 
+    /**
+     * 规范化投资模块参数。
+     */
     private String normalizeModule(String module) {
         if (!StringUtils.hasText(module)) {
             return MODULE_ALL;
@@ -1148,6 +1277,9 @@ public class HoldingServiceImpl implements HoldingService {
         return List.of(MODULE_ALL, ASSET_TYPE_FUND, ASSET_TYPE_STOCK, ASSET_TYPE_CRYPTO).contains(normalized) ? normalized : MODULE_ALL;
     }
 
+    /**
+     * 解析资产所属模块。
+     */
     private String moduleOf(String assetType) {
         if (ASSET_TYPE_FUND.equals(assetType)) {
             return ASSET_TYPE_FUND;
@@ -1161,6 +1293,9 @@ public class HoldingServiceImpl implements HoldingService {
         return "OTHER";
     }
 
+    /**
+     * 解析周期天数。
+     */
     private int periodDays(String period) {
         if (!StringUtils.hasText(period)) {
             return 30;
@@ -1173,12 +1308,21 @@ public class HoldingServiceImpl implements HoldingService {
         };
     }
 
+    /**
+     * 资产展示元信息。
+     */
     private record AssetMeta(String assetSubType, String profitDisplayMode, String valuationMode, String tradeVenue) {
     }
 
+    /**
+     * 日级价格点。
+     */
     private record DailyPricePoint(LocalDate tradeDate, BigDecimal closePrice, BigDecimal previousClose) {
     }
 
+    /**
+     * 收益日历计算结果。
+     */
     private record CalendarProfitData(BigDecimal profit, BigDecimal profitRate, BigDecimal marketValue, BigDecimal price, BigDecimal previousPrice) {
     }
 
@@ -1271,6 +1415,9 @@ public class HoldingServiceImpl implements HoldingService {
                 .setScale(4, RoundingMode.HALF_UP);
     }
 
+    /**
+     * 计算交易生效日期。
+     */
     private LocalDate effectiveTransactionDate(InvestmentTransaction transaction) {
         if ("AMOUNT_NAV".equals(transaction.getInputMode()) && transaction.getConfirmedDate() != null) {
             return transaction.getConfirmedDate();
@@ -1477,10 +1624,16 @@ public class HoldingServiceImpl implements HoldingService {
         return previousDaily == null ? null : previousDaily.getClosePrice();
     }
 
+    /**
+     * 查询上上交易日基准价格。
+     */
     private BigDecimal yesterdayBeforePreviousPrice(AssetPriceDaily beforePreviousDaily) {
         return beforePreviousDaily == null ? null : beforePreviousDaily.getClosePrice();
     }
 
+    /**
+     * 查询上一价格日期。
+     */
     private LocalDate previousPriceDate(AssetPriceCurrent matchedPrice, AssetPriceDaily previousDaily) {
         if (previousDaily != null) {
             return previousDaily.getTradeDate();
@@ -1488,6 +1641,9 @@ public class HoldingServiceImpl implements HoldingService {
         return matchedPrice == null || matchedPrice.getQuoteTime() == null ? null : matchedPrice.getQuoteTime().toLocalDate().minusDays(1);
     }
 
+    /**
+     * 查询上上价格日期。
+     */
     private LocalDate beforePreviousPriceDate(AssetPriceDaily previousDaily, AssetPriceDaily beforePreviousDaily) {
         if (beforePreviousDaily != null) {
             return beforePreviousDaily.getTradeDate();
@@ -1544,6 +1700,9 @@ public class HoldingServiceImpl implements HoldingService {
         return usesCalendarForClosedDisplay(asset) && !tradingDayForAsset(asset, date);
     }
 
+    /**
+     * 判断资产当日是否交易。
+     */
     private boolean tradingDayForAsset(Asset asset, LocalDate date) {
         if (!usesCalendarForClosedDisplay(asset) || date == null) {
             return true;
@@ -1563,10 +1722,16 @@ public class HoldingServiceImpl implements HoldingService {
         return dayOfWeek != DayOfWeek.SATURDAY && dayOfWeek != DayOfWeek.SUNDAY;
     }
 
+    /**
+     * 判断是否需要展示休市日。
+     */
     private boolean usesCalendarForClosedDisplay(Asset asset) {
         return asset != null && (ASSET_TYPE_FUND.equals(asset.getType()) || ASSET_TYPE_STOCK.equals(asset.getType()));
     }
 
+    /**
+     * 解析资产交易日历市场。
+     */
     private String calendarMarketForAsset(Asset asset) {
         if (asset == null) {
             return null;
@@ -1727,6 +1892,9 @@ public class HoldingServiceImpl implements HoldingService {
         return Objects.equals(asset.getCurrency(), price.getCurrency());
     }
 
+    /**
+     * 判断价格币种是否匹配资产币种。
+     */
     private boolean priceMatchesAssetCurrency(Asset asset, AssetPriceDaily price) {
         if (asset == null || price == null) {
             return false;
@@ -1734,6 +1902,9 @@ public class HoldingServiceImpl implements HoldingService {
         return Objects.equals(asset.getCurrency(), price.getCurrency());
     }
 
+    /**
+     * 持仓价格上下文。
+     */
     private record HoldingPriceContext(AssetPriceCurrent currentPrice, AssetPriceDaily previousDaily, AssetPriceDaily beforePreviousDaily) {
     }
 

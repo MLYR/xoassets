@@ -27,11 +27,26 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AuthServiceImpl implements AuthService {
 
+    /**
+     * 用户数据访问组件。
+     */
     private final UserMapper userMapper;
+    /**
+     * 密码加密器。
+     */
     private final PasswordEncoder passwordEncoder;
+    /**
+     * JWT令牌组件。
+     */
     private final JwtTokenProvider jwtTokenProvider;
+    /**
+     * 业务服务组件。
+     */
     private final CategoryService categoryService;
 
+    /**
+     * 注入业务依赖。
+     */
     public AuthServiceImpl(
             UserMapper userMapper,
             PasswordEncoder passwordEncoder,

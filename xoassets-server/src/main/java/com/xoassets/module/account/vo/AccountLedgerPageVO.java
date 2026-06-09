@@ -11,7 +11,16 @@ import lombok.Data;
 @Builder
 public class AccountLedgerPageVO {
 
+    /**
+     * 账户信息。
+     */
     private AccountVO account;
+    /**
+     * 摘要。
+     */
     private AccountLedgerSummaryVO summary;
+    /**
+     * 分页数据。
+     */
     private PageResult<AccountLedgerVO> page;
 }

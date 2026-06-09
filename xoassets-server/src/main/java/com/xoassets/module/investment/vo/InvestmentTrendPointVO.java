@@ -12,11 +12,32 @@ import lombok.Data;
 @Builder
 public class InvestmentTrendPointVO {
 
+    /**
+     * 日期。
+     */
     private LocalDate date;
+    /**
+     * 持仓市值。
+     */
     private BigDecimal marketValue;
+    /**
+     * 总收益。
+     */
     private BigDecimal totalProfit;
+    /**
+     * 资产金额。
+     */
     private BigDecimal assetAmount;
+    /**
+     * 持有收益。
+     */
     private BigDecimal holdingProfit;
+    /**
+     * 主收益指标名称。
+     */
     private String primaryProfitLabel;
+    /**
+     * 主收益金额。
+     */
     private BigDecimal primaryProfitAmount;
 }

@@ -10,6 +10,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
  */
 public final class LoginUserContext {
 
+    /**
+     * 注入依赖组件。
+     */
     private LoginUserContext() {
     }
 

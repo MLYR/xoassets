@@ -10,6 +10,9 @@ import lombok.Data;
 @Data
 public class BatchRefreshQuoteRequest {
 
+    /**
+     * 业务ID列表。
+     */
     @NotEmpty(message = "资产列表不能为空")
     private List<Long> assetIds;
 }

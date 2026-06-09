@@ -25,10 +25,22 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AccountServiceImpl implements AccountService {
 
+    /**
+     * 账户数据访问组件。
+     */
     private final AccountMapper accountMapper;
+    /**
+     * 流水数据访问组件。
+     */
     private final TransactionRecordMapper transactionRecordMapper;
+    /**
+     * 账户余额服务。
+     */
     private final AccountBalanceService accountBalanceService;
 
+    /**
+     * 注入业务依赖。
+     */
     public AccountServiceImpl(AccountMapper accountMapper, TransactionRecordMapper transactionRecordMapper, AccountBalanceService accountBalanceService) {
         this.accountMapper = accountMapper;
         this.transactionRecordMapper = transactionRecordMapper;

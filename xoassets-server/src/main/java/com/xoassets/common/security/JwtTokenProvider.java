@@ -17,9 +17,18 @@ import org.springframework.stereotype.Component;
 @Component
 public class JwtTokenProvider {
 
+    /**
+     * JWT签名密钥。
+     */
     private final SecretKey secretKey;
+    /**
+     * 令牌有效期。
+     */
     private final Duration expireDuration;
 
+    /**
+     * 初始化行情提供方。
+     */
     public JwtTokenProvider(
             @Value("${xoassets.jwt.secret}") String secret,
             @Value("${xoassets.jwt.expire-minutes}") long expireMinutes) {

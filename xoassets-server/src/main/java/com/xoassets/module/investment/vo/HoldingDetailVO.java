@@ -11,10 +11,28 @@ import lombok.Data;
 @Builder
 public class HoldingDetailVO {
 
+    /**
+     * 持仓信息。
+     */
     private HoldingVO holding;
+    /**
+     * 摘要。
+     */
     private HoldingDetailSummaryVO summary;
+    /**
+     * 交易记录。
+     */
     private List<InvestmentTransactionVO> transactions;
+    /**
+     * 价格快照列表。
+     */
     private List<AssetPriceVO> priceSnapshots;
+    /**
+     * 图表点位。
+     */
     private List<HoldingChartPointVO> chartPoints;
+    /**
+     * 收益日历。
+     */
     private List<InvestmentCalendarDayProfitVO> profitCalendar;
 }

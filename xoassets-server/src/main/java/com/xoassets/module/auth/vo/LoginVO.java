@@ -10,6 +10,12 @@ import lombok.Data;
 @Builder
 public class LoginVO {
 
+    /**
+     * 登录令牌。
+     */
     private String token;
+    /**
+     * 登录用户信息。
+     */
     private UserVO user;
 }

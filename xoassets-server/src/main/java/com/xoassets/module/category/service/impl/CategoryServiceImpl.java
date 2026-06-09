@@ -23,14 +23,35 @@ import org.springframework.util.StringUtils;
 @Service
 public class CategoryServiceImpl implements CategoryService {
 
+    /**
+     * 收入类型常量。
+     */
     private static final String TYPE_INCOME = "INCOME";
+    /**
+     * 支出类型常量。
+     */
     private static final String TYPE_EXPENSE = "EXPENSE";
+    /**
+     * 默认支出分类。
+     */
     private static final List<String> DEFAULT_EXPENSE_CATEGORIES = List.of("餐饮", "交通", "购物", "居住", "娱乐", "医疗", "学习", "生活缴费", "其他");
+    /**
+     * 默认收入分类。
+     */
     private static final List<String> DEFAULT_INCOME_CATEGORIES = List.of("工资", "奖金", "副业", "理财收益", "红包", "退款", "其他");
 
+    /**
+     * 分类数据访问组件。
+     */
     private final CategoryMapper categoryMapper;
+    /**
+     * 流水数据访问组件。
+     */
     private final TransactionRecordMapper transactionRecordMapper;
 
+    /**
+     * 注入业务依赖。
+     */
     public CategoryServiceImpl(CategoryMapper categoryMapper, TransactionRecordMapper transactionRecordMapper) {
         this.categoryMapper = categoryMapper;
         this.transactionRecordMapper = transactionRecordMapper;

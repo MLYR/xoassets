@@ -10,8 +10,20 @@ import lombok.Data;
 @Builder
 public class UserVO {
 
+    /**
+     * 主键ID。
+     */
     private Long id;
+    /**
+     * 用户名。
+     */
     private String username;
+    /**
+     * 昵称。
+     */
     private String nickname;
+    /**
+     * 头像地址。
+     */
     private String avatarUrl;
 }

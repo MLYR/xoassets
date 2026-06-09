@@ -29,15 +29,39 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AiReportServiceImpl implements AiReportService {
 
+    /**
+     * 日报类型常量。
+     */
     private static final String TYPE_DAILY = "DAILY";
+    /**
+     * 周报类型常量。
+     */
     private static final String TYPE_WEEKLY = "WEEKLY";
+    /**
+     * 月报类型常量。
+     */
     private static final String TYPE_MONTHLY = "MONTHLY";
 
+    /**
+     * AI报告数据访问组件。
+     */
     private final AiReportMapper aiReportMapper;
+    /**
+     * 首页服务。
+     */
     private final DashboardService dashboardService;
+    /**
+     * 预算服务。
+     */
     private final BudgetService budgetService;
+    /**
+     * JSON序列化组件。
+     */
     private final ObjectMapper objectMapper;
 
+    /**
+     * 注入业务依赖。
+     */
     public AiReportServiceImpl(
             AiReportMapper aiReportMapper,
             DashboardService dashboardService,

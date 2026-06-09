@@ -26,9 +26,18 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/investments")
 public class InvestmentController {
 
+    /**
+     * 持仓服务。
+     */
     private final HoldingService holdingService;
+    /**
+     * 投资日快照任务。
+     */
     private final InvestmentDailySnapshotJob investmentDailySnapshotJob;
 
+    /**
+     * 注入接口依赖。
+     */
     public InvestmentController(HoldingService holdingService, InvestmentDailySnapshotJob investmentDailySnapshotJob) {
         this.holdingService = holdingService;
         this.investmentDailySnapshotJob = investmentDailySnapshotJob;

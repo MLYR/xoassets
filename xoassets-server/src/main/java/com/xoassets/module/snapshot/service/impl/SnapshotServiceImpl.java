@@ -52,29 +52,95 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class SnapshotServiceImpl implements SnapshotService {
 
+    /**
+     * 收入流水类型常量。
+     */
     private static final String TRANSACTION_INCOME = "INCOME";
+    /**
+     * 支出流水类型常量。
+     */
     private static final String TRANSACTION_EXPENSE = "EXPENSE";
+    /**
+     * 退款流水类型常量。
+     */
     private static final String TRANSACTION_REFUND = "REFUND";
+    /**
+     * 总预算类型常量。
+     */
     private static final String BUDGET_TOTAL = "TOTAL";
+    /**
+     * 投资买入类型常量。
+     */
     private static final String INVESTMENT_TYPE_BUY = "BUY";
+    /**
+     * 基金金额买入录入模式常量。
+     */
     private static final String INVESTMENT_INPUT_AMOUNT_NAV = "AMOUNT_NAV";
+    /**
+     * 投资待确认状态常量。
+     */
     private static final String INVESTMENT_STATUS_PENDING_CONFIRM = "PENDING_CONFIRM";
+    /**
+     * 投资已确认状态常量。
+     */
     private static final String INVESTMENT_STATUS_CONFIRMED = "CONFIRMED";
+    /**
+     * 已撤销状态常量。
+     */
     private static final String STATUS_REVOKED = "REVOKED";
+    /**
+     * 已取消状态常量。
+     */
     private static final String STATUS_CANCELLED = "CANCELLED";
 
+    /**
+     * 资产快照数据访问组件。
+     */
     private final AssetSnapshotMapper assetSnapshotMapper;
+    /**
+     * 账户数据访问组件。
+     */
     private final AccountMapper accountMapper;
+    /**
+     * 余额修正数据访问组件。
+     */
     private final AccountBalanceAdjustmentMapper accountBalanceAdjustmentMapper;
+    /**
+     * 资产数据访问组件。
+     */
     private final AssetMapper assetMapper;
+    /**
+     * 当前价格数据访问组件。
+     */
     private final AssetPriceCurrentMapper assetPriceCurrentMapper;
+    /**
+     * 日级价格数据访问组件。
+     */
     private final AssetPriceDailyMapper assetPriceDailyMapper;
+    /**
+     * 投资交易数据访问组件。
+     */
     private final InvestmentTransactionMapper investmentTransactionMapper;
+    /**
+     * 流水数据访问组件。
+     */
     private final TransactionRecordMapper transactionRecordMapper;
+    /**
+     * 预算数据访问组件。
+     */
     private final BudgetMapper budgetMapper;
+    /**
+     * 用户数据访问组件。
+     */
     private final UserMapper userMapper;
+    /**
+     * 持仓历史服务。
+     */
     private final InvestmentPositionHistoryService positionHistoryService;
 
+    /**
+     * 注入业务依赖。
+     */
     public SnapshotServiceImpl(
             AssetSnapshotMapper assetSnapshotMapper,
             AccountMapper accountMapper,
@@ -279,6 +345,9 @@ public class SnapshotServiceImpl implements SnapshotService {
         return balance.setScale(4, RoundingMode.HALF_UP);
     }
 
+    /**
+     * 计算普通流水资金影响。
+     */
     private BigDecimal transactionFlow(Long userId, Long accountId, LocalDateTime startTime, LocalDateTime endTime) {
         return transactionRecordMapper.selectList(new LambdaQueryWrapper<TransactionRecord>()
                         .eq(TransactionRecord::getUserId, userId)
@@ -291,6 +360,9 @@ public class SnapshotServiceImpl implements SnapshotService {
                 .setScale(4, RoundingMode.HALF_UP);
     }
 
+    /**
+     * 计算投资交易资金影响。
+     */
     private BigDecimal investmentFlow(Long userId, Long accountId, LocalDateTime startTime, LocalDateTime endTime) {
         return investmentTransactionMapper.selectList(new LambdaQueryWrapper<InvestmentTransaction>()
                         .eq(InvestmentTransaction::getUserId, userId)
@@ -304,6 +376,9 @@ public class SnapshotServiceImpl implements SnapshotService {
                 .setScale(4, RoundingMode.HALF_UP);
     }
 
+    /**
+     * 计算余额修正资金影响。
+     */
     private BigDecimal adjustmentFlow(Long userId, Long accountId, LocalDate start, LocalDate end) {
         return accountBalanceAdjustmentMapper.selectList(new LambdaQueryWrapper<AccountBalanceAdjustment>()
                         .eq(AccountBalanceAdjustment::getUserId, userId)
@@ -316,6 +391,9 @@ public class SnapshotServiceImpl implements SnapshotService {
                 .setScale(4, RoundingMode.HALF_UP);
     }
 
+    /**
+     * 计算普通流水对账户余额的有符号影响。
+     */
     private BigDecimal signedTransactionAmount(Long accountId, TransactionRecord record) {
         if ("TRANSFER".equals(record.getType())) {
             return Objects.equals(accountId, record.getTargetAccountId()) ? scale4(record.getAmount()) : scale4(record.getAmount()).negate();
@@ -326,6 +404,9 @@ public class SnapshotServiceImpl implements SnapshotService {
         return scale4(record.getAmount());
     }
 
+    /**
+     * 计算投资交易对账户余额的有符号影响。
+     */
     private BigDecimal signedInvestmentAmount(InvestmentTransaction record) {
         if (INVESTMENT_TYPE_BUY.equals(record.getType())) {
             BigDecimal amount = record.getTradeAmount() == null ? scale4(record.getAmount()).add(scale4(record.getFee())) : scale4(record.getTradeAmount());

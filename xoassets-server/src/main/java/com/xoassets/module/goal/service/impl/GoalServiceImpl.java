@@ -27,12 +27,27 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class GoalServiceImpl implements GoalService {
 
+    /**
+     * 启用状态常量。
+     */
     private static final String STATUS_ACTIVE = "ACTIVE";
+    /**
+     * 完成状态常量。
+     */
     private static final String STATUS_DONE = "DONE";
 
+    /**
+     * 目标数据访问组件。
+     */
     private final GoalMapper goalMapper;
+    /**
+     * 首页服务。
+     */
     private final DashboardService dashboardService;
 
+    /**
+     * 注入业务依赖。
+     */
     public GoalServiceImpl(GoalMapper goalMapper, DashboardService dashboardService) {
         this.goalMapper = goalMapper;
         this.dashboardService = dashboardService;

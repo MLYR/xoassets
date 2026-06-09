@@ -43,20 +43,59 @@ import org.springframework.util.StringUtils;
 @Service
 public class QuoteServiceImpl implements QuoteService {
 
+    /**
+     * 股票行情刷新开始时间。
+     */
     private static final LocalTime STOCK_REFRESH_START = LocalTime.of(9, 30);
+    /**
+     * 股票行情刷新结束时间。
+     */
     private static final LocalTime STOCK_REFRESH_END = LocalTime.of(15, 30);
+    /**
+     * 基金资产类型常量。
+     */
     private static final String ASSET_TYPE_FUND = "FUND";
+    /**
+     * 股票资产类型常量。
+     */
     private static final String ASSET_TYPE_STOCK = "STOCK";
+    /**
+     * 虚拟货币资产类型常量。
+     */
     private static final String ASSET_TYPE_CRYPTO = "CRYPTO";
+    /**
+     * 交易日历优先级排序SQL。
+     */
     private static final String CALENDAR_PRIORITY_SQL = "order by case source when 'MANUAL' then 3 when 'EXCHANGE_ANNOUNCEMENT' then 2 when 'SYSTEM_WEEKDAY' then 1 else 0 end desc, id desc limit 1";
 
+    /**
+     * 当前价格数据访问组件。
+     */
     private final AssetPriceCurrentMapper assetPriceCurrentMapper;
+    /**
+     * 日级价格数据访问组件。
+     */
     private final AssetPriceDailyMapper assetPriceDailyMapper;
+    /**
+     * 交易日历数据访问组件。
+     */
     private final MarketCalendarMapper marketCalendarMapper;
+    /**
+     * Redis行情快照服务。
+     */
     private final QuoteRawSnapshotService quoteRawSnapshotService;
+    /**
+     * 资产服务。
+     */
     private final AssetService assetService;
+    /**
+     * 行情提供方列表。
+     */
     private final List<QuoteProvider> quoteProviders;
 
+    /**
+     * 注入业务依赖。
+     */
     public QuoteServiceImpl(
             AssetPriceCurrentMapper assetPriceCurrentMapper,
             AssetPriceDailyMapper assetPriceDailyMapper,
@@ -296,6 +335,9 @@ public class QuoteServiceImpl implements QuoteService {
                 .eq(AssetPriceDaily::getDeleted, 0));
     }
 
+    /**
+     * 转换为日级价格实体。
+     */
     private AssetPriceDaily toDailyPrice(AssetPriceCurrent price) {
         AssetPriceDaily daily = new AssetPriceDaily();
         daily.setAssetId(price.getAssetId());
@@ -313,6 +355,9 @@ public class QuoteServiceImpl implements QuoteService {
         return daily;
     }
 
+    /**
+     * 判断行情是否未更新。
+     */
     private boolean sameOrOlderQuote(AssetPriceCurrent latestPrice, AssetPriceCurrent fetchedPrice) {
         if (latestPrice == null || fetchedPrice == null || latestPrice.getQuoteTime() == null || fetchedPrice.getQuoteTime() == null) {
             return false;
@@ -320,6 +365,9 @@ public class QuoteServiceImpl implements QuoteService {
         return !fetchedPrice.getQuoteTime().isAfter(latestPrice.getQuoteTime()) && samePricePayload(latestPrice, fetchedPrice);
     }
 
+    /**
+     * 判断当前价格数据是否相同。
+     */
     private boolean samePricePayload(AssetPriceCurrent left, AssetPriceCurrent right) {
         return sameAmount(left.getPrice(), right.getPrice())
                 && sameText(left.getCurrency(), right.getCurrency())
@@ -330,6 +378,9 @@ public class QuoteServiceImpl implements QuoteService {
                 && sameText(left.getMarketStatus(), right.getMarketStatus());
     }
 
+    /**
+     * 判断日级价格数据是否相同。
+     */
     private boolean sameDailyPayload(AssetPriceDaily left, AssetPriceDaily right) {
         return sameAmount(left.getOpenPrice(), right.getOpenPrice())
                 && sameAmount(left.getClosePrice(), right.getClosePrice())
@@ -342,6 +393,9 @@ public class QuoteServiceImpl implements QuoteService {
                 && sameText(left.getSource(), right.getSource());
     }
 
+    /**
+     * 判断金额是否相同。
+     */
     private boolean sameAmount(BigDecimal left, BigDecimal right) {
         if (left == null || right == null) {
             return left == right;
@@ -349,6 +403,9 @@ public class QuoteServiceImpl implements QuoteService {
         return left.compareTo(right) == 0;
     }
 
+    /**
+     * 判断文本是否相同。
+     */
     private boolean sameText(String left, String right) {
         return left == null ? right == null : left.equals(right);
     }
@@ -363,6 +420,9 @@ public class QuoteServiceImpl implements QuoteService {
         quoteRawSnapshotService.append(toRawSnapshot(price));
     }
 
+    /**
+     * 转换为当前价格实体。
+     */
     private AssetPriceCurrent toCurrent(Long assetId, QuoteFetchResult result) {
         AssetPriceCurrent current = new AssetPriceCurrent();
         current.setAssetId(assetId);
@@ -378,6 +438,9 @@ public class QuoteServiceImpl implements QuoteService {
         return current;
     }
 
+    /**
+     * 转换为Redis行情快照。
+     */
     private QuoteRawSnapshot toRawSnapshot(AssetPriceCurrent price) {
         return new QuoteRawSnapshot(
                 price.getAssetId(),

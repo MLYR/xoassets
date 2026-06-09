@@ -23,8 +23,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/goals")
 public class GoalController {
 
+    /**
+     * 资产目标服务。
+     */
     private final GoalService goalService;
 
+    /**
+     * 注入接口依赖。
+     */
     public GoalController(GoalService goalService) {
         this.goalService = goalService;
     }

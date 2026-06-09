@@ -25,13 +25,31 @@ import org.springframework.stereotype.Service;
 @Service
 public class RedisQuoteRawSnapshotService implements QuoteRawSnapshotService {
 
+    /**
+     * Redis行情快照过期时间。
+     */
     private static final Duration SNAPSHOT_TTL = Duration.ofDays(3);
+    /**
+     * 月份格式化器。
+     */
     private static final DateTimeFormatter MONTH_FORMATTER = DateTimeFormatter.ofPattern("yyyyMM");
+    /**
+     * 系统时区。
+     */
     private static final ZoneId ZONE_ID = ZoneId.systemDefault();
 
+    /**
+     * Redis客户端。
+     */
     private final StringRedisTemplate redisTemplate;
+    /**
+     * JSON序列化组件。
+     */
     private final ObjectMapper objectMapper;
 
+    /**
+     * 注入依赖组件。
+     */
     public RedisQuoteRawSnapshotService(StringRedisTemplate redisTemplate, ObjectMapper objectMapper) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
@@ -76,6 +94,9 @@ public class RedisQuoteRawSnapshotService implements QuoteRawSnapshotService {
                 .toList();
     }
 
+    /**
+     * 读取Redis行情快照。
+     */
     private QuoteRawSnapshot readSnapshot(String value) {
         try {
             return objectMapper.readValue(value, QuoteRawSnapshot.class);
@@ -85,10 +106,16 @@ public class RedisQuoteRawSnapshotService implements QuoteRawSnapshotService {
         }
     }
 
+    /**
+     * 生成Redis键。
+     */
     private String key(Long assetId, YearMonth month) {
         return "price:snapshot:" + assetId + ":" + month.format(MONTH_FORMATTER);
     }
 
+    /**
+     * 生成Redis排序分。
+     */
     private double score(LocalDateTime quoteTime) {
         return quoteTime.atZone(ZONE_ID).toInstant().toEpochMilli();
     }

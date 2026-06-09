@@ -12,6 +12,12 @@ import lombok.Data;
 @Builder
 public class AssetTrendPointVO {
 
+    /**
+     * 日期。
+     */
     private LocalDate date;
+    /**
+     * 数值。
+     */
     private BigDecimal value;
 }

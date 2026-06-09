@@ -20,8 +20,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/snapshots")
 public class SnapshotController {
 
+    /**
+     * 资产快照服务。
+     */
     private final SnapshotService snapshotService;
 
+    /**
+     * 注入接口依赖。
+     */
     public SnapshotController(SnapshotService snapshotService) {
         this.snapshotService = snapshotService;
     }

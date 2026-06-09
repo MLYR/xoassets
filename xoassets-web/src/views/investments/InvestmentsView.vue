@@ -489,6 +489,7 @@ const contributionData = computed(() => contributionRows()
   .filter((item) => item.value !== 0)
   .sort((a, b) => Math.abs(b.value) - Math.abs(a.value)));
 
+// 加载页面数据。
 async function loadPageData() {
   loading.value = true;
   try {
@@ -510,6 +511,7 @@ async function loadPageData() {
   }
 }
 
+// 加载趋势数据。
 async function loadTrend() {
   try {
     const result = await investmentApi.trendInvestments({ module: trendModule.value, period: 'MONTH' });
@@ -519,6 +521,7 @@ async function loadTrend() {
   }
 }
 
+// 切换投资模块。
 async function handleModuleChange() {
   if (activeModule.value === 'ALL') {
     moduleHoldings.value = [];
@@ -534,15 +537,18 @@ async function handleModuleChange() {
   }
 }
 
+// 切换持仓分页大小。
 function handleModulePageSizeChange() {
   modulePageNo.value = 1;
 }
 
+// 切换模块。
 function switchModule(module: string) {
   activeModule.value = module as InvestmentModule;
   handleModuleChange();
 }
 
+// 加载汇率。
 async function loadExchangeRate() {
   try {
     const result = await exchangeRateApi.usdCny();
@@ -552,6 +558,7 @@ async function loadExchangeRate() {
   }
 }
 
+// 生成收益贡献行。
 function contributionRows() {
   if (contributionMode.value === 'PRIMARY') {
     return holdings.value
@@ -564,6 +571,7 @@ function contributionRows() {
   return holdings.value.map((item) => ({ name: item.assetName || item.symbol || '-', value: convertAmount(Number(item.floatingProfit || 0), item.currency) }));
 }
 
+// 打开新增持仓弹窗。
 function openCreateHoldingDialog() {
   if (activeModule.value === 'ALL') {
     ElMessage.warning('请先进入基金、股票或虚拟货币模块');
@@ -573,6 +581,7 @@ function openCreateHoldingDialog() {
   holdingDialogVisible.value = true;
 }
 
+// 重置持仓表单。
 function resetHoldingForm(assetType: AssetType) {
   holdingForm.assetName = '';
   holdingForm.symbol = '';
@@ -594,6 +603,7 @@ function resetHoldingForm(assetType: AssetType) {
   lookupResults.value = [];
 }
 
+// 打开持仓详情。
 function openHoldingDetail(holding: HoldingItem) {
   router.push({
     path: ROUTES.holdingDetail.replace(':id', holding.id),
@@ -602,11 +612,13 @@ function openHoldingDetail(holding: HoldingItem) {
   });
 }
 
+// 解析路由模块。
 function routeModule(value: unknown): InvestmentModule {
   const module = Array.isArray(value) ? value[0] : value;
   return moduleTabs.some((item) => item.value === module) ? module as InvestmentModule : 'ALL';
 }
 
+// 同步模块路由参数。
 function syncModuleQuery() {
   // 模块状态写入 URL，详情页返回时不会因为组件重建而丢回“总览”。
   const nextQuery = { ...route.query };
@@ -621,6 +633,7 @@ function syncModuleQuery() {
   router.replace({ path: ROUTES.investments, query: nextQuery });
 }
 
+// 获取默认行情来源。
 function defaultQuoteSource(assetType: AssetType): QuoteSource {
   if (assetType === 'CRYPTO') return 'COINGECKO';
   if (assetType === 'FUND') return 'EASTMONEY';
@@ -628,6 +641,7 @@ function defaultQuoteSource(assetType: AssetType): QuoteSource {
   return 'MANUAL';
 }
 
+// 获取默认市场。
 function defaultMarket(assetType: AssetType, symbol = '') {
   if (assetType === 'CRYPTO') return 'CRYPTO';
   if (assetType === 'FUND') return 'CN_FUND';
@@ -641,6 +655,7 @@ function defaultMarket(assetType: AssetType, symbol = '') {
   return 'UNKNOWN';
 }
 
+// 识别资产。
 async function handleLookupAsset() {
   if (!lookupKeyword.value) {
     ElMessage.warning('请输入代码或名称');
@@ -664,6 +679,7 @@ async function handleLookupAsset() {
   }
 }
 
+// 应用资产识别结果。
 function applyLookupResult(item: AssetLookupItem) {
   if (item.assetType !== holdingForm.assetType) {
     ElMessage.warning('查询结果类型与当前模块不一致');
@@ -687,6 +703,7 @@ function applyLookupResult(item: AssetLookupItem) {
   ElMessage.success('资产信息已填充');
 }
 
+// 保存持仓。
 async function handleSaveHolding() {
   if (!holdingForm.assetName || !holdingForm.symbol) {
     ElMessage.warning('请输入持仓名称和资产代码');
@@ -715,6 +732,7 @@ async function handleSaveHolding() {
   }
 }
 
+// 打开价格弹窗。
 function openQuoteDialog(holding: HoldingItem) {
   activeHolding.value = holding;
   quoteForm.price = roundTo(Number(holding.latestPrice || holding.avgCost || 0), pricePrecision(holding));
@@ -722,6 +740,7 @@ function openQuoteDialog(holding: HoldingItem) {
   quoteDialogVisible.value = true;
 }
 
+// 保存手动价格。
 async function handleManualQuote() {
   if (!activeHolding.value || quoteForm.price <= 0) {
     ElMessage.warning('请输入有效价格');
@@ -740,6 +759,7 @@ async function handleManualQuote() {
   }
 }
 
+// 刷新行情。
 async function handleRefreshQuote(holding: HoldingItem) {
   refreshingAssetId.value = holding.assetId;
   try {
@@ -753,10 +773,12 @@ async function handleRefreshQuote(holding: HoldingItem) {
   }
 }
 
+// 判断能否删除持仓。
 function canDeleteHolding(holding: HoldingItem) {
   return Number(holding.quantity || 0) <= 0;
 }
 
+// 删除持仓。
 async function handleDeleteHolding(holding: HoldingItem) {
   try {
     await ElMessageBox.confirm(`确认删除 ${holding.assetName || holding.symbol || '该持仓'}？`, '删除持仓', { type: 'warning' });
@@ -772,6 +794,7 @@ async function handleDeleteHolding(holding: HoldingItem) {
   }
 }
 
+// 生成已实现收益贡献行。
 function realizedContributionRows(mode: Extract<ContributionMode, 'MONTH' | 'YEAR'>) {
   const begin = periodStart(mode);
   const holdingMap = new Map(holdings.value.map((item) => [item.assetId, item]));
@@ -789,6 +812,7 @@ function realizedContributionRows(mode: Extract<ContributionMode, 'MONTH' | 'YEA
   return [...result.entries()].map(([name, value]) => ({ name, value }));
 }
 
+// 按展示币种换算金额。
 function convertAmount(value: number, sourceCurrency?: string | null) {
   const source = sourceCurrency || 'CNY';
   if (source === displayCurrency.value) return round4(Number(value));
@@ -797,6 +821,7 @@ function convertAmount(value: number, sourceCurrency?: string | null) {
   return round4(Number(value));
 }
 
+// 换算可为空金额。
 function convertNullableAmount(value?: number | null, sourceCurrency?: string | null) {
   if (value === null || value === undefined) {
     return null;
@@ -804,75 +829,92 @@ function convertNullableAmount(value?: number | null, sourceCurrency?: string | 
   return convertAmount(value, sourceCurrency);
 }
 
+// 计算四位收益率。
 function rate4(profit: number, cost: number) {
   return cost <= 0 ? 0 : round4((profit / cost) * 100);
 }
 
+// 保留四位小数。
 function round4(value: number) {
   return Number(Number(value || 0).toFixed(4));
 }
 
+// 格式化紧凑金额。
 function compactMoney(value: number) {
   const abs = Math.abs(value);
   if (abs >= 10000) return `${currencySymbol.value}${round4(value / 10000)}万`;
   return `${currencySymbol.value}${round4(value)}`;
 }
 
+// 格式化金额。
 function formatMoney(value: number) {
   return `${currencySymbol.value}${round4(value).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`;
 }
 
+// 格式化比例。
 function formatRatio(value?: number | null) {
   return `${round4(Number(value || 0)).toFixed(2)}%`;
 }
 
+// 格式化价格。
 function formatPrice(value?: number | null, scale?: number | null) {
   if (value === null || value === undefined) return '--';
   const precision = scale || 4;
   return Number(value).toLocaleString('zh-CN', { minimumFractionDigits: Math.min(precision, 4), maximumFractionDigits: precision });
 }
 
+// 格式化识别价格。
 function formatLookupPrice(item: AssetLookupItem) {
   return formatPrice(item.latestPrice, item.assetType === 'CRYPTO' ? 8 : 4);
 }
 
+// 格式化日期时间。
 function formatDateTime(value?: string | null) {
   return value ? value.replace('T', ' ').slice(0, 16) : '';
 }
 
+// 获取价格精度。
 function pricePrecision(holding?: HoldingItem | null) {
   return holding?.assetType === 'CRYPTO' ? 8 : 4;
 }
 
+// 按指定精度取值。
 function roundTo(value: number, precision: number) {
   return Number(Number(value || 0).toFixed(precision));
 }
 
+// 按资产类型处理数量精度。
 function roundQuantity(value: number, assetType: AssetType) {
   return roundTo(value, assetType === 'CRYPTO' ? 10 : 4);
 }
 
+// 计算周期开始日期。
 function periodStart(mode: Extract<ContributionMode, 'MONTH' | 'YEAR'>) {
   const now = new Date();
   return mode === 'MONTH' ? new Date(now.getFullYear(), now.getMonth(), 1) : new Date(now.getFullYear(), 0, 1);
 }
 
+// 转换模块名称。
 function moduleLabel(module?: string | null) {
   return ({ ALL: '总览', FUND: '基金', STOCK: '股票', CRYPTO: '虚拟货币' } as Record<string, string>)[module || ''] || '-';
 }
 
+// 转换模块主指标名称。
 function modulePrimaryLabel(module?: string | null) {
   return '今日收益';
 }
 
+// 转换模块价格名称。
 function modulePriceLabel(module?: string | null) {
   return module === 'FUND' ? '最新净值' : '当前价';
 }
 
+// 转换资产子类型名称。
 function subTypeLabel(value?: string | null) {
   return ({ OTC_FUND: '场外基金', MONEY_FUND: '货币基金', BOND_FUND: '债券基金', QDII_FUND: 'QDII', ETF: 'ETF', CN_STOCK: 'A股', HK_STOCK: '港股', US_STOCK: '美股', CRYPTO_SPOT: '现货' } as Record<string, string>)[value || ''] || '-';
 }
 
+// 转换价格状态文案。
 function priceStatusLabel(row: HoldingItem) {
   if (row.priceStatus === 'MARKET_CLOSED') {
     return '休市';
@@ -883,6 +925,7 @@ function priceStatusLabel(row: HoldingItem) {
   return row.priceDate ? `${row.priceLabel || modulePriceLabel(row.assetType)} ${row.priceDate}` : '正常';
 }
 
+// 转换价格状态标签类型。
 function priceStatusTagType(row: HoldingItem) {
   if (row.priceStatus === 'MARKET_CLOSED') {
     return 'info';
@@ -890,6 +933,7 @@ function priceStatusTagType(row: HoldingItem) {
   return row.todayPriceAvailable === false ? 'warning' : 'success';
 }
 
+// 生成模块不可用提示。
 function moduleUnavailableLabel(module: string, items: HoldingItem[] = []) {
   if (items.length === 0) {
     return '暂无持仓';
@@ -900,6 +944,7 @@ function moduleUnavailableLabel(module: string, items: HoldingItem[] = []) {
   return module === 'FUND' ? '今日净值未更新' : '今日价格未更新';
 }
 
+// 生成今日收益率文案。
 function todayProfitRateText(row: HoldingItem) {
   if (row.todayProfitRateByCurrentQuantity !== null && row.todayProfitRateByCurrentQuantity !== undefined) {
     return formatRatio(row.todayProfitRateByCurrentQuantity);
@@ -907,6 +952,7 @@ function todayProfitRateText(row: HoldingItem) {
   return priceStatusLabel(row);
 }
 
+// 计算收益颜色语义。
 function profitTone(value?: number | null): 'success' | 'danger' | 'warning' | 'primary' {
   if (value === null || value === undefined) return 'warning';
   if (value > 0) return 'success';

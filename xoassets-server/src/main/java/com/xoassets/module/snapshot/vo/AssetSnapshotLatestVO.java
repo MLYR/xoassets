@@ -11,7 +11,16 @@ import lombok.Data;
 @Builder
 public class AssetSnapshotLatestVO {
 
+    /**
+     * 最新快照。
+     */
     private AssetSnapshotVO latest;
+    /**
+     * 较昨日净资产变化。
+     */
     private BigDecimal netAssetChangeFromYesterday;
+    /**
+     * 较月初净资产变化。
+     */
     private BigDecimal netAssetChangeFromMonthStart;
 }

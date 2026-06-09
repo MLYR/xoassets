@@ -38,19 +38,55 @@ import org.springframework.util.StringUtils;
 @Service
 public class TransactionServiceImpl implements TransactionService {
 
+    /**
+     * 收入类型常量。
+     */
     private static final String TYPE_INCOME = "INCOME";
+    /**
+     * 支出类型常量。
+     */
     private static final String TYPE_EXPENSE = "EXPENSE";
+    /**
+     * 转账类型常量。
+     */
     private static final String TYPE_TRANSFER = "TRANSFER";
+    /**
+     * 退款类型常量。
+     */
     private static final String TYPE_REFUND = "REFUND";
+    /**
+     * 记账图片最大字节数。
+     */
     private static final int MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+    /**
+     * Base64图片前缀。
+     */
     private static final String DATA_IMAGE_PREFIX = "data:image/";
 
+    /**
+     * 流水数据访问组件。
+     */
     private final TransactionRecordMapper transactionRecordMapper;
+    /**
+     * 账户数据访问组件。
+     */
     private final AccountMapper accountMapper;
+    /**
+     * 分类数据访问组件。
+     */
     private final CategoryMapper categoryMapper;
+    /**
+     * 账户服务。
+     */
     private final AccountService accountService;
+    /**
+     * 业务服务组件。
+     */
     private final CategoryService categoryService;
 
+    /**
+     * 注入业务依赖。
+     */
     public TransactionServiceImpl(
             TransactionRecordMapper transactionRecordMapper,
             AccountMapper accountMapper,

@@ -10,6 +10,9 @@ import lombok.Data;
 @Data
 public class UpdateProfileRequest {
 
+    /**
+     * 昵称。
+     */
     @NotBlank(message = "昵称不能为空")
     @Size(max = 50, message = "昵称不能超过50个字符")
     private String nickname;

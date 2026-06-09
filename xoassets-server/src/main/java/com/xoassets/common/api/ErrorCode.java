@@ -18,7 +18,13 @@ public enum ErrorCode {
     BUSINESS_ERROR(42200, "业务规则不允许"),
     SYSTEM_ERROR(50000, "系统异常");
 
+    /**
+     * 业务码。
+     */
     private final int code;
+    /**
+     * 提示信息。
+     */
     private final String message;
 
     ErrorCode(int code, String message) {

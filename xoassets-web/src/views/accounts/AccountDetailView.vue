@@ -198,10 +198,12 @@ const categoryOption = computed<EChartsOption>(() => ({
   series: [{ type: 'pie', radius: ['42%', '70%'], data: flowStats.value.categoryExpenseStats.map((item) => ({ name: item.name, value: item.amount })) }]
 }));
 
+// 加载页面全部数据。
 async function loadAll() {
   await Promise.all([loadLedger(), loadFlowStatistics()]);
 }
 
+// 加载账本明细。
 async function loadLedger() {
   loading.value = true;
   try {
@@ -217,6 +219,7 @@ async function loadLedger() {
   }
 }
 
+// 加载资金统计。
 async function loadFlowStatistics() {
   try {
     flowStats.value = await accountApi.flowStatistics(accountId.value, {
@@ -228,11 +231,13 @@ async function loadFlowStatistics() {
   }
 }
 
+// 从第一页重新加载。
 function reloadFromFirstPage() {
   pageNo.value = 1;
   loadAll();
 }
 
+// 导出账户账本。
 async function handleExportLedger() {
   exporting.value = true;
   try {
@@ -244,6 +249,7 @@ async function handleExportLedger() {
   }
 }
 
+// 打开余额修正弹窗。
 function openBalanceAdjustment() {
   adjustmentForm.value = {
     afterBalance: Number(summary.value.currentBalance || account.value?.balance || 0),
@@ -253,6 +259,7 @@ function openBalanceAdjustment() {
   adjustmentDialogVisible.value = true;
 }
 
+// 提交余额修正。
 async function handleBalanceAdjustment() {
   if (!Number.isFinite(Number(adjustmentForm.value.afterBalance))) {
     ElMessage.warning('请输入有效余额');
@@ -276,6 +283,7 @@ async function handleBalanceAdjustment() {
   }
 }
 
+// 组装查询参数。
 function queryParams() {
   return {
     pageNo: pageNo.value,
@@ -287,10 +295,12 @@ function queryParams() {
   };
 }
 
+// 转换业务类型文案。
 function bizTypeLabel(type: AccountLedgerBizType) {
   return ledgerTypeOptions.find((item) => item.value === type)?.label || type;
 }
 
+// 转换来源类型文案。
 function sourceTypeLabel(type: AccountLedgerItem['sourceType']) {
   if (type === 'INVESTMENT') {
     return '投资交易';
@@ -301,16 +311,19 @@ function sourceTypeLabel(type: AccountLedgerItem['sourceType']) {
   return '普通流水';
 }
 
+// 格式化日期时间。
 function formatDateTime(value: string) {
   return value.replace('T', ' ').slice(0, 16);
 }
 
+// 格式化日期。
 function formatDate(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${date.getFullYear()}-${month}-${day}`;
 }
 
+// 格式化日期时间输入值。
 function formatDateTimeInput(date: Date) {
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');

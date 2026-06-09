@@ -24,8 +24,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/statistics")
 public class StatisticsController {
 
+    /**
+     * 统计服务。
+     */
     private final StatisticsService statisticsService;
 
+    /**
+     * 注入接口依赖。
+     */
     public StatisticsController(StatisticsService statisticsService) {
         this.statisticsService = statisticsService;
     }

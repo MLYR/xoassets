@@ -16,17 +16,44 @@ import lombok.Data;
 @TableName("xo_market_calendar")
 public class MarketCalendar {
 
+    /**
+     * 主键ID。
+     */
     @TableId
     private Long id;
+    /**
+     * 交易市场。
+     */
     private String market;
+    /**
+     * 交易日期。
+     */
     private LocalDate tradeDate;
+    /**
+     * 是否交易日。
+     */
     private Boolean tradingDay;
+    /**
+     * 来源。
+     */
     private String source;
+    /**
+     * 备注。
+     */
     private String remark;
+    /**
+     * 创建时间。
+     */
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
+    /**
+     * 更新时间。
+     */
     @TableField(fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updatedAt;
+    /**
+     * 逻辑删除标记。
+     */
     @TableLogic
     private Integer deleted;
 }

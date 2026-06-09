@@ -11,7 +11,16 @@ import lombok.Data;
 @Builder
 public class InvestmentTrendVO {
 
+    /**
+     * 投资模块。
+     */
     private String module;
+    /**
+     * 统计周期。
+     */
     private String period;
+    /**
+     * 趋势点列表。
+     */
     private List<InvestmentTrendPointVO> points;
 }

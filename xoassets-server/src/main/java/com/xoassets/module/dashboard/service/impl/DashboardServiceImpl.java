@@ -29,12 +29,30 @@ import org.springframework.stereotype.Service;
 @Service
 public class DashboardServiceImpl implements DashboardService {
 
+    /**
+     * 账户数据访问组件。
+     */
     private final AccountMapper accountMapper;
+    /**
+     * 流水数据访问组件。
+     */
     private final TransactionRecordMapper transactionRecordMapper;
+    /**
+     * 投资交易数据访问组件。
+     */
     private final InvestmentTransactionMapper investmentTransactionMapper;
+    /**
+     * 持仓服务。
+     */
     private final HoldingService holdingService;
+    /**
+     * 预算服务。
+     */
     private final BudgetService budgetService;
 
+    /**
+     * 注入业务依赖。
+     */
     public DashboardServiceImpl(
             AccountMapper accountMapper,
             TransactionRecordMapper transactionRecordMapper,

@@ -10,11 +10,26 @@ import org.springframework.format.annotation.DateTimeFormat;
 @Data
 public class InvestmentTransactionExportQuery {
 
+    /**
+     * 开始日期。
+     */
     @DateTimeFormat(pattern = "yyyy-MM-dd")
     private LocalDate startDate;
+    /**
+     * 结束日期。
+     */
     @DateTimeFormat(pattern = "yyyy-MM-dd")
     private LocalDate endDate;
+    /**
+     * 持仓ID。
+     */
     private Long holdingId;
+    /**
+     * 资产ID。
+     */
     private Long assetId;
+    /**
+     * 账户ID。
+     */
     private Long accountId;
 }

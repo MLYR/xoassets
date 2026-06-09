@@ -22,8 +22,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/export")
 public class ExportController {
 
+    /**
+     * 业务服务组件。
+     */
     private final ExportService exportService;
 
+    /**
+     * 注入接口依赖。
+     */
     public ExportController(ExportService exportService) {
         this.exportService = exportService;
     }

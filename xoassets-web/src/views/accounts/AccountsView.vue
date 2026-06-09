@@ -263,12 +263,14 @@ async function handleDelete(account: AccountItem) {
   }
 }
 
+// 格式化日期。
 function formatDate(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${date.getFullYear()}-${month}-${day}`;
 }
 
+// 格式化日期时间输入值。
 function formatDateTimeInput(date: Date) {
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');

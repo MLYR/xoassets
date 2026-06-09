@@ -41,16 +41,43 @@ import org.springframework.util.StringUtils;
 @Service
 public class ExportServiceImpl implements ExportService {
 
+    /**
+     * 时间格式化器。
+     */
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
+    /**
+     * 账户账本服务。
+     */
     private final AccountLedgerService accountLedgerService;
+    /**
+     * 账户服务。
+     */
     private final AccountService accountService;
+    /**
+     * 流水数据访问组件。
+     */
     private final TransactionRecordMapper transactionRecordMapper;
+    /**
+     * 投资交易数据访问组件。
+     */
     private final InvestmentTransactionMapper investmentTransactionMapper;
+    /**
+     * 账户数据访问组件。
+     */
     private final AccountMapper accountMapper;
+    /**
+     * 分类数据访问组件。
+     */
     private final CategoryMapper categoryMapper;
+    /**
+     * 资产数据访问组件。
+     */
     private final AssetMapper assetMapper;
 
+    /**
+     * 注入业务依赖。
+     */
     public ExportServiceImpl(
             AccountLedgerService accountLedgerService,
             AccountService accountService,
@@ -157,6 +184,9 @@ public class ExportServiceImpl implements ExportService {
         return new ExportFile(filename("investment-transactions"), bytes(csv));
     }
 
+    /**
+     * 构建普通流水查询条件。
+     */
     private LambdaQueryWrapper<TransactionRecord> transactionWrapper(Long userId, TransactionQuery query) {
         LambdaQueryWrapper<TransactionRecord> wrapper = new LambdaQueryWrapper<TransactionRecord>()
                 .eq(TransactionRecord::getUserId, userId)
@@ -177,6 +207,9 @@ public class ExportServiceImpl implements ExportService {
         return wrapper;
     }
 
+    /**
+     * 构建投资交易查询条件。
+     */
     private LambdaQueryWrapper<InvestmentTransaction> investmentWrapper(Long userId, InvestmentTransactionExportQuery query) {
         LambdaQueryWrapper<InvestmentTransaction> wrapper = new LambdaQueryWrapper<InvestmentTransaction>()
                 .eq(InvestmentTransaction::getUserId, userId)
@@ -194,6 +227,9 @@ public class ExportServiceImpl implements ExportService {
         return wrapper;
     }
 
+    /**
+     * 追加导出日期范围条件。
+     */
     private <T> void applyDateRange(LambdaQueryWrapper<T> wrapper, LocalDate startDate, LocalDate endDate, com.baomidou.mybatisplus.core.toolkit.support.SFunction<T, LocalDateTime> column) {
         if (startDate != null) {
             wrapper.ge(column, LocalDateTime.of(startDate, LocalTime.MIN));
@@ -203,6 +239,9 @@ public class ExportServiceImpl implements ExportService {
         }
     }
 
+    /**
+     * 批量查询账户映射。
+     */
     private Map<Long, Account> accountMap(Long userId, Set<Long> ids) {
         if (ids.isEmpty()) {
             return Map.of();
@@ -212,6 +251,9 @@ public class ExportServiceImpl implements ExportService {
                 .collect(Collectors.toMap(Account::getId, Function.identity()));
     }
 
+    /**
+     * 批量查询分类映射。
+     */
     private Map<Long, Category> categoryMap(Long userId, Set<Long> ids) {
         if (ids.isEmpty()) {
             return Map.of();
@@ -221,6 +263,9 @@ public class ExportServiceImpl implements ExportService {
                 .collect(Collectors.toMap(Category::getId, Function.identity()));
     }
 
+    /**
+     * 批量查询资产映射。
+     */
     private Map<Long, Asset> assetMap(Set<Long> ids) {
         if (ids.isEmpty()) {
             return Map.of();
@@ -228,6 +273,9 @@ public class ExportServiceImpl implements ExportService {
         return assetMapper.selectBatchIds(ids).stream().collect(Collectors.toMap(Asset::getId, Function.identity()));
     }
 
+    /**
+     * 追加一行CSV数据。
+     */
     private void append(StringBuilder csv, String... values) {
         for (int i = 0; i < values.length; i++) {
             if (i > 0) {
@@ -238,6 +286,9 @@ public class ExportServiceImpl implements ExportService {
         csv.append('\n');
     }
 
+    /**
+     * 转义CSV字段。
+     */
     private String escape(String value) {
         if (value == null) {
             return "";
@@ -245,6 +296,9 @@ public class ExportServiceImpl implements ExportService {
         return "\"" + value.replace("\"", "\"\"") + "\"";
     }
 
+    /**
+     * 转换业务类型文案。
+     */
     private String label(String type) {
         return switch (type == null ? "" : type) {
             case "INCOME" -> "收入";
@@ -265,18 +319,30 @@ public class ExportServiceImpl implements ExportService {
         };
     }
 
+    /**
+     * 格式化时间。
+     */
     private String formatTime(LocalDateTime time) {
         return time == null ? "" : TIME_FORMATTER.format(time);
     }
 
+    /**
+     * 格式化金额。
+     */
     private String amount(BigDecimal value) {
         return value == null ? "" : value.setScale(4, java.math.RoundingMode.HALF_UP).toPlainString();
     }
 
+    /**
+     * 读取账户名称。
+     */
     private String name(Account account) {
         return account == null ? null : account.getName();
     }
 
+    /**
+     * 生成资产展示文案。
+     */
     private String assetText(String assetName, String symbol) {
         if (!StringUtils.hasText(assetName)) {
             return symbol;
@@ -284,11 +350,17 @@ public class ExportServiceImpl implements ExportService {
         return StringUtils.hasText(symbol) ? assetName + " " + symbol : assetName;
     }
 
+    /**
+     * 读取导出文件字节。
+     */
     private byte[] bytes(StringBuilder csv) {
         // UTF-8 BOM 让 Excel 默认按 UTF-8 打开中文 CSV。
         return ("\uFEFF" + csv).getBytes(StandardCharsets.UTF_8);
     }
 
+    /**
+     * 生成导出文件名。
+     */
     private String filename(String prefix) {
         return prefix + "-" + LocalDate.now() + ".csv";
     }

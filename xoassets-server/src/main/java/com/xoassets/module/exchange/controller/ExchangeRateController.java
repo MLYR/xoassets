@@ -14,8 +14,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/exchange-rates")
 public class ExchangeRateController {
 
+    /**
+     * 汇率服务。
+     */
     private final ExchangeRateService exchangeRateService;
 
+    /**
+     * 注入接口依赖。
+     */
     public ExchangeRateController(ExchangeRateService exchangeRateService) {
         this.exchangeRateService = exchangeRateService;
     }

@@ -12,13 +12,25 @@ import lombok.Data;
 @Data
 public class ManualQuoteRequest {
 
+    /**
+     * 资产ID。
+     */
     @NotNull(message = "资产不能为空")
     private Long assetId;
 
+    /**
+     * 价格。
+     */
     @NotNull(message = "价格不能为空")
     @DecimalMin(value = "0.000001", message = "价格必须大于0")
     private BigDecimal price;
 
+    /**
+     * 币种。
+     */
     private String currency;
+    /**
+     * 报价时间。
+     */
     private LocalDateTime quoteTime;
 }

@@ -9,6 +9,9 @@ import lombok.Getter;
 @Getter
 public class BusinessException extends RuntimeException {
 
+    /**
+     * 错误码。
+     */
     private final ErrorCode errorCode;
 
     /**

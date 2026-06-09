@@ -10,12 +10,30 @@ import org.springframework.format.annotation.DateTimeFormat;
 @Data
 public class AccountLedgerQuery {
 
+    /**
+     * 页码。
+     */
     private long pageNo = 1;
+    /**
+     * 每页条数。
+     */
     private long pageSize = 10;
+    /**
+     * 业务类型。
+     */
     private String type;
+    /**
+     * 开始日期。
+     */
     @DateTimeFormat(pattern = "yyyy-MM-dd")
     private LocalDate startDate;
+    /**
+     * 结束日期。
+     */
     @DateTimeFormat(pattern = "yyyy-MM-dd")
     private LocalDate endDate;
+    /**
+     * 搜索关键词。
+     */
     private String keyword;
 }

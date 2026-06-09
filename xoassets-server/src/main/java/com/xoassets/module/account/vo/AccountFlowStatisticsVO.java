@@ -12,15 +12,45 @@ import lombok.Data;
 @Builder
 public class AccountFlowStatisticsVO {
 
+    /**
+     * 收入金额。
+     */
     private BigDecimal incomeAmount;
+    /**
+     * 支出金额。
+     */
     private BigDecimal expenseAmount;
+    /**
+     * 转入金额。
+     */
     private BigDecimal transferInAmount;
+    /**
+     * 转出金额。
+     */
     private BigDecimal transferOutAmount;
+    /**
+     * 投资买入金额。
+     */
     private BigDecimal investmentBuyAmount;
+    /**
+     * 投资卖出金额。
+     */
     private BigDecimal investmentSellAmount;
+    /**
+     * 余额修正金额。
+     */
     private BigDecimal adjustmentAmount;
+    /**
+     * 净流入金额。
+     */
     private BigDecimal netFlowAmount;
+    /**
+     * 分类支出统计。
+     */
     private List<NameAmountItem> categoryExpenseStats;
+    /**
+     * 每日余额趋势。
+     */
     private List<DailyBalanceItem> dailyBalanceTrend;
 
     /**
@@ -29,7 +59,13 @@ public class AccountFlowStatisticsVO {
     @Data
     @Builder
     public static class NameAmountItem {
+        /**
+         * 名称。
+         */
         private String name;
+        /**
+         * 金额。
+         */
         private BigDecimal amount;
     }
 
@@ -39,10 +75,25 @@ public class AccountFlowStatisticsVO {
     @Data
     @Builder
     public static class DailyBalanceItem {
+        /**
+         * 日期。
+         */
         private String date;
+        /**
+         * 日终余额。
+         */
         private BigDecimal endBalance;
+        /**
+         * 流入金额。
+         */
         private BigDecimal inflow;
+        /**
+         * 流出金额。
+         */
         private BigDecimal outflow;
+        /**
+         * 余额修正金额。
+         */
         private BigDecimal adjustmentAmount;
     }
 }

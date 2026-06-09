@@ -17,16 +17,34 @@ import org.springframework.stereotype.Service;
 @Service
 public class FundConfirmDateServiceImpl implements FundConfirmDateService {
 
+    /**
+     * 基金申购截止时间。
+     */
     private static final LocalTime FUND_CUTOFF_TIME = LocalTime.of(15, 0);
+    /**
+     * 基金资产类型常量。
+     */
     private static final String ASSET_TYPE_FUND = "FUND";
+    /**
+     * A股市场常量。
+     */
     private static final String MARKET_A_SHARE = "A_SHARE";
 
+    /**
+     * 交易日历服务。
+     */
     private final MarketCalendarService marketCalendarService;
 
+    /**
+     * 注入业务依赖。
+     */
     public FundConfirmDateServiceImpl(MarketCalendarService marketCalendarService) {
         this.marketCalendarService = marketCalendarService;
     }
 
+    /**
+     * 计算基金有效申请日。
+     */
     @Override
     public LocalDate effectiveTradeDate(Asset asset, LocalDateTime transactionTime) {
         if (asset == null || !ASSET_TYPE_FUND.equals(asset.getType())) {
@@ -41,6 +59,9 @@ public class FundConfirmDateServiceImpl implements FundConfirmDateService {
         return nextTradingDay(startDate);
     }
 
+    /**
+     * 计算基金确认日。
+     */
     @Override
     public LocalDate confirmedDate(Asset asset, LocalDateTime transactionTime) {
         LocalDate effectiveTradeDate = effectiveTradeDate(asset, transactionTime);
@@ -48,6 +69,9 @@ public class FundConfirmDateServiceImpl implements FundConfirmDateService {
         return plusTradingDays(effectiveTradeDate, isQdii(asset) ? 2 : 1);
     }
 
+    /**
+     * 生成预览信息。
+     */
     @Override
     public FundConfirmPreviewVO preview(Asset asset, LocalDateTime transactionTime) {
         LocalDate effectiveTradeDate = effectiveTradeDate(asset, transactionTime);
@@ -65,6 +89,9 @@ public class FundConfirmDateServiceImpl implements FundConfirmDateService {
                 .build();
     }
 
+    /**
+     * 判断是否交易日。
+     */
     @Override
     public boolean isTradingDay(LocalDate date) {
         if (date == null) {
@@ -73,6 +100,9 @@ public class FundConfirmDateServiceImpl implements FundConfirmDateService {
         return marketCalendarService.isTradingDay(MARKET_A_SHARE, date);
     }
 
+    /**
+     * 查询下一交易日。
+     */
     private LocalDate nextTradingDay(LocalDate date) {
         LocalDate cursor = date;
         while (!isTradingDay(cursor)) {
@@ -81,6 +111,9 @@ public class FundConfirmDateServiceImpl implements FundConfirmDateService {
         return cursor;
     }
 
+    /**
+     * 顺延指定数量交易日。
+     */
     private LocalDate plusTradingDays(LocalDate startDate, int days) {
         LocalDate cursor = startDate;
         int remaining = days;
@@ -93,11 +126,17 @@ public class FundConfirmDateServiceImpl implements FundConfirmDateService {
         return cursor;
     }
 
+    /**
+     * 判断是否QDII基金。
+     */
     private boolean isQdii(Asset asset) {
         String name = asset.getName() == null ? "" : asset.getName().toUpperCase();
         return name.contains("QDII");
     }
 
+    /**
+     * 生成交易日顺延原因。
+     */
     private String shiftReason(LocalDate tradeDate, boolean afterCutoff, boolean shifted) {
         if (!shifted) {
             return null;

@@ -29,16 +29,43 @@ import org.springframework.stereotype.Service;
 @Service
 public class InvestmentPositionHistoryServiceImpl implements InvestmentPositionHistoryService {
 
+    /**
+     * 正常状态常量。
+     */
     private static final String STATUS_NORMAL = "NORMAL";
+    /**
+     * 已确认状态常量。
+     */
     private static final String STATUS_CONFIRMED = "CONFIRMED";
+    /**
+     * 买入类型常量。
+     */
     private static final String TYPE_BUY = "BUY";
+    /**
+     * 卖出类型常量。
+     */
     private static final String TYPE_SELL = "SELL";
+    /**
+     * 金额净值录入模式常量。
+     */
     private static final String INPUT_MODE_AMOUNT_NAV = "AMOUNT_NAV";
 
+    /**
+     * 持仓数据访问组件。
+     */
     private final HoldingMapper holdingMapper;
+    /**
+     * 流水数据访问组件。
+     */
     private final InvestmentTransactionMapper transactionMapper;
+    /**
+     * 数据访问组件。
+     */
     private final InvestmentDailySnapshotMapper dailySnapshotMapper;
 
+    /**
+     * 注入业务依赖。
+     */
     public InvestmentPositionHistoryServiceImpl(
             HoldingMapper holdingMapper,
             InvestmentTransactionMapper transactionMapper,
@@ -48,6 +75,9 @@ public class InvestmentPositionHistoryServiceImpl implements InvestmentPositionH
         this.dailySnapshotMapper = dailySnapshotMapper;
     }
 
+    /**
+     * 查询指定日期持仓状态。
+     */
     @Override
     public Map<Long, InvestmentPositionState> positionsAt(Long userId, LocalDate date) {
         LocalDateTime end = date.atTime(LocalTime.MAX);
@@ -71,6 +101,9 @@ public class InvestmentPositionHistoryServiceImpl implements InvestmentPositionH
                         LinkedHashMap::new));
     }
 
+    /**
+     * 查询指定日期持仓数量。
+     */
     @Override
     public BigDecimal quantityAt(Long userId, Long holdingId, Long assetId, LocalDate date) {
         if (date == null) {
@@ -83,6 +116,9 @@ public class InvestmentPositionHistoryServiceImpl implements InvestmentPositionH
         return state.quantity().setScale(10, RoundingMode.HALF_UP);
     }
 
+    /**
+     * 统计投资净流入。
+     */
     @Override
     public BigDecimal netInflow(Long userId, LocalDate startDate, LocalDate endDate) {
         LocalDate start = startDate == null ? endDate : startDate;
@@ -99,6 +135,9 @@ public class InvestmentPositionHistoryServiceImpl implements InvestmentPositionH
                 .setScale(4, RoundingMode.HALF_UP);
     }
 
+    /**
+     * 查询需要生成快照的用户。
+     */
     @Override
     public Set<Long> snapshotUserIds(LocalDate startDate, LocalDate endDate) {
         Set<Long> holdingUsers = holdingMapper.selectList(new LambdaQueryWrapper<Holding>()
@@ -123,6 +162,9 @@ public class InvestmentPositionHistoryServiceImpl implements InvestmentPositionH
         return Stream.of(holdingUsers, transactionUsers, snapshotUsers).flatMap(Set::stream).collect(Collectors.toSet());
     }
 
+    /**
+     * 将交易应用到持仓状态。
+     */
     private void applyTransaction(Map<Long, PositionAccumulator> positions, InvestmentTransaction transaction) {
         PositionAccumulator state = positions.computeIfAbsent(transaction.getHoldingId(), key -> new PositionAccumulator(transaction.getAssetId()));
         if (TYPE_BUY.equals(transaction.getType())) {
@@ -141,6 +183,9 @@ public class InvestmentPositionHistoryServiceImpl implements InvestmentPositionH
         }
     }
 
+    /**
+     * 补充没有交易流水的手工基础持仓。
+     */
     private void addManualBaseHoldings(Long userId, LocalDate date, Map<Long, PositionAccumulator> positions) {
         var holdings = holdingMapper.selectList(new LambdaQueryWrapper<Holding>()
                         .eq(Holding::getUserId, userId)
@@ -166,6 +211,9 @@ public class InvestmentPositionHistoryServiceImpl implements InvestmentPositionH
         });
     }
 
+    /**
+     * 汇总全部交易的持仓变化。
+     */
     private Map<Long, PositionAccumulator> allTransactionDeltas(Long userId, Set<Long> holdingIds) {
         if (holdingIds.isEmpty()) {
             return Map.of();
@@ -182,10 +230,16 @@ public class InvestmentPositionHistoryServiceImpl implements InvestmentPositionH
         return deltas;
     }
 
+    /**
+     * 判断交易是否参与统计。
+     */
     private boolean isEffective(InvestmentTransaction transaction) {
         return STATUS_NORMAL.equals(transaction.getStatus()) || STATUS_CONFIRMED.equals(transaction.getStatus());
     }
 
+    /**
+     * 计算交易生效日期。
+     */
     private LocalDate effectiveDate(InvestmentTransaction transaction) {
         if (INPUT_MODE_AMOUNT_NAV.equals(transaction.getInputMode()) && transaction.getConfirmedDate() != null) {
             return transaction.getConfirmedDate();
@@ -196,6 +250,9 @@ public class InvestmentPositionHistoryServiceImpl implements InvestmentPositionH
         return transaction.getTransactionTime().toLocalDate();
     }
 
+    /**
+     * 计算单笔交易净流入。
+     */
     private BigDecimal netInflowAmount(InvestmentTransaction transaction) {
         if (TYPE_BUY.equals(transaction.getType())) {
             return costAmount(transaction);
@@ -203,6 +260,9 @@ public class InvestmentPositionHistoryServiceImpl implements InvestmentPositionH
         return scale4(transaction.getAmount()).subtract(scale4(transaction.getFee())).negate().setScale(4, RoundingMode.HALF_UP);
     }
 
+    /**
+     * 计算交易成本金额。
+     */
     private BigDecimal costAmount(InvestmentTransaction transaction) {
         if (transaction.getCostAmount() != null) {
             return scale4(transaction.getCostAmount());
@@ -213,23 +273,44 @@ public class InvestmentPositionHistoryServiceImpl implements InvestmentPositionH
         return scale4(transaction.getAmount()).add(scale4(transaction.getFee())).setScale(4, RoundingMode.HALF_UP);
     }
 
+    /**
+     * 按金额精度保留四位小数。
+     */
     private BigDecimal scale4(BigDecimal value) {
         return value == null ? BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP) : value.setScale(4, RoundingMode.HALF_UP);
     }
 
+    /**
+     * 按持仓数量精度处理。
+     */
     private BigDecimal scaleQuantity(BigDecimal value) {
         return value == null ? BigDecimal.ZERO.setScale(10, RoundingMode.HALF_UP) : value.setScale(10, RoundingMode.HALF_UP);
     }
 
     private static class PositionAccumulator {
+        /**
+         * 资产ID。
+         */
         private Long assetId;
+        /**
+         * 持仓数量。
+         */
         private BigDecimal quantity = BigDecimal.ZERO.setScale(10, RoundingMode.HALF_UP);
+        /**
+         * 总成本。
+         */
         private BigDecimal totalCost = BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
 
+        /**
+         * 持仓历史计算累加器。
+         */
         private PositionAccumulator(Long assetId) {
             this.assetId = assetId;
         }
 
+        /**
+         * 转换业务对象。
+         */
         private InvestmentPositionState toState(Long holdingId) {
             return new InvestmentPositionState(holdingId, assetId, quantity, totalCost);
         }

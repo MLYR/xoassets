@@ -28,8 +28,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/holdings")
 public class HoldingController {
 
+    /**
+     * 持仓服务。
+     */
     private final HoldingService holdingService;
 
+    /**
+     * 注入接口依赖。
+     */
     public HoldingController(HoldingService holdingService) {
         this.holdingService = holdingService;
     }

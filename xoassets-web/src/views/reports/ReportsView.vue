@@ -65,6 +65,7 @@ onMounted(() => {
 const activeReport = computed(() => reports.value.find((item) => item.id === activeId.value) || reports.value[0] || null);
 const summaryItems = computed(() => parseSummary(activeReport.value?.summaryJson));
 
+// 加载报告列表。
 async function loadReports() {
   loading.value = true;
   try {
@@ -77,6 +78,7 @@ async function loadReports() {
   }
 }
 
+// 生成报告。
 async function handleGenerate() {
   generating.value = true;
   try {
@@ -91,6 +93,7 @@ async function handleGenerate() {
   }
 }
 
+// 解析报告摘要。
 function parseSummary(summaryJson?: string | null) {
   if (!summaryJson) {
     return [];
@@ -107,6 +110,7 @@ function parseSummary(summaryJson?: string | null) {
   }
 }
 
+// 格式化日期时间。
 function formatDateTime(value: string) {
   return value ? value.replace('T', ' ').slice(0, 16) : '-';
 }

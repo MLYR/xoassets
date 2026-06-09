@@ -115,6 +115,7 @@ watch(() => form.budgetType, (type) => {
   }
 });
 
+// 加载预算数据。
 async function loadBudgets() {
   loading.value = true;
   try {
@@ -128,6 +129,7 @@ async function loadBudgets() {
   }
 }
 
+// 加载分类数据。
 async function loadCategories() {
   try {
     categories.value = (await categoryApi.list('EXPENSE')).filter((category) => category.status === 1);
@@ -136,12 +138,14 @@ async function loadCategories() {
   }
 }
 
+// 打开新增弹窗。
 function openCreateDialog() {
   editingBudget.value = null;
   resetForm('TOTAL');
   dialogVisible.value = true;
 }
 
+// 打开编辑弹窗。
 function openEditDialog(budget: BudgetItem) {
   editingBudget.value = budget;
   form.month = budget.month;
@@ -152,6 +156,7 @@ function openEditDialog(budget: BudgetItem) {
   dialogVisible.value = true;
 }
 
+// 提交表单。
 async function handleSubmit() {
   if (form.amount <= 0) {
     ElMessage.warning('预算金额必须大于0');
@@ -179,6 +184,7 @@ async function handleSubmit() {
   }
 }
 
+// 删除记录。
 async function handleDelete(budget: BudgetItem) {
   try {
     await ElMessageBox.confirm(`确认删除「${budgetTitle(budget)}」吗？`, '删除预算', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' });
@@ -192,6 +198,7 @@ async function handleDelete(budget: BudgetItem) {
   }
 }
 
+// 重置表单。
 function resetForm(type: BudgetType) {
   form.month = selectedMonth.value;
   form.budgetType = type;
@@ -200,10 +207,12 @@ function resetForm(type: BudgetType) {
   form.status = 1;
 }
 
+// 生成预算标题。
 function budgetTitle(budget: BudgetItem) {
   return budget.budgetType === 'TOTAL' ? '本月总预算' : budget.categoryName || '分类预算';
 }
 
+// 获取当前月份。
 function currentMonth() {
   const date = new Date();
   return `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, '0')}`;

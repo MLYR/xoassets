@@ -20,14 +20,35 @@ import org.springframework.stereotype.Component;
 @Component
 public class QuoteRefreshScheduler {
 
+    /**
+     * 基金资产类型常量。
+     */
     private static final String ASSET_TYPE_FUND = "FUND";
+    /**
+     * 股票资产类型常量。
+     */
     private static final String ASSET_TYPE_STOCK = "STOCK";
+    /**
+     * 虚拟货币资产类型常量。
+     */
     private static final String ASSET_TYPE_CRYPTO = "CRYPTO";
 
+    /**
+     * 持仓数据访问组件。
+     */
     private final HoldingMapper holdingMapper;
+    /**
+     * 资产数据访问组件。
+     */
     private final AssetMapper assetMapper;
+    /**
+     * 行情服务。
+     */
     private final QuoteService quoteService;
 
+    /**
+     * 注入定时任务依赖。
+     */
     public QuoteRefreshScheduler(HoldingMapper holdingMapper, AssetMapper assetMapper, QuoteService quoteService) {
         this.holdingMapper = holdingMapper;
         this.assetMapper = assetMapper;
@@ -40,6 +61,9 @@ public class QuoteRefreshScheduler {
     @Scheduled(
             fixedDelayString = "${xoassets.quotes.refresh-fixed-delay-ms:900000}",
             initialDelayString = "${xoassets.quotes.refresh-initial-delay-ms:60000}")
+    /**
+     * 刷新市场类资产行情。
+     */
     public void refreshMarketQuotes() {
         try {
             for (Long assetId : activeHoldingAssetIds(List.of(ASSET_TYPE_STOCK, ASSET_TYPE_CRYPTO), false)) {
@@ -66,6 +90,9 @@ public class QuoteRefreshScheduler {
         refreshFundQuotesSafely();
     }
 
+    /**
+     * 安全刷新基金净值。
+     */
     private void refreshFundQuotesSafely() {
         try {
             for (Long assetId : activeHoldingAssetIds(List.of(ASSET_TYPE_FUND), true)) {
@@ -98,6 +125,9 @@ public class QuoteRefreshScheduler {
         }
     }
 
+    /**
+     * 查询需要刷新行情的持仓资产ID。
+     */
     private Set<Long> activeHoldingAssetIds(List<String> assetTypes, boolean includeZeroQuantity) {
         LambdaQueryWrapper<Holding> holdingWrapper = new LambdaQueryWrapper<Holding>()
                 .select(Holding::getAssetId)

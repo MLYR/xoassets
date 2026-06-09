@@ -24,8 +24,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/transactions")
 public class TransactionController {
 
+    /**
+     * 流水服务。
+     */
     private final TransactionService transactionService;
 
+    /**
+     * 注入接口依赖。
+     */
     public TransactionController(TransactionService transactionService) {
         this.transactionService = transactionService;
     }

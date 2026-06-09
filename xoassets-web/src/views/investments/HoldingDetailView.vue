@@ -285,6 +285,7 @@ watch(
   }
 );
 
+// 加载页面数据。
 async function loadPageData() {
   if (!holdingId.value) {
     ElMessage.error('持仓不存在');
@@ -314,6 +315,7 @@ async function loadPageData() {
   }
 }
 
+// 加载收益日历。
 async function loadProfitCalendar(showLoading = true) {
   if (!holdingId.value) {
     return;
@@ -336,6 +338,7 @@ async function loadProfitCalendar(showLoading = true) {
   }
 }
 
+// 切换收益日历月份。
 function changeCalendarMonth(delta: number) {
   const nextMonth = addMonths(calendarMonth.value, delta);
   if (delta > 0 && isAfterCalendarMonth(nextMonth, new Date())) {
@@ -345,6 +348,7 @@ function changeCalendarMonth(delta: number) {
   loadProfitCalendar();
 }
 
+// 回到当前月份。
 function resetCalendarMonth() {
   const currentMonth = startOfMonth(new Date());
   if (isSameCalendarMonth(calendarMonth.value, currentMonth)) {
@@ -354,6 +358,7 @@ function resetCalendarMonth() {
   loadProfitCalendar();
 }
 
+// 返回上一页。
 function goBack() {
   // 持仓详情可能从基金 / 股票 / 虚拟货币模块进入，优先返回浏览器上一页以保留用户刚才所在模块。
   if (window.history.length > 1 && window.history.state?.back) {
@@ -367,6 +372,7 @@ function goBack() {
   });
 }
 
+// 打开交易弹窗。
 function openTradeDialog(type: InvestmentTransactionType) {
   if (!holding.value) {
     return;
@@ -383,6 +389,7 @@ function openTradeDialog(type: InvestmentTransactionType) {
   loadFundConfirmPreview();
 }
 
+// 加载基金确认预估。
 async function loadFundConfirmPreview() {
   if (!isFundAmountBuy.value || !holding.value?.assetId || !(tradeForm.transactionTime instanceof Date)) {
     fundConfirmPreview.value = null;
@@ -404,6 +411,7 @@ async function loadFundConfirmPreview() {
   }
 }
 
+// 打开价格弹窗。
 function openQuoteDialog() {
   if (!holding.value) {
     return;
@@ -413,6 +421,7 @@ function openQuoteDialog() {
   quoteDialogVisible.value = true;
 }
 
+// 创建投资交易。
 async function handleCreateTrade() {
   if (!holding.value || !tradeForm.accountId) {
     ElMessage.warning('请选择资金账户');
@@ -451,6 +460,7 @@ async function handleCreateTrade() {
   }
 }
 
+// 保存手动价格。
 async function handleManualQuote() {
   if (!holding.value || quoteForm.price <= 0) {
     ElMessage.warning('请输入有效价格');
@@ -469,6 +479,7 @@ async function handleManualQuote() {
   }
 }
 
+// 刷新行情。
 async function handleRefreshQuote() {
   if (!holding.value) {
     return;
@@ -485,6 +496,7 @@ async function handleRefreshQuote() {
   }
 }
 
+// 撤销投资交易。
 async function handleRevokeTransaction(transaction: InvestmentTransactionItem) {
   try {
     await ElMessageBox.confirm('撤销后会反向恢复账户余额和持仓，确认继续吗？', '撤销投资交易', { type: 'warning', confirmButtonText: '撤销', cancelButtonText: '取消' });
@@ -498,43 +510,53 @@ async function handleRevokeTransaction(transaction: InvestmentTransactionItem) {
   }
 }
 
+// 格式化日期时间。
 function formatDateTime(date: Date) {
   const pad = (value: number) => `${value}`.padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
+// 获取月份开始日期。
 function startOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
 }
 
+// 增减月份。
 function addMonths(date: Date, delta: number) {
   return new Date(date.getFullYear(), date.getMonth() + delta, 1);
 }
 
+// 生成日历月份键。
 function calendarMonthKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
+// 判断是否同月。
 function isSameCalendarMonth(left: Date, right: Date) {
   return left.getFullYear() === right.getFullYear() && left.getMonth() === right.getMonth();
 }
 
+// 判断是否晚于指定月份。
 function isAfterCalendarMonth(left: Date, right: Date) {
   return left.getFullYear() > right.getFullYear() || (left.getFullYear() === right.getFullYear() && left.getMonth() > right.getMonth());
 }
 
+// 格式化表格时间。
 function formatTableTime(value?: string | null) {
   return value ? value.replace('T', ' ').slice(0, 16) : '';
 }
 
+// 格式化数量。
 function formatQuantity(value: number) {
   return roundTo(Number(value), quantityPrecision.value).toLocaleString('zh-CN', { minimumFractionDigits: holding.value?.assetType === 'CRYPTO' ? 0 : 4, maximumFractionDigits: quantityPrecision.value });
 }
 
+// 转换状态文案。
 function statusLabel(status?: string | null) {
   return ({ NORMAL: '正常', CONFIRMED: '已确认', PENDING_CONFIRM: '待确认', FAILED: '确认失败', CANCELLED: '已取消', REVOKED: '已撤销' } as Record<string, string>)[status || ''] || '正常';
 }
 
+// 格式化确认信息。
 function formatConfirmInfo(row: InvestmentTransactionItem) {
   if (row.inputMode !== 'AMOUNT_NAV') {
     return '-';
@@ -548,10 +570,12 @@ function formatConfirmInfo(row: InvestmentTransactionItem) {
   return row.confirmedDate || '-';
 }
 
+// 格式化日期。
 function formatDay(value?: string | null) {
   return value ? String(Number(value.slice(8, 10))) : '';
 }
 
+// 格式化价格。
 function formatPrice(value?: number | null) {
   if (value === null || value === undefined) {
     return '--';
@@ -559,11 +583,13 @@ function formatPrice(value?: number | null) {
   return Number(value).toLocaleString('zh-CN', { minimumFractionDigits: Math.min(pricePrecision.value, 4), maximumFractionDigits: pricePrecision.value });
 }
 
+// 格式化带符号金额。
 function formatSignedAmount(value: number) {
   const prefix = value >= 0 ? '+' : '-';
   return `${prefix}${currencySymbol.value}${Math.abs(round4(value)).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+// 生成日历收益样式。
 function calendarProfitClass(value?: number | null) {
   if (value === null || value === undefined) {
     return 'calendar-muted';
@@ -571,6 +597,7 @@ function calendarProfitClass(value?: number | null) {
   return value >= 0 ? 'calendar-positive' : 'calendar-negative';
 }
 
+// 生成日历收益文案。
 function calendarProfitText(cell: InvestmentCalendarDayProfit) {
   if (cell.marketClosed) {
     return '休市';
@@ -578,6 +605,7 @@ function calendarProfitText(cell: InvestmentCalendarDayProfit) {
   return cell.profitAmount === null || cell.profitAmount === undefined ? '--' : formatSignedAmount(cell.profitAmount);
 }
 
+// 生成日历状态文案。
 function calendarStatusText(cell: InvestmentCalendarDayProfit) {
   if (cell.marketClosed) {
     return cell.statusLabel || '休市';
@@ -585,6 +613,7 @@ function calendarStatusText(cell: InvestmentCalendarDayProfit) {
   return cell.hasPrice ? `${holding.value?.priceLabel || '价格'} ${formatPrice(cell.price)}` : (cell.statusLabel || '无价格');
 }
 
+// 格式化回本涨跌幅。
 function formatBreakEven(value: number | null | undefined) {
   // 回本涨幅只在亏损时展示需要上涨比例；盈利或打平展示已盈利。
   if (value === null || value === undefined) {
@@ -593,6 +622,7 @@ function formatBreakEven(value: number | null | undefined) {
   return Number(value) > 0 ? `还需 +${round4(value).toFixed(4)}%` : '已盈利';
 }
 
+// 生成回本涨跌幅样式。
 function breakEvenClass(value: number | null | undefined) {
   if (value === null || value === undefined) {
     return 'muted-text';
@@ -600,6 +630,7 @@ function breakEvenClass(value: number | null | undefined) {
   return Number(value) > 0 ? 'warning-text' : 'success-text';
 }
 
+// 计算收益颜色语义。
 function profitTone(value: number): 'success' | 'danger' | 'primary' {
   if (value > 0) {
     return 'success';
@@ -610,6 +641,7 @@ function profitTone(value: number): 'success' | 'danger' | 'primary' {
   return 'primary';
 }
 
+// 生成收益颜色样式。
 function profitClass(value?: number | null) {
   if (value === null || value === undefined) {
     return 'muted-text';
@@ -623,6 +655,7 @@ function profitClass(value?: number | null) {
   return 'muted-text';
 }
 
+// 格式化展示文案。
 function formatPercent(value?: number | null) {
   if (value === null || value === undefined) {
     return '--';
@@ -630,6 +663,7 @@ function formatPercent(value?: number | null) {
   return `${round4(value).toFixed(4)}%`;
 }
 
+// 格式化展示文案。
 function formatChartAxis(value: number) {
   const abs = Math.abs(value);
   if (abs >= 10000) {
@@ -638,18 +672,22 @@ function formatChartAxis(value: number) {
   return `${currencySymbol.value}${round4(value)}`;
 }
 
+// 格式化展示文案。
 function formatChartValue(value: number, precision: number) {
   return `${currencySymbol.value}${roundTo(value, precision).toLocaleString('zh-CN', { minimumFractionDigits: precision > 4 ? 4 : 2, maximumFractionDigits: precision })}`;
 }
 
+// 保留四位小数。
 function round4(value: number) {
   return roundTo(value, 4);
 }
 
+// 按资产类型处理数量精度。
 function roundQuantity(value: number) {
   return roundTo(value, quantityPrecision.value);
 }
 
+// 按指定精度取值。
 function roundTo(value: number, precision: number) {
   return Number(Number(value || 0).toFixed(precision));
 }

@@ -28,14 +28,35 @@ import org.springframework.stereotype.Service;
 @Service
 public class AccountOverviewServiceImpl implements AccountOverviewService {
 
+    /**
+     * 银行卡分组常量。
+     */
     private static final String GROUP_BANK_CARD = "BANK_CARD";
+    /**
+     * 现金分组常量。
+     */
     private static final String GROUP_CASH = "CASH";
+    /**
+     * 第三方账户分组常量。
+     */
     private static final String GROUP_THIRD_PARTY = "THIRD_PARTY";
+    /**
+     * 账号脱敏匹配规则。
+     */
     private static final Pattern ACCOUNT_NO_PATTERN = Pattern.compile("(\\d{4,})");
 
+    /**
+     * 账户数据访问组件。
+     */
     private final AccountMapper accountMapper;
+    /**
+     * 资产快照数据访问组件。
+     */
     private final AssetSnapshotMapper assetSnapshotMapper;
 
+    /**
+     * 注入业务依赖。
+     */
     public AccountOverviewServiceImpl(AccountMapper accountMapper, AssetSnapshotMapper assetSnapshotMapper) {
         this.accountMapper = accountMapper;
         this.assetSnapshotMapper = assetSnapshotMapper;
@@ -104,6 +125,9 @@ public class AccountOverviewServiceImpl implements AccountOverviewService {
         return summaries;
     }
 
+    /**
+     * 构建账户分类汇总。
+     */
     private AccountCategorySummaryVO categorySummary(List<Account> accounts, String group, String label, String colorKey, BigDecimal total) {
         List<Account> matched = accounts.stream().filter(account -> group(account).equals(group)).toList();
         BigDecimal amount = matched.stream()
@@ -121,6 +145,9 @@ public class AccountOverviewServiceImpl implements AccountOverviewService {
                 .build();
     }
 
+    /**
+     * 构建账户展示列表。
+     */
     private List<AccountDisplayVO> displayAccounts(List<Account> accounts) {
         Long defaultId = accounts.stream()
                 .filter(account -> !isCreditAccount(account) && scale4(account.getBalance()).compareTo(BigDecimal.ZERO) >= 0)
@@ -130,6 +157,9 @@ public class AccountOverviewServiceImpl implements AccountOverviewService {
         return accounts.stream().map(account -> toDisplay(account, defaultId)).toList();
     }
 
+    /**
+     * 转换为账户展示对象。
+     */
     private AccountDisplayVO toDisplay(Account account, Long defaultId) {
         boolean defaultAccount = defaultId != null && defaultId.equals(account.getId());
         return AccountDisplayVO.builder()
@@ -151,6 +181,9 @@ public class AccountOverviewServiceImpl implements AccountOverviewService {
                 .build();
     }
 
+    /**
+     * 查询上月末资产快照。
+     */
     private AssetSnapshot lastMonthSnapshot(Long userId) {
         YearMonth lastMonth = YearMonth.now().minusMonths(1);
         LocalDate start = lastMonth.atDay(1);
@@ -164,10 +197,16 @@ public class AccountOverviewServiceImpl implements AccountOverviewService {
                 .orElse(null);
     }
 
+    /**
+     * 计算账户净资产。
+     */
     private BigDecimal netAccountAsset(AssetSnapshot snapshot) {
         return scale4(snapshot.getCashAsset()).subtract(scale4(snapshot.getLiability())).setScale(4, RoundingMode.HALF_UP);
     }
 
+    /**
+     * 解析账户分组。
+     */
     private String group(Account account) {
         String normalized = normalized(account);
         if (normalized.contains("CASH") || normalized.contains("现金")) {
@@ -179,6 +218,9 @@ public class AccountOverviewServiceImpl implements AccountOverviewService {
         return GROUP_BANK_CARD;
     }
 
+    /**
+     * 解析账户展示类型。
+     */
     private String displayType(Account account) {
         if (isCreditAccount(account)) {
             return "信用卡";
@@ -190,6 +232,9 @@ public class AccountOverviewServiceImpl implements AccountOverviewService {
         };
     }
 
+    /**
+     * 生成账户标签。
+     */
     private String tagText(Account account, boolean defaultAccount) {
         if (defaultAccount) {
             return group(account).equals(GROUP_CASH) ? "默认现金账户" : "默认账户";
@@ -203,11 +248,17 @@ public class AccountOverviewServiceImpl implements AccountOverviewService {
         return null;
     }
 
+    /**
+     * 判断是否信用账户。
+     */
     private boolean isCreditAccount(Account account) {
         String normalized = normalized(account);
         return normalized.contains("CREDIT") || normalized.contains("信用卡") || scale4(account.getBalance()).compareTo(BigDecimal.ZERO) < 0;
     }
 
+    /**
+     * 生成脱敏账号。
+     */
     private String maskedNo(Account account) {
         String source = (account.getName() == null ? "" : account.getName()) + " " + (account.getRemark() == null ? "" : account.getRemark());
         Matcher matcher = ACCOUNT_NO_PATTERN.matcher(source);
@@ -219,14 +270,23 @@ public class AccountOverviewServiceImpl implements AccountOverviewService {
         return last == null ? null : last;
     }
 
+    /**
+     * 规范化账号文本。
+     */
     private String normalized(Account account) {
         return ((account.getType() == null ? "" : account.getType()) + " " + (account.getName() == null ? "" : account.getName())).toUpperCase(Locale.ROOT);
     }
 
+    /**
+     * 按金额精度保留四位小数。
+     */
     private BigDecimal scale4(BigDecimal value) {
         return (value == null ? BigDecimal.ZERO : value).setScale(4, RoundingMode.HALF_UP);
     }
 
+    /**
+     * 计算百分比。
+     */
     private BigDecimal rate(BigDecimal numerator, BigDecimal denominator) {
         if (denominator == null || denominator.compareTo(BigDecimal.ZERO) == 0) {
             return BigDecimal.ZERO;
@@ -234,6 +294,9 @@ public class AccountOverviewServiceImpl implements AccountOverviewService {
         return numerator.multiply(BigDecimal.valueOf(100)).divide(denominator, 4, RoundingMode.HALF_UP);
     }
 
+    /**
+     * 账户资产汇总结果。
+     */
     private record AccountTotals(BigDecimal netAsset, BigDecimal nonCreditAsset) {
     }
 }

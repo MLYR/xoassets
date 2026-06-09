@@ -23,6 +23,9 @@ public interface AccountMapper extends BaseMapper<Account> {
             WHERE id = #{accountId} AND user_id = #{userId} AND deleted = 0
             FOR UPDATE
             """)
+    /**
+     * 锁定当前用户账户。
+     */
     Account selectOwnedForUpdate(@Param("userId") Long userId, @Param("accountId") Long accountId);
 
     /**
@@ -33,5 +36,8 @@ public interface AccountMapper extends BaseMapper<Account> {
             SET balance = balance + #{delta}, version = version + 1
             WHERE id = #{accountId} AND user_id = #{userId} AND deleted = 0
             """)
+    /**
+     * 按增量更新账户余额。
+     */
     int incrementBalance(@Param("userId") Long userId, @Param("accountId") Long accountId, @Param("delta") BigDecimal delta);
 }

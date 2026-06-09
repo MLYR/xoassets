@@ -11,10 +11,28 @@ import lombok.Data;
 @Builder
 public class AccountLedgerSummaryVO {
 
+    /**
+     * 当前余额。
+     */
     private BigDecimal currentBalance;
+    /**
+     * 初始余额。
+     */
     private BigDecimal initialBalance;
+    /**
+     * 累计流入。
+     */
     private BigDecimal totalInflow;
+    /**
+     * 累计流出。
+     */
     private BigDecimal totalOutflow;
+    /**
+     * 净流入金额。
+     */
     private BigDecimal netInflow;
+    /**
+     * 流水数量。
+     */
     private long transactionCount;
 }

@@ -20,8 +20,14 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    /**
+     * JWT令牌组件。
+     */
     private final JwtTokenProvider jwtTokenProvider;
 
+    /**
+     * 注入依赖组件。
+     */
     public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider) {
         this.jwtTokenProvider = jwtTokenProvider;
     }

@@ -31,16 +31,43 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 public class AssetPriceDailyAggregateJob {
 
+    /**
+     * 股票资产类型常量。
+     */
     private static final String ASSET_TYPE_STOCK = "STOCK";
+    /**
+     * 虚拟货币资产类型常量。
+     */
     private static final String ASSET_TYPE_CRYPTO = "CRYPTO";
+    /**
+     * 近期数据修复天数。
+     */
     private static final int RECENT_REPAIR_DAYS = 4;
 
+    /**
+     * 持仓数据访问组件。
+     */
     private final HoldingMapper holdingMapper;
+    /**
+     * 资产数据访问组件。
+     */
     private final AssetMapper assetMapper;
+    /**
+     * 当前价格数据访问组件。
+     */
     private final AssetPriceCurrentMapper assetPriceCurrentMapper;
+    /**
+     * 日级价格数据访问组件。
+     */
     private final AssetPriceDailyMapper assetPriceDailyMapper;
+    /**
+     * Redis行情快照服务。
+     */
     private final QuoteRawSnapshotService quoteRawSnapshotService;
 
+    /**
+     * 注入定时任务依赖。
+     */
     public AssetPriceDailyAggregateJob(
             HoldingMapper holdingMapper,
             AssetMapper assetMapper,
@@ -87,6 +114,9 @@ public class AssetPriceDailyAggregateJob {
         }
     }
 
+    /**
+     * 新增或更新日级价格。
+     */
     private void upsertDailyPrice(Long assetId, LocalDate tradeDate) {
         List<QuoteRawSnapshot> snapshots = quoteRawSnapshotService.listByDate(assetId, tradeDate);
         AssetPriceDaily daily = snapshots.isEmpty()
@@ -104,6 +134,9 @@ public class AssetPriceDailyAggregateJob {
         upsert(daily);
     }
 
+    /**
+     * 聚合Redis行情快照。
+     */
     private AssetPriceDaily aggregateSnapshots(Long assetId, LocalDate tradeDate, List<QuoteRawSnapshot> snapshots) {
         List<QuoteRawSnapshot> sorted = snapshots.stream()
                 .filter(item -> item.price() != null)
@@ -150,6 +183,9 @@ public class AssetPriceDailyAggregateJob {
         return daily;
     }
 
+    /**
+     * 查询上一交易日日级价格。
+     */
     private AssetPriceDaily previousDaily(Long assetId, LocalDate tradeDate) {
         return assetPriceDailyMapper.selectOne(new LambdaQueryWrapper<AssetPriceDaily>()
                 .eq(AssetPriceDaily::getAssetId, assetId)
@@ -158,6 +194,9 @@ public class AssetPriceDailyAggregateJob {
                 .last("LIMIT 1"));
     }
 
+    /**
+     * 新增或更新记录。
+     */
     private void upsert(AssetPriceDaily daily) {
         AssetPriceDaily exists = assetPriceDailyMapper.selectOne(new LambdaQueryWrapper<AssetPriceDaily>()
                 .eq(AssetPriceDaily::getAssetId, daily.getAssetId())
@@ -175,6 +214,9 @@ public class AssetPriceDailyAggregateJob {
                 .eq(AssetPriceDaily::getDeleted, 0));
     }
 
+    /**
+     * 查询当前仍在持仓中的资产ID。
+     */
     private Set<Long> activeHoldingAssetIds() {
         Set<Long> assetIds = holdingMapper.selectList(new LambdaQueryWrapper<Holding>()
                         .eq(Holding::getStatus, 1)
@@ -192,10 +234,16 @@ public class AssetPriceDailyAggregateJob {
                 .collect(Collectors.toSet());
     }
 
+    /**
+     * 按价格精度保留八位小数。
+     */
     private BigDecimal scale8(BigDecimal value) {
         return value == null ? null : value.setScale(8, RoundingMode.HALF_UP);
     }
 
+    /**
+     * 计算较上一交易日涨跌幅。
+     */
     private BigDecimal changePercent(BigDecimal current, BigDecimal previous) {
         if (current == null || previous == null || previous.compareTo(BigDecimal.ZERO) <= 0) {
             return null;

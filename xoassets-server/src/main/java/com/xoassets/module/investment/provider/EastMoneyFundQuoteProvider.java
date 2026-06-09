@@ -28,25 +28,52 @@ import org.springframework.web.client.RestClientException;
 @Component
 public class EastMoneyFundQuoteProvider implements QuoteProvider {
 
+    /**
+     * 基金资产类型常量。
+     */
     private static final String ASSET_TYPE_FUND = "FUND";
+    /**
+     * 天天基金来源常量。
+     */
     private static final String SOURCE_EASTMONEY = "EASTMONEY";
+    /**
+     * 历史净值行匹配规则。
+     */
     private static final Pattern HISTORY_ROW_PATTERN = Pattern.compile("<tr><td>(\\d{4}-\\d{2}-\\d{2})</td><td[^>]*>([0-9.]+)</td><td[^>]*>[0-9.]+</td><td[^>]*>([-+0-9.]+)%</td>");
 
+    /**
+     * HTTP客户端。
+     */
     private final RestClient restClient;
+    /**
+     * 历史净值HTTP客户端。
+     */
     private final RestClient historyRestClient;
+    /**
+     * JSON序列化组件。
+     */
     private final ObjectMapper objectMapper;
 
+    /**
+     * 初始化行情提供方。
+     */
     public EastMoneyFundQuoteProvider(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
         this.restClient = RestClient.builder().baseUrl("https://fundgz.1234567.com.cn").build();
         this.historyRestClient = RestClient.builder().baseUrl("https://fundf10.eastmoney.com").build();
     }
 
+    /**
+     * 判断是否支持该资产。
+     */
     @Override
     public boolean supports(Asset asset) {
         return ASSET_TYPE_FUND.equals(asset.getType()) && SOURCE_EASTMONEY.equals(asset.getQuoteSource());
     }
 
+    /**
+     * 拉取行情数据。
+     */
     @Override
     public QuoteFetchResult fetch(Asset asset) {
         String fundCode = StringUtils.hasText(asset.getQuoteKey()) ? asset.getQuoteKey().trim() : asset.getSymbol();
@@ -155,6 +182,9 @@ public class EastMoneyFundQuoteProvider implements QuoteProvider {
         return LocalDateTime.of(LocalDate.parse(dateText), LocalTime.of(15, 0));
     }
 
+    /**
+     * 解析可为空金额。
+     */
     private BigDecimal decimalOrNull(JsonNode node, int scale) {
         if (node == null || node.isMissingNode() || !StringUtils.hasText(node.asText())) {
             return null;
@@ -162,6 +192,9 @@ public class EastMoneyFundQuoteProvider implements QuoteProvider {
         return new BigDecimal(node.asText()).setScale(scale, RoundingMode.HALF_UP);
     }
 
+    /**
+     * 根据涨跌幅反推上一交易日净值。
+     */
     private BigDecimal previousClose(BigDecimal price, BigDecimal changePercent) {
         if (price == null || changePercent == null) {
             return null;
@@ -170,6 +203,9 @@ public class EastMoneyFundQuoteProvider implements QuoteProvider {
         return divisor.compareTo(BigDecimal.ZERO) == 0 ? null : price.divide(divisor, 8, RoundingMode.HALF_UP);
     }
 
+    /**
+     * 基金历史净值行。
+     */
     private record FundNavRow(LocalDate date, BigDecimal price, BigDecimal changePercent) {
     }
 }

@@ -9,6 +9,9 @@ import lombok.Data;
 @Data
 public class CategoryStatusRequest {
 
+    /**
+     * 状态。
+     */
     @NotNull(message = "分类状态不能为空")
     private Integer status;
 }

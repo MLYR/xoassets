@@ -39,14 +39,38 @@ import org.springframework.stereotype.Service;
 @Service
 public class StatisticsServiceImpl implements StatisticsService {
 
+    /**
+     * 账户数据访问组件。
+     */
     private final AccountMapper accountMapper;
+    /**
+     * 资产快照数据访问组件。
+     */
     private final AssetSnapshotMapper assetSnapshotMapper;
+    /**
+     * 分类数据访问组件。
+     */
     private final CategoryMapper categoryMapper;
+    /**
+     * 流水数据访问组件。
+     */
     private final TransactionRecordMapper transactionRecordMapper;
+    /**
+     * 首页服务。
+     */
     private final DashboardService dashboardService;
+    /**
+     * 持仓服务。
+     */
     private final HoldingService holdingService;
+    /**
+     * 预算服务。
+     */
     private final BudgetService budgetService;
 
+    /**
+     * 注入业务依赖。
+     */
     public StatisticsServiceImpl(
             AccountMapper accountMapper,
             AssetSnapshotMapper assetSnapshotMapper,

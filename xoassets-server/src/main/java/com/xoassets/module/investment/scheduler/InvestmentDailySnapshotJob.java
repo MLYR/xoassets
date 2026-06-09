@@ -32,18 +32,51 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 public class InvestmentDailySnapshotJob {
 
+    /**
+     * 买入类型常量。
+     */
     private static final String TYPE_BUY = "BUY";
+    /**
+     * 金额净值录入模式常量。
+     */
     private static final String INPUT_MODE_AMOUNT_NAV = "AMOUNT_NAV";
+    /**
+     * 待确认状态常量。
+     */
     private static final String STATUS_PENDING_CONFIRM = "PENDING_CONFIRM";
+    /**
+     * 已确认状态常量。
+     */
     private static final String STATUS_CONFIRMED = "CONFIRMED";
+    /**
+     * 近期数据修复天数。
+     */
     private static final int RECENT_REPAIR_DAYS = 4;
 
+    /**
+     * 持仓历史服务。
+     */
     private final InvestmentPositionHistoryService positionHistoryService;
+    /**
+     * 当前价格数据访问组件。
+     */
     private final AssetPriceCurrentMapper assetPriceCurrentMapper;
+    /**
+     * 日级价格数据访问组件。
+     */
     private final AssetPriceDailyMapper assetPriceDailyMapper;
+    /**
+     * 投资交易数据访问组件。
+     */
     private final InvestmentTransactionMapper investmentTransactionMapper;
+    /**
+     * 数据访问组件。
+     */
     private final InvestmentDailySnapshotMapper investmentDailySnapshotMapper;
 
+    /**
+     * 注入定时任务依赖。
+     */
     public InvestmentDailySnapshotJob(
             InvestmentPositionHistoryService positionHistoryService,
             AssetPriceCurrentMapper assetPriceCurrentMapper,
@@ -73,6 +106,9 @@ public class InvestmentDailySnapshotJob {
         snapshotRecentDaysSafely();
     }
 
+    /**
+     * 安全生成近期投资日快照。
+     */
     private void snapshotRecentDaysSafely() {
         for (int daysAgo = RECENT_REPAIR_DAYS - 1; daysAgo >= 0; daysAgo--) {
             try {
@@ -105,6 +141,9 @@ public class InvestmentDailySnapshotJob {
         upsert(buildSnapshot(userId, targetDate));
     }
 
+    /**
+     * 构建资产快照。
+     */
     private InvestmentDailySnapshot buildSnapshot(Long userId, LocalDate snapshotDate) {
         Map<Long, InvestmentPositionState> positions = positionHistoryService.positionsAt(userId, snapshotDate);
         BigDecimal marketValue = BigDecimal.ZERO;
@@ -149,6 +188,9 @@ public class InvestmentDailySnapshotJob {
         return snapshot;
     }
 
+    /**
+     * 解析持仓估值价格。
+     */
     private BigDecimal resolvePrice(Long assetId, LocalDate snapshotDate) {
         AssetPriceCurrent current = assetPriceCurrentMapper.selectById(assetId);
         AssetPriceDaily daily = assetPriceDailyMapper.selectOne(new LambdaQueryWrapper<AssetPriceDaily>()
@@ -169,6 +211,9 @@ public class InvestmentDailySnapshotJob {
         return null;
     }
 
+    /**
+     * 统计在途基金买入金额。
+     */
     private BigDecimal inTransitFundBuyAmount(Long userId, LocalDate snapshotDate) {
         LocalDateTime end = snapshotDate.atTime(LocalTime.MAX);
         return investmentTransactionMapper.selectList(new LambdaQueryWrapper<InvestmentTransaction>()
@@ -186,6 +231,9 @@ public class InvestmentDailySnapshotJob {
                 .setScale(4, RoundingMode.HALF_UP);
     }
 
+    /**
+     * 统计快照日之前的已实现收益。
+     */
     private BigDecimal realizedProfit(Long userId, LocalDate snapshotDate) {
         LocalDateTime end = snapshotDate.atTime(LocalTime.MAX);
         return investmentTransactionMapper.selectList(new LambdaQueryWrapper<InvestmentTransaction>()
@@ -201,6 +249,9 @@ public class InvestmentDailySnapshotJob {
                 .setScale(4, RoundingMode.HALF_UP);
     }
 
+    /**
+     * 计算交易生效日期。
+     */
     private LocalDate effectiveDate(InvestmentTransaction transaction) {
         if ("AMOUNT_NAV".equals(transaction.getInputMode()) && transaction.getConfirmedDate() != null) {
             return transaction.getConfirmedDate();
@@ -211,6 +262,9 @@ public class InvestmentDailySnapshotJob {
         return transaction.getTransactionTime().toLocalDate();
     }
 
+    /**
+     * 查询上一条投资日快照。
+     */
     private InvestmentDailySnapshot previousSnapshot(Long userId, LocalDate snapshotDate) {
         return investmentDailySnapshotMapper.selectOne(new LambdaQueryWrapper<InvestmentDailySnapshot>()
                 .eq(InvestmentDailySnapshot::getUserId, userId)
@@ -219,6 +273,9 @@ public class InvestmentDailySnapshotJob {
                 .last("LIMIT 1"));
     }
 
+    /**
+     * 新增或更新记录。
+     */
     private void upsert(InvestmentDailySnapshot snapshot) {
         InvestmentDailySnapshot exists = investmentDailySnapshotMapper.selectOne(new LambdaQueryWrapper<InvestmentDailySnapshot>()
                 .eq(InvestmentDailySnapshot::getUserId, snapshot.getUserId())
@@ -236,10 +293,16 @@ public class InvestmentDailySnapshotJob {
                 .eq(InvestmentDailySnapshot::getDeleted, 0));
     }
 
+    /**
+     * 按金额精度保留四位小数。
+     */
     private BigDecimal scale4(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value.setScale(4, RoundingMode.HALF_UP);
     }
 
+    /**
+     * 计算百分比。
+     */
     private BigDecimal rate(BigDecimal numerator, BigDecimal denominator) {
         if (numerator == null || denominator == null || denominator.compareTo(BigDecimal.ZERO) <= 0) {
             return null;

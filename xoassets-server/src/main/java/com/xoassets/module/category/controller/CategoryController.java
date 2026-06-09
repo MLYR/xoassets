@@ -24,8 +24,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/categories")
 public class CategoryController {
 
+    /**
+     * 业务服务组件。
+     */
     private final CategoryService categoryService;
 
+    /**
+     * 注入接口依赖。
+     */
     public CategoryController(CategoryService categoryService) {
         this.categoryService = categoryService;
     }

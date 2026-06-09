@@ -12,10 +12,22 @@ import lombok.Data;
 @Data
 public class AccountBalanceAdjustmentRequest {
 
+    /**
+     * 修正后余额。
+     */
     @NotNull(message = "修正后余额不能为空")
     private BigDecimal afterBalance;
 
+    /**
+     * 原因。
+     */
     private String reason;
+    /**
+     * 业务日期。
+     */
     private LocalDate bizDate;
+    /**
+     * 业务发生时间。
+     */
     private LocalDateTime bizTime;
 }

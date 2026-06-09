@@ -11,5 +11,8 @@ import lombok.EqualsAndHashCode;
 @EqualsAndHashCode(callSuper = true)
 public class AccountLedgerExportQuery extends AccountLedgerQuery {
 
+    /**
+     * 账户ID。
+     */
     private Long accountId;
 }

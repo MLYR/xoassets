@@ -9,6 +9,9 @@ import lombok.Data;
 @Data
 public class RefreshQuoteRequest {
 
+    /**
+     * 资产ID。
+     */
     @NotNull(message = "资产不能为空")
     private Long assetId;
 }

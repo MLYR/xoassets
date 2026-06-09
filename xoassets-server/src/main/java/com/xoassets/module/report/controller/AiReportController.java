@@ -19,8 +19,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/reports")
 public class AiReportController {
 
+    /**
+     * AI报告服务。
+     */
     private final AiReportService aiReportService;
 
+    /**
+     * 注入接口依赖。
+     */
     public AiReportController(AiReportService aiReportService) {
         this.aiReportService = aiReportService;
     }

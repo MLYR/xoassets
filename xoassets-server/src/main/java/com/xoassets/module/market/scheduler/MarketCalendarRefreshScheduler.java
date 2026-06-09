@@ -14,10 +14,19 @@ import org.springframework.stereotype.Component;
 @Component
 public class MarketCalendarRefreshScheduler {
 
+    /**
+     * A股市场常量。
+     */
     private static final String MARKET_A_SHARE = "A_SHARE";
 
+    /**
+     * 交易日历服务。
+     */
     private final MarketCalendarService marketCalendarService;
 
+    /**
+     * 注入定时任务依赖。
+     */
     public MarketCalendarRefreshScheduler(MarketCalendarService marketCalendarService) {
         this.marketCalendarService = marketCalendarService;
     }
@@ -38,6 +47,9 @@ public class MarketCalendarRefreshScheduler {
         refreshCalendar(LocalDate.now().getYear());
     }
 
+    /**
+     * 刷新交易日历。
+     */
     private void refreshCalendar(int year) {
         try {
             marketCalendarService.ensureYearInitialized(MARKET_A_SHARE, year);

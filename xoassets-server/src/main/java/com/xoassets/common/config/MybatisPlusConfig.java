@@ -30,19 +30,19 @@ public class MybatisPlusConfig {
     @Bean
     public MetaObjectHandler metaObjectHandler() {
         return new MetaObjectHandler() {
-            @Override
             /**
              * 新增数据时填充创建和更新时间。
              */
+            @Override
             public void insertFill(MetaObject metaObject) {
                 this.strictInsertFill(metaObject, "createdAt", LocalDateTime.class, LocalDateTime.now());
                 this.strictInsertFill(metaObject, "updatedAt", LocalDateTime.class, LocalDateTime.now());
             }
 
-            @Override
             /**
              * 修改数据时只刷新更新时间。
              */
+            @Override
             public void updateFill(MetaObject metaObject) {
                 this.strictUpdateFill(metaObject, "updatedAt", LocalDateTime.class, LocalDateTime.now());
             }
