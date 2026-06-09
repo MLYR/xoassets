@@ -54,8 +54,8 @@
         <logger name="com.xoassets" level="DEBUG"/>
         <logger name="com.xoassets.persistence.mapper" level="DEBUG"/>
         <logger name="org.mybatis" level="DEBUG"/>
-        <logger name="org.springframework.jdbc" level="DEBUG"/>
-        <logger name="com.zaxxer.hikari" level="DEBUG"/>
+        <logger name="org.springframework.jdbc" level="INFO"/>
+        <logger name="com.zaxxer.hikari" level="INFO"/>
         <logger name="org.springframework.boot.autoconfigure.logging.ConditionEvaluationReportLogger" level="INFO"/>
         <root level="DEBUG">
             <appender-ref ref="CONSOLE"/>
