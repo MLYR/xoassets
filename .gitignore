@@ -7,6 +7,9 @@ dist/
 # Maven 构建产物只用于本地验证和打包输出。
 target/
 
+# 后端运行日志由 logback 按天生成，不纳入源码管理。
+logs/
+
 # TypeScript 增量构建缓存不属于源码。
 *.tsbuildinfo
 

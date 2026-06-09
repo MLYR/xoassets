@@ -99,6 +99,17 @@ JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn -DskipTests compile
 http://localhost:8080/doc.html
 ```
 
+后端运行环境和日志：
+
+```bash
+XOASSETS_PROFILE=dev   # 默认值，输出业务、MyBatis、JDBC 等开发调试日志
+XOASSETS_PROFILE=test  # 测试环境，收敛框架日志
+XOASSETS_PROFILE=prod  # 生产环境，业务 INFO，框架日志以 WARN 为主
+XOASSETS_LOG_PATH=logs # 日志目录，默认写入后端工作目录下 logs/
+```
+
+后端使用 `logback-spring.xml` 按环境控制日志级别，并每天滚动保留 `xoassets-server.log` 和 `xoassets-server-error.log`；运行日志目录已加入 `.gitignore`，不要提交日志文件。
+
 ## 本地开发启动
 
 1. 初始化数据库：

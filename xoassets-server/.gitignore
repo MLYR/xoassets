@@ -1,6 +1,9 @@
 # Maven 构建产物不提交。
 target/
 
+# logback 本地运行日志不提交。
+logs/
+
 # IDE 和系统本地文件不提交。
 .idea/
 .DS_Store

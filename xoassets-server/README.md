@@ -35,11 +35,14 @@ export XOASSETS_JWT_SECRET='replace-with-at-least-32-bytes-secret-key'
 export XOASSETS_JWT_EXPIRE_MINUTES='10080'
 ```
 
-3. 启动服务：
+3. 按环境启动服务：
 
 ```bash
+export XOASSETS_PROFILE='dev'
 mvn spring-boot:run
 ```
+
+`XOASSETS_PROFILE` 支持 `dev`、`test`、`prod`，未设置时默认 `dev`。日志由 `src/main/resources/logback-spring.xml` 控制：dev 输出业务、MyBatis、JDBC 等调试日志，test/prod 收敛框架日志；每日滚动日志默认写入 `logs/xoassets-server.log` 和 `logs/xoassets-server-error.log`，可通过 `XOASSETS_LOG_PATH`、`XOASSETS_LOG_MAX_HISTORY`、`XOASSETS_LOG_TOTAL_SIZE_CAP` 覆盖。
 
 ## 验证命令
 

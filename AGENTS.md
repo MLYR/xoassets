@@ -21,6 +21,7 @@
 - Spring Scheduler
 - Lombok
 - Knife4j / Swagger
+- 日志使用 `logback-spring.xml` 按 `XOASSETS_PROFILE` 区分 dev / test / prod；dev 默认输出业务、MyBatis、JDBC 调试日志并保留每日滚动文件，生产不要开启 SQL DEBUG。
 - Redis 已用于股票和虚拟货币投资行情最近 3 天原始快照；除该短期缓存场景外，非必要不新增 Redis 依赖范围。
 
 ### 3.2 前端
@@ -187,6 +188,7 @@ com.xoassets
 - 后端所有查询、修改、删除必须校验当前登录用户 ID 与数据所属 `user_id` 一致。
 - 密码禁止明文存储，使用 BCrypt 加密。
 - 日志中不要打印金额明细、账户信息、Token、密码、AI 请求敏感内容。
+- 运行日志写入 `logs/` 并已加入 `.gitignore`；提交前不要把本地日志文件加入 Git。
 - AI 请求前尽量脱敏个人财务数据。
 - 外部输入必须校验，异常路径要显式处理。
 

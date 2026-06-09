@@ -5,6 +5,9 @@ server:
 spring:
   application:
     name: xoassets-server
+  profiles:
+    # 通过 XOASSETS_PROFILE 切换运行环境；默认 dev 便于本地开发直接看到完整日志。
+    active: ${XOASSETS_PROFILE:dev}
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: ${XOASSETS_DATASOURCE_URL:jdbc:mysql://localhost:3306/xoassets?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
@@ -38,16 +41,9 @@ mybatis-plus:
       logic-not-delete-value: 0
 
 logging:
-  pattern:
-    # 控制台日志包含时间、级别、线程、logger 和堆栈，便于直接在 IDE 里排查启动和接口异常。
-    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n%wEx"
-  level:
-    root: info
-    com.xoassets: info
-    com.xoassets.persistence.mapper: info
-    com.zaxxer.hikari: info
-    org.mybatis: info
-    org.springframework.jdbc: info
+  file:
+    # logback-spring.xml 会按环境写入每日滚动日志，路径可由 XOASSETS_LOG_PATH 覆盖。
+    path: ${XOASSETS_LOG_PATH:logs}
 
 knife4j:
   enable: true
@@ -79,6 +75,9 @@ xoassets:
   market-calendar:
     # 每年开年第一天补齐当年和下一年的基础市场日历，交易所特殊休市日以数据库记录为准。
     yearly-refresh-cron: ${XOASSETS_MARKET_CALENDAR_YEARLY_REFRESH_CRON:0 5 0 1 1 ?}
+  logging:
+    max-history: ${XOASSETS_LOG_MAX_HISTORY:30}
+    total-size-cap: ${XOASSETS_LOG_TOTAL_SIZE_CAP:2GB}
 ---
 spring:
   config:
@@ -87,12 +86,5 @@ spring:
 
 mybatis-plus:
   configuration:
-    # 仅 dev profile 输出 MyBatis SQL，生产默认关闭 SQL debug。
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-
-logging:
-  level:
-    com.xoassets: debug
-    com.xoassets.persistence.mapper: debug
-    org.mybatis: debug
-    org.springframework.jdbc: debug
+    # 仅 dev profile 通过 SLF4J 输出 MyBatis SQL，确保控制台和滚动日志文件都能记录。
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
