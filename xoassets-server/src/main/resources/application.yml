@@ -50,31 +50,29 @@ knife4j:
   setting:
     language: zh_cn
 
+xxl:
+  job:
+    admin:
+      # 本地默认指向 Docker Compose 暴露的 XXL-JOB Admin，未启用执行器时不会连接。
+      addresses: ${XXL_JOB_ADMIN_ADDRESSES:http://localhost:8081/xxl-job-admin}
+    # 调度中心和执行器必须保持同一个 token；本地默认值只用于开发。
+    accessToken: ${XXL_JOB_ACCESS_TOKEN:xoassets-xxl-job-local-token}
+    executor:
+      # 默认关闭，避免未启动 XXL-JOB Admin 时影响普通本地开发；Docker Compose 中会开启。
+      enabled: ${XXL_JOB_EXECUTOR_ENABLED:true}
+      appname: ${XXL_JOB_EXECUTOR_APPNAME:xoassets-server}
+      address: ${XXL_JOB_EXECUTOR_ADDRESS:}
+      ip: ${XXL_JOB_EXECUTOR_IP:}
+      port: ${XXL_JOB_EXECUTOR_PORT:9999}
+      logpath: ${XXL_JOB_EXECUTOR_LOG_PATH:logs/xxl-job}
+      logretentiondays: ${XXL_JOB_EXECUTOR_LOG_RETENTION_DAYS:30}
+      timeout: ${XXL_JOB_EXECUTOR_TIMEOUT:3}
+
 xoassets:
   jwt:
     # 本地开发默认密钥只用于启动，生产环境必须用环境变量覆盖。
     secret: ${XOASSETS_JWT_SECRET:xoassets-local-development-secret-key-must-be-replaced}
     expire-minutes: ${XOASSETS_JWT_EXPIRE_MINUTES:10080}
-  quotes:
-    # 行情定时刷新只处理已过期价格，任务失败不会影响主应用启动。
-    refresh-fixed-delay-ms: ${XOASSETS_QUOTES_REFRESH_FIXED_DELAY_MS:900000}
-    refresh-initial-delay-ms: ${XOASSETS_QUOTES_REFRESH_INITIAL_DELAY_MS:60000}
-    fund-refresh-cron: ${XOASSETS_FUND_REFRESH_CRON:0 30 19 * * ?}
-    fund-refresh-followup-cron: ${XOASSETS_FUND_REFRESH_FOLLOWUP_CRON:0 0,30 20-23 * * ?}
-    # 晚间多次沉淀日级价格和用户投资快照，覆盖基金净值延迟更新场景。
-    daily-aggregate-cron: ${XOASSETS_QUOTES_DAILY_AGGREGATE_CRON:0 25,55 19-22 * * ?}
-    daily-aggregate-late-cron: ${XOASSETS_QUOTES_DAILY_AGGREGATE_LATE_CRON:0 25 23 * * ?}
-    investment-snapshot-cron: ${XOASSETS_INVESTMENT_DAILY_SNAPSHOT_CRON:0 30 19 * * ?}
-    investment-snapshot-followup-cron: ${XOASSETS_INVESTMENT_DAILY_SNAPSHOT_FOLLOWUP_CRON:0 0,30 20-23 * * ?}
-  fund-confirm:
-    # 基金金额买入待确认扫描，净值未入库时保持 PENDING_CONFIRM 等待下一轮。
-    fixed-delay-ms: ${XOASSETS_FUND_CONFIRM_FIXED_DELAY_MS:1800000}
-    initial-delay-ms: ${XOASSETS_FUND_CONFIRM_INITIAL_DELAY_MS:120000}
-  snapshots:
-    daily-cron: ${XOASSETS_SNAPSHOT_DAILY_CRON:0 50 23 * * ?}
-  market-calendar:
-    # 每年开年第一天补齐当年和下一年的基础市场日历，交易所特殊休市日以数据库记录为准。
-    yearly-refresh-cron: ${XOASSETS_MARKET_CALENDAR_YEARLY_REFRESH_CRON:0 5 0 1 1 ?}
   logging:
     max-history: ${XOASSETS_LOG_MAX_HISTORY:30}
     total-size-cap: ${XOASSETS_LOG_TOTAL_SIZE_CAP:2GB}

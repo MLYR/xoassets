@@ -112,23 +112,64 @@ XOASSETS_LOG_PATH=logs # 日志目录，默认写入后端工作目录下 logs/
 
 ## 本地开发启动
 
-1. 初始化数据库：
+本地开发以本机 MySQL 为准：后端用 IDEA / Maven 启动，前端用 Vite 启动；如需可视化定时任务，只用 Docker 单独启动 XXL-JOB Admin，并让它连接本机 MySQL。
+
+### 1. 初始化本机 MySQL
 
 ```bash
 cd xoassets-server
 mysql -uroot -p < src/main/resources/db/schema.sql
 mysql -uroot -p xoassets < src/main/resources/db/migration-market-calendar.sql
 mysql -uroot -p xoassets < src/main/resources/db/dev-data.sql
+mysql -uroot -p < src/main/resources/db/xxl-job-init.sql
 ```
 
-2. 启动后端：
+`xxl-job-init.sql` 会创建独立库 `xxl_job`，用于 XXL-JOB Admin；业务库仍是 `xoassets`。
+
+### 2. 本地 Docker 启动 XXL-JOB Admin，连接本机 MySQL
+
+默认按本机 MySQL `root / root` 连接：
+
+```bash
+cd /Users/zreo/CODE/XOAssets
+docker compose -f docker-compose.local-xxl.yml up -d
+```
+
+如果本机 MySQL 密码不是 `root`：
+
+```bash
+LOCAL_MYSQL_USERNAME=root LOCAL_MYSQL_PASSWORD=你的密码 docker compose -f docker-compose.local-xxl.yml up -d
+```
+
+访问：
+
+```text
+http://localhost:8081/xxl-job-admin
+admin / 123456
+```
+
+### 3. IDEA 启动后端
+
+不调试定时任务时，不需要开启 XXL-JOB executor。
+
+需要让后端注册到 XXL-JOB Admin 时，在 IDEA Run Configuration 加环境变量：
+
+```bash
+XXL_JOB_EXECUTOR_ENABLED=true
+XXL_JOB_ADMIN_ADDRESSES=http://localhost:8081/xxl-job-admin
+XXL_JOB_ACCESS_TOKEN=xoassets-xxl-job-local-token
+XXL_JOB_EXECUTOR_APPNAME=xoassets-server
+XXL_JOB_EXECUTOR_PORT=9999
+```
+
+后端启动命令参考：
 
 ```bash
 cd xoassets-server
 JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn spring-boot:run
 ```
 
-3. 启动前端：
+### 4. 启动前端
 
 ```bash
 cd xoassets-web
@@ -140,29 +181,38 @@ npm run dev
 
 - 前端开发地址：`http://localhost:5173`
 - 后端接口文档：`http://localhost:8080/doc.html`
+- XXL-JOB Admin：`http://localhost:8081/xxl-job-admin`
 - 开发测试账号：`demo / xoassets123`
 
-## Docker 启动
+## 服务器 / 全量 Docker 一键部署
 
-Docker Compose 会启动 MySQL 8、Spring Boot 后端和 Nginx 前端，并在 MySQL 首次初始化时自动执行 `schema.sql`、`migration-market-calendar.sql` 和 `dev-data.sql`。
+服务器部署时使用仓库根目录的 `docker-compose.yml` 一键启动全套服务：MySQL 8、XXL-JOB Admin、Spring Boot 后端和 Nginx 前端。MySQL 首次初始化会自动执行 `schema.sql`、`migration-market-calendar.sql`、`dev-data.sql` 和 `xxl-job-init.sql`。
 
 ```bash
+cd /path/to/XOAssets
 docker compose up -d
 ```
 
 访问地址：
 
-- 前端：`http://localhost:8088`
-- 后端：`http://localhost:8080`
-- Knife4j：`http://localhost:8080/doc.html`
-- MySQL：`localhost:3306`，账号密码 `root / root`
+- 前端：`http://服务器IP:8088`
+- 后端：`http://服务器IP:8080`
+- Knife4j：`http://服务器IP:8080/doc.html`
+- XXL-JOB Admin：`http://服务器IP:8081/xxl-job-admin`，账号密码 `admin / 123456`
+- MySQL：`服务器IP:3306`，账号密码 `root / root`
 - 开发测试账号：`demo / xoassets123`
 
-如果需要重新导入初始化数据，先删除数据卷再启动：
+如果服务器上需要重新导入初始化数据，先删除 Docker 数据卷再启动：
 
 ```bash
 docker compose down -v
 docker compose up -d
+```
+
+已有 Docker 数据卷升级到 XXL-JOB 时，需手动初始化调度中心库：
+
+```bash
+docker exec -i xoassets-mysql mysql -uroot -proot < xoassets-server/src/main/resources/db/xxl-job-init.sql
 ```
 
 ## 开发测试数据

@@ -18,7 +18,7 @@
 - MyBatis-Plus
 - MySQL 8
 - JWT
-- Spring Scheduler
+- XXL-JOB（可视化定时任务调度中心）
 - Lombok
 - Knife4j / Swagger
 - 日志使用 `logback-spring.xml` 按 `XOASSETS_PROFILE` 区分 dev / test / prod；dev 默认输出业务、MyBatis、JDBC 调试日志并保留每日滚动文件，生产不要开启 SQL DEBUG。
@@ -203,6 +203,7 @@ com.xoassets
 - AI 报告生成失败：标记失败，并支持手动重试。
 
 ## 11. 定时任务
+- 定时任务统一由 XXL-JOB Admin 触发，后端仅注册 executor handler；本地未启动 XXL-JOB Admin 或未开启 `XXL_JOB_EXECUTOR_ENABLED=true` 时不会自动执行定时任务。
 - 股票 / 虚拟货币行情同步：每 15 分钟；股票仅交易日 09:30-15:30 拉取，虚拟货币全天拉取。
 - 基金净值晚间刷新：19:30-23:30 每 30 分钟强制尝试刷新。
 - 资产日级价格聚合：19:25-22:55 每 30 分钟，23:25 补一轮；股票 / 虚拟货币从 Redis 原始快照聚合，基金由净值刷新直接写日级价。

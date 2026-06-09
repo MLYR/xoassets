@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
+import com.xxl.job.core.handler.annotation.XxlJob;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -84,7 +84,7 @@ public class AssetPriceDailyAggregateJob {
     /**
      * 每天补跑最近 4 个自然日，周一晚间仍能覆盖上周五交易日，避免周末打断补数。
      */
-    @Scheduled(cron = "${xoassets.quotes.daily-aggregate-cron:0 25,55 19-22 * * ?}")
+    @XxlJob("aggregateRecentAssetPrices")
     public void aggregateRecentDays() {
         for (int daysAgo = RECENT_REPAIR_DAYS - 1; daysAgo >= 0; daysAgo--) {
             try {
@@ -98,7 +98,7 @@ public class AssetPriceDailyAggregateJob {
     /**
      * 23:25 再补一轮，给 23:30 投资快照和 23:50 总资产快照提供晚间最终价。
      */
-    @Scheduled(cron = "${xoassets.quotes.daily-aggregate-late-cron:0 25 23 * * ?}")
+    @XxlJob("aggregateLateRecentAssetPrices")
     public void aggregateLateRecentDays() {
         aggregateRecentDays();
     }

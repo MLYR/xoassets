@@ -59,6 +59,84 @@ JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn -DskipTests compile
 ```text
 http://localhost:8080/doc.html
 ```
+## XXL-JOB 调度中心
+
+定时任务已迁移到 XXL-JOB handler。后端默认不启用 executor；需要可视化调度时，先启动 XXL-JOB Admin，再设置 `XXL_JOB_EXECUTOR_ENABLED=true`。
+
+### 本地开发：Docker Admin + 本机 MySQL
+
+本地开发以本机 MySQL 为准，先执行：
+
+```bash
+mysql -uroot -p < src/main/resources/db/xxl-job-init.sql
+```
+
+然后在仓库根目录启动只连接本机 MySQL 的 XXL-JOB Admin：
+
+```bash
+docker compose -f docker-compose.local-xxl.yml up -d
+```
+
+本机 MySQL 密码不是 `root` 时：
+
+```bash
+LOCAL_MYSQL_USERNAME=root LOCAL_MYSQL_PASSWORD=你的密码 docker compose -f docker-compose.local-xxl.yml up -d
+```
+
+访问：
+
+```text
+http://localhost:8081/xxl-job-admin
+admin / 123456
+```
+
+IDEA 启动后端时，如需注册执行器，增加环境变量：
+
+```bash
+XXL_JOB_EXECUTOR_ENABLED=true
+XXL_JOB_ADMIN_ADDRESSES=http://localhost:8081/xxl-job-admin
+XXL_JOB_ACCESS_TOKEN=xoassets-xxl-job-local-token
+XXL_JOB_EXECUTOR_APPNAME=xoassets-server
+XXL_JOB_EXECUTOR_PORT=9999
+```
+
+### 服务器部署：Docker Compose 全套启动
+
+服务器部署使用仓库根目录 `docker-compose.yml`，一次启动 MySQL、XXL-JOB Admin、后端和前端：
+
+```bash
+docker compose up -d
+```
+
+`docker-compose.yml` 会在 MySQL 首次初始化时导入 `xxl-job-init.sql`，并预置 XXL-JOB 表结构、执行器和任务清单。任务默认停止，避免首次初始化立刻触发时点敏感任务，确认后在控制台启动。
+
+已有 Docker 数据卷不会自动重放初始化 SQL，升级时先执行：
+
+```bash
+docker exec -i xoassets-mysql mysql -uroot -proot < src/main/resources/db/xxl-job-init.sql
+```
+
+| 任务 | Handler | 默认调度 |
+|---|---|---|
+| 股票 / 虚拟货币行情刷新 | `refreshMarketQuotes` | `0 0/15 * * * ? *` |
+| 基金净值晚间首轮刷新 | `refreshFundQuotes` | `0 30 19 * * ? *` |
+| 基金净值晚间跟进刷新 | `refreshFundQuotesFollowup` | `0 0,30 20-23 * * ? *` |
+| 资产日级价格晚间汇总 | `aggregateRecentAssetPrices` | `0 25,55 19-22 * * ? *` |
+| 资产日级价格收尾汇总 | `aggregateLateRecentAssetPrices` | `0 25 23 * * ? *` |
+| 用户投资日快照首轮生成 | `snapshotRecentInvestmentDays` | `0 30 19 * * ? *` |
+| 用户投资日快照跟进生成 | `snapshotRecentInvestmentDaysFollowup` | `0 0,30 20-23 * * ? *` |
+| 基金待确认交易扫描 | `confirmPendingFundTransactions` | `0 0/30 * * * ? *` |
+| 每日用户资产快照生成 | `generateDailySnapshots` | `0 50 23 * * ? *` |
+| 市场交易日历年度补齐 | `refreshYearlyMarketCalendar` | `0 5 0 1 1 ? *` |
+| USD/CNY 汇率日缓存刷新 | `refreshDailyUsdCnyExchangeRate` | `0 20 6 * * ? *` |
+
+```
+XXL_JOB_ADMIN_ADDRESSES=http://localhost:8081/xxl-job-admin
+XXL_JOB_ACCESS_TOKEN=xoassets-xxl-job-local-token
+XXL_JOB_EXECUTOR_ENABLED=true
+XXL_JOB_EXECUTOR_PORT=9999
+```
+
 
 ## 核心接口
 
@@ -163,7 +241,7 @@ http://localhost:8080/doc.html
 - CoinGecko 支持 CRYPTO 资产 BTC、ETH、SOL、BNB、DOGE；天天基金支持基金单位净值；新浪支持 A 股；Yahoo Finance 支持美股。
 - `POST /api/quotes/refresh-batch` 支持按当前持仓资产批量刷新；刷新失败保留旧价格，不删除历史快照。
 - 行情缓存按资产类型控制刷新频率：CRYPTO 15 分钟、STOCK 15 分钟、FUND 1 天；MANUAL 价格不过期；股票只在 09:30-15:30 之间拉取第三方行情，基金净值在 19:30-23:30 每半小时强制尝试刷新。股票和虚拟货币原始行情写入 Redis ZSET `price:snapshot:{assetId}:{yyyyMM}`，TTL 3 天，日级汇总读取某天数据时按当天起止毫秒 score 范围查询，不全量拉取整月数据。`GET /api/exchange-rates/usd-cny` 返回 USD/CNY 日缓存汇率，MVP 使用进程内缓存，后续可替换为 Redis。
-- 后端启用 `QuoteRefreshScheduler` 定时刷新持仓涉及资产，任务或单个资产失败只记录日志，不影响主应用启动。
+- 后端行情刷新由 XXL-JOB 可视化调度中心触发，`refreshMarketQuotes` / `refreshFundQuotes` 等 handler 按资产类型分开处理；任务或单个资产失败只记录日志，不影响主应用启动。
 - 市场交易日历使用 `xo_market_calendar` 存储，`MarketCalendarRefreshScheduler` 在应用启动和每年 1 月 1 日补齐当前年、下一年基础周末日历；春节、国庆等交易所特殊休市以数据库修正记录为准，不写死在 Java 或配置文件里。
 - 预算表 `xo_budget` 按当前用户隔离；每个用户每月只能有一个总预算，每个支出分类每月只能有一个分类预算。
 - 预算使用额从 `xo_transaction` 汇总，转账不计入预算，退款抵扣支出。
@@ -175,7 +253,7 @@ http://localhost:8080/doc.html
 - 资产快照中现金资产按账户初始余额 + 普通流水 / 投资交易 / 余额修正重建快照日历史余额，正余额计入现金资产、负余额按绝对值计入负债；投资资产按快照日通过交易流水重建历史头寸，再使用同币种日级价 / 当前价估值，补跑历史快照不能用当前账户余额或当前持仓数量倒推。
 - 本地对账可手动重建当前用户指定日期：`POST /api/investments/snapshots/generate?snapshotDate=yyyy-MM-dd` 重建投资日快照，`POST /api/snapshots/generate?snapshotDate=yyyy-MM-dd` 重建用户资产快照；不允许生成未来日期快照。
 - 首页总资产 = 快照现金资产 + 投资持仓市值；净资产 = 总资产 - 负债。
-- 后端启用 `AssetSnapshotScheduler`，默认每天 23:50 为所有启用用户生成资产快照，单个用户失败只记录日志。
+- 用户资产快照由 XXL-JOB handler `generateDailySnapshots` 默认每天 23:50 触发，为所有启用用户生成资产快照，单个用户失败只记录日志。
 - 统计接口全部按当前 `user_id` 隔离，支出统计排除转账，退款抵扣支出。
 - 资产目标表 `xo_goal` 按当前用户隔离；当前金额可手动填写，也可按当前净资产口径写入。
 - AI 报告表 `xo_ai_report` 按当前用户隔离；阶段七只基于首页、预算、投资等真实数据生成模板化复盘，不调用真实 AI，不提供投资买卖建议。

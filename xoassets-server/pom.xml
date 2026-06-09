@@ -25,6 +25,7 @@
         <jjwt.version>0.12.6</jjwt.version>
         <lombok.version>1.18.42</lombok.version>
         <jacoco.version>0.8.12</jacoco.version>
+        <xxl-job.version>3.4.0</xxl-job.version>
     </properties>
 
     <dependencies>
@@ -82,6 +83,12 @@
             <groupId>com.github.xiaoymin</groupId>
             <artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
             <version>${knife4j.version}</version>
+        </dependency>
+        <dependency>
+            <!-- XXL-JOB 执行器用于把业务定时任务交给可视化调度中心统一触发。 -->
+            <groupId>com.xuxueli</groupId>
+            <artifactId>xxl-job-core</artifactId>
+            <version>${xxl-job.version}</version>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>

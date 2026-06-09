@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
+import com.xxl.job.core.handler.annotation.XxlJob;
 import org.springframework.stereotype.Component;
 
 /**
@@ -58,9 +58,7 @@ public class QuoteRefreshScheduler {
     /**
      * 股票和虚拟货币每 15 分钟刷新一次；股票交易窗口由 QuoteService 二次兜底。
      */
-    @Scheduled(
-            fixedDelayString = "${xoassets.quotes.refresh-fixed-delay-ms:900000}",
-            initialDelayString = "${xoassets.quotes.refresh-initial-delay-ms:60000}")
+    @XxlJob("refreshMarketQuotes")
     /**
      * 刷新市场类资产行情。
      */
@@ -77,7 +75,7 @@ public class QuoteRefreshScheduler {
     /**
      * 基金净值晚间多次强制尝试刷新，避免白天旧净值被 1 天 TTL 拦住。
      */
-    @Scheduled(cron = "${xoassets.quotes.fund-refresh-cron:0 30 19 * * ?}")
+    @XxlJob("refreshFundQuotes")
     public void refreshFundQuotes() {
         refreshFundQuotesSafely();
     }
@@ -85,7 +83,7 @@ public class QuoteRefreshScheduler {
     /**
      * 20:00 到 23:30 每半小时继续刷新，和 19:30 首轮组成完整晚间窗口。
      */
-    @Scheduled(cron = "${xoassets.quotes.fund-refresh-followup-cron:0 0,30 20-23 * * ?}")
+    @XxlJob("refreshFundQuotesFollowup")
     public void refreshFundQuotesFollowup() {
         refreshFundQuotesSafely();
     }

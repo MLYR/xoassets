@@ -3,7 +3,7 @@ package com.xoassets.module.snapshot.scheduler;
 import com.xoassets.module.snapshot.service.SnapshotService;
 import java.time.LocalDate;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
+import com.xxl.job.core.handler.annotation.XxlJob;
 import org.springframework.stereotype.Component;
 
 /**
@@ -28,7 +28,7 @@ public class AssetSnapshotScheduler {
     /**
      * 每天 23:50 记录所有启用用户当天资产状态，cron 可通过配置覆盖。
      */
-    @Scheduled(cron = "${xoassets.snapshots.daily-cron:0 50 23 * * ?}")
+    @XxlJob("generateDailySnapshots")
     public void generateDailySnapshots() {
         try {
             snapshotService.generateAllUsers(LocalDate.now());

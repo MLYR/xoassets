@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
+import com.xxl.job.core.handler.annotation.XxlJob;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -77,7 +77,7 @@ public class ExchangeRateServiceImpl implements ExchangeRateService {
     /**
      * 每天早上刷新一次汇率缓存；失败只记录日志，不影响主应用。
      */
-    @Scheduled(cron = "0 20 6 * * ?")
+    @XxlJob("refreshDailyUsdCnyExchangeRate")
     public void refreshDaily() {
         refreshUsdCny();
     }

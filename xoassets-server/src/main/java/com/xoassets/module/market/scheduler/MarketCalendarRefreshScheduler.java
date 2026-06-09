@@ -4,7 +4,7 @@ import com.xoassets.module.market.service.MarketCalendarService;
 import jakarta.annotation.PostConstruct;
 import java.time.LocalDate;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
+import com.xxl.job.core.handler.annotation.XxlJob;
 import org.springframework.stereotype.Component;
 
 /**
@@ -42,7 +42,7 @@ public class MarketCalendarRefreshScheduler {
     /**
      * 每年 1 月 1 日补齐当年和下一年的基础日历，春节等交易所休市日以后续修正数据覆盖。
      */
-    @Scheduled(cron = "${xoassets.market-calendar.yearly-refresh-cron:0 5 0 1 1 ?}")
+    @XxlJob("refreshYearlyMarketCalendar")
     public void refreshYearlyCalendar() {
         refreshCalendar(LocalDate.now().getYear());
     }

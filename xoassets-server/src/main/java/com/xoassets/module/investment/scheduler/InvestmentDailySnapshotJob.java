@@ -21,7 +21,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
+import com.xxl.job.core.handler.annotation.XxlJob;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -93,7 +93,7 @@ public class InvestmentDailySnapshotJob {
     /**
      * 在日级价格汇总后执行，补跑最近 4 个自然日，周一可覆盖上周五交易日。
      */
-    @Scheduled(cron = "${xoassets.quotes.investment-snapshot-cron:0 30 19 * * ?}")
+    @XxlJob("snapshotRecentInvestmentDays")
     public void snapshotRecentDays() {
         snapshotRecentDaysSafely();
     }
@@ -101,7 +101,7 @@ public class InvestmentDailySnapshotJob {
     /**
      * 20:00 到 23:30 每半小时继续 upsert，等待晚间净值逐步入库。
      */
-    @Scheduled(cron = "${xoassets.quotes.investment-snapshot-followup-cron:0 0,30 20-23 * * ?}")
+    @XxlJob("snapshotRecentInvestmentDaysFollowup")
     public void snapshotRecentDaysFollowup() {
         snapshotRecentDaysSafely();
     }

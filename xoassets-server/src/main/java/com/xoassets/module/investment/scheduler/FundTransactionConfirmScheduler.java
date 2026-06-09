@@ -2,7 +2,7 @@ package com.xoassets.module.investment.scheduler;
 
 import com.xoassets.module.investment.service.InvestmentTransactionService;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
+import com.xxl.job.core.handler.annotation.XxlJob;
 import org.springframework.stereotype.Component;
 
 /**
@@ -27,9 +27,7 @@ public class FundTransactionConfirmScheduler {
     /**
      * 定时扫描待确认基金交易；服务层用状态条件更新保证幂等，避免重复累加持仓。
      */
-    @Scheduled(
-            fixedDelayString = "${xoassets.fund-confirm.fixed-delay-ms:1800000}",
-            initialDelayString = "${xoassets.fund-confirm.initial-delay-ms:120000}")
+    @XxlJob("confirmPendingFundTransactions")
     /**
      * 定时确认待确认基金买入。
      */
