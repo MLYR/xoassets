@@ -15,7 +15,15 @@
       <MetricCard title="当前市值" :value="holding?.marketValue ?? 0" :trend="holding?.floatingProfitRate ?? 0" description="数量 × 最新价格" :precision="4" :currency-symbol="currencySymbol" />
       <MetricCard title="持仓数量" :value="holding?.quantity ?? 0" :trend="0" description="当前剩余持仓" :precision="quantityPrecision" currency-symbol="" />
       <MetricCard title="持仓成本" :value="holding?.totalCost ?? 0" :trend="0" description="移动平均成本口径" :precision="4" :currency-symbol="currencySymbol" />
-      <MetricCard title="今日收益" :value="holding?.todayProfitByCurrentQuantity ?? null" :trend="primaryProfitTrend" :description="primaryProfitDescription" :precision="4" :currency-symbol="currencySymbol" :tone="todayProfitTone" />
+      <MetricCard title="今日收益" :value="holding?.todayProfitByCurrentQuantity ?? null" :trend="primaryProfitTrend" :description="primaryProfitDescription" :precision="4" :currency-symbol="currencySymbol" :tone="todayProfitTone">
+        <template #extra>
+          <!-- 今日收益主值仍按今日价门禁，辅助区固定展示独立的昨日收益。 -->
+          <div class="metric-extra-row">
+            <span>昨日收益</span>
+            <AmountText :value="holding?.yesterdayProfit ?? null" with-sign :precision="4" :currency-symbol="currencySymbol" />
+          </div>
+        </template>
+      </MetricCard>
       <MetricCard title="总收益" :value="summary?.totalProfit ?? 0" :trend="summary?.totalProfitRate ?? 0" description="已实现 + 浮动盈亏" :precision="4" :currency-symbol="currencySymbol" :tone="profitTone(summary?.totalProfit ?? 0)" />
       <div class="rate-card panel panel-padding">
         <span>总收益率</span>
@@ -794,6 +802,15 @@ function roundTo(value: number, precision: number) {
 
 .warning-text {
   color: var(--xo-warning);
+}
+
+.metric-extra-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--xo-muted);
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .calendar-weekdays,

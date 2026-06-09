@@ -18,7 +18,14 @@
         <MetricCard title="投资总资产" :value="overview?.totalInvestmentAsset ?? totalMarketValue" :trend="overview?.holdingProfitRate ?? totalProfitRate" description="基金 + 股票 + 虚拟货币" tone="primary" :precision="4" :currency-symbol="currencySymbol" />
         <MetricCard title="持有收益" :value="overview?.holdingProfit ?? totalProfit" :trend="overview?.holdingProfitRate ?? totalProfitRate" description="全部资产当前市值 - 总成本" :tone="profitTone(overview?.holdingProfit ?? totalProfit)" :precision="4" :currency-symbol="currencySymbol" />
         <MetricCard title="持仓成本" :value="overview?.totalCost ?? totalCost" :trend="overview?.holdingProfitRate ?? totalProfitRate" description="趋势为持有收益率" tone="primary" :precision="4" :currency-symbol="currencySymbol" />
-        <MetricCard title="今日收益" :value="overviewTodayProfitValue" :trend="null" :description="overview?.todayProfitStatusLabel || overview?.todayProfitAssetScope || '今日有效价资产'" :tone="profitTone(overviewTodayProfitValue)" :precision="4" :currency-symbol="currencySymbol" />
+        <MetricCard title="今日收益" :value="overviewTodayProfitValue" :trend="null" :description="overview?.todayProfitStatusLabel || overview?.todayProfitAssetScope || '今日有效价资产'" :tone="profitTone(overviewTodayProfitValue)" :precision="4" :currency-symbol="currencySymbol">
+          <template #extra>
+            <div class="metric-extra-row">
+              <span>昨日收益</span>
+              <AmountText :value="convertNullableAmount(overview?.yesterdayProfit, 'CNY')" with-sign :precision="4" :currency-symbol="currencySymbol" />
+            </div>
+          </template>
+        </MetricCard>
       </section>
 
       <section v-loading="loading" class="module-card-grid">
@@ -32,7 +39,10 @@
             <span>{{ item.primaryProfitLabel }}</span>
             <AmountText :value="item.primaryProfitAvailable === false ? null : convertNullableAmount(item.primaryProfitAmount, 'CNY')" with-sign :precision="4" :currency-symbol="currencySymbol" />
           </div>
-          <p v-if="item.primaryProfitAvailable === false" class="module-status-tip">{{ item.primaryProfitStatusLabel || '今日价格未更新' }}</p>
+          <div class="module-card-meta muted-text">
+            <span>昨日收益</span>
+            <AmountText :value="moduleYesterdayProfit(item.module)" with-sign :precision="4" :currency-symbol="currencySymbol" />
+          </div>
           <div class="module-card-meta muted-text">
             <span>持有收益</span>
             <AmountText :value="convertAmount(item.holdingProfit, 'CNY')" with-sign :precision="4" :currency-symbol="currencySymbol" />
@@ -74,7 +84,14 @@
     <template v-else>
       <section v-loading="loading" class="grid-3 module-summary-grid">
         <MetricCard :title="`${moduleLabel(activeModule)}总资产`" :value="currentModuleAsset?.assetAmount ?? 0" :trend="currentModuleAsset?.assetRatio ?? 0" description="当前模块持仓市值" tone="primary" :precision="4" :currency-symbol="currencySymbol" />
-        <MetricCard :title="currentModuleAsset?.primaryProfitLabel || modulePrimaryLabel(activeModule)" :value="currentModuleProfitValue" :trend="null" :description="currentModuleProfitDescription" :tone="profitTone(currentModuleProfitValue)" :precision="4" :currency-symbol="currencySymbol" />
+        <MetricCard :title="currentModuleAsset?.primaryProfitLabel || modulePrimaryLabel(activeModule)" :value="currentModuleProfitValue" :trend="null" :description="currentModuleProfitDescription" :tone="profitTone(currentModuleProfitValue)" :precision="4" :currency-symbol="currencySymbol">
+          <template #extra>
+            <div class="metric-extra-row">
+              <span>昨日收益</span>
+              <AmountText :value="moduleYesterdayProfit(activeModule)" with-sign :precision="4" :currency-symbol="currencySymbol" />
+            </div>
+          </template>
+        </MetricCard>
         <MetricCard title="持有收益" :value="currentModuleAsset?.holdingProfit ?? 0" :trend="currentModuleAsset?.holdingProfitRate ?? 0" description="当前市值 - 持仓成本" :tone="profitTone(currentModuleAsset?.holdingProfit ?? 0)" :precision="4" :currency-symbol="currencySymbol" />
       </section>
 
@@ -111,6 +128,10 @@
                 <small>{{ todayProfitRateText(row) }}</small>
               </div>
             </template>
+          </el-table-column>
+          <el-table-column label="昨日收益" min-width="140" align="right" header-align="right">
+            <!-- 昨日收益独立成列，和今日收益率分开看。 -->
+            <template #default="{ row }"><AmountText :value="convertNullableAmount(row.yesterdayProfit, row.currency)" with-sign :precision="4" :currency-symbol="currencySymbol" /></template>
           </el-table-column>
           <el-table-column :label="modulePriceLabel(activeModule)" min-width="130" align="right" header-align="right">
             <template #default="{ row }">{{ formatPrice(row.latestPrice, row.priceScale) }}</template>
@@ -829,6 +850,16 @@ function convertNullableAmount(value?: number | null, sourceCurrency?: string | 
   return convertAmount(value, sourceCurrency);
 }
 
+// 模块卡片的昨日收益来自持仓列表逐项汇总，避免新增后端字段才能展示。
+function moduleYesterdayProfit(module: string) {
+  const profitItems = holdings.value
+    .filter((item) => item.assetType === module && item.yesterdayProfit !== null && item.yesterdayProfit !== undefined);
+  if (profitItems.length === 0) {
+    return null;
+  }
+  return round4(profitItems.reduce((sum, item) => sum + convertAmount(Number(item.yesterdayProfit), item.currency), 0));
+}
+
 // 计算四位收益率。
 function rate4(profit: number, cost: number) {
   return cost <= 0 ? 0 : round4((profit / cost) * 100);
@@ -1059,10 +1090,14 @@ function profitTone(value?: number | null): 'success' | 'danger' | 'warning' | '
   font-size: 13px;
 }
 
-.module-status-tip {
-  margin: 8px 0 0;
-  color: var(--xo-warning);
-  font-size: 12px;
+
+.metric-extra-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--xo-muted);
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .module-summary-grid {

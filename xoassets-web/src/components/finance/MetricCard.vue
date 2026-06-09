@@ -8,7 +8,10 @@
       </el-icon>
     </div>
     <AmountText class="metric-value" :value="value" :precision="precision" :currency-symbol="currencySymbol" />
-    <TrendValue :value="trend" :description="description" />
+    <!-- 自定义扩展区用于金额类辅助信息；默认仍展示趋势组件。 -->
+    <slot name="extra">
+      <TrendValue :value="trend" :description="description" />
+    </slot>
   </div>
 </template>
 
