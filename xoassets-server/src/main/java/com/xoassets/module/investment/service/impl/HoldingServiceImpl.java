@@ -10,6 +10,7 @@ import com.xoassets.module.investment.dto.HoldingRequest;
 import com.xoassets.module.investment.service.AssetService;
 import com.xoassets.module.investment.service.HoldingService;
 import com.xoassets.module.investment.service.HoldingTradeResult;
+import com.xoassets.module.investment.service.InvestmentHoldingDailyProfitService;
 import com.xoassets.module.investment.service.InvestmentPositionHistoryService;
 import com.xoassets.module.investment.service.InvestmentPositionState;
 import com.xoassets.module.investment.service.QuoteService;
@@ -184,6 +185,10 @@ public class HoldingServiceImpl implements HoldingService {
      */
     private final InvestmentPositionHistoryService positionHistoryService;
     /**
+     * 持仓每日收益服务。
+     */
+    private final InvestmentHoldingDailyProfitService holdingDailyProfitService;
+    /**
      * 行情服务。
      */
     private final QuoteService quoteService;
@@ -206,6 +211,7 @@ public class HoldingServiceImpl implements HoldingService {
             AccountMapper accountMapper,
             AssetService assetService,
             InvestmentPositionHistoryService positionHistoryService,
+            InvestmentHoldingDailyProfitService holdingDailyProfitService,
             QuoteService quoteService,
             ExchangeRateService exchangeRateService) {
         this.holdingMapper = holdingMapper;
@@ -218,6 +224,7 @@ public class HoldingServiceImpl implements HoldingService {
         this.accountMapper = accountMapper;
         this.assetService = assetService;
         this.positionHistoryService = positionHistoryService;
+        this.holdingDailyProfitService = holdingDailyProfitService;
         this.quoteService = quoteService;
         this.exchangeRateService = exchangeRateService;
     }
@@ -271,7 +278,8 @@ public class HoldingServiceImpl implements HoldingService {
                 .map(item -> amountToCny(item.getTodayProfitBase(), item.getCurrency()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal todayProfitRate = todayProfitBase.compareTo(BigDecimal.ZERO) <= 0 ? null : rate(todayProfit, todayProfitBase);
-        DailyProfitAggregate yesterdayAggregate = latestCalendarDailyProfitBefore(userId, LocalDate.now());
+        Map<String, InvestmentHoldingDailyProfitService.DailyProfitSummary> latestProfitBeforeToday = holdingDailyProfitService.latestByModuleBefore(userId, LocalDate.now());
+        InvestmentHoldingDailyProfitService.DailyProfitSummary yesterdayAggregate = latestProfitBeforeToday == null ? null : latestProfitBeforeToday.get(MODULE_ALL);
         // 昨日收益按“今天之前最近一个有收益日”汇总，周末或节假日后仍能展示最近收益。
         BigDecimal yesterdayProfit = yesterdayAggregate == null ? null : scale4(yesterdayAggregate.profit());
         BigDecimal yesterdayProfitRate = yesterdayAggregate == null ? null : nullableRate(yesterdayAggregate.profit(), yesterdayAggregate.baseAmount());
@@ -317,8 +325,9 @@ public class HoldingServiceImpl implements HoldingService {
                 .map(item -> amountToCny(nullToZero(item.getTodayProfit()), item.getCurrency()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .setScale(4, RoundingMode.HALF_UP) : null;
-        Map<String, DailyProfitAggregate> latestProfitByModule = latestCalendarDailyProfitByModuleBefore(userId, LocalDate.now());
-        DailyProfitAggregate yesterdayAggregate = latestProfitByModule.get(MODULE_ALL);
+        Map<String, InvestmentHoldingDailyProfitService.DailyProfitSummary> latestProfitByModule = holdingDailyProfitService.latestByModuleBefore(userId, LocalDate.now());
+        latestProfitByModule = latestProfitByModule == null ? Map.of() : latestProfitByModule;
+        InvestmentHoldingDailyProfitService.DailyProfitSummary yesterdayAggregate = latestProfitByModule.get(MODULE_ALL);
         // 总览昨日收益必须和“每日收益”图、持仓详情日历同源，不能再按列表字段另算一遍。
         BigDecimal yesterdayProfit = yesterdayAggregate == null ? null : scale4(yesterdayAggregate.profit());
         return InvestmentOverviewVO.builder()
@@ -344,14 +353,15 @@ public class HoldingServiceImpl implements HoldingService {
         Long userId = LoginUserContext.getUserId();
         LocalDate end = endDate == null ? LocalDate.now() : endDate;
         LocalDate start = startDate == null ? end.minusDays(30) : startDate;
-        Map<LocalDate, DailyProfitAggregate> dailyProfitMap = aggregateCalendarDailyProfit(userId, start, end);
+        Map<LocalDate, InvestmentHoldingDailyProfitService.DailyProfitSummary> queriedDailyProfitMap = holdingDailyProfitService.aggregateByDate(userId, start, end);
+        Map<LocalDate, InvestmentHoldingDailyProfitService.DailyProfitSummary> dailyProfitMap = queriedDailyProfitMap == null ? Map.of() : queriedDailyProfitMap;
         return investmentDailySnapshotMapper.selectList(new LambdaQueryWrapper<InvestmentDailySnapshot>()
                         .eq(InvestmentDailySnapshot::getUserId, userId)
                         .between(InvestmentDailySnapshot::getSnapshotDate, start, end)
                         .orderByAsc(InvestmentDailySnapshot::getSnapshotDate))
                 .stream()
                 .map(item -> {
-                    DailyProfitAggregate dailyProfit = dailyProfitMap.get(item.getSnapshotDate());
+                    InvestmentHoldingDailyProfitService.DailyProfitSummary dailyProfit = dailyProfitMap.get(item.getSnapshotDate());
                     return InvestmentTrendPointVO.builder()
                             .date(item.getSnapshotDate())
                             .marketValue(scale4(item.getMarketValue()))
@@ -420,36 +430,8 @@ public class HoldingServiceImpl implements HoldingService {
     @Override
     public List<InvestmentCalendarDayProfitVO> profitCalendar(Long id, YearMonth month) {
         Long userId = LoginUserContext.getUserId();
-        Holding holding = findOwnedHolding(id, userId);
-        Asset asset = assetMapper.selectById(holding.getAssetId());
-        YearMonth targetMonth = month == null ? YearMonth.now() : month;
-        LocalDate start = targetMonth.atDay(1);
-        LocalDate end = targetMonth.atEndOfMonth();
-        AssetMeta assetMeta = deriveAssetMeta(asset);
-        List<DailyPricePoint> prices = calendarPricePoints(asset, holding.getAssetId(), end);
-        Map<LocalDate, CalendarProfitData> profitByDisplayDate = calendarProfitDataMap(userId, holding, assetMeta, prices, start, end);
-        List<InvestmentCalendarDayProfitVO> result = new ArrayList<>();
-        for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
-            CalendarProfitData profitData = profitByDisplayDate.get(date);
-            boolean tradingDay = tradingDayForAsset(asset, date);
-            boolean marketClosed = marketClosedForAsset(asset, date);
-            CalendarProfitData displayProfitData = marketClosed ? null : profitData;
-            result.add(InvestmentCalendarDayProfitVO.builder()
-                    .date(date)
-                    // 休市日只展示状态，不展示误落入休市日期的价格/收益，避免日历出现“休市但有盈亏”。
-                    .profitAmount(displayProfitData == null ? null : displayProfitData.profit())
-                    .profitRate(displayProfitData == null ? null : displayProfitData.profitRate())
-                    .marketValue(displayProfitData == null ? null : displayProfitData.marketValue())
-                    .price(displayProfitData == null ? null : displayProfitData.price())
-                    .previousPrice(displayProfitData == null ? null : displayProfitData.previousPrice())
-                    .hasPrice(displayProfitData != null)
-                    .tradingDay(tradingDay)
-                    .marketClosed(marketClosed)
-                    .statusLabel(marketClosed ? "休市" : profitData == null ? "无价格" : "有收益")
-                    .priceLabel(priceLabel(assetMeta))
-                    .build());
-        }
-        return result;
+        findOwnedHolding(id, userId);
+        return holdingDailyProfitService.holdingCalendar(userId, id, month);
     }
 
     /**
@@ -457,25 +439,7 @@ public class HoldingServiceImpl implements HoldingService {
      */
     @Override
     public List<InvestmentCalendarDayProfitVO> dailyProfitCalendar(YearMonth month) {
-        Long userId = LoginUserContext.getUserId();
-        YearMonth targetMonth = month == null ? YearMonth.now() : month;
-        LocalDate start = targetMonth.atDay(1);
-        LocalDate end = targetMonth.atEndOfMonth();
-        Map<LocalDate, DailyProfitAggregate> dailyProfitMap = aggregateCalendarDailyProfit(userId, start, end);
-        return dailyProfitMap.entrySet().stream()
-                .sorted(Map.Entry.comparingByKey())
-                .map(entry -> InvestmentCalendarDayProfitVO.builder()
-                        .date(entry.getKey())
-                        .profitAmount(scale4(entry.getValue().profit()))
-                        .profitRate(nullableRate(entry.getValue().profit(), entry.getValue().baseAmount()))
-                        // 聚合接口只表达收益金额，不展示单资产价格和市值。
-                        .hasPrice(true)
-                        .tradingDay(null)
-                        .marketClosed(false)
-                        .statusLabel("有收益")
-                        .priceLabel("每日收益")
-                        .build())
-                .toList();
+        return holdingDailyProfitService.userCalendar(LoginUserContext.getUserId(), month);
     }
 
     /**
@@ -851,7 +815,7 @@ public class HoldingServiceImpl implements HoldingService {
                 ? BigDecimal.ZERO
                 : profit.multiply(BigDecimal.valueOf(100)).divide(holding.getTotalCost(), 4, RoundingMode.HALF_UP);
         boolean todayPriceAvailable = todayPriceAvailable(asset, assetMeta, priceDate);
-        CalendarProfitData previousCalendarProfit = latestHoldingCalendarProfitBefore(holding.getUserId(), holding, asset, assetMeta, LocalDate.now());
+        InvestmentHoldingDailyProfitService.HoldingDailyProfitSummary previousCalendarProfit = holdingDailyProfitService.latestHoldingBefore(holding.getUserId(), holding.getId(), LocalDate.now());
         // 今日收益同时返回当前份额和上一日份额两个口径，便于后续确认最终展示方案。
         BigDecimal todayProfitByCurrentQuantity = todayPriceAvailable ? priceDiffProfit(holding.getQuantity(), latestPrice, previous) : null;
         BigDecimal todayProfitBaseByCurrentQuantity = todayPriceAvailable && previous != null ? holding.getQuantity().multiply(previous).setScale(4, RoundingMode.HALF_UP) : null;
@@ -928,7 +892,7 @@ public class HoldingServiceImpl implements HoldingService {
     /**
      * 汇总总览里的三大模块卡片，模块收益使用各模块自己的主收益口径。
      */
-    private List<InvestmentModuleAssetVO> moduleAssets(List<HoldingVO> holdings, BigDecimal totalMarketValue, Map<String, DailyProfitAggregate> latestProfitByModule) {
+    private List<InvestmentModuleAssetVO> moduleAssets(List<HoldingVO> holdings, BigDecimal totalMarketValue, Map<String, InvestmentHoldingDailyProfitService.DailyProfitSummary> latestProfitByModule) {
         return List.of(moduleAsset("FUND", "基金", holdings, totalMarketValue, latestProfitByModule),
                 moduleAsset("STOCK", "股票", holdings, totalMarketValue, latestProfitByModule),
                 moduleAsset("CRYPTO", "虚拟货币", holdings, totalMarketValue, latestProfitByModule));
@@ -1325,7 +1289,7 @@ public class HoldingServiceImpl implements HoldingService {
     /**
      * 构建模块资产统计。
      */
-    private InvestmentModuleAssetVO moduleAsset(String module, String name, List<HoldingVO> holdings, BigDecimal totalMarketValue, Map<String, DailyProfitAggregate> latestProfitByModule) {
+    private InvestmentModuleAssetVO moduleAsset(String module, String name, List<HoldingVO> holdings, BigDecimal totalMarketValue, Map<String, InvestmentHoldingDailyProfitService.DailyProfitSummary> latestProfitByModule) {
         List<HoldingVO> moduleHoldings = holdings.stream()
                 .filter(item -> module.equals(moduleOf(item.getAssetType())))
                 .toList();
@@ -1339,7 +1303,7 @@ public class HoldingServiceImpl implements HoldingService {
                 .map(item -> amountToCny(nullToZero(item.getTodayProfit()), item.getCurrency()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .setScale(4, RoundingMode.HALF_UP) : null;
-        DailyProfitAggregate yesterdayAggregate = moduleHoldings.isEmpty() ? null : latestProfitByModule.get(module);
+        InvestmentHoldingDailyProfitService.DailyProfitSummary yesterdayAggregate = moduleHoldings.isEmpty() ? null : latestProfitByModule.get(module);
         // 模块卡片昨日收益也走收益日历聚合，避免基金展示日和股票交易日混算。
         BigDecimal yesterdayProfit = yesterdayAggregate == null ? null : scale4(yesterdayAggregate.profit());
         return InvestmentModuleAssetVO.builder()

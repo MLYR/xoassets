@@ -61,6 +61,38 @@ public class InvestmentDailySnapshot {
      */
     private BigDecimal netInflow;
     /**
+     * 收益日历展示日收益，按持仓每日收益聚合。
+     */
+    private BigDecimal calendarProfit;
+    /**
+     * 收益日历展示日收益率。
+     */
+    private BigDecimal calendarProfitRate;
+    /**
+     * 收益日历收益率基准金额。
+     */
+    private BigDecimal calendarBaseAmount;
+    /**
+     * 当日买入本金合计。
+     */
+    private BigDecimal buyAmount;
+    /**
+     * 当日卖出成交本金合计。
+     */
+    private BigDecimal sellAmount;
+    /**
+     * 当日投资交易手续费合计。
+     */
+    private BigDecimal feeAmount;
+    /**
+     * 当日买入笔数。
+     */
+    private Integer buyCount;
+    /**
+     * 当日卖出笔数。
+     */
+    private Integer sellCount;
+    /**
      * 创建时间。
      */
     @TableField(fill = FieldFill.INSERT)

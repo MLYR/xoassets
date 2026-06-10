@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.xoassets.common.api.ErrorCode;
 import com.xoassets.common.exception.BusinessException;
+import com.xoassets.module.investment.service.InvestmentHoldingDailyProfitService;
 import com.xoassets.module.investment.service.InvestmentPositionHistoryService;
 import com.xoassets.module.investment.service.InvestmentPositionState;
 import com.xoassets.persistence.entity.AssetPriceCurrent;
@@ -19,6 +20,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import com.xxl.job.core.handler.annotation.XxlJob;
@@ -58,6 +60,10 @@ public class InvestmentDailySnapshotJob {
      */
     private final InvestmentPositionHistoryService positionHistoryService;
     /**
+     * 持仓每日收益服务。
+     */
+    private final InvestmentHoldingDailyProfitService holdingDailyProfitService;
+    /**
      * 当前价格数据访问组件。
      */
     private final AssetPriceCurrentMapper assetPriceCurrentMapper;
@@ -79,11 +85,13 @@ public class InvestmentDailySnapshotJob {
      */
     public InvestmentDailySnapshotJob(
             InvestmentPositionHistoryService positionHistoryService,
+            InvestmentHoldingDailyProfitService holdingDailyProfitService,
             AssetPriceCurrentMapper assetPriceCurrentMapper,
             AssetPriceDailyMapper assetPriceDailyMapper,
             InvestmentTransactionMapper investmentTransactionMapper,
             InvestmentDailySnapshotMapper investmentDailySnapshotMapper) {
         this.positionHistoryService = positionHistoryService;
+        this.holdingDailyProfitService = holdingDailyProfitService;
         this.assetPriceCurrentMapper = assetPriceCurrentMapper;
         this.assetPriceDailyMapper = assetPriceDailyMapper;
         this.investmentTransactionMapper = investmentTransactionMapper;
@@ -138,6 +146,8 @@ public class InvestmentDailySnapshotJob {
         if (targetDate.isAfter(LocalDate.now())) {
             throw new BusinessException(ErrorCode.BUSINESS_ERROR, "不能生成未来日期投资快照");
         }
+        // 投资日快照先刷新持仓每日收益，保证新增 calendarProfit 和前端收益日历读取同一份数据。
+        holdingDailyProfitService.rebuildForUser(userId, targetDate, targetDate);
         upsert(buildSnapshot(userId, targetDate));
     }
 
@@ -167,12 +177,15 @@ public class InvestmentDailySnapshotJob {
         BigDecimal floatingProfit = marketValue.subtract(totalCost).setScale(4, RoundingMode.HALF_UP);
         BigDecimal floatingProfitRate = rate(floatingProfit, totalCost);
         BigDecimal realizedProfit = realizedProfit(userId, snapshotDate);
-        BigDecimal netInflow = positionHistoryService.netInflow(userId, snapshotDate, snapshotDate)
+        BigDecimal netInflow = nullToZero(positionHistoryService.netInflow(userId, snapshotDate, snapshotDate))
                 // 在途申购已体现在 marketValue 中，但净入金只在下单扣款日统计一次，不能每天按存量在途金额重复扣减收益。
                 .setScale(4, RoundingMode.HALF_UP);
         InvestmentDailySnapshot previous = previousSnapshot(userId, snapshotDate);
         BigDecimal dailyProfit = previous == null ? null : marketValue.subtract(previous.getMarketValue()).subtract(netInflow).setScale(4, RoundingMode.HALF_UP);
         BigDecimal dailyProfitRate = previous == null ? null : rate(dailyProfit, previous.getMarketValue());
+        Map<LocalDate, InvestmentHoldingDailyProfitService.DailyProfitSummary> calendarProfitMap = holdingDailyProfitService.aggregateByDate(userId, snapshotDate, snapshotDate);
+        InvestmentHoldingDailyProfitService.DailyProfitSummary calendarProfit = calendarProfitMap == null ? null : calendarProfitMap.get(snapshotDate);
+        TransactionSummary transactionSummary = transactionSummary(userId, snapshotDate);
         InvestmentDailySnapshot snapshot = new InvestmentDailySnapshot();
         snapshot.setUserId(userId);
         snapshot.setSnapshotDate(snapshotDate);
@@ -184,8 +197,76 @@ public class InvestmentDailySnapshotJob {
         snapshot.setDailyProfit(dailyProfit);
         snapshot.setDailyProfitRate(dailyProfitRate);
         snapshot.setNetInflow(netInflow);
+        snapshot.setCalendarProfit(calendarProfit == null ? null : scale4(calendarProfit.profit()));
+        snapshot.setCalendarBaseAmount(calendarProfit == null ? null : scale4(calendarProfit.baseAmount()));
+        snapshot.setCalendarProfitRate(calendarProfit == null ? null : rate(calendarProfit.profit(), calendarProfit.baseAmount()));
+        snapshot.setBuyAmount(transactionSummary.buyAmount());
+        snapshot.setSellAmount(transactionSummary.sellAmount());
+        snapshot.setFeeAmount(transactionSummary.feeAmount());
+        snapshot.setBuyCount(transactionSummary.buyCount());
+        snapshot.setSellCount(transactionSummary.sellCount());
         snapshot.setDeleted(0);
         return snapshot;
+    }
+
+    /**
+     * 统计快照日有效投资买卖，金额与手续费拆开保存，便于页面解释当日净入金来源。
+     */
+    private TransactionSummary transactionSummary(Long userId, LocalDate snapshotDate) {
+        LocalDateTime end = snapshotDate.atTime(LocalTime.MAX);
+        List<InvestmentTransaction> transactions = investmentTransactionMapper.selectList(new LambdaQueryWrapper<InvestmentTransaction>()
+                .eq(InvestmentTransaction::getUserId, userId)
+                .in(InvestmentTransaction::getStatus, "NORMAL", STATUS_CONFIRMED)
+                .le(InvestmentTransaction::getTransactionTime, end));
+        BigDecimal buyAmount = BigDecimal.ZERO;
+        BigDecimal sellAmount = BigDecimal.ZERO;
+        BigDecimal feeAmount = BigDecimal.ZERO;
+        int buyCount = 0;
+        int sellCount = 0;
+        for (InvestmentTransaction transaction : transactions == null ? List.<InvestmentTransaction>of() : transactions) {
+            if (!snapshotDate.equals(cashFlowDate(transaction))) {
+                continue;
+            }
+            BigDecimal fee = scale4(transaction.getFee());
+            feeAmount = feeAmount.add(fee).setScale(4, RoundingMode.HALF_UP);
+            if (TYPE_BUY.equals(transaction.getType())) {
+                buyAmount = buyAmount.add(transactionPrincipalAmount(transaction)).setScale(4, RoundingMode.HALF_UP);
+                buyCount++;
+            }
+            if ("SELL".equals(transaction.getType())) {
+                sellAmount = sellAmount.add(transactionPrincipalAmount(transaction)).setScale(4, RoundingMode.HALF_UP);
+                sellCount++;
+            }
+        }
+        return new TransactionSummary(scale4(buyAmount), scale4(sellAmount), scale4(feeAmount), buyCount, sellCount);
+    }
+
+    /**
+     * 取不含手续费的成交本金；历史数据缺 amount 时按 tradeAmount 和手续费反推。
+     */
+    private BigDecimal transactionPrincipalAmount(InvestmentTransaction transaction) {
+        if (transaction.getAmount() != null) {
+            return scale4(transaction.getAmount());
+        }
+        BigDecimal tradeAmount = scale4(transaction.getTradeAmount());
+        BigDecimal fee = scale4(transaction.getFee());
+        if (TYPE_BUY.equals(transaction.getType())) {
+            return tradeAmount.subtract(fee).setScale(4, RoundingMode.HALF_UP);
+        }
+        if ("SELL".equals(transaction.getType())) {
+            return tradeAmount.add(fee).setScale(4, RoundingMode.HALF_UP);
+        }
+        return BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 买入 / 卖出统计按资金实际发生日归属，基金确认日只影响份额生效，不影响现金流日期。
+     */
+    private LocalDate cashFlowDate(InvestmentTransaction transaction) {
+        if (transaction.getTradeDate() != null) {
+            return transaction.getTradeDate();
+        }
+        return transaction.getTransactionTime().toLocalDate();
     }
 
     /**
@@ -301,6 +382,13 @@ public class InvestmentDailySnapshotJob {
     }
 
     /**
+     * 空金额按 0 参与本金流计算。
+     */
+    private BigDecimal nullToZero(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
+    }
+
+    /**
      * 计算百分比。
      */
     private BigDecimal rate(BigDecimal numerator, BigDecimal denominator) {
@@ -308,5 +396,11 @@ public class InvestmentDailySnapshotJob {
             return null;
         }
         return numerator.multiply(BigDecimal.valueOf(100)).divide(denominator, 4, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 快照日交易汇总。
+     */
+    private record TransactionSummary(BigDecimal buyAmount, BigDecimal sellAmount, BigDecimal feeAmount, Integer buyCount, Integer sellCount) {
     }
 }

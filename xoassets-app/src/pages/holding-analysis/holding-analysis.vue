@@ -25,16 +25,16 @@
       </AppCard>
 
       <AppCard :padding="theme.spacing.lg" :radius="theme.radius.xl">
-        <text class="section-title">收益贡献排行</text>
+        <text class="section-title">上一收益日贡献排行</text>
         <view class="rank-list">
           <view v-for="item in profitRanking" :key="item.id" class="rank-item">
             <view class="rank-head">
               <text class="rank-name">{{ item.name }}</text>
-              <text class="rank-profit" :class="profitClass(item.floatingProfit)">{{ fmtSigned(item.floatingProfit) }}</text>
+              <text class="rank-profit" :class="profitClass(item.contributionProfit)">{{ fmtSigned(item.contributionProfit) }}</text>
             </view>
             <view class="rank-sub">
               <text class="rank-code">{{ item.code }}</text>
-              <text class="rank-rate" :class="profitClass(item.floatingProfitRate)">{{ fmtPercent(item.floatingProfitRate) }}</text>
+              <text class="rank-rate" :class="profitClass(item.contributionProfit)">{{ item.contributionLabel }}</text>
             </view>
             <view class="rank-bar-track">
               <view class="rank-bar-fill" :style="{ width: `${item.sharePercent}%` }"></view>
@@ -131,12 +131,18 @@ const costMetrics = computed(() => {
 })
 
 const profitRanking = computed(() => {
-  const maxProfit = Math.max(...holdingRows.value.map((item) => Math.abs(item.floatingProfit)), 1)
-  return [...holdingRows.value]
-    .sort((a, b) => b.floatingProfit - a.floatingProfit)
+  const rows = holdingRows.value.map((item) => ({
+    ...item,
+    // 收益贡献使用后端持仓每日收益表产出的上一收益日收益，不再用累计持有收益冒充日收益贡献。
+    contributionProfit: item.yesterdayProfit,
+    contributionLabel: item.yesterdayProfit == null ? '暂无上一收益日' : '上一收益日'
+  }))
+  const maxProfit = Math.max(...rows.map((item) => Math.abs(item.contributionProfit ?? 0)), 0)
+  return rows
+    .sort((a, b) => (b.contributionProfit ?? Number.NEGATIVE_INFINITY) - (a.contributionProfit ?? Number.NEGATIVE_INFINITY))
     .map((item) => ({
       ...item,
-      sharePercent: Math.max((Math.abs(item.floatingProfit) / maxProfit) * 100, 8)
+      sharePercent: maxProfit > 0 && item.contributionProfit != null ? Math.max((Math.abs(item.contributionProfit) / maxProfit) * 100, 8) : 0
     }))
 })
 

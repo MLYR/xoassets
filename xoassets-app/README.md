@@ -274,6 +274,9 @@ src/assets/themes/classic-blue/icons/
   - 新增 `InvestmentTransactionConvertRequest` DTO
 - 持仓详情趋势图接 `/api/holdings/{id}/trend`，返回 `InvestmentTrendPointVO` 列表
   - 数据来源：`xo_investment_daily_snapshot`
+- 每日收益日历、昨日收益和持仓分析“上一收益日贡献”统一读取后端持仓每日收益口径
+  - 明细来源：`xo_investment_holding_daily_profit`
+  - 聚合快照字段：`xo_investment_daily_snapshot.calendar_profit`
 
 **验证：**
 - `npm run type-check` 通过
