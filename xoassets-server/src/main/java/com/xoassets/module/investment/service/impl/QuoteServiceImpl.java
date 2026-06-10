@@ -8,6 +8,7 @@ import com.xoassets.module.investment.dto.ManualQuoteRequest;
 import com.xoassets.module.investment.provider.QuoteFetchResult;
 import com.xoassets.module.investment.provider.QuoteProvider;
 import com.xoassets.module.investment.service.AssetService;
+import com.xoassets.module.investment.service.InvestmentHoldingDailyProfitService;
 import com.xoassets.module.investment.service.QuoteRawSnapshot;
 import com.xoassets.module.investment.service.QuoteRawSnapshotService;
 import com.xoassets.module.investment.service.QuoteService;
@@ -91,6 +92,10 @@ public class QuoteServiceImpl implements QuoteService {
      */
     private final AssetService assetService;
     /**
+     * 持仓每日收益服务。
+     */
+    private final InvestmentHoldingDailyProfitService holdingDailyProfitService;
+    /**
      * 行情提供方列表。
      */
     private final List<QuoteProvider> quoteProviders;
@@ -104,12 +109,14 @@ public class QuoteServiceImpl implements QuoteService {
             MarketCalendarMapper marketCalendarMapper,
             QuoteRawSnapshotService quoteRawSnapshotService,
             AssetService assetService,
+            InvestmentHoldingDailyProfitService holdingDailyProfitService,
             List<QuoteProvider> quoteProviders) {
         this.assetPriceCurrentMapper = assetPriceCurrentMapper;
         this.assetPriceDailyMapper = assetPriceDailyMapper;
         this.marketCalendarMapper = marketCalendarMapper;
         this.quoteRawSnapshotService = quoteRawSnapshotService;
         this.assetService = assetService;
+        this.holdingDailyProfitService = holdingDailyProfitService;
         this.quoteProviders = quoteProviders;
     }
 
@@ -131,6 +138,7 @@ public class QuoteServiceImpl implements QuoteService {
         price.setRawJson(null);
         upsertCurrent(price);
         upsertSinglePointDailyPrice(asset, price);
+        refreshHoldingDailyProfit(asset, price);
         return toVO(price);
     }
 
@@ -213,11 +221,24 @@ public class QuoteServiceImpl implements QuoteService {
         upsertFundDailyPrice(asset, price);
         if (sameOrOlderQuote(latestPrice, price)) {
             // 第三方在非交易日或 QDII 延迟时会重复返回同一净值日期，不能反复更新 current.updated_at 误导为今日新价。
+            // 但持仓每日收益表可能仍落后于 current，重复行情也要触发一次收益重建。
+            refreshHoldingDailyProfit(asset, latestPrice);
             return toVO(latestPrice);
         }
         upsertCurrent(price);
         appendRawSnapshot(asset, price);
+        refreshHoldingDailyProfit(asset, price);
         return toVO(price);
+    }
+
+    /**
+     * 行情更新成功后立即刷新受影响持仓的当日收益，避免收益日历等到晚间快照任务才有数据。
+     */
+    private void refreshHoldingDailyProfit(Asset asset, AssetPriceCurrent price) {
+        if (asset == null || price == null || price.getQuoteTime() == null) {
+            return;
+        }
+        holdingDailyProfitService.rebuildForAsset(asset.getId(), price.getQuoteTime().toLocalDate());
     }
 
     /**

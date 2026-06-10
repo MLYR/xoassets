@@ -40,7 +40,7 @@
 - 资产识别：新增持仓时可按资产类型输入代码或名称查询，后端返回名称、代码、市场、币种、行情源、行情键和当前价格；保存持仓时自动创建 / 复用 `xo_asset` 并写入 `xo_asset_price_current`，带报价日期的初始价同步写入 `xo_asset_price_daily`，查询失败仍可手动录入。
 - 资产查询日志：第三方资产查询失败时后端会记录行情源、代码 / 市场、响应摘要和原始异常堆栈，前端仍只展示可理解的失败提示。
 - 资产市场：`xo_asset.market` 用于区分 SH / SZ / BJ / US / CN_FUND / CRYPTO，资产唯一性按 `type + market + symbol + deleted` 判断。
-- 行情分层：持仓估值优先使用 `xo_asset_price_current`，今日收益仍按当前价动态计算；每日收益日历、昨日收益、趋势图每日收益和收益贡献统一使用 `xo_investment_holding_daily_profit`，该表按展示日保存每个持仓的真实日收益；投资总资产较昨日 / 较上月使用 `xo_investment_daily_snapshot`。投资日快照按 `xo_investment_transaction` 重建历史持仓、成本、市值、已实现收益和当日投资本金净流入，不再用当前持仓回填历史；`daily_profit` 是快照日资金流调整收益，公式为本日投资市值 - 上一快照日投资市值 - 当日投资本金净流入，不等同于收益日历展示日收益；`calendar_profit` 是从持仓每日收益表聚合出的真实展示日收益；`buy_amount` / `sell_amount` / `fee_amount` 按资金实际发生日统计，基金确认日只影响份额生效。基金金额买入在实际申购日到确认日前按在途投资资产计入，即使交易后来已确认，补跑确认日前历史快照也必须保留这段在途金额，但在途存量不能每天重复计入 `net_inflow`；补跑历史快照时按 `trade_date` 使用已回填的日级价格，不受价格行 `created_at` 晚于快照日影响。Redis key 为 `price:snapshot:{assetId}:{yyyyMM}`，仅短期保存股票和虚拟货币原始快照供日级汇总和排查，TTL 3 天，不作为长期权威数据；读取某天快照时通过 ZSET score 的当天起止毫秒范围查询，不全量拉取整月数据再筛选。CRYPTO 15 分钟内、STOCK 15 分钟内、FUND 1 天内不重复刷新，MANUAL 价格不过期；股票只在 09:30-15:30 之间拉取第三方行情。USD/CNY 展示汇率由 `/api/exchange-rates/usd-cny` 返回后端日缓存，后续可替换为 Redis 缓存。
+- 行情分层：持仓估值优先使用 `xo_asset_price_current`，今日收益仍按当前价动态计算；每日收益日历、昨日收益、趋势图每日收益和收益贡献统一使用 `xo_investment_holding_daily_profit`，该表按展示日保存每个持仓的真实日收益；手动和自动行情刷新成功后都会重建受影响资产的持仓每日收益，即使第三方返回的行情时间和价格与 current 完全相同，也会重建，避免 current 已更新但收益日历仍停留在旧计算结果；投资总资产较昨日 / 较上月使用 `xo_investment_daily_snapshot`。投资日快照按 `xo_investment_transaction` 重建历史持仓、成本、市值、已实现收益和当日投资本金净流入，不再用当前持仓回填历史；`daily_profit` 是快照日资金流调整收益，公式为本日投资市值 - 上一快照日投资市值 - 当日投资本金净流入，不等同于收益日历展示日收益；`calendar_profit` 是从持仓每日收益表聚合出的真实展示日收益；`buy_amount` / `sell_amount` / `fee_amount` 按资金实际发生日统计，基金确认日只影响份额生效。基金金额买入在实际申购日到确认日前按在途投资资产计入，即使交易后来已确认，补跑确认日前历史快照也必须保留这段在途金额，但在途存量不能每天重复计入 `net_inflow`；补跑历史快照时按 `trade_date` 使用已回填的日级价格，不受价格行 `created_at` 晚于快照日影响。Redis key 为 `price:snapshot:{assetId}:{yyyyMM}`，仅短期保存股票和虚拟货币原始快照供日级汇总和排查，TTL 3 天，不作为长期权威数据；读取某天快照时通过 ZSET score 的当天起止毫秒范围查询，不全量拉取整月数据再筛选。CRYPTO 15 分钟内、STOCK 15 分钟内、FUND 1 天内不重复刷新，MANUAL 价格不过期；股票只在 09:30-15:30 之间拉取第三方行情。USD/CNY 展示汇率由 `/api/exchange-rates/usd-cny` 返回后端日缓存，后续可替换为 Redis 缓存。
 - 市场日历：`xo_market_calendar` 是基金确认日和后续交易日判断的数据库权威来源；应用启动和年度任务都会补齐当前年、下一年基础周末日历，交易所公告休市日通过迁移或人工修正写入表中覆盖。
 - 预算管理：`GET /api/budgets`、`POST /api/budgets`、`PUT /api/budgets/{id}`、`DELETE /api/budgets/{id}`、`GET /api/budgets/summary` 已接入预算页和移动端首页预算进度卡片。
 - 资产快照：`GET /api/snapshots/latest`（返回最新快照 + 较昨日 / 较月初净资产变化金额，缺少基准快照时返回 `null` 并展示 `--`；本月只有最新一条且不是 1 号时，较月初也返回 `null`）、`GET /api/snapshots/trend`、`POST /api/snapshots/generate-today`、`POST /api/snapshots/generate?snapshotDate=yyyy-MM-dd`、`POST /api/snapshots/rebuild?startDate=yyyy-MM-dd&endDate=yyyy-MM-dd` 已接入首页和数据分析页；现金资产按账户初始余额和快照日前资金事件重建历史余额，投资资产按快照日重建历史头寸并用日级价 / 当前价估值，月度收支按截至快照日的月内累计记录，补跑历史快照不能用当前账户余额、当前持仓数量或快照日之后的流水倒推；普通流水补录、修改或删除后会从受影响日期起触发资产快照重建，投资交易补录、基金确认或撤销后会先重建投资日快照再重建资产快照，31 天内同步重建，超过 31 天合并写入 `xo_snapshot_rebuild_task` 由 `rebuildPendingAssetSnapshots` 批量处理；首页主净资产统一使用 `GET /api/dashboard/overview` 的 `netAssets`，快照仅用于今日变化、历史趋势和快照相关说明；移动端资产趋势折线图基于 `GET /api/statistics/net-assets-trend` 近 1 个月数据绘制。
@@ -227,7 +227,7 @@ docker exec -i xoassets-mysql mysql -uroot -proot < xoassets-server/src/main/res
 关键验收口径：
 
 - DOGE：`quantity = 881.3220000000`，`latestPrice = 0.72432000`，`marketValue = 638.3592`。
-- 投资收益分析：持仓接口返回最新价、昨价、前日价、今日收益、昨日收益、总收益、收益率和回本涨幅；当前价来自 `xo_asset_price_current`，昨价 / 前日价来自 `xo_asset_price_daily` 最近交易日；所有资产只有当前价格日期等于今天时才计算今日收益，其中基金和股票还必须当天为交易日，非交易日返回 `priceStatus=MARKET_CLOSED` 并展示“休市”，交易日未更新则标记“今日净值未更新 / 今日价未更新”；收益基准价格、基准持仓数量或快照缺失时对应字段返回 `null`，页面展示“暂无 / --”；持仓汇总、投资总览和模块卡通过 `todayProfitAvailable` / `primaryProfitAvailable` 控制今日收益是否展示，未更新时显示 `--` 而不是 0，并通过 `todayProfitStatusLabel` / `primaryProfitStatusLabel` 说明“今日休市”或“今日净值未更新”；每日收益日历和昨日收益来自 `xo_investment_holding_daily_profit`，新表为空时需要补跑投资日快照生成数据。
+- 投资收益分析：持仓接口返回最新价、昨价、前日价、今日收益、昨日收益、总收益、收益率和回本涨幅；当前价来自 `xo_asset_price_current`，昨价 / 前日价来自 `xo_asset_price_daily` 最近交易日；所有资产只有当前价格日期等于今天时才计算今日收益，其中基金和股票还必须当天为交易日，非交易日返回 `priceStatus=MARKET_CLOSED` 并展示“休市”，交易日未更新则标记“今日净值未更新 / 今日价未更新”；收益基准价格、基准持仓数量或快照缺失时对应字段返回 `null`，页面展示“暂无 / --”；持仓汇总、投资总览和模块卡通过 `todayProfitAvailable` / `primaryProfitAvailable` 控制今日收益是否展示，未更新时显示 `--` 而不是 0，并通过 `todayProfitStatusLabel` / `primaryProfitStatusLabel` 说明“今日休市”或“今日净值未更新”；每日收益日历和昨日收益来自 `xo_investment_holding_daily_profit`，行情刷新会即时重建当前展示日收益，新表为空时需要补跑投资日快照生成数据。
 - 预算：5 月餐饮支出 `86.5000 - 20.0000 = 66.5000`，转账不进入预算。
 - 账户：银行卡 `21500.0000`，支付宝 `1933.5000`，与初始化余额和流水变更一致。
 
@@ -243,7 +243,7 @@ docker exec -i xoassets-mysql mysql -uroot -proot < xoassets-server/src/main/res
 - 投资持仓市值使用后端返回的 `latestPrice` 计算，DOGE 当前价至少显示 6 位小数。
 - 投资买入扣减资金账户余额，卖出增加资金账户余额，已实现盈亏只进入投资交易记录。
 - 投资交易撤销后账户余额和持仓数量 / 成本反向恢复，已撤销交易不参与账户资金明细汇总。
-- 投资日收益补跑后，`xo_investment_holding_daily_profit` 应有对应展示日数据，`xo_investment_daily_snapshot.calendar_profit` 同步写入聚合收益；周末或休市日无收益行时展示 `--`。
+- 投资日收益补跑或行情刷新后，`xo_investment_holding_daily_profit` 应有对应展示日数据，`xo_investment_daily_snapshot.calendar_profit` 同步写入聚合收益；周末或休市日无收益行时展示 `--`。
 - 账户详情和普通流水可导出 CSV，Excel 打开中文不乱码。
 - 数据分析页收支趋势排除转账，投资盈亏使用最新价格快照。
 - 用户 A 不能查看或修改用户 B 的账户、分类、流水、持仓、预算、目标。

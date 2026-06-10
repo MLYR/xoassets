@@ -12,6 +12,7 @@ import com.xoassets.persistence.entity.Asset;
 import com.xoassets.persistence.entity.AssetPriceCurrent;
 import com.xoassets.persistence.entity.AssetPriceDaily;
 import com.xoassets.persistence.entity.Holding;
+import com.xoassets.persistence.entity.InvestmentDailySnapshot;
 import com.xoassets.persistence.entity.InvestmentHoldingDailyProfit;
 import com.xoassets.persistence.entity.InvestmentTransaction;
 import com.xoassets.persistence.entity.MarketCalendar;
@@ -19,6 +20,7 @@ import com.xoassets.persistence.mapper.AssetMapper;
 import com.xoassets.persistence.mapper.AssetPriceCurrentMapper;
 import com.xoassets.persistence.mapper.AssetPriceDailyMapper;
 import com.xoassets.persistence.mapper.HoldingMapper;
+import com.xoassets.persistence.mapper.InvestmentDailySnapshotMapper;
 import com.xoassets.persistence.mapper.InvestmentHoldingDailyProfitMapper;
 import com.xoassets.persistence.mapper.InvestmentTransactionMapper;
 import com.xoassets.persistence.mapper.MarketCalendarMapper;
@@ -26,6 +28,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -84,6 +87,7 @@ public class InvestmentHoldingDailyProfitServiceImpl implements InvestmentHoldin
     private static final int CALC_VERSION = 1;
 
     private final InvestmentHoldingDailyProfitMapper dailyProfitMapper;
+    private final InvestmentDailySnapshotMapper dailySnapshotMapper;
     private final HoldingMapper holdingMapper;
     private final AssetMapper assetMapper;
     private final AssetPriceDailyMapper assetPriceDailyMapper;
@@ -98,6 +102,7 @@ public class InvestmentHoldingDailyProfitServiceImpl implements InvestmentHoldin
      */
     public InvestmentHoldingDailyProfitServiceImpl(
             InvestmentHoldingDailyProfitMapper dailyProfitMapper,
+            InvestmentDailySnapshotMapper dailySnapshotMapper,
             HoldingMapper holdingMapper,
             AssetMapper assetMapper,
             AssetPriceDailyMapper assetPriceDailyMapper,
@@ -107,6 +112,7 @@ public class InvestmentHoldingDailyProfitServiceImpl implements InvestmentHoldin
             InvestmentPositionHistoryService positionHistoryService,
             ExchangeRateService exchangeRateService) {
         this.dailyProfitMapper = dailyProfitMapper;
+        this.dailySnapshotMapper = dailySnapshotMapper;
         this.holdingMapper = holdingMapper;
         this.assetMapper = assetMapper;
         this.assetPriceDailyMapper = assetPriceDailyMapper;
@@ -130,6 +136,7 @@ public class InvestmentHoldingDailyProfitServiceImpl implements InvestmentHoldin
                 .eq(Holding::getUserId, userId)
                 .eq(Holding::getStatus, 1));
         if (holdings == null || holdings.isEmpty()) {
+            syncSnapshotCalendarProfit(userId, startDate, endDate);
             return;
         }
         Set<Long> assetIds = holdings.stream().map(Holding::getAssetId).filter(Objects::nonNull).collect(Collectors.toSet());
@@ -142,6 +149,67 @@ public class InvestmentHoldingDailyProfitServiceImpl implements InvestmentHoldin
                 continue;
             }
             rebuildHolding(userId, holding, asset, startDate, endDate);
+        }
+        syncSnapshotCalendarProfit(userId, startDate, endDate);
+    }
+
+    /**
+     * 行情刷新后按资产重建受影响用户的展示日收益。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public void rebuildForAsset(Long assetId, LocalDate priceDate) {
+        if (assetId == null || priceDate == null) {
+            return;
+        }
+        List<Holding> holdings = holdingMapper.selectList(new LambdaQueryWrapper<Holding>()
+                .eq(Holding::getAssetId, assetId)
+                .eq(Holding::getStatus, 1));
+        if (holdings == null || holdings.isEmpty()) {
+            return;
+        }
+        Asset asset = assetMapper.selectById(assetId);
+        if (asset == null) {
+            return;
+        }
+        LocalDate displayDate = calendarDisplayDate(deriveAssetMeta(asset), priceDate);
+        for (Holding holding : holdings) {
+            rebuildHolding(holding.getUserId(), holding, asset, displayDate, displayDate);
+        }
+        holdings.stream()
+                .map(Holding::getUserId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .forEach(userId -> syncSnapshotCalendarProfit(userId, displayDate, displayDate));
+    }
+
+    /**
+     * 当前月页面读取前兜底生成，避免日历只能等晚间快照任务才有今日收益。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public void ensureCurrentMonthForUser(Long userId, YearMonth month) {
+        YearMonth currentMonth = YearMonth.now();
+        if (userId == null || month == null || !currentMonth.equals(month)) {
+            return;
+        }
+        LocalDate today = LocalDate.now();
+        LocalDate start = currentMonth.atDay(1);
+        Long monthRows = dailyProfitMapper.selectCount(new LambdaQueryWrapper<InvestmentHoldingDailyProfit>()
+                .eq(InvestmentHoldingDailyProfit::getUserId, userId)
+                .between(InvestmentHoldingDailyProfit::getDisplayDate, start, today)
+                .eq(InvestmentHoldingDailyProfit::getDeleted, 0));
+        Long todayRows = dailyProfitMapper.selectCount(new LambdaQueryWrapper<InvestmentHoldingDailyProfit>()
+                .eq(InvestmentHoldingDailyProfit::getUserId, userId)
+                .eq(InvestmentHoldingDailyProfit::getDisplayDate, today)
+                .eq(InvestmentHoldingDailyProfit::getDeleted, 0));
+        if (monthRows == null || monthRows == 0L) {
+            // 新增表或历史迁移后首次打开页面时，补齐当月至今天，避免日历整月空白。
+            rebuildForUser(userId, start, today);
+            return;
+        }
+        if (todayRows == null || todayRows == 0L) {
+            rebuildForUser(userId, today, today);
         }
     }
 
@@ -158,6 +226,7 @@ public class InvestmentHoldingDailyProfitServiceImpl implements InvestmentHoldin
         }
         Asset asset = assetMapper.selectById(holding.getAssetId());
         YearMonth targetMonth = month == null ? YearMonth.now() : month;
+        ensureCurrentMonthForUser(userId, targetMonth);
         LocalDate start = targetMonth.atDay(1);
         LocalDate end = targetMonth.atEndOfMonth();
         Map<LocalDate, InvestmentHoldingDailyProfit> rows = dailyProfitMapper.selectList(new LambdaQueryWrapper<InvestmentHoldingDailyProfit>()
@@ -197,6 +266,7 @@ public class InvestmentHoldingDailyProfitServiceImpl implements InvestmentHoldin
     @Override
     public List<InvestmentCalendarDayProfitVO> userCalendar(Long userId, YearMonth month) {
         YearMonth targetMonth = month == null ? YearMonth.now() : month;
+        ensureCurrentMonthForUser(userId, targetMonth);
         Map<LocalDate, DailyProfitSummary> rows = aggregateByDate(userId, targetMonth.atDay(1), targetMonth.atEndOfMonth());
         return rows.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
@@ -226,6 +296,7 @@ public class InvestmentHoldingDailyProfitServiceImpl implements InvestmentHoldin
      */
     @Override
     public Map<String, DailyProfitSummary> latestByModuleBefore(Long userId, LocalDate date) {
+        ensureCurrentMonthForUser(userId, YearMonth.now());
         Map<String, Map<LocalDate, DailyProfitSummary>> rows = aggregateByModuleAndDate(userId, date.minusDays(40), date.minusDays(1));
         Map<String, DailyProfitSummary> result = new HashMap<>();
         rows.forEach((module, dailyMap) -> dailyMap.entrySet().stream()
@@ -239,6 +310,7 @@ public class InvestmentHoldingDailyProfitServiceImpl implements InvestmentHoldin
      */
     @Override
     public HoldingDailyProfitSummary latestHoldingBefore(Long userId, Long holdingId, LocalDate date) {
+        ensureCurrentMonthForUser(userId, YearMonth.now());
         InvestmentHoldingDailyProfit row = dailyProfitMapper.selectOne(new LambdaQueryWrapper<InvestmentHoldingDailyProfit>()
                 .eq(InvestmentHoldingDailyProfit::getUserId, userId)
                 .eq(InvestmentHoldingDailyProfit::getHoldingId, holdingId)
@@ -334,6 +406,28 @@ public class InvestmentHoldingDailyProfitServiceImpl implements InvestmentHoldin
             result.put(module, daily);
         });
         return result;
+    }
+
+    /**
+     * 同步已存在投资日快照的真实日历收益字段，避免趋势图继续读到旧聚合值。
+     */
+    private void syncSnapshotCalendarProfit(Long userId, LocalDate start, LocalDate end) {
+        Map<LocalDate, DailyProfitSummary> dailyProfitMap = aggregateByDate(userId, start, end);
+        List<InvestmentDailySnapshot> snapshots = dailySnapshotMapper.selectList(new LambdaQueryWrapper<InvestmentDailySnapshot>()
+                .eq(InvestmentDailySnapshot::getUserId, userId)
+                .between(InvestmentDailySnapshot::getSnapshotDate, start, end)
+                .eq(InvestmentDailySnapshot::getDeleted, 0));
+        for (InvestmentDailySnapshot snapshot : snapshots == null ? List.<InvestmentDailySnapshot>of() : snapshots) {
+            DailyProfitSummary summary = dailyProfitMap.get(snapshot.getSnapshotDate());
+            // 使用显式 set，确保没有收益行时也能清空旧快照里的日历收益字段。
+            dailySnapshotMapper.update(null, new LambdaUpdateWrapper<InvestmentDailySnapshot>()
+                    .eq(InvestmentDailySnapshot::getId, snapshot.getId())
+                    .eq(InvestmentDailySnapshot::getDeleted, 0)
+                    .set(InvestmentDailySnapshot::getCalendarProfit, summary == null ? null : scale4(summary.profit()))
+                    .set(InvestmentDailySnapshot::getCalendarBaseAmount, summary == null ? null : scale4(summary.baseAmount()))
+                    .set(InvestmentDailySnapshot::getCalendarProfitRate, summary == null ? null : nullableRate(summary.profit(), summary.baseAmount()))
+                    .set(InvestmentDailySnapshot::getUpdatedAt, LocalDateTime.now()));
+        }
     }
 
     /**

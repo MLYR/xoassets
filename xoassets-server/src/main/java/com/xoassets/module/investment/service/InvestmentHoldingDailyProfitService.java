@@ -18,6 +18,16 @@ public interface InvestmentHoldingDailyProfitService {
     void rebuildForUser(Long userId, LocalDate startDate, LocalDate endDate);
 
     /**
+     * 重建指定资产在某个展示日影响到的用户每日收益。
+     */
+    void rebuildForAsset(Long assetId, LocalDate priceDate);
+
+    /**
+     * 页面读取当前月数据前的轻量兜底，缺少当月或今日数据时即时生成。
+     */
+    void ensureCurrentMonthForUser(Long userId, YearMonth month);
+
+    /**
      * 查询单持仓月度收益日历。
      */
     List<InvestmentCalendarDayProfitVO> holdingCalendar(Long userId, Long holdingId, YearMonth month);

@@ -2238,16 +2238,20 @@ class MvpCoreServiceTest {
         AssetPriceDailyMapper dailyMapper = mock(AssetPriceDailyMapper.class);
         InvestmentTransactionMapper transactionMapper = mock(InvestmentTransactionMapper.class);
         InvestmentPositionHistoryService positionHistoryService = mock(InvestmentPositionHistoryService.class);
+        InvestmentHoldingDailyProfitService dailyProfitService = mock(InvestmentHoldingDailyProfitService.class);
         QuoteService quoteService = mock(QuoteService.class);
         HoldingServiceImpl service = new HoldingServiceImpl(
                 holdingMapper, assetMapper, mock(AssetPriceCurrentMapper.class), dailyMapper,
                 mock(InvestmentDailySnapshotMapper.class), transactionMapper, mock(MarketCalendarMapper.class),
-                mock(AccountMapper.class), mock(AssetService.class), positionHistoryService, mock(InvestmentHoldingDailyProfitService.class), quoteService, testExchangeRateService());
+                mock(AccountMapper.class), mock(AssetService.class), positionHistoryService, dailyProfitService, quoteService, testExchangeRateService());
         Asset asset = asset(10L, "BTC", "Bitcoin", "CRYPTO", "CNY");
 
         when(holdingMapper.selectList(any())).thenReturn(List.of(holding));
         when(assetMapper.selectBatchIds(any())).thenReturn(List.of(asset));
         when(quoteService.latestPriceMap(any())).thenReturn(Map.of(10L, price(10L, "12.00000000", "CNY", LocalDateTime.now())));
+        when(dailyProfitService.latestByModuleBefore(eq(USER_ID), eq(LocalDate.now()))).thenReturn(Map.of(
+                "ALL", new InvestmentHoldingDailyProfitService.DailyProfitSummary(bd("200.0000"), bd("1000.0000")),
+                "CRYPTO", new InvestmentHoldingDailyProfitService.DailyProfitSummary(bd("200.0000"), bd("1000.0000"))));
         when(transactionMapper.selectCount(any())).thenReturn(0L);
         when(positionHistoryService.quantityAt(any(), any(), any(), any())).thenReturn(bd("100.0000"));
         when(dailyMapper.selectList(any()))
@@ -2275,16 +2279,20 @@ class MvpCoreServiceTest {
         AssetPriceDailyMapper dailyMapper = mock(AssetPriceDailyMapper.class);
         InvestmentTransactionMapper transactionMapper = mock(InvestmentTransactionMapper.class);
         InvestmentPositionHistoryService positionHistoryService = mock(InvestmentPositionHistoryService.class);
+        InvestmentHoldingDailyProfitService dailyProfitService = mock(InvestmentHoldingDailyProfitService.class);
         QuoteService quoteService = mock(QuoteService.class);
         HoldingServiceImpl service = new HoldingServiceImpl(
                 holdingMapper, assetMapper, mock(AssetPriceCurrentMapper.class), dailyMapper,
                 mock(InvestmentDailySnapshotMapper.class), transactionMapper, mock(MarketCalendarMapper.class),
-                mock(AccountMapper.class), mock(AssetService.class), positionHistoryService, mock(InvestmentHoldingDailyProfitService.class), quoteService, testExchangeRateService());
+                mock(AccountMapper.class), mock(AssetService.class), positionHistoryService, dailyProfitService, quoteService, testExchangeRateService());
         Asset asset = asset(10L, "BTC", "Bitcoin", "CRYPTO", "CNY");
 
         when(holdingMapper.selectList(any())).thenReturn(List.of(holding));
         when(assetMapper.selectBatchIds(any())).thenReturn(List.of(asset));
         when(quoteService.latestPriceMap(any())).thenReturn(Map.of(10L, price(10L, "13.00000000", "CNY", LocalDateTime.now())));
+        when(dailyProfitService.latestByModuleBefore(eq(USER_ID), eq(LocalDate.now()))).thenReturn(Map.of(
+                "ALL", new InvestmentHoldingDailyProfitService.DailyProfitSummary(bd("200.0000"), bd("1000.0000")),
+                "CRYPTO", new InvestmentHoldingDailyProfitService.DailyProfitSummary(bd("200.0000"), bd("1000.0000"))));
         when(transactionMapper.selectCount(any())).thenReturn(0L);
         when(positionHistoryService.quantityAt(any(), any(), any(), any())).thenReturn(bd("100.0000"));
         when(dailyMapper.selectList(any()))
@@ -2390,9 +2398,10 @@ class MvpCoreServiceTest {
         AssetPriceDailyMapper dailyMapper = mock(AssetPriceDailyMapper.class);
         QuoteRawSnapshotService rawSnapshotService = mock(QuoteRawSnapshotService.class);
         AssetService assetService = mock(AssetService.class);
+        InvestmentHoldingDailyProfitService dailyProfitService = mock(InvestmentHoldingDailyProfitService.class);
         QuoteProvider provider = mock(QuoteProvider.class);
         QuoteServiceImpl service = new QuoteServiceImpl(
-                currentMapper, dailyMapper, mock(MarketCalendarMapper.class), rawSnapshotService, assetService, List.of(provider));
+                currentMapper, dailyMapper, mock(MarketCalendarMapper.class), rawSnapshotService, assetService, dailyProfitService, List.of(provider));
         Asset fund = asset(10L, "012922", "QDII 基金", "FUND", "CNY");
         LocalDateTime quoteTime = LocalDateTime.of(2026, 6, 5, 21, 30);
 
@@ -2410,6 +2419,37 @@ class MvpCoreServiceTest {
         // 基金净值直接沉淀到日级价格表，不进入 Redis 原始快照层。
         assertEquals(LocalDate.of(2026, 6, 5), daily.getTradeDate());
         assertEquals(bd("1.23456789"), daily.getClosePrice());
+        verify(dailyProfitService).rebuildForAsset(10L, LocalDate.of(2026, 6, 5));
+        verify(rawSnapshotService, never()).append(any());
+    }
+
+    @Test
+    void quoteRefreshShouldRebuildDailyProfitWhenFetchedQuoteIsSameAsCurrent() {
+        AssetPriceCurrentMapper currentMapper = mock(AssetPriceCurrentMapper.class);
+        QuoteRawSnapshotService rawSnapshotService = mock(QuoteRawSnapshotService.class);
+        AssetService assetService = mock(AssetService.class);
+        InvestmentHoldingDailyProfitService dailyProfitService = mock(InvestmentHoldingDailyProfitService.class);
+        QuoteProvider provider = mock(QuoteProvider.class);
+        QuoteServiceImpl service = new QuoteServiceImpl(
+                currentMapper, mock(AssetPriceDailyMapper.class), mock(MarketCalendarMapper.class), rawSnapshotService, assetService, dailyProfitService, List.of(provider));
+        Asset stock = asset(20L, "600666.SH", "奥瑞德", "STOCK", "CNY");
+        LocalDateTime quoteTime = LocalDateTime.of(2026, 6, 10, 15, 0);
+        AssetPriceCurrent latest = price(20L, "4.52000000", "CNY", quoteTime);
+        latest.setPreviousClose(bd("4.55000000"));
+        latest.setChangeAmount(bd("-0.03000000"));
+        latest.setChangePercent(bd("-0.6593"));
+        latest.setSource("SINA");
+        latest.setMarketStatus("UNKNOWN");
+
+        when(assetService.findAsset(20L)).thenReturn(stock);
+        when(currentMapper.selectById(20L)).thenReturn(latest);
+        when(provider.supports(stock)).thenReturn(true);
+        when(provider.fetch(stock)).thenReturn(new QuoteFetchResult(bd("4.52000000"), "CNY", bd("4.55000000"), bd("-0.03000000"), bd("-0.6593"), "SINA", quoteTime, "UNKNOWN", "{}"));
+
+        service.refreshQuote(20L);
+
+        // current 已是同一笔行情时也要重建每日收益，避免行情已更新但收益日历仍停在旧计算结果。
+        verify(dailyProfitService).rebuildForAsset(20L, LocalDate.of(2026, 6, 10));
         verify(rawSnapshotService, never()).append(any());
     }
 
@@ -2417,7 +2457,7 @@ class MvpCoreServiceTest {
     void quoteLatestPriceMapShouldIgnoreNullAssetIds() {
         AssetPriceCurrentMapper currentMapper = mock(AssetPriceCurrentMapper.class);
         QuoteServiceImpl service = new QuoteServiceImpl(
-                currentMapper, mock(AssetPriceDailyMapper.class), mock(MarketCalendarMapper.class), mock(QuoteRawSnapshotService.class), mock(AssetService.class), List.of());
+                currentMapper, mock(AssetPriceDailyMapper.class), mock(MarketCalendarMapper.class), mock(QuoteRawSnapshotService.class), mock(AssetService.class), mock(InvestmentHoldingDailyProfitService.class), List.of());
         AssetPriceCurrent price = price(10L, "1.23000000", "CNY", LocalDateTime.of(2026, 6, 8, 15, 0));
 
         when(currentMapper.selectBatchIds(Set.of(10L))).thenReturn(List.of(price));
@@ -2434,9 +2474,10 @@ class MvpCoreServiceTest {
         AssetPriceCurrentMapper currentMapper = mock(AssetPriceCurrentMapper.class);
         MarketCalendarMapper marketCalendarMapper = mock(MarketCalendarMapper.class);
         AssetService assetService = mock(AssetService.class);
+        InvestmentHoldingDailyProfitService dailyProfitService = mock(InvestmentHoldingDailyProfitService.class);
         QuoteProvider provider = mock(QuoteProvider.class);
         QuoteServiceImpl service = new QuoteServiceImpl(
-                currentMapper, mock(AssetPriceDailyMapper.class), marketCalendarMapper, mock(QuoteRawSnapshotService.class), assetService, List.of(provider));
+                currentMapper, mock(AssetPriceDailyMapper.class), marketCalendarMapper, mock(QuoteRawSnapshotService.class), assetService, dailyProfitService, List.of(provider));
         Asset stock = asset(20L, "600666", "奥瑞德", "STOCK", "CNY");
         stock.setMarket("SH");
         AssetPriceCurrent latest = price(20L, "12.34000000", "CNY", LocalDateTime.now().minusDays(1));
@@ -2455,6 +2496,7 @@ class MvpCoreServiceTest {
         // 股票休市日定时刷新只复用最近 current，不调用第三方，也不会写 Redis 原始快照。
         assertEquals(bd("12.34000000"), result.getPrice());
         verify(provider, never()).fetch(any());
+        verify(dailyProfitService, never()).rebuildForAsset(any(), any());
     }
 
     @Test

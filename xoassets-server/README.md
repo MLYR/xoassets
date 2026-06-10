@@ -235,7 +235,7 @@ XXL_JOB_EXECUTOR_PORT=9999
 - 行情当前价和日级价格使用 `DECIMAL(28,8)`，第三方行情和手动报价入库前统一保留 8 位；`xo_asset_price_current` / `xo_asset_price_daily` 记录 `previous_close`、`change_amount`、`change_percent` 等行情字段，持仓返回 `priceScale`，CRYPTO 当前价至少展示 6 位，FUND / STOCK 展示 4 位。
 - 公共资产表 `xo_asset` 使用 `market` 区分交易市场，股票为 `SH` / `SZ` / `BJ` / `US`，基金为 `CN_FUND`，虚拟货币为 `CRYPTO`；唯一性按 `type + market + symbol + deleted` 控制。
 - 持仓估值使用与资产币种一致的最近价格；没有价格或价格币种不一致时使用平均成本兜底，避免当前价和市值口径不一致。
-- 行情刷新通过 `QuoteProvider` 抽象扩展；当前支持 `ManualQuoteProvider`、`CoinGeckoQuoteProvider`、`EastMoneyFundQuoteProvider`、`StockQuoteProvider`。基金优先读取天天基金 F10 历史净值表，最新价使用最新单位净值，昨价使用上一交易日单位净值，失败时再回退实时净值接口。
+- 行情刷新通过 `QuoteProvider` 抽象扩展；当前支持 `ManualQuoteProvider`、`CoinGeckoQuoteProvider`、`EastMoneyFundQuoteProvider`、`StockQuoteProvider`。基金优先读取天天基金 F10 历史净值表，最新价使用最新单位净值，昨价使用上一交易日单位净值，失败时再回退实时净值接口；手动和自动刷新成功后都会重建受影响资产的持仓每日收益，即使第三方返回的行情时间和价格与 current 完全相同，也要重建，避免收益日历停留在旧计算结果。
 - `GET /api/assets/lookup` 支持新增持仓时按类型查询基金、股票、虚拟货币基础信息和当前价格；前端选择结果后保存持仓，后端创建或复用 `xo_asset` 并写入 `xo_asset_price_current`，带报价日期的初始价同步写入 `xo_asset_price_daily`。
 - 资产查询失败会在后端 WARN 日志中输出行情源、代码 / 市场、响应摘要和原始异常堆栈，便于区分网络失败、第三方格式变更和代码无效。
 - CoinGecko 支持 CRYPTO 资产 BTC、ETH、SOL、BNB、DOGE；天天基金支持基金单位净值；新浪支持 A 股；Yahoo Finance 支持美股。
@@ -252,7 +252,7 @@ XXL_JOB_EXECUTOR_PORT=9999
 - 基金金额买入从实际申购日至确认日前按在途投资资产计入；交易后续确认后，补跑确认日前历史快照仍必须保留这段在途金额，避免已扣款但未确认份额导致净资产假跌。
 - 投资日快照补跑按 `trade_date` 使用已回填的 `xo_asset_price_daily` 日级价格，不用价格行 `created_at` 判断是否晚于快照日，确保周末后和净值延迟时历史市值可被修正。
 - 资产快照中现金资产按账户初始余额 + 普通流水 / 投资交易 / 余额修正重建快照日历史余额，正余额计入现金资产、负余额按绝对值计入负债；投资资产按快照日通过交易流水重建历史头寸，再使用同币种日级价 / 当前价估值，补跑历史快照不能用当前账户余额或当前持仓数量倒推。
-- 本地对账可手动重建当前用户指定日期：`POST /api/investments/snapshots/generate?snapshotDate=yyyy-MM-dd` 会先重建持仓每日收益，再 upsert 投资日快照；`POST /api/snapshots/generate?snapshotDate=yyyy-MM-dd` 重建用户资产快照；不允许生成未来日期快照。
+- 本地对账可手动重建当前用户指定日期：`POST /api/investments/snapshots/generate?snapshotDate=yyyy-MM-dd` 会先重建持仓每日收益，再 upsert 投资日快照；`POST /api/quotes/manual`、`POST /api/quotes/refresh`、`POST /api/quotes/refresh-batch` 会在行情成功后即时重建受影响资产的持仓每日收益；`POST /api/snapshots/generate?snapshotDate=yyyy-MM-dd` 重建用户资产快照；不允许生成未来日期快照。
 - 首页总资产 = 快照现金资产 + 投资持仓市值；净资产 = 总资产 - 负债。
 - 用户资产快照由 XXL-JOB handler `generateDailySnapshots` 默认每天 23:50 触发，为所有启用用户生成资产快照，单个用户失败只记录日志。
 - 统计接口全部按当前 `user_id` 隔离，支出统计排除转账，退款抵扣支出。
