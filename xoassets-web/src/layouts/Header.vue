@@ -3,6 +3,16 @@
   <header class="app-header">
     <h1 class="header-title">{{ pageTitle }}</h1>
     <div class="header-actions">
+      <el-dropdown trigger="click" @command="handleThemeCommand">
+        <el-button class="theme-button" :icon="themeIcon">{{ themeLabel }}</el-button>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item command="system">跟随系统</el-dropdown-item>
+            <el-dropdown-item command="light">日间模式</el-dropdown-item>
+            <el-dropdown-item command="dark">夜间模式</el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
       <el-badge is-dot>
         <el-button :icon="Bell" circle />
       </el-badge>
@@ -59,16 +69,18 @@
 // Header 负责当前用户展示、资料维护和退出登录，不承载业务页面状态。
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { Bell, UserFilled } from '@element-plus/icons-vue';
+import { Bell, Monitor, Moon, Sunny, UserFilled } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { ROUTES } from '@/constants/routes';
 import { authApi, type AuthUser } from '@/services/authApi';
 import { clearToken } from '@/services/token';
+import { useThemeStore, type ThemeMode } from '@/stores/theme';
 
 // 当前用户信息从后端 /api/auth/me 获取，避免继续使用硬编码名称。
 const user = ref<AuthUser | null>(null);
 const route = useRoute();
 const router = useRouter();
+const themeStore = useThemeStore();
 const profileDialogVisible = ref(false);
 const passwordDialogVisible = ref(false);
 const profileSubmitting = ref(false);
@@ -88,6 +100,19 @@ const passwordForm = reactive({
 const displayName = computed(() => user.value?.nickname || user.value?.username || '用户');
 // 顶部标题统一读取路由 meta，避免各业务页重复渲染页面标题。
 const pageTitle = computed(() => String(route.meta.title || '小〇财迹'));
+// 主题入口展示当前模式；系统模式仍会根据系统偏好自动解析明暗色。
+const themeLabel = computed(() => {
+  if (themeStore.mode === 'system') {
+    return '自动';
+  }
+  return themeStore.mode === 'dark' ? '夜间' : '日间';
+});
+const themeIcon = computed(() => {
+  if (themeStore.mode === 'system') {
+    return Monitor;
+  }
+  return themeStore.resolvedTheme === 'dark' ? Moon : Sunny;
+});
 
 onMounted(() => {
   loadCurrentUser();
@@ -111,6 +136,11 @@ function handleCommand(command: string) {
   } else if (command === 'logout') {
     handleLogout();
   }
+}
+
+// 主题切换保留系统选项，方便用户恢复随系统自动变化。
+function handleThemeCommand(command: string) {
+  themeStore.setThemeMode(command as ThemeMode);
 }
 
 // 打开名称弹窗时带入当前名称，避免用户重复输入。
@@ -207,7 +237,7 @@ function logoutToLogin() {
   height: 72px;
   padding: 0 24px;
   border-bottom: 1px solid var(--xo-border);
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--xo-header);
   backdrop-filter: var(--xo-blur);
 }
 
@@ -217,7 +247,7 @@ function logoutToLogin() {
   font-size: 24px;
   font-weight: 850;
   line-height: 1.2;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 .header-actions {
@@ -232,10 +262,15 @@ function logoutToLogin() {
   background: var(--xo-border);
 }
 
+.theme-button,
 .user-chip {
   border-color: var(--xo-border);
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--xo-card);
   color: var(--xo-text);
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+}
+
+.theme-button {
+  min-width: 84px;
 }
 </style>

@@ -169,7 +169,7 @@ com.xoassets
 
 ## 8. 前端设计约定
 - 整体风格：简洁、专业、清晰、数据感、轻量、安全感。
-- 当前 Web 视觉基线已统一为现代金融 SaaS 风格：浅灰蓝背景、蓝色主色、白色玻璃卡片、柔和阴影、大圆角和宽松留白；后续前端迭代优先延续这一套，不要回退到朴素后台风或深色侧栏方案。
+- 当前 Web 日间视觉基线已统一为现代金融 SaaS 风格：浅灰蓝背景、蓝色主色、白色玻璃卡片、柔和阴影、大圆角和宽松留白；夜间模式使用深色玻璃卡片、弱边框和低饱和高光；后续前端迭代优先延续这套双主题，不要回退到朴素后台风或旧深色侧栏方案。
 - Web 第一版采用左侧菜单 + 顶部用户信息 + 主内容区。
 - 移动端适配可采用底部 Tab + 卡片式内容。
 - 页面优先级：
@@ -177,7 +177,7 @@ com.xoassets
   - P1：AI 报告、预算管理、资产目标、分类管理。
   - P2：系统设置。
 - Web 端继续使用 Element Plus + ECharts；图表优先使用 ECharts，表单和基础组件优先使用 Element Plus。
-- Web 端必须建立 `xo-design` tokens，并通过 `xoassets-web/src/styles/variables.css`、`global.css`、`layout.css` 统一覆盖 Element Plus 的颜色、圆角、阴影、按钮、输入框、表格、卡片、弹窗和分段控件；禁止为单个页面重复造独立视觉规则。
+- Web 端必须建立 `xo-design` tokens，并通过 `xoassets-web/src/styles/variables.css`、`global.css`、`layout.css` 统一覆盖 Element Plus 的颜色、圆角、阴影、按钮、输入框、表格、卡片、弹窗、分段控件和 loading 遮罩；夜间 / 日间切换由 `xoassets-web/src/stores/theme.ts` 管理，默认跟随系统，页面局部样式和 ECharts 配置应读取主题 token，禁止为单个页面重复造独立视觉规则。
 - 登录页和业务页视觉参考统一以 `xoassets-web/原型图/` 下的设计图为准；做 UI 调整时优先复用现有布局骨架和自定义 CSS，不引入新的重型 UI 框架。
 - 移动端保留 uni-app + Vue3 + SCSS + 自研 App 组件体系，禁止引入 Element Plus 或重型 UI 库。
 - 移动端主题系统统一维护在 `xoassets-app/src/theme/`，主题配置必须保持 `colors`、`components`、`icons`、`assets`、`pageTokens` 等 schema 完整；所有页面必须优先使用 `AppPage`、`AppCard`、`AppAmount`、`AppIcon`、`AppActionButton`、`AppSectionHeader`，页面级布局 token 和素材入口不要硬编码散落在业务页面。

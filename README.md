@@ -57,13 +57,15 @@
 - 视觉参考图目录：`xoassets-web/原型图/`。
 - 全局样式入口：`xoassets-web/src/styles/index.css`。
 - `xo-design` tokens：通过 `xoassets-web/src/styles/variables.css`、`global.css`、`layout.css` 统一定义和应用。
-- 主题变量：`xoassets-web/src/styles/variables.css`。
-- 全局组件皮肤：`xoassets-web/src/styles/global.css`，负责覆盖 Element Plus 的按钮、输入框、表格、卡片、弹窗和分段控件。
+- 主题变量：`xoassets-web/src/styles/variables.css`，同时维护日间和夜间 token。
+- Web 主题状态：`xoassets-web/src/stores/theme.ts`，支持 `system / light / dark`，默认跟随系统 `prefers-color-scheme`，顶部栏提供手动切换入口。
+- 全局组件皮肤：`xoassets-web/src/styles/global.css`，负责覆盖 Element Plus 的按钮、输入框、表格、卡片、弹窗、分段控件和 loading 遮罩。
 - 页面布局辅助类：`xoassets-web/src/styles/layout.css`。
 - 当前视觉基线：
   - 页面背景使用浅灰蓝渐变 / `#F6F8FC` 体系。
   - 主色以亮蓝 `#2563EB` 为核心，图表用低饱和蓝 / 绿 / 紫 / 黄。
   - 卡片统一白色玻璃感、`20px` 圆角、柔和阴影、浅边框。
+  - 夜间模式使用深色玻璃卡片、弱边框、低饱和高光和半透明加载遮罩，避免刷新时统计卡片 / 图表区整块变黑。
   - 表格表头浅灰底、hover 柔和高亮、金额右对齐且不换行。
   - 侧边栏为白色背景，当前菜单浅蓝底 + 蓝字，不再使用旧深色侧栏风格。
   - 继续使用 Element Plus + ECharts，不引入复杂 UI 框架。

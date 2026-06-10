@@ -150,7 +150,7 @@ function formatDateTime(value: string) {
 
 .report-list button.active,
 .report-list button:hover {
-  background: #eff6ff;
+  background: var(--xo-primary-softer);
   box-shadow: inset 3px 0 0 var(--xo-primary);
 }
 
@@ -190,7 +190,7 @@ function formatDateTime(value: string) {
   padding: 16px;
   border: 1px solid var(--xo-border);
   border-radius: var(--xo-radius-inner);
-  background: #f8fbff;
+  background: var(--xo-input-muted);
 }
 
 .insight-grid span {

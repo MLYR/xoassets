@@ -188,9 +188,12 @@ import MetricCard from '@/components/finance/MetricCard.vue';
 import { ROUTES } from '@/constants/routes';
 import { accountApi, type AccountItem } from '@/services/accountApi';
 import { investmentApi, type AssetPriceItem, type FundConfirmPreview, type HoldingDetailSummary, type HoldingItem, type InvestmentCalendarDayProfit, type InvestmentTransactionItem, type InvestmentTransactionType } from '@/services/investmentApi';
+import { useThemeStore } from '@/stores/theme';
+import { readThemeVar } from '@/utils/theme';
 
 const route = useRoute();
 const router = useRouter();
+const themeStore = useThemeStore();
 const holding = ref<HoldingItem | null>(null);
 const summary = ref<HoldingDetailSummary | null>(null);
 const transactions = ref<InvestmentTransactionItem[]>([]);
@@ -276,11 +279,13 @@ const priceChartOption = computed<EChartsOption>(() => {
   const points = [...priceSnapshots.value].reverse();
   const quantity = Number(holding.value?.quantity || 0);
   const isMarketValue = trendMode.value === 'MARKET_VALUE';
+  const axisText = readThemeVar('--xo-muted', themeStore.resolvedTheme === 'dark' ? '#94a3b8' : '#6b7280');
+  const chartLine = readThemeVar('--xo-primary', '#2563eb');
   return {
     tooltip: { trigger: 'axis', valueFormatter: (value) => formatChartValue(Number(value), isMarketValue ? 4 : pricePrecision.value) },
     grid: { left: 48, right: 24, top: 28, bottom: 42 },
-    xAxis: { type: 'category', data: points.map((item) => formatTableTime(item.quoteTime)), axisLabel: { color: '#6b7280' } },
-    yAxis: { type: 'value', scale: true, axisLabel: { color: '#6b7280', formatter: (value: number) => formatChartAxis(value) } },
+    xAxis: { type: 'category', data: points.map((item) => formatTableTime(item.quoteTime)), axisLabel: { color: axisText } },
+    yAxis: { type: 'value', scale: true, axisLabel: { color: axisText, formatter: (value: number) => formatChartAxis(value) } },
     series: [
       {
         name: isMarketValue ? '总市值' : '价格',
@@ -290,8 +295,8 @@ const priceChartOption = computed<EChartsOption>(() => {
         symbolSize: 6,
         // 当前没有历史持仓数量快照，市值走势使用当前持仓数量乘以历史价格快照。
         data: points.map((item) => roundTo(isMarketValue ? Number(item.price) * quantity : item.price, isMarketValue ? 4 : pricePrecision.value)),
-        lineStyle: { width: 3, color: '#2563eb' },
-        itemStyle: { color: '#2563eb' },
+        lineStyle: { width: 3, color: chartLine },
+        itemStyle: { color: chartLine },
         areaStyle: { color: 'rgba(37, 99, 235, 0.08)' }
       }
     ]
@@ -870,9 +875,9 @@ function roundTo(value: number, precision: number) {
 .calendar-cell {
   min-height: 86px;
   padding: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.22);
+  border: 1px solid var(--xo-border);
   border-radius: 16px;
-  background: rgba(248, 250, 252, 0.78);
+  background: var(--xo-card);
   box-sizing: border-box;
 }
 
@@ -924,7 +929,7 @@ function roundTo(value: number, precision: number) {
 
 .calendar-closed {
   border-style: dashed;
-  background: rgba(148, 163, 184, 0.10);
+  background: var(--xo-input-muted);
 }
 
 .calendar-closed .calendar-profit,

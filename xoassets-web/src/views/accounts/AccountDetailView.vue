@@ -342,7 +342,7 @@ function formatDateTimeInput(date: Date) {
 .account-info > div {
   padding: 14px;
   border-radius: var(--xo-radius-inner);
-  background: #f8fbff;
+  background: var(--xo-input-muted);
 }
 
 .info-label {
@@ -441,7 +441,7 @@ function formatDateTimeInput(date: Date) {
   border-top: 1px solid var(--xo-border);
   color: var(--xo-muted);
   font-size: 14px;
-  background: rgba(248, 251, 255, 0.72);
+  background: var(--xo-card);
 }
 
 @media (max-width: 1080px) {

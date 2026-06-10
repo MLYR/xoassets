@@ -317,7 +317,7 @@ function formatDateTimeInput(date: Date) {
   padding: 20px;
   border: 1px solid var(--xo-border);
   border-radius: var(--xo-radius);
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--xo-card);
   cursor: pointer;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
@@ -329,7 +329,7 @@ function formatDateTimeInput(date: Date) {
   width: 118px;
   height: 118px;
   border-radius: 999px;
-  background: rgba(37, 99, 235, 0.08);
+  background: var(--xo-primary-soft);
   content: "";
 }
 

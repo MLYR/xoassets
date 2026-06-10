@@ -289,7 +289,7 @@ function formatDateTime(value: string) {
   border-top: 1px solid var(--xo-border);
   color: var(--xo-muted);
   font-size: 14px;
-  background: rgba(248, 251, 255, 0.72);
+  background: var(--xo-card);
 }
 
 .transaction-image {

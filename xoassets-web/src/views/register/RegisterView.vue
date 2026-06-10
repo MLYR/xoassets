@@ -144,8 +144,8 @@ async function handleRegister() {
   display: flex;
   min-height: 100dvh;
   background:
-    radial-gradient(circle at 74% 18%, rgba(96, 165, 250, 0.16), transparent 26%),
-    linear-gradient(90deg, #eef6ff 0%, #f8fbff 52%, #ffffff 100%);
+    radial-gradient(circle at 74% 18%, var(--xo-bg-spot-primary), transparent 26%),
+    var(--xo-bg-canvas);
 }
 
 .register-brand {
@@ -157,8 +157,8 @@ async function handleRegister() {
   overflow: hidden;
   padding: 64px 64px 54px;
   background:
-    linear-gradient(180deg, rgba(239, 246, 255, 0.16), rgba(219, 234, 254, 0.72)),
-    linear-gradient(135deg, #f8fbff 0%, #dbeafe 100%);
+    radial-gradient(circle at 22% 12%, var(--xo-bg-spot-primary), transparent 28%),
+    linear-gradient(135deg, var(--xo-bg-soft) 0%, var(--xo-card) 100%);
 }
 
 .register-brand::after {
@@ -166,9 +166,10 @@ async function handleRegister() {
   inset: auto -10% 0 -8%;
   height: 50%;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(219, 234, 254, 0.72)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0), var(--xo-bg-soft)),
     url("data:image/svg+xml,%3Csvg width='900' height='360' viewBox='0 0 900 360' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%232563eb' stroke-opacity='.18'%3E%3Cpath d='M28 330h844'/%3E%3Cpath d='M92 330V206h58v124M190 330V158h68v172M312 330V120h58v210M420 330V86h86v244M548 330V142h66v188M668 330V102h78v228M792 330V182h52v148'/%3E%3Cpath d='M0 260c118 14 196-14 292-10 108 5 190 42 314 32 112-8 176-54 294-42'/%3E%3C/g%3E%3C/svg%3E") bottom center / cover no-repeat;
   content: "";
+  opacity: 0.82;
 }
 
 .register-logo,
@@ -185,7 +186,7 @@ async function handleRegister() {
   height: 40px;
   place-items: center;
   border-radius: 12px;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: var(--xo-brand-gradient);
   color: #fff;
   font-weight: 700;
   box-shadow: 0 12px 24px rgba(37, 99, 235, 0.22);
@@ -239,9 +240,9 @@ async function handleRegister() {
 .preview-card {
   min-width: 190px;
   padding: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--xo-border);
   border-radius: var(--xo-radius);
-  background: rgba(255, 255, 255, 0.82);
+  background: var(--xo-card);
   box-shadow: var(--xo-shadow);
   backdrop-filter: var(--xo-blur);
 }
@@ -278,8 +279,8 @@ async function handleRegister() {
   padding: 46px;
   border: 1px solid var(--xo-border);
   border-radius: 28px;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.08);
+  background: var(--xo-card-elevated);
+  box-shadow: var(--xo-shadow-lg);
   backdrop-filter: var(--xo-blur);
 }
 

@@ -371,6 +371,8 @@ import MetricCard from '@/components/finance/MetricCard.vue';
 import { ROUTES } from '@/constants/routes';
 import { exchangeRateApi } from '@/services/exchangeRateApi';
 import { investmentApi, type AssetLookupItem, type AssetType, type HoldingItem, type HoldingRequest, type InvestmentCalendarDayProfit, type InvestmentModuleAsset, type InvestmentOverview, type InvestmentTransactionItem, type InvestmentTrendPoint, type QuoteSource } from '@/services/investmentApi';
+import { useThemeStore } from '@/stores/theme';
+import { readThemeVar } from '@/utils/theme';
 
 type DisplayCurrency = 'CNY' | 'USD';
 type InvestmentModule = 'ALL' | 'FUND' | 'STOCK' | 'CRYPTO';
@@ -416,6 +418,7 @@ const trendPeriodOptions: Array<{ label: string; value: TrendPeriod }> = [
 ];
 const route = useRoute();
 const router = useRouter();
+const themeStore = useThemeStore();
 const currencyOptions = [
   { label: '人民币', value: 'CNY' },
   { label: 'USD', value: 'USD' }
@@ -643,10 +646,14 @@ const investmentTrendDates = computed(() => {
   return [...dates].sort();
 });
 const investmentTrendSeriesEmpty = computed(() => investmentTrendDates.value.length === 0);
-const investmentTrendOption = computed<EChartsOption>(() => ({
+const investmentTrendOption = computed<EChartsOption>(() => {
+  const axisText = readThemeVar('--xo-muted', themeStore.resolvedTheme === 'dark' ? '#94a3b8' : '#475569');
+  const axisLine = readThemeVar('--xo-border-strong', '#cbd5e1');
+  const splitLine = readThemeVar('--xo-border', '#e2e8f0');
+  return {
   color: trendLineModules.map((item) => item.color),
   grid: { left: 58, right: 28, top: 28, bottom: 42 },
-  legend: { top: 0, right: 0 },
+  legend: { top: 0, right: 0, textStyle: { color: axisText } },
   tooltip: {
     trigger: 'axis',
     valueFormatter: (value) => formatMoney(Number(value) * 1000)
@@ -654,14 +661,14 @@ const investmentTrendOption = computed<EChartsOption>(() => ({
   xAxis: {
     type: 'category',
     data: investmentTrendDates.value,
-    axisLabel: { color: '#334155', fontWeight: 600 },
-    axisLine: { lineStyle: { color: '#cbd5e1' } }
+    axisLabel: { color: axisText, fontWeight: 600 },
+    axisLine: { lineStyle: { color: axisLine } }
   },
   yAxis: {
     type: 'value',
     name: '金额(k)',
-    axisLabel: { color: '#475569', formatter: (value: number) => `${round4(value)}k` },
-    splitLine: { lineStyle: { color: '#e2e8f0' } }
+    axisLabel: { color: axisText, formatter: (value: number) => `${round4(value)}k` },
+    splitLine: { lineStyle: { color: splitLine } }
   },
   series: trendLineModules.map((module) => {
     const pointMap = new Map(investmentTrends.value[module.value].map((item) => [item.date, item]));
@@ -676,7 +683,8 @@ const investmentTrendOption = computed<EChartsOption>(() => ({
       areaStyle: module.value === 'ALL' ? { color: 'rgba(37, 99, 235, 0.08)' } : undefined
     };
   })
-}));
+  };
+});
 const profitCalendarWeekdays = ['日', '一', '二', '三', '四', '五', '六'];
 const profitCalendarMonthLabel = computed(() => `${calendarMonthKey(profitCalendarMonth.value)} 月收益`);
 const isCurrentProfitMonth = computed(() => isSameCalendarMonth(profitCalendarMonth.value, new Date()));
@@ -1648,9 +1656,9 @@ function profitTone(value?: number | null): 'success' | 'danger' | 'warning' | '
 
 .daily-profit-summary > div {
   padding: 14px 16px;
-  border: 1px solid rgba(226, 232, 240, 0.82);
+  border: 1px solid var(--xo-border);
   border-radius: 16px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.86));
+  background: linear-gradient(180deg, var(--xo-card-elevated), var(--xo-card));
 }
 
 .daily-profit-summary span {
@@ -1686,17 +1694,17 @@ function profitTone(value?: number | null): 'success' | 'danger' | 'warning' | '
 .profit-calendar-cell {
   min-height: 104px;
   padding: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.22);
+  border: 1px solid var(--xo-border);
   border-radius: 18px;
-  background: rgba(248, 250, 252, 0.82);
+  background: var(--xo-card);
   box-sizing: border-box;
   transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
 
 .profit-calendar-cell:not(.is-empty):hover {
   transform: translateY(-2px);
-  border-color: rgba(37, 99, 235, 0.22);
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+  border-color: var(--xo-border-strong);
+  box-shadow: var(--xo-shadow-hover);
 }
 
 .profit-calendar-cell.is-empty {
@@ -1705,8 +1713,8 @@ function profitTone(value?: number | null): 'success' | 'danger' | 'warning' | '
 }
 
 .profit-calendar-cell.is-today {
-  border-color: rgba(37, 99, 235, 0.45);
-  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.16);
+  border-color: var(--xo-primary);
+  box-shadow: inset 0 0 0 1px var(--xo-primary-soft);
 }
 
 .profit-calendar-cell.is-positive {
@@ -1723,7 +1731,7 @@ function profitTone(value?: number | null): 'success' | 'danger' | 'warning' | '
 }
 
 .profit-calendar-cell.is-muted {
-  background: rgba(248, 250, 252, 0.68);
+  background: var(--xo-input-muted);
 }
 
 .profit-calendar-date {
@@ -1738,7 +1746,7 @@ function profitTone(value?: number | null): 'success' | 'danger' | 'warning' | '
 .profit-calendar-date em {
   padding: 2px 7px;
   border-radius: 999px;
-  background: rgba(37, 99, 235, 0.10);
+  background: var(--xo-primary-soft);
   color: var(--xo-primary);
   font-size: 11px;
   font-style: normal;
@@ -1806,7 +1814,7 @@ function profitTone(value?: number | null): 'success' | 'danger' | 'warning' | '
   padding: 10px 12px;
   border: 1px solid var(--xo-border);
   border-radius: 10px;
-  background: #fff;
+  background: var(--xo-card-elevated);
   color: var(--xo-text);
   text-align: left;
   cursor: pointer;

@@ -13,8 +13,8 @@
       :default-active="route.path"
       class="sidebar-menu"
       background-color="transparent"
-      text-color="#475569"
-      active-text-color="#2563eb"
+      text-color="var(--xo-muted)"
+      active-text-color="var(--xo-primary)"
       router
     >
       <el-menu-item v-for="item in menuItems" :key="item.path" :index="item.path">
@@ -63,7 +63,8 @@ const route = useRoute();
   height: 32px;
   place-items: center;
   border-radius: 12px;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: var(--xo-brand-gradient);
+  color: #fff;
   font-weight: 700;
   box-shadow: 0 10px 20px rgba(37, 99, 235, 0.18);
 }
@@ -102,7 +103,7 @@ const route = useRoute();
 }
 
 .sidebar-menu :deep(.el-menu-item.is-active) {
-  background: #eff6ff;
+  background: var(--xo-primary-softer);
   box-shadow: inset 3px 0 0 var(--xo-primary);
 }
 

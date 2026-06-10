@@ -284,7 +284,7 @@ async function handleStatusChange(category: CategoryItem, status: number) {
   height: 32px;
   place-items: center;
   border-radius: 12px;
-  background: #eff6ff;
+  background: var(--xo-primary-softer);
   color: var(--xo-primary);
   font-weight: 800;
 }

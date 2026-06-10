@@ -56,14 +56,14 @@ const iconComponent = computed(() => (props.tone === 'danger' ? BottomRight : Tr
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), transparent 42%);
+  background: linear-gradient(135deg, var(--xo-primary-soft), transparent 42%);
   content: "";
   opacity: 0;
   transition: opacity 0.2s ease;
 }
 
 .metric-card:hover {
-  border-color: rgba(37, 99, 235, 0.18);
+  border-color: var(--xo-border-strong);
   box-shadow: var(--xo-shadow-hover);
   transform: translateY(-2px);
 }
@@ -77,7 +77,7 @@ const iconComponent = computed(() => (props.tone === 'danger' ? BottomRight : Tr
   align-items: center;
   justify-content: space-between;
   margin-bottom: 16px;
-  color: #475569;
+  color: var(--xo-muted);
   font-size: 14px;
   font-weight: 700;
 }
@@ -88,7 +88,7 @@ const iconComponent = computed(() => (props.tone === 'danger' ? BottomRight : Tr
   height: 34px;
   place-items: center;
   border-radius: 12px;
-  background: #eff6ff;
+  background: var(--xo-primary-softer);
   font-size: 18px;
 }
 

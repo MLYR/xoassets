@@ -242,7 +242,7 @@ function resetForm() {
 .goal-extra {
   padding: 12px;
   border-radius: var(--xo-radius-inner);
-  background: #f8fbff;
+  background: var(--xo-input-muted);
 }
 
 .goal-actions {

@@ -99,7 +99,10 @@ import AmountText from '@/components/finance/AmountText.vue';
 import { dashboardApi, type DashboardOverview } from '@/services/dashboardApi';
 import { investmentApi } from '@/services/investmentApi';
 import { snapshotApi, type AssetSnapshotItem } from '@/services/snapshotApi';
+import { useThemeStore } from '@/stores/theme';
+import { readThemeVar } from '@/utils/theme';
 
+const themeStore = useThemeStore();
 const range = ref('30天');
 const assetTrendMode = ref<'totalAsset' | 'cashAsset' | 'investmentAsset'>('totalAsset');
 const loading = ref(false);
@@ -191,12 +194,16 @@ const assetMixItems = computed(() => [
 
 const assetOption = computed<EChartsOption>(() => {
   const color = trendPalette[assetTrendMode.value];
+  const axisText = readThemeVar('--xo-muted', themeStore.resolvedTheme === 'dark' ? '#94a3b8' : '#64748b');
+  const axisLine = readThemeVar('--xo-border-strong', '#cbd5e1');
+  const splitLine = readThemeVar('--xo-border', '#e2e8f0');
+  const pointBorder = readThemeVar('--xo-card-solid', '#ffffff');
   return {
   grid: { left: 44, right: 16, top: 24, bottom: 32 },
   tooltip: { trigger: 'axis', backgroundColor: 'rgba(15, 23, 42, 0.88)', borderWidth: 0, textStyle: { color: '#ffffff' } },
-  xAxis: { type: 'category', data: assetTrend.value.map((item) => item.snapshotDate), axisLine: { lineStyle: { color: '#dbe7f5' } }, axisLabel: { color: '#94a3b8' } },
-  yAxis: { type: 'value', axisLabel: { color: '#64748b', formatter: (value: number) => `${Math.round(value / 1000)}k` }, splitLine: { lineStyle: { color: '#e8eef7' } } },
-  series: [{ type: 'line', smooth: true, data: assetTrend.value.map((item) => item[assetTrendMode.value]), symbolSize: 8, lineStyle: { color: color.line, width: 3 }, itemStyle: { color: color.line, borderColor: '#ffffff', borderWidth: 2 }, areaStyle: { color: color.area } }]
+  xAxis: { type: 'category', data: assetTrend.value.map((item) => item.snapshotDate), axisLine: { lineStyle: { color: axisLine } }, axisLabel: { color: axisText } },
+  yAxis: { type: 'value', axisLabel: { color: axisText, formatter: (value: number) => `${Math.round(value / 1000)}k` }, splitLine: { lineStyle: { color: splitLine } } },
+  series: [{ type: 'line', smooth: true, data: assetTrend.value.map((item) => item[assetTrendMode.value]), symbolSize: 8, lineStyle: { color: color.line, width: 3 }, itemStyle: { color: color.line, borderColor: pointBorder, borderWidth: 2 }, areaStyle: { color: color.area } }]
   };
 });
 
@@ -305,7 +312,7 @@ function percentOfTotal(value: number | null | undefined, total: number | null |
     radial-gradient(circle at 16% 20%, rgba(37, 99, 235, 0.16), transparent 32%),
     radial-gradient(circle at 78% 4%, rgba(45, 212, 191, 0.18), transparent 30%),
     radial-gradient(circle at 52% 42%, rgba(139, 92, 246, 0.08), transparent 34%),
-    linear-gradient(135deg, rgba(239, 246, 255, 0.86), rgba(255, 255, 255, 0));
+    linear-gradient(135deg, var(--xo-primary-softer), transparent);
   pointer-events: none;
 }
 
@@ -321,11 +328,11 @@ function percentOfTotal(value: number | null | undefined, total: number | null |
 
 .dashboard-command-band h2 {
   margin: 0;
-  color: #0f172a;
+  color: var(--xo-text);
   font-size: clamp(30px, 2.4vw, 42px);
   font-weight: 950;
   line-height: 1.05;
-  letter-spacing: -0.045em;
+  letter-spacing: 0;
   text-wrap: balance;
 }
 
@@ -348,10 +355,10 @@ function percentOfTotal(value: number | null | undefined, total: number | null |
   gap: 5px;
   min-width: 0;
   padding: 14px 15px;
-  border: 1px solid rgba(217, 228, 244, 0.82);
+  border: 1px solid var(--xo-border);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.78);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86), 0 14px 34px rgba(15, 23, 42, 0.045);
+  background: var(--xo-card);
+  box-shadow: var(--xo-shadow);
   backdrop-filter: blur(14px);
 }
 
@@ -393,11 +400,11 @@ function percentOfTotal(value: number | null | undefined, total: number | null |
 
 .dashboard-signal strong,
 .dashboard-signal :deep(.amount-text) {
-  color: #0f172a;
+  color: var(--xo-text);
   font-size: 20px;
   font-weight: 950;
   line-height: 1.1;
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
 }
 
 .dashboard-hero-grid {
@@ -419,12 +426,12 @@ function percentOfTotal(value: number | null | undefined, total: number | null |
 .premium-shell {
   position: relative;
   padding: 6px;
-  border: 1px solid rgba(203, 218, 238, 0.72);
+  border: 1px solid var(--xo-border);
   border-radius: 30px;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(235, 243, 255, 0.62)),
-    rgba(248, 251, 255, 0.76);
-  box-shadow: 0 24px 62px rgba(31, 41, 55, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.88);
+    linear-gradient(135deg, var(--xo-card-elevated), var(--xo-primary-softer)),
+    var(--xo-card);
+  box-shadow: var(--xo-shadow-lg);
   opacity: 0;
   transform: translateY(28px) scale(0.985);
   animation: dashboard-reveal 860ms var(--dashboard-ease) forwards;
@@ -433,10 +440,10 @@ function percentOfTotal(value: number | null | undefined, total: number | null |
 .premium-core {
   position: relative;
   height: 100%;
-  border: 1px solid rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--xo-border);
   border-radius: 24px;
-  background: rgba(255, 255, 255, 0.86);
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.9);
+  background: var(--xo-card-elevated);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.08);
   overflow: hidden;
 }
 
@@ -447,8 +454,8 @@ function percentOfTotal(value: number | null | undefined, total: number | null |
 }
 
 .asset-mini-shell:hover {
-  border-color: rgba(37, 99, 235, 0.24);
-  box-shadow: 0 30px 76px rgba(37, 99, 235, 0.13), inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  border-color: var(--xo-border-strong);
+  box-shadow: var(--xo-shadow-hover);
   transform: translateY(-4px) scale(1.006);
 }
 
@@ -480,7 +487,7 @@ function percentOfTotal(value: number | null | undefined, total: number | null |
   padding: 24px;
   background:
     radial-gradient(circle at 88% 82%, var(--card-glow), transparent 35%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.82));
+    linear-gradient(145deg, var(--xo-card-elevated), var(--xo-card));
 }
 
 .asset-mini-card::after {
@@ -517,17 +524,17 @@ function percentOfTotal(value: number | null | undefined, total: number | null |
 .asset-mini-dot {
   width: 10px;
   height: 10px;
-  border: 2px solid rgba(255, 255, 255, 0.94);
+  border: 2px solid var(--xo-card-solid);
   border-radius: 999px;
   background: var(--card-accent);
   box-shadow: 0 0 0 5px rgba(37, 99, 235, 0.08);
 }
 
 .asset-mini-title {
-  color: #263449;
+  color: var(--xo-text);
   font-size: 17px;
   font-weight: 900;
-  letter-spacing: -0.018em;
+  letter-spacing: 0;
 }
 
 .asset-mini-card small,
@@ -543,7 +550,7 @@ function percentOfTotal(value: number | null | undefined, total: number | null |
   font-size: clamp(30px, 1.86vw, 35px);
   font-weight: 900;
   line-height: 1.08;
-  letter-spacing: -0.055em;
+  letter-spacing: 0;
 }
 
 .asset-mini-card :deep(.asset-mini-value.amount-text) {
@@ -557,7 +564,7 @@ function percentOfTotal(value: number | null | undefined, total: number | null |
   justify-content: space-between;
   gap: 10px;
   padding-top: 14px;
-  border-top: 1px solid rgba(226, 232, 240, 0.72);
+  border-top: 1px solid var(--xo-border);
 }
 
 .asset-mini-foot span {
@@ -567,7 +574,7 @@ function percentOfTotal(value: number | null | undefined, total: number | null |
 }
 
 .asset-mini-foot strong {
-  color: #1e293b;
+  color: var(--xo-text);
   font-size: 13px;
   font-weight: 900;
 }
@@ -581,11 +588,11 @@ function percentOfTotal(value: number | null | undefined, total: number | null |
   width: 46px;
   height: 46px;
   place-items: center;
-  border: 1px solid rgba(37, 99, 235, 0.20);
+  border: 1px solid var(--xo-border-strong);
   border-radius: 999px;
   background:
-    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.98), rgba(239, 246, 255, 0.86)),
-    rgba(255, 255, 255, 0.94);
+    radial-gradient(circle at 30% 20%, var(--xo-card-elevated), var(--xo-primary-softer)),
+    var(--xo-card);
   box-shadow: 0 18px 34px rgba(37, 99, 235, 0.16), inset 0 0 0 7px rgba(37, 99, 235, 0.055);
   color: var(--xo-primary);
   cursor: pointer;
@@ -628,8 +635,8 @@ function percentOfTotal(value: number | null | undefined, total: number | null |
 
 .finance-summary-shell:hover,
 .hero-chart-shell:hover {
-  border-color: rgba(37, 99, 235, 0.20);
-  box-shadow: 0 30px 82px rgba(15, 23, 42, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  border-color: var(--xo-border-strong);
+  box-shadow: var(--xo-shadow-hover);
   transform: translateY(-3px);
 }
 
@@ -639,7 +646,7 @@ function percentOfTotal(value: number | null | undefined, total: number | null |
   background:
     radial-gradient(circle at 8% 0%, rgba(37, 99, 235, 0.12), transparent 30%),
     radial-gradient(circle at 92% 8%, rgba(18, 185, 129, 0.12), transparent 28%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.84));
+    linear-gradient(145deg, var(--xo-card-elevated), var(--xo-card));
 }
 
 .finance-summary-card > * {
@@ -662,12 +669,12 @@ function percentOfTotal(value: number | null | undefined, total: number | null |
   gap: 5px;
   min-width: 0;
   padding: 13px 10px;
-  border: 1px solid rgba(217, 228, 244, 0.82);
+  border: 1px solid var(--xo-border);
   border-radius: 17px;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(248, 251, 255, 0.72)),
-    rgba(248, 251, 255, 0.76);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
+    linear-gradient(135deg, var(--xo-card-elevated), var(--xo-card)),
+    var(--xo-card);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
   opacity: 0;
   transform: translateY(16px) scale(0.98);
   animation: dashboard-reveal 760ms var(--dashboard-ease) forwards;
@@ -687,8 +694,8 @@ function percentOfTotal(value: number | null | undefined, total: number | null |
 }
 
 .finance-summary-item:hover {
-  border-color: rgba(37, 99, 235, 0.20);
-  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  border-color: var(--xo-border-strong);
+  box-shadow: var(--xo-shadow-hover);
   transform: translateY(-3px) scale(1.01);
 }
 
@@ -714,10 +721,10 @@ function percentOfTotal(value: number | null | undefined, total: number | null |
 
 .finance-summary-item span {
   max-width: calc(100% - 18px);
-  color: #3f4f66;
+  color: var(--xo-text);
   font-size: 13px;
   font-weight: 850;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .finance-summary-item :deep(.amount-text) {
@@ -725,7 +732,7 @@ function percentOfTotal(value: number | null | undefined, total: number | null |
   max-width: 100%;
   font-size: clamp(16px, 0.94vw, 18px);
   font-weight: 900;
-  letter-spacing: -0.035em;
+  letter-spacing: 0;
 }
 
 .hero-chart-shell {
@@ -738,7 +745,7 @@ function percentOfTotal(value: number | null | undefined, total: number | null |
   padding: 24px;
   background:
     radial-gradient(circle at 18% 0%, rgba(37, 99, 235, 0.09), transparent 32%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.88));
+    linear-gradient(180deg, var(--xo-card-elevated), var(--xo-card));
 }
 
 .asset-mix-strip {
@@ -754,16 +761,16 @@ function percentOfTotal(value: number | null | undefined, total: number | null |
   gap: 8px 12px;
   align-items: center;
   padding: 13px 14px;
-  border: 1px solid rgba(217, 228, 244, 0.78);
+  border: 1px solid var(--xo-border);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.76);
+  background: var(--xo-card);
   color: var(--xo-muted);
   font-size: 12px;
   font-weight: 800;
 }
 
 .asset-mix-item strong {
-  color: #0f172a;
+  color: var(--xo-text);
   font-size: 13px;
   font-weight: 950;
 }
@@ -794,7 +801,7 @@ function percentOfTotal(value: number | null | undefined, total: number | null |
   margin-bottom: 8px;
   padding: 4px 9px;
   border-radius: 999px;
-  background: rgba(37, 99, 235, 0.08);
+  background: var(--xo-primary-soft);
   color: var(--xo-primary);
   font-size: 10px;
   font-weight: 900;
@@ -804,10 +811,10 @@ function percentOfTotal(value: number | null | undefined, total: number | null |
 
 .panel-head h3 {
   margin: 0;
-  color: #0f172a;
+  color: var(--xo-text);
   font-size: 22px;
   font-weight: 900;
-  letter-spacing: -0.035em;
+  letter-spacing: 0;
 }
 
 .panel-head p {
@@ -824,13 +831,13 @@ function percentOfTotal(value: number | null | undefined, total: number | null |
 }
 
 .chart-actions :deep(.el-segmented) {
-  --el-segmented-item-selected-bg-color: #ffffff;
+  --el-segmented-item-selected-bg-color: var(--xo-segmented-selected);
   --el-segmented-item-selected-color: var(--xo-primary);
   padding: 4px;
-  border: 1px solid rgba(217, 228, 244, 0.82);
+  border: 1px solid var(--xo-border);
   border-radius: 15px;
-  background: rgba(239, 246, 255, 0.78);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
+  background: var(--xo-segmented-bg);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .chart-actions :deep(.el-segmented__item) {

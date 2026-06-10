@@ -121,8 +121,8 @@ async function handleLogin() {
   display: flex;
   min-height: 100dvh;
   background:
-    radial-gradient(circle at 74% 18%, rgba(96, 165, 250, 0.16), transparent 26%),
-    linear-gradient(90deg, #eef6ff 0%, #f8fbff 52%, #ffffff 100%);
+    radial-gradient(circle at 74% 18%, var(--xo-bg-spot-primary), transparent 26%),
+    var(--xo-bg-canvas);
 }
 
 .login-brand {
@@ -134,8 +134,8 @@ async function handleLogin() {
   overflow: hidden;
   padding: 64px 64px 54px;
   background:
-    linear-gradient(180deg, rgba(239, 246, 255, 0.16), rgba(219, 234, 254, 0.72)),
-    linear-gradient(135deg, #f8fbff 0%, #dbeafe 100%);
+    radial-gradient(circle at 22% 12%, var(--xo-bg-spot-primary), transparent 28%),
+    linear-gradient(135deg, var(--xo-bg-soft) 0%, var(--xo-card) 100%);
 }
 
 .login-brand::after {
@@ -143,9 +143,10 @@ async function handleLogin() {
   inset: auto -10% 0 -8%;
   height: 50%;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(219, 234, 254, 0.72)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0), var(--xo-bg-soft)),
     url("data:image/svg+xml,%3Csvg width='900' height='360' viewBox='0 0 900 360' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%232563eb' stroke-opacity='.18'%3E%3Cpath d='M28 330h844'/%3E%3Cpath d='M90 330V210h52v120M180 330V160h72v170M306 330V118h56v212M410 330V76h92v254M550 330V138h62v192M664 330V96h82v234M790 330V184h52v146'/%3E%3Cpath d='M0 260c120 14 194-14 292-10 110 5 190 42 314 32 112-8 176-54 294-42'/%3E%3C/g%3E%3C/svg%3E") bottom center / cover no-repeat;
   content: "";
+  opacity: 0.82;
 }
 
 .login-logo,
@@ -162,7 +163,7 @@ async function handleLogin() {
   height: 40px;
   place-items: center;
   border-radius: 12px;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: var(--xo-brand-gradient);
   color: #fff;
   font-weight: 700;
   box-shadow: 0 12px 24px rgba(37, 99, 235, 0.22);
@@ -216,9 +217,9 @@ async function handleLogin() {
 .preview-card {
   min-width: 190px;
   padding: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--xo-border);
   border-radius: var(--xo-radius);
-  background: rgba(255, 255, 255, 0.82);
+  background: var(--xo-card);
   box-shadow: var(--xo-shadow);
   backdrop-filter: var(--xo-blur);
 }
@@ -255,8 +256,8 @@ async function handleLogin() {
   padding: 46px;
   border: 1px solid var(--xo-border);
   border-radius: 28px;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.08);
+  background: var(--xo-card-elevated);
+  box-shadow: var(--xo-shadow-lg);
   backdrop-filter: var(--xo-blur);
 }
 

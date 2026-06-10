@@ -313,7 +313,7 @@ function handleImageChange(event: Event) {
   place-items: center;
   border: 1px dashed rgba(37, 99, 235, 0.32);
   border-radius: var(--xo-radius-inner);
-  background: #f8fbff;
+  background: var(--xo-input-muted);
   color: var(--xo-primary);
   cursor: pointer;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
@@ -321,7 +321,7 @@ function handleImageChange(event: Event) {
 
 .upload-trigger:hover {
   border-color: var(--xo-primary);
-  background: #eff6ff;
+  background: var(--xo-primary-softer);
   box-shadow: 0 10px 22px rgba(37, 99, 235, 0.08);
 }
 
