@@ -32,7 +32,7 @@ public class AssetSnapshotScheduler {
     }
 
     /**
-     * 每天 23:50 记录所有启用用户当天资产状态，cron 可通过配置覆盖。
+     * 每天 20:00 到 23:45 每 15 分钟记录所有启用用户当天资产状态，便于晚间行情和基金净值逐步覆盖。
      */
     @XxlJob("generateDailySnapshots")
     public void generateDailySnapshots() {
@@ -44,7 +44,7 @@ public class AssetSnapshotScheduler {
     }
 
     /**
-     * 处理补录历史流水产生的待重建快照任务，单批限制数量避免抢占业务资源。
+     * 每天 10:00、15:00、21:00 处理补录历史流水产生的待重建快照任务，单批限制数量避免抢占业务资源。
      */
     @XxlJob("rebuildPendingAssetSnapshots")
     public void rebuildPendingAssetSnapshots() {

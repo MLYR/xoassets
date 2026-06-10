@@ -209,7 +209,7 @@ docker compose down -v
 docker compose up -d
 ```
 
-已有 Docker 数据卷升级到 XXL-JOB 时，需手动初始化调度中心库：
+已有 Docker 数据卷升级到 XXL-JOB 或调整默认调度 cron 时，需手动导入初始化脚本同步任务清单：
 
 ```bash
 docker exec -i xoassets-mysql mysql -uroot -proot < xoassets-server/src/main/resources/db/xxl-job-init.sql

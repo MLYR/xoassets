@@ -73,7 +73,7 @@ public class QuoteRefreshScheduler {
     }
 
     /**
-     * 基金净值晚间多次强制尝试刷新，避免白天旧净值被 1 天 TTL 拦住。
+     * 18:00 首轮强制尝试刷新基金净值，避免白天旧净值被 1 天 TTL 拦住。
      */
     @XxlJob("refreshFundQuotes")
     public void refreshFundQuotes() {
@@ -81,7 +81,7 @@ public class QuoteRefreshScheduler {
     }
 
     /**
-     * 20:00 到 23:30 每半小时继续刷新，和 19:30 首轮组成完整晚间窗口。
+     * 18:15 到 23:45 每 15 分钟继续刷新，和 18:00 首轮组成完整晚间窗口。
      */
     @XxlJob("refreshFundQuotesFollowup")
     public void refreshFundQuotesFollowup() {

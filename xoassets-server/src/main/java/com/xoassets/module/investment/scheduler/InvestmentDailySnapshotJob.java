@@ -99,7 +99,7 @@ public class InvestmentDailySnapshotJob {
     }
 
     /**
-     * 在日级价格汇总后执行，补跑最近 4 个自然日，周一可覆盖上周五交易日。
+     * 20:00 首轮补跑最近 4 个自然日，周一可覆盖上周五交易日。
      */
     @XxlJob("snapshotRecentInvestmentDays")
     public void snapshotRecentDays() {
@@ -107,7 +107,7 @@ public class InvestmentDailySnapshotJob {
     }
 
     /**
-     * 20:00 到 23:30 每半小时继续 upsert，等待晚间净值逐步入库。
+     * 20:15 到 23:45 每 15 分钟继续 upsert，等待晚间净值逐步入库。
      */
     @XxlJob("snapshotRecentInvestmentDaysFollowup")
     public void snapshotRecentDaysFollowup() {

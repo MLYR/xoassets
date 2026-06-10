@@ -82,7 +82,7 @@ public class AssetPriceDailyAggregateJob {
     }
 
     /**
-     * 每天补跑最近 4 个自然日，周一晚间仍能覆盖上周五交易日，避免周末打断补数。
+     * 每天 20:00 到 23:45 每 15 分钟补跑最近 4 个自然日，周一晚间仍能覆盖上周五交易日。
      */
     @XxlJob("aggregateRecentAssetPrices")
     public void aggregateRecentDays() {
@@ -96,7 +96,7 @@ public class AssetPriceDailyAggregateJob {
     }
 
     /**
-     * 23:25 再补一轮，给 23:30 投资快照和 23:50 总资产快照提供晚间最终价。
+     * 收尾汇总同样按 20:00 到 23:45 每 15 分钟执行；upsert 幂等，便于在 XXL-JOB 中单独启停。
      */
     @XxlJob("aggregateLateRecentAssetPrices")
     public void aggregateLateRecentDays() {

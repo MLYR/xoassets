@@ -119,16 +119,17 @@ docker exec -i xoassets-mysql mysql -uroot -proot < src/main/resources/db/xxl-jo
 | 任务 | Handler | 默认调度 |
 |---|---|---|
 | 股票 / 虚拟货币行情刷新 | `refreshMarketQuotes` | `0 0/15 * * * ? *` |
-| 基金净值晚间首轮刷新 | `refreshFundQuotes` | `0 30 19 * * ? *` |
-| 基金净值晚间跟进刷新 | `refreshFundQuotesFollowup` | `0 0,30 20-23 * * ? *` |
-| 资产日级价格晚间汇总 | `aggregateRecentAssetPrices` | `0 25,55 19-22 * * ? *` |
-| 资产日级价格收尾汇总 | `aggregateLateRecentAssetPrices` | `0 25 23 * * ? *` |
-| 用户投资日快照首轮生成 | `snapshotRecentInvestmentDays` | `0 30 19 * * ? *` |
-| 用户投资日快照跟进生成 | `snapshotRecentInvestmentDaysFollowup` | `0 0,30 20-23 * * ? *` |
-| 基金待确认交易扫描 | `confirmPendingFundTransactions` | `0 0/30 * * * ? *` |
-| 每日用户资产快照生成 | `generateDailySnapshots` | `0 50 23 * * ? *` |
+| 基金净值晚间首轮刷新 | `refreshFundQuotes` | `0 0 18 * * ? *` |
+| 基金净值晚间跟进刷新 | `refreshFundQuotesFollowup` | `0 15/15 18-23 * * ? *` |
+| 资产日级价格晚间汇总 | `aggregateRecentAssetPrices` | `0 0/15 20-23 * * ? *` |
+| 资产日级价格收尾汇总 | `aggregateLateRecentAssetPrices` | `0 0/15 20-23 * * ? *` |
+| 用户投资日快照首轮生成 | `snapshotRecentInvestmentDays` | `0 0 20 * * ? *` |
+| 用户投资日快照跟进生成 | `snapshotRecentInvestmentDaysFollowup` | `0 15/15 20-23 * * ? *` |
+| 基金待确认交易扫描 | `confirmPendingFundTransactions` | `0 0 0/3 * * ? *` |
+| 每日用户资产快照生成 | `generateDailySnapshots` | `0 0/15 20-23 * * ? *` |
 | 市场交易日历年度补齐 | `refreshYearlyMarketCalendar` | `0 5 0 1 1 ? *` |
 | USD/CNY 汇率日缓存刷新 | `refreshDailyUsdCnyExchangeRate` | `0 20 6 * * ? *` |
+| 待重建资产快照处理 | `rebuildPendingAssetSnapshots` | `0 0 10,15,21 * * ? *` |
 
 ```
 XXL_JOB_ADMIN_ADDRESSES=http://localhost:8081/xxl-job-admin
@@ -240,7 +241,7 @@ XXL_JOB_EXECUTOR_PORT=9999
 - 资产查询失败会在后端 WARN 日志中输出行情源、代码 / 市场、响应摘要和原始异常堆栈，便于区分网络失败、第三方格式变更和代码无效。
 - CoinGecko 支持 CRYPTO 资产 BTC、ETH、SOL、BNB、DOGE；天天基金支持基金单位净值；新浪支持 A 股；Yahoo Finance 支持美股。
 - `POST /api/quotes/refresh-batch` 支持按当前持仓资产批量刷新；刷新失败保留旧价格，不删除历史快照。
-- 行情缓存按资产类型控制刷新频率：CRYPTO 15 分钟、STOCK 15 分钟、FUND 1 天；MANUAL 价格不过期；股票只在 09:30-15:30 之间拉取第三方行情，基金净值在 19:30-23:30 每半小时强制尝试刷新。股票和虚拟货币原始行情写入 Redis ZSET `price:snapshot:{assetId}:{yyyyMM}`，TTL 3 天，日级汇总读取某天数据时按当天起止毫秒 score 范围查询，不全量拉取整月数据。`GET /api/exchange-rates/usd-cny` 返回 USD/CNY 日缓存汇率，MVP 使用进程内缓存，后续可替换为 Redis。
+- 行情缓存按资产类型控制刷新频率：CRYPTO 15 分钟、STOCK 15 分钟、FUND 1 天；MANUAL 价格不过期；股票只在 09:30-15:30 之间拉取第三方行情，基金净值每天 18:00 首轮、18:15-23:45 每 15 分钟强制跟进刷新。股票和虚拟货币原始行情写入 Redis ZSET `price:snapshot:{assetId}:{yyyyMM}`，TTL 3 天，日级汇总读取某天数据时按当天起止毫秒 score 范围查询，不全量拉取整月数据。`GET /api/exchange-rates/usd-cny` 返回 USD/CNY 日缓存汇率，MVP 使用进程内缓存，后续可替换为 Redis。
 - 后端行情刷新由 XXL-JOB 可视化调度中心触发，`refreshMarketQuotes` / `refreshFundQuotes` 等 handler 按资产类型分开处理；任务或单个资产失败只记录日志，不影响主应用启动。
 - 市场交易日历使用 `xo_market_calendar` 存储，`MarketCalendarRefreshScheduler` 在应用启动和每年 1 月 1 日补齐当前年、下一年基础周末日历；春节、国庆等交易所特殊休市以数据库修正记录为准，不写死在 Java 或配置文件里。
 - 预算表 `xo_budget` 按当前用户隔离；每个用户每月只能有一个总预算，每个支出分类每月只能有一个分类预算。
@@ -254,7 +255,7 @@ XXL_JOB_EXECUTOR_PORT=9999
 - 资产快照中现金资产按账户初始余额 + 普通流水 / 投资交易 / 余额修正重建快照日历史余额，正余额计入现金资产、负余额按绝对值计入负债；投资资产按快照日通过交易流水重建历史头寸，再使用同币种日级价 / 当前价估值，补跑历史快照不能用当前账户余额或当前持仓数量倒推。
 - 本地对账可手动重建当前用户指定日期：`POST /api/investments/snapshots/generate?snapshotDate=yyyy-MM-dd` 会先重建持仓每日收益，再 upsert 投资日快照；`POST /api/quotes/manual`、`POST /api/quotes/refresh`、`POST /api/quotes/refresh-batch` 会在行情成功后即时重建受影响资产的持仓每日收益；`POST /api/snapshots/generate?snapshotDate=yyyy-MM-dd` 重建用户资产快照；不允许生成未来日期快照。
 - 首页总资产 = 快照现金资产 + 投资持仓市值；净资产 = 总资产 - 负债。
-- 用户资产快照由 XXL-JOB handler `generateDailySnapshots` 默认每天 23:50 触发，为所有启用用户生成资产快照，单个用户失败只记录日志。
+- 用户资产快照由 XXL-JOB handler `generateDailySnapshots` 默认每天 20:00-23:45 每 15 分钟触发，为所有启用用户生成资产快照，单个用户失败只记录日志。
 - 统计接口全部按当前 `user_id` 隔离，支出统计排除转账，退款抵扣支出。
 - 资产目标表 `xo_goal` 按当前用户隔离；当前金额可手动填写，也可按当前净资产口径写入。
 - AI 报告表 `xo_ai_report` 按当前用户隔离；阶段七只基于首页、预算、投资等真实数据生成模板化复盘，不调用真实 AI，不提供投资买卖建议。

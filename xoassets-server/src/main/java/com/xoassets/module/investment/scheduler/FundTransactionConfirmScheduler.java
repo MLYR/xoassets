@@ -25,7 +25,7 @@ public class FundTransactionConfirmScheduler {
     }
 
     /**
-     * 定时扫描待确认基金交易；服务层用状态条件更新保证幂等，避免重复累加持仓。
+     * 每 3 小时扫描待确认基金交易；服务层用状态条件更新保证幂等，避免重复累加持仓。
      */
     @XxlJob("confirmPendingFundTransactions")
     /**
