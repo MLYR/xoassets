@@ -31,9 +31,9 @@
 - 分类管理：`GET /api/categories`、`POST /api/categories`、`PUT /api/categories/{id}`、`DELETE /api/categories/{id}`、`PUT /api/categories/{id}/status` 已接入分类页。
 - 记账流水：`GET /api/transactions`、`POST /api/transactions`、`PUT /api/transactions/{id}`、`DELETE /api/transactions/{id}` 已接入记账页，支持分页和流水图片。
 - 投资持仓：`GET /api/assets/lookup`、`GET /api/holdings`、`GET /api/holdings/summary`、`GET /api/holdings/{id}/detail`、`POST /api/holdings`、`PUT /api/holdings/{id}`、`DELETE /api/holdings/{id}`、`POST /api/investment-transactions`、`GET /api/investment-transactions`、`GET /api/investment-transactions/fund-confirm-preview`、`POST /api/quotes/manual`、`POST /api/quotes/refresh`、`POST /api/quotes/refresh-batch` 已接入投资页；前端只暴露持仓概念，`xo_asset` 作为后端内部行情基础表；历史持仓补录通过投资买入 / 卖出交易表达，直接持仓编辑只适合当前基础信息维护。
-- 投资展示：投资主页按总览 / 基金 / 股票 / 虚拟货币分模块展示统计和图表；每日收益日历、昨日收益、趋势图每日收益和收益贡献统一读取 `xo_investment_holding_daily_profit` 持仓每日收益表；基金、股票、虚拟货币模块内分别展示持仓表格、买入卖出、价格刷新和收益分析入口；单个持仓的收益汇总、交易记录和总市值 / 价格走势在 `/investments/holdings/:id` 查看。
+- 投资展示：投资主页按总览 / 基金 / 股票 / 虚拟货币分模块展示统计和图表；资产趋势固定同图展示总览、股票、基金、虚拟货币四条线，并支持周 / 月 / 年维度切换，左轴金额单位为 k；每日收益区域可在收益日历和全持仓交易记录之间切换；每日收益日历、昨日收益、趋势图每日收益和收益贡献统一读取 `xo_investment_holding_daily_profit` 持仓每日收益表；基金、股票、虚拟货币模块内分别展示持仓表格、买入卖出、价格刷新和收益分析入口，持仓表格支持按持有市值、持有收益、今日收益、昨日收益和最新净值 / 当前价排序，默认持有市值倒序；单个持仓的收益汇总、交易记录和总市值 / 价格走势在 `/investments/holdings/:id` 查看。
 - 投资交易：买入必须选择扣款账户并扣减余额，卖出必须选择到账账户并增加余额；买入 / 卖出不写入普通流水，不计入生活收支统计。基金可先创建 0 份额持仓，再用 `AMOUNT_NAV` 金额模式录入买入总金额和实际买入时间；后端按数据库市场日历计算有效申请日和确认日，普通基金 T+1、名称包含 `QDII` 的基金 T+2，确认净值优先取日级基金单位净值，当前价仅在报价日期等于确认日时兜底，净值未出时交易状态为 `PENDING_CONFIRM`，后续定时确认；买入 / 卖出补录、基金确认和撤销都会从交易日起重建投资日快照和资产快照。
-- 投资撤销：`PUT /api/investment-transactions/{id}/revoke` 会反向恢复资金账户和持仓，撤销记录仍保留在投资交易中。
+- 投资撤销：`PUT /api/investment-transactions/{id}/revoke` 会反向恢复资金账户和持仓，撤销记录仍保留在投资交易中；Web 全持仓交易记录和持仓详情交易记录统一展示类型 / 状态标签，交易列表不展示已实现盈亏列，全持仓交易记录点击整行进入持仓详情。
 - 投资精度：投资数量保留 10 位小数，手续费、成本、市值、盈亏和收益率统一按 4 位小数计算；行情价格快照保留 8 位，CRYPTO 当前价至少展示 6 位，FUND / STOCK 当前价展示 4 位。持仓列表的 `marketValue` 始终由后端使用同一个 `latestPrice` 计算，前端不使用格式化价格反算市值。
 - 行情接入：CRYPTO 使用 CoinGecko，FUND 使用天天基金 F10 历史净值表和实时净值兜底，A 股使用新浪行情，美股使用 Yahoo Finance；所有第三方行情只由后端 provider 拉取，自动行情写入 `xo_asset_price_current` 当前价；股票和虚拟货币原始快照写入 Redis ZSET，TTL 3 天，并由任务聚合到 `xo_asset_price_daily`，基金和手动价直接沉淀到日级价格表。
 - 旧价格快照表已退役；历史库执行 `xoassets-server/src/main/resources/db/migration-retire-asset-price.sql` 可把旧表历史价迁入 current/daily 并删除旧表。
@@ -159,8 +159,11 @@ XXL_JOB_EXECUTOR_ENABLED=true
 XXL_JOB_ADMIN_ADDRESSES=http://localhost:8081/xxl-job-admin
 XXL_JOB_ACCESS_TOKEN=xoassets-xxl-job-local-token
 XXL_JOB_EXECUTOR_APPNAME=xoassets-server
+XXL_JOB_EXECUTOR_ADDRESS=http://host.docker.internal:9999/
 XXL_JOB_EXECUTOR_PORT=9999
 ```
+
+本地 XXL-JOB Admin 跑在 Docker 中、后端 executor 跑在宿主机 IDEA 中时，`XXL_JOB_EXECUTOR_ADDRESS` 必须使用 `http://host.docker.internal:9999/`。不要依赖自动探测的 `192.168.x.x` 地址，否则换 Wi-Fi / 网络后 Admin 可能继续调用旧 IP。
 
 后端启动命令参考：
 

@@ -99,7 +99,7 @@
       <el-table v-else :data="pagedTransactions" stripe height="420">
         <el-table-column label="时间" prop="transactionTime" min-width="170" />
         <el-table-column label="类型" width="90">
-          <template #default="{ row }"><StatusBadge :label="row.type === 'BUY' ? '买入' : '卖出'" /></template>
+          <template #default="{ row }"><el-tag round effect="light" size="small" :type="transactionTypeTagType(row.type)">{{ transactionTypeLabel(row.type) }}</el-tag></template>
         </el-table-column>
         <el-table-column label="资金账户" prop="accountName" min-width="140" />
         <el-table-column label="数量" min-width="120" align="right" header-align="right">
@@ -117,21 +117,15 @@
         <el-table-column label="手续费" min-width="120" align="right" header-align="right">
           <template #default="{ row }"><AmountText class="numeric-cell" :value="row.fee" :precision="4" :currency-symbol="currencySymbol" /></template>
         </el-table-column>
-        <el-table-column label="已实现盈亏" min-width="150" align="right" header-align="right">
-          <template #default="{ row }">
-            <AmountText v-if="row.realizedProfit !== null && row.realizedProfit !== undefined" class="numeric-cell" :value="row.realizedProfit" with-sign :precision="4" :currency-symbol="currencySymbol" />
-            <span v-else class="numeric-cell muted-text">暂无</span>
-          </template>
-        </el-table-column>
         <el-table-column label="状态" width="100">
-          <template #default="{ row }"><StatusBadge :label="statusLabel(row.status)" /></template>
+          <template #default="{ row }"><el-tag round effect="light" size="small" :type="transactionStatusTagType(row.status)">{{ statusLabel(row.status) }}</el-tag></template>
         </el-table-column>
         <el-table-column label="备注" min-width="180">
           <template #default="{ row }">{{ row.status === 'REVOKED' ? (row.revokeReason || '已撤销') : (row.note || '-') }}</template>
         </el-table-column>
         <el-table-column label="操作" width="110" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button link type="danger" :disabled="row.status === 'REVOKED' || row.status === 'CANCELLED'" @click="handleRevokeTransaction(row)">撤销</el-button>
+            <el-button link type="danger" :disabled="row.status === 'REVOKED' || row.status === 'CANCELLED'" @click.stop="handleRevokeTransaction(row)">撤销</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -191,7 +185,6 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import BaseChart from '@/components/charts/BaseChart.vue';
 import AmountText from '@/components/finance/AmountText.vue';
 import MetricCard from '@/components/finance/MetricCard.vue';
-import StatusBadge from '@/components/finance/StatusBadge.vue';
 import { ROUTES } from '@/constants/routes';
 import { accountApi, type AccountItem } from '@/services/accountApi';
 import { investmentApi, type AssetPriceItem, type FundConfirmPreview, type HoldingDetailSummary, type HoldingItem, type InvestmentCalendarDayProfit, type InvestmentTransactionItem, type InvestmentTransactionType } from '@/services/investmentApi';
@@ -595,9 +588,24 @@ function formatQuantity(value: number) {
   return roundTo(Number(value), quantityPrecision.value).toLocaleString('zh-CN', { minimumFractionDigits: holding.value?.assetType === 'CRYPTO' ? 0 : 4, maximumFractionDigits: quantityPrecision.value });
 }
 
+// 转换交易类型文案。
+function transactionTypeLabel(type?: string | null) {
+  return type === 'SELL' ? '卖出' : '买入';
+}
+
+// 交易类型两处交易表统一颜色：买入偏收益色，卖出偏提醒色。
+function transactionTypeTagType(type?: string | null) {
+  return type === 'SELL' ? 'warning' : 'success';
+}
+
 // 转换状态文案。
 function statusLabel(status?: string | null) {
   return ({ NORMAL: '正常', CONFIRMED: '已确认', PENDING_CONFIRM: '待确认', FAILED: '确认失败', CANCELLED: '已取消', REVOKED: '已撤销' } as Record<string, string>)[status || ''] || '正常';
+}
+
+// 交易状态颜色和投资持仓页保持一致。
+function transactionStatusTagType(status?: string | null) {
+  return ({ NORMAL: 'success', CONFIRMED: 'success', PENDING_CONFIRM: 'warning', FAILED: 'danger', CANCELLED: 'info', REVOKED: 'info' } as Record<string, string>)[status || ''] || 'success';
 }
 
 // 格式化确认信息。

@@ -51,20 +51,16 @@
       </section>
 
       <section class="grid-2">
-        <div class="panel panel-padding">
+        <div class="panel panel-padding investment-trend-panel">
           <div class="panel-head">
-            <h3>资产趋势</h3>
-            <el-segmented v-model="trendModule" :options="moduleTabs" @change="loadTrend" />
+            <div>
+              <h3>资产趋势</h3>
+              <p class="panel-subtitle">总览、股票、基金、虚拟货币同图展示，左轴单位 k</p>
+            </div>
+            <el-segmented v-model="trendPeriod" :options="trendPeriodOptions" @change="loadInvestmentTrends" />
           </div>
-          <el-empty v-if="!loading && investmentTrend.length === 0" description="暂无投资资产曲线数据" />
+          <el-empty v-if="!loading && investmentTrendSeriesEmpty" description="暂无投资资产曲线数据" />
           <BaseChart v-else :option="investmentTrendOption" />
-        </div>
-        <div class="panel panel-padding">
-          <div class="panel-head">
-            <h3>投资分布</h3>
-          </div>
-          <el-empty v-if="!loading && holdings.length === 0" description="暂无投资分布数据" />
-          <BaseChart v-else :option="allocationOption" />
         </div>
       </section>
 
@@ -75,24 +71,27 @@
             <p class="panel-subtitle">{{ dailyProfitSubtitle }}</p>
           </div>
           <div class="daily-profit-actions">
-            <el-button-group>
-              <el-button :icon="ArrowLeft" aria-label="上一月" @click="changeProfitMonth(-1)" />
-              <el-button :disabled="isCurrentProfitMonth" @click="resetProfitMonth">本月</el-button>
-              <el-button :icon="ArrowRight" :disabled="!canGoNextProfitMonth" aria-label="下一月" @click="changeProfitMonth(1)" />
-            </el-button-group>
-            <el-date-picker
-              v-model="profitCalendarMonth"
-              class="profit-month-picker"
-              type="month"
-              format="YYYY年MM月"
-              :clearable="false"
-              :editable="false"
-              :disabled-date="disabledFutureProfitMonth"
-            />
+            <el-segmented v-model="dailyProfitPanelMode" :options="dailyProfitPanelOptions" />
+            <template v-if="dailyProfitPanelMode === 'CALENDAR'">
+              <el-button-group>
+                <el-button :icon="ArrowLeft" aria-label="上一月" @click="changeProfitMonth(-1)" />
+                <el-button :disabled="isCurrentProfitMonth" @click="resetProfitMonth">本月</el-button>
+                <el-button :icon="ArrowRight" :disabled="!canGoNextProfitMonth" aria-label="下一月" @click="changeProfitMonth(1)" />
+              </el-button-group>
+              <el-date-picker
+                v-model="profitCalendarMonth"
+                class="profit-month-picker"
+                type="month"
+                format="YYYY年MM月"
+                :clearable="false"
+                :editable="false"
+                :disabled-date="disabledFutureProfitMonth"
+              />
+            </template>
           </div>
         </div>
-        <el-empty v-if="!loading && !dailyProfitCalendarLoading && dailyProfitCalendarEntries.length === 0" description="暂无每日收益数据" />
-        <div v-else class="daily-profit-calendar">
+        <el-empty v-if="dailyProfitPanelMode === 'CALENDAR' && !loading && !dailyProfitCalendarLoading && dailyProfitCalendarEntries.length === 0" description="暂无每日收益数据" />
+        <div v-else-if="dailyProfitPanelMode === 'CALENDAR'" class="daily-profit-calendar">
           <div class="daily-profit-summary">
             <div>
               <span>本月合计</span>
@@ -123,6 +122,60 @@
             </div>
           </div>
         </div>
+        <div v-else class="investment-transactions-panel">
+          <el-empty v-if="!loading && investmentTransactions.length === 0" description="暂无投资交易记录" />
+          <template v-else>
+            <el-table :data="pagedInvestmentTransactions" stripe class="clickable-table" @row-click="openTransactionHoldingDetail">
+              <el-table-column label="时间" min-width="160">
+                <template #default="{ row }">{{ formatDateTime(row.transactionTime) }}</template>
+              </el-table-column>
+              <el-table-column label="资产" min-width="180">
+                <template #default="{ row }">
+                  <div class="holding-name-cell">
+                    <strong>{{ row.assetName || row.symbol || '-' }}</strong>
+                    <span>{{ row.symbol || '-' }}</span>
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column label="类型" width="90" align="center">
+                <template #default="{ row }"><el-tag round effect="light" size="small" :type="transactionTypeTagType(row.type)">{{ transactionTypeLabel(row.type) }}</el-tag></template>
+              </el-table-column>
+              <el-table-column label="资金账户" min-width="130">
+                <template #default="{ row }">{{ row.accountName || '-' }}</template>
+              </el-table-column>
+              <el-table-column label="数量" min-width="130" align="right" header-align="right">
+                <template #default="{ row }">{{ formatTransactionQuantity(row) }}</template>
+              </el-table-column>
+              <el-table-column label="价格/净值" min-width="130" align="right" header-align="right">
+                <template #default="{ row }">{{ formatTransactionPrice(row) }}</template>
+              </el-table-column>
+              <el-table-column label="金额" min-width="140" align="right" header-align="right">
+                <template #default="{ row }"><AmountText :value="transactionAmount(row)" :precision="4" :currency-symbol="currencySymbol" /></template>
+              </el-table-column>
+              <el-table-column label="手续费" min-width="110" align="right" header-align="right">
+                <template #default="{ row }"><AmountText :value="row.fee" :precision="4" :currency-symbol="currencySymbol" /></template>
+              </el-table-column>
+              <el-table-column label="状态" width="110" align="center">
+                <template #default="{ row }"><el-tag round effect="light" size="small" :type="transactionStatusTagType(row.status)">{{ transactionStatusLabel(row.status) }}</el-tag></template>
+              </el-table-column>
+              <el-table-column label="操作" width="90" align="center" fixed="right">
+                <template #default="{ row }">
+                  <el-button link type="danger" :disabled="!canRevokeTransaction(row)" @click.stop="handleRevokeTransaction(row)">撤销</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            <div class="table-footer">
+              <el-pagination
+                v-model:current-page="transactionPageNo"
+                v-model:page-size="transactionPageSize"
+                layout="total, sizes, prev, pager, next"
+                :page-sizes="pageSizeOptions"
+                :total="investmentTransactionTotal"
+                @size-change="handleTransactionPageSizeChange"
+              />
+            </div>
+          </template>
+        </div>
       </section>
     </template>
 
@@ -150,7 +203,7 @@
             <el-segmented v-model="activeSubType" :options="subTypeOptions" />
           </div>
         </div>
-        <el-table :data="pagedModuleHoldings" stripe @row-click="openHoldingDetail">
+        <el-table :data="pagedModuleHoldings" stripe :default-sort="{ prop: 'marketValue', order: 'descending' }" @sort-change="handleModuleHoldingSortChange" @row-click="openHoldingDetail">
           <el-table-column label="名称" min-width="220">
             <template #default="{ row }">
               <div class="holding-name-cell">
@@ -159,13 +212,13 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="持有市值" min-width="140" align="right" header-align="right">
+          <el-table-column label="持有市值" prop="marketValue" sortable="custom" min-width="140" align="right" header-align="right">
             <template #default="{ row }"><AmountText :value="convertAmount(row.marketValue, row.currency)" :precision="4" :currency-symbol="currencySymbol" /></template>
           </el-table-column>
-          <el-table-column label="持有收益" min-width="160" align="right" header-align="right">
+          <el-table-column label="持有收益" prop="floatingProfit" sortable="custom" min-width="160" align="right" header-align="right">
             <template #default="{ row }"><AmountText :value="convertAmount(row.floatingProfit, row.currency)" with-sign :precision="4" :currency-symbol="currencySymbol" /></template>
           </el-table-column>
-          <el-table-column label="今日收益/收益率" min-width="170" align="right" header-align="right">
+          <el-table-column label="今日收益/收益率" prop="todayProfit" sortable="custom" min-width="170" align="right" header-align="right">
             <template #default="{ row }">
               <div class="primary-profit-cell">
                 <AmountText v-if="row.todayProfit !== null && row.todayProfit !== undefined" :value="convertAmount(row.todayProfit, row.currency)" with-sign :precision="4" :currency-symbol="currencySymbol" />
@@ -174,11 +227,11 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="昨日收益" min-width="140" align="right" header-align="right">
+          <el-table-column label="昨日收益" prop="yesterdayProfit" sortable="custom" min-width="140" align="right" header-align="right">
             <!-- 昨日收益独立成列，和今日收益率分开看。 -->
             <template #default="{ row }"><AmountText :value="convertNullableAmount(row.yesterdayProfit, row.currency)" with-sign :precision="4" :currency-symbol="currencySymbol" /></template>
           </el-table-column>
-          <el-table-column :label="modulePriceLabel(activeModule)" min-width="130" align="right" header-align="right">
+          <el-table-column :label="modulePriceLabel(activeModule)" prop="latestPrice" sortable="custom" min-width="130" align="right" header-align="right">
             <template #default="{ row }">{{ formatPrice(row.latestPrice, row.priceScale) }}</template>
           </el-table-column>
           <el-table-column label="价格日期" min-width="120" align="right" header-align="right">
@@ -317,10 +370,15 @@ import AmountText from '@/components/finance/AmountText.vue';
 import MetricCard from '@/components/finance/MetricCard.vue';
 import { ROUTES } from '@/constants/routes';
 import { exchangeRateApi } from '@/services/exchangeRateApi';
-import { investmentApi, type AssetLookupItem, type AssetType, type HoldingItem, type HoldingRequest, type InvestmentCalendarDayProfit, type InvestmentModuleAsset, type InvestmentOverview, type InvestmentTrendPoint, type QuoteSource } from '@/services/investmentApi';
+import { investmentApi, type AssetLookupItem, type AssetType, type HoldingItem, type HoldingRequest, type InvestmentCalendarDayProfit, type InvestmentModuleAsset, type InvestmentOverview, type InvestmentTransactionItem, type InvestmentTrendPoint, type QuoteSource } from '@/services/investmentApi';
 
 type DisplayCurrency = 'CNY' | 'USD';
 type InvestmentModule = 'ALL' | 'FUND' | 'STOCK' | 'CRYPTO';
+type DailyProfitPanelMode = 'CALENDAR' | 'TRANSACTIONS';
+type TrendModuleKey = InvestmentModule;
+type TrendPeriod = 'WEEK' | 'MONTH' | 'YEAR';
+type ModuleHoldingSortProp = 'marketValue' | 'floatingProfit' | 'todayProfit' | 'yesterdayProfit' | 'latestPrice';
+type SortOrder = 'ascending' | 'descending' | null;
 type DailyProfitCalendarCell = {
   key: string;
   empty: boolean;
@@ -341,6 +399,21 @@ const moduleTabs: Array<{ label: string; value: InvestmentModule }> = [
   { label: '股票', value: 'STOCK' },
   { label: '虚拟货币', value: 'CRYPTO' }
 ];
+const trendLineModules: Array<{ label: string; value: TrendModuleKey; color: string }> = [
+  { label: '总览', value: 'ALL', color: '#2563eb' },
+  { label: '股票', value: 'STOCK', color: '#16a34a' },
+  { label: '基金', value: 'FUND', color: '#8b5cf6' },
+  { label: '虚拟货币', value: 'CRYPTO', color: '#f59e0b' }
+];
+const dailyProfitPanelOptions: Array<{ label: string; value: DailyProfitPanelMode }> = [
+  { label: '收益日历', value: 'CALENDAR' },
+  { label: '交易记录', value: 'TRANSACTIONS' }
+];
+const trendPeriodOptions: Array<{ label: string; value: TrendPeriod }> = [
+  { label: '周', value: 'WEEK' },
+  { label: '月', value: 'MONTH' },
+  { label: '年', value: 'YEAR' }
+];
 const route = useRoute();
 const router = useRouter();
 const currencyOptions = [
@@ -350,8 +423,9 @@ const currencyOptions = [
 const overview = ref<InvestmentOverview | null>(null);
 const holdings = ref<HoldingItem[]>([]);
 const moduleHoldings = ref<HoldingItem[]>([]);
-const investmentTrend = ref<InvestmentTrendPoint[]>([]);
+const investmentTrends = ref<Record<TrendModuleKey, InvestmentTrendPoint[]>>({ ALL: [], FUND: [], STOCK: [], CRYPTO: [] });
 const dailyProfitCalendarEntries = ref<InvestmentCalendarDayProfit[]>([]);
+const investmentTransactions = ref<InvestmentTransactionItem[]>([]);
 const dailyProfitCalendarLoading = ref(false);
 const dailyProfitCalendarFailed = ref(false);
 const loading = ref(false);
@@ -366,14 +440,18 @@ const activeHolding = ref<HoldingItem | null>(null);
 const refreshingAssetId = ref('');
 const displayCurrency = ref<DisplayCurrency>('CNY');
 const activeModule = ref<InvestmentModule>(routeModule(route.query.module));
-const trendModule = ref<InvestmentModule>('ALL');
 const activeSubType = ref('ALL');
 const profitCalendarMonth = ref(startOfMonth(new Date()));
+const dailyProfitPanelMode = ref<DailyProfitPanelMode>('CALENDAR');
+const trendPeriod = ref<TrendPeriod>('MONTH');
 const usdCnyRate = ref(7.2);
 // 投资模块持仓表格前端分页展示，统计类数据仍使用完整持仓列表计算。
 const pageSizeOptions = [10, 50, 100, 300];
 const modulePageNo = ref(1);
 const modulePageSize = ref(10);
+const moduleHoldingSort = ref<{ prop: ModuleHoldingSortProp; order: SortOrder }>({ prop: 'marketValue', order: 'descending' });
+const transactionPageNo = ref(1);
+const transactionPageSize = ref(10);
 const holdingForm = reactive<Required<Omit<HoldingRequest, 'assetId'>>>({
   assetName: '',
   symbol: '',
@@ -524,10 +602,26 @@ const filteredModuleHoldings = computed(() => {
   const rows = moduleHoldings.value.length ? moduleHoldings.value : holdings.value.filter((item) => item.assetType === activeModule.value);
   return activeSubType.value === 'ALL' ? rows : rows.filter((item) => item.assetSubType === activeSubType.value);
 });
+const sortedModuleHoldings = computed(() => {
+  const sort = moduleHoldingSort.value;
+  const rows = [...filteredModuleHoldings.value];
+  if (!sort.order) {
+    return rows;
+  }
+  const order = sort.order;
+  // 持仓列表先按全量数据排序再分页，避免只排序当前页造成数据顺序误导。
+  return rows.sort((left, right) => compareHoldingSortValue(left, right, sort.prop, order));
+});
 const moduleHoldingTotal = computed(() => filteredModuleHoldings.value.length);
 const pagedModuleHoldings = computed(() => {
   const start = (modulePageNo.value - 1) * modulePageSize.value;
-  return filteredModuleHoldings.value.slice(start, start + modulePageSize.value);
+  return sortedModuleHoldings.value.slice(start, start + modulePageSize.value);
+});
+const investmentTransactionTotal = computed(() => investmentTransactions.value.length);
+const pagedInvestmentTransactions = computed(() => {
+  const start = (transactionPageNo.value - 1) * transactionPageSize.value;
+  // 交易记录复用全量接口，本地分页，避免为了展示分页扩大后端改动。
+  return investmentTransactions.value.slice(start, start + transactionPageSize.value);
 });
 watch(moduleHoldingTotal, (total) => {
   const maxPage = Math.max(1, Math.ceil(total / modulePageSize.value));
@@ -535,30 +629,53 @@ watch(moduleHoldingTotal, (total) => {
     modulePageNo.value = maxPage;
   }
 });
-const allocationOption = computed<EChartsOption>(() => ({
-  color: ['#3b82f6', '#2dd4bf', '#8b5cf6', '#f6c453', '#fb7185', '#60a5fa', '#a78bfa'],
-  tooltip: { trigger: 'item' },
-  series: [{
-    type: 'pie',
-    radius: ['45%', '72%'],
-    data: moduleAssets.value.map((item) => ({ name: item.name, value: round4(convertAmount(item.assetAmount, 'CNY')) })).filter((item) => item.value > 0)
-  }]
-}));
+watch(investmentTransactionTotal, (total) => {
+  const maxPage = Math.max(1, Math.ceil(total / transactionPageSize.value));
+  if (transactionPageNo.value > maxPage) {
+    transactionPageNo.value = maxPage;
+  }
+});
+const investmentTrendDates = computed(() => {
+  const dates = new Set<string>();
+  trendLineModules.forEach((module) => {
+    investmentTrends.value[module.value].forEach((item) => dates.add(item.date));
+  });
+  return [...dates].sort();
+});
+const investmentTrendSeriesEmpty = computed(() => investmentTrendDates.value.length === 0);
 const investmentTrendOption = computed<EChartsOption>(() => ({
-  grid: { left: 54, right: 18, top: 24, bottom: 36 },
-  tooltip: { trigger: 'axis', valueFormatter: (value) => formatMoney(Number(value)) },
-  xAxis: { type: 'category', data: investmentTrend.value.map((item) => item.date), axisLine: { lineStyle: { color: '#e2e8f0' } } },
-  yAxis: { type: 'value', axisLabel: { formatter: (value: number) => compactMoney(value) }, splitLine: { lineStyle: { color: '#e2e8f0' } } },
-  series: [{
-    name: moduleLabel(trendModule.value),
-    type: 'line',
-    smooth: true,
-    symbolSize: 6,
-    data: investmentTrend.value.map((item) => round4(convertAmount(item.assetAmount ?? item.marketValue, 'CNY'))),
-    lineStyle: { color: '#2563eb', width: 3 },
-    itemStyle: { color: '#2563eb' },
-    areaStyle: { color: 'rgba(37, 99, 235, 0.12)' }
-  }]
+  color: trendLineModules.map((item) => item.color),
+  grid: { left: 58, right: 28, top: 28, bottom: 42 },
+  legend: { top: 0, right: 0 },
+  tooltip: {
+    trigger: 'axis',
+    valueFormatter: (value) => formatMoney(Number(value) * 1000)
+  },
+  xAxis: {
+    type: 'category',
+    data: investmentTrendDates.value,
+    axisLabel: { color: '#334155', fontWeight: 600 },
+    axisLine: { lineStyle: { color: '#cbd5e1' } }
+  },
+  yAxis: {
+    type: 'value',
+    name: '金额(k)',
+    axisLabel: { color: '#475569', formatter: (value: number) => `${round4(value)}k` },
+    splitLine: { lineStyle: { color: '#e2e8f0' } }
+  },
+  series: trendLineModules.map((module) => {
+    const pointMap = new Map(investmentTrends.value[module.value].map((item) => [item.date, item]));
+    return {
+      name: module.label,
+      type: 'line',
+      smooth: true,
+      symbolSize: 6,
+      connectNulls: true,
+      data: investmentTrendDates.value.map((date) => trendPointToK(pointMap.get(date))),
+      lineStyle: { width: 3 },
+      areaStyle: module.value === 'ALL' ? { color: 'rgba(37, 99, 235, 0.08)' } : undefined
+    };
+  })
 }));
 const profitCalendarWeekdays = ['日', '一', '二', '三', '四', '五', '六'];
 const profitCalendarMonthLabel = computed(() => `${calendarMonthKey(profitCalendarMonth.value)} 月收益`);
@@ -617,21 +734,37 @@ const dailyProfitSubtitle = computed(() => {
 async function loadPageData() {
   loading.value = true;
   try {
-    const [overviewResult, holdingList, trendResult] = await Promise.all([
+    const [overviewResult, holdingList, transactionsResult] = await Promise.all([
       investmentApi.overviewInvestments(),
       investmentApi.listInvestmentHoldings({ module: 'ALL' }),
-      investmentApi.trendInvestments({ module: trendModule.value, period: 'MONTH' })
+      investmentApi.listTransactions()
     ]);
     overview.value = overviewResult;
     holdings.value = holdingList;
+    investmentTransactions.value = transactionsResult || [];
     moduleHoldings.value = activeModule.value === 'ALL' ? [] : await investmentApi.listInvestmentHoldings({ module: activeModule.value });
-    investmentTrend.value = trendResult.points || [];
+    await loadInvestmentTrends();
     // 每日收益月历固定使用全持仓聚合结果，不跟随资产趋势模块切换。
     await loadDailyProfitCalendar(false);
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '投资数据加载失败');
   } finally {
     loading.value = false;
+  }
+}
+
+// 加载四条资产趋势线，周期切换只刷新趋势数据，不重载整页。
+async function loadInvestmentTrends() {
+  try {
+    const trendResults = await Promise.all(
+      trendLineModules.map((module) => investmentApi.trendInvestments({ module: module.value, period: trendPeriod.value }))
+    );
+    investmentTrends.value = trendLineModules.reduce((result, module, index) => {
+      result[module.value] = trendResults[index]?.points || [];
+      return result;
+    }, { ALL: [], FUND: [], STOCK: [], CRYPTO: [] } as Record<TrendModuleKey, InvestmentTrendPoint[]>);
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '趋势加载失败');
   }
 }
 
@@ -721,16 +854,6 @@ function pad(value: number) {
   return String(value).padStart(2, '0');
 }
 
-// 加载趋势数据。
-async function loadTrend() {
-  try {
-    const result = await investmentApi.trendInvestments({ module: trendModule.value, period: 'MONTH' });
-    investmentTrend.value = result.points || [];
-  } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '趋势加载失败');
-  }
-}
-
 // 切换投资模块。
 async function handleModuleChange() {
   if (activeModule.value === 'ALL') {
@@ -750,6 +873,21 @@ async function handleModuleChange() {
 // 切换持仓分页大小。
 function handleModulePageSizeChange() {
   modulePageNo.value = 1;
+}
+
+// 切换持仓表头排序，排序字段受控，避免透传未知 prop 影响分页前排序。
+function handleModuleHoldingSortChange({ prop, order }: { prop?: string; order: SortOrder }) {
+  if (!isModuleHoldingSortProp(prop)) {
+    moduleHoldingSort.value = { prop: 'marketValue', order: 'descending' };
+    return;
+  }
+  moduleHoldingSort.value = { prop, order };
+  modulePageNo.value = 1;
+}
+
+// 切换交易记录分页大小。
+function handleTransactionPageSizeChange() {
+  transactionPageNo.value = 1;
 }
 
 // 切换模块。
@@ -805,6 +943,18 @@ function openHoldingDetail(holding: HoldingItem) {
   router.push({
     path: ROUTES.holdingDetail.replace(':id', holding.id),
     // 详情页直达或浏览器历史缺失时仍能回到刚才所在投资模块。
+    query: { fromModule: activeModule.value }
+  });
+}
+
+// 从全量交易记录跳转到对应持仓详情。
+function openTransactionHoldingDetail(transaction: InvestmentTransactionItem) {
+  if (!transaction.holdingId) {
+    ElMessage.warning('该交易缺少持仓信息');
+    return;
+  }
+  router.push({
+    path: ROUTES.holdingDetail.replace(':id', transaction.holdingId),
     query: { fromModule: activeModule.value }
   });
 }
@@ -1015,6 +1165,39 @@ function convertNullableAmount(value?: number | null, sourceCurrency?: string | 
   return convertAmount(value, sourceCurrency);
 }
 
+// 判断模块持仓列表支持的排序字段。
+function isModuleHoldingSortProp(prop?: string): prop is ModuleHoldingSortProp {
+  return prop === 'marketValue' || prop === 'floatingProfit' || prop === 'todayProfit' || prop === 'yesterdayProfit' || prop === 'latestPrice';
+}
+
+// 按业务金额排序，金额类字段统一换算成人民币，空值始终排在最后。
+function holdingSortValue(row: HoldingItem, prop: ModuleHoldingSortProp) {
+  if (prop === 'latestPrice') {
+    return row.latestPrice === null || row.latestPrice === undefined ? null : Number(row.latestPrice);
+  }
+  const value = row[prop];
+  if (value === null || value === undefined) {
+    return null;
+  }
+  return amountToCny(Number(value), row.currency);
+}
+
+// 比较持仓排序值。
+function compareHoldingSortValue(left: HoldingItem, right: HoldingItem, prop: ModuleHoldingSortProp, order: Exclude<SortOrder, null>) {
+  const leftValue = holdingSortValue(left, prop);
+  const rightValue = holdingSortValue(right, prop);
+  if (leftValue === null && rightValue === null) {
+    return 0;
+  }
+  if (leftValue === null) {
+    return 1;
+  }
+  if (rightValue === null) {
+    return -1;
+  }
+  return order === 'ascending' ? leftValue - rightValue : rightValue - leftValue;
+}
+
 // 模块昨日收益只认后端按收益日历聚合后的结果，避免前端用持仓行旧字段拼出不同日期的收益。
 function moduleCardYesterdayProfit(item: InvestmentModuleAsset) {
   return convertNullableAmount(item.yesterdayProfit, 'CNY');
@@ -1030,13 +1213,6 @@ function round4(value: number) {
   return Number(Number(value || 0).toFixed(4));
 }
 
-// 格式化紧凑金额。
-function compactMoney(value: number) {
-  const abs = Math.abs(value);
-  if (abs >= 10000) return `${currencySymbol.value}${round4(value / 10000)}万`;
-  return `${currencySymbol.value}${round4(value)}`;
-}
-
 // 格式化金额。
 function formatMoney(value: number) {
   return `${currencySymbol.value}${round4(value).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`;
@@ -1046,6 +1222,73 @@ function formatMoney(value: number) {
 function formatSignedMoney(value: number) {
   const prefix = value > 0 ? '+' : value < 0 ? '-' : '';
   return `${prefix}${currencySymbol.value}${Math.abs(round4(value)).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`;
+}
+
+// 趋势图按 k 作为左轴单位，原始金额仍按展示币种换算。
+function trendPointToK(point?: InvestmentTrendPoint) {
+  if (!point) {
+    return null;
+  }
+  return round4(convertAmount(point.assetAmount ?? point.marketValue, 'CNY') / 1000);
+}
+
+// 转换交易类型文案。
+function transactionTypeLabel(type?: string | null) {
+  return type === 'SELL' ? '卖出' : '买入';
+}
+
+// 交易类型两处交易表统一颜色：买入偏收益色，卖出偏提醒色。
+function transactionTypeTagType(type?: string | null) {
+  return type === 'SELL' ? 'warning' : 'success';
+}
+
+// 转换交易状态文案。
+function transactionStatusLabel(status?: string | null) {
+  return ({ NORMAL: '正常', CONFIRMED: '已确认', PENDING_CONFIRM: '待确认', FAILED: '确认失败', CANCELLED: '已取消', REVOKED: '已撤销' } as Record<string, string>)[status || ''] || '正常';
+}
+
+// 交易状态颜色和持仓详情保持一致。
+function transactionStatusTagType(status?: string | null) {
+  return ({ NORMAL: 'success', CONFIRMED: 'success', PENDING_CONFIRM: 'warning', FAILED: 'danger', CANCELLED: 'info', REVOKED: 'info' } as Record<string, string>)[status || ''] || 'success';
+}
+
+// 格式化交易数量，股票 / 基金 / 虚拟货币混合列表统一保留最多 10 位。
+function formatTransactionQuantity(row: InvestmentTransactionItem) {
+  const quantity = row.confirmedQuantity ?? row.tradeQuantity ?? row.quantity;
+  return Number(quantity || 0).toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 10 });
+}
+
+// 格式化交易价格，金额净值模式优先显示确认净值。
+function formatTransactionPrice(row: InvestmentTransactionItem) {
+  const price = row.confirmedNav ?? row.tradePrice ?? row.price;
+  if (price === null || price === undefined) {
+    return '--';
+  }
+  return Number(price).toLocaleString('zh-CN', { minimumFractionDigits: 4, maximumFractionDigits: 8 });
+}
+
+// 交易金额优先展示真实资金流金额，兼容金额净值模式。
+function transactionAmount(row: InvestmentTransactionItem) {
+  return Number(row.tradeAmount ?? row.amount ?? 0);
+}
+
+// 撤销或取消过的交易只保留查看，不允许重复撤销。
+function canRevokeTransaction(row: InvestmentTransactionItem) {
+  return row.status !== 'REVOKED' && row.status !== 'CANCELLED';
+}
+
+// 从全量交易列表撤销投资交易，撤销后刷新持仓、趋势、日历和交易列表。
+async function handleRevokeTransaction(row: InvestmentTransactionItem) {
+  try {
+    await ElMessageBox.confirm('撤销后会反向恢复账户余额和持仓，确认继续吗？', '撤销投资交易', { type: 'warning', confirmButtonText: '撤销', cancelButtonText: '取消' });
+    await investmentApi.revokeTransaction(row.id, '录入错误');
+    ElMessage.success('投资交易已撤销');
+    await loadPageData();
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') {
+      ElMessage.error(error instanceof Error ? error.message : '投资交易撤销失败');
+    }
+  }
 }
 
 // 生成日历收益文案。
@@ -1299,6 +1542,9 @@ function profitTone(value?: number | null): 'success' | 'danger' | 'warning' | '
   font-size: 13px;
 }
 
+.investment-trend-panel {
+  grid-column: 1 / -1;
+}
 
 .metric-extra-row {
   display: inline-flex;
@@ -1382,6 +1628,16 @@ function profitTone(value?: number | null): 'success' | 'danger' | 'warning' | '
 .daily-profit-calendar {
   display: grid;
   gap: 14px;
+}
+
+.investment-transactions-panel {
+  display: grid;
+  gap: 14px;
+}
+
+/* 全量交易记录通过整行点击进入持仓详情，鼠标样式明确交互入口。 */
+.clickable-table :deep(.el-table__body tr) {
+  cursor: pointer;
 }
 
 .daily-profit-summary {
@@ -1605,6 +1861,10 @@ function profitTone(value?: number | null): 'success' | 'danger' | 'warning' | '
 
   .profit-calendar-amount {
     font-size: 14px;
+  }
+
+  .investment-trend-panel {
+    grid-column: auto;
   }
 }
 
