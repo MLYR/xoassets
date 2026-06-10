@@ -129,7 +129,8 @@ public class InvestmentPositionHistoryServiceImpl implements InvestmentPositionH
                         .orderByAsc(InvestmentTransaction::getTransactionTime))
                 .stream()
                 .filter(this::isEffective)
-                .filter(transaction -> !effectiveDate(transaction).isBefore(start) && !effectiveDate(transaction).isAfter(end))
+                // 净入金按现金实际进出投资资产的日期统计；基金份额确认日只影响持仓生效，不应重复算入本金。
+                .filter(transaction -> inRange(cashFlowDate(transaction), start, end))
                 .map(this::netInflowAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .setScale(4, RoundingMode.HALF_UP);
@@ -150,7 +151,7 @@ public class InvestmentPositionHistoryServiceImpl implements InvestmentPositionH
                         .le(InvestmentTransaction::getTransactionTime, endDate.atTime(LocalTime.MAX)))
                 .stream()
                 .filter(this::isEffective)
-                .filter(transaction -> !effectiveDate(transaction).isBefore(startDate) && !effectiveDate(transaction).isAfter(endDate))
+                .filter(transaction -> inRange(effectiveDate(transaction), startDate, endDate) || inRange(cashFlowDate(transaction), startDate, endDate))
                 .map(InvestmentTransaction::getUserId)
                 .collect(Collectors.toSet());
         Set<Long> snapshotUsers = dailySnapshotMapper.selectList(new LambdaQueryWrapper<InvestmentDailySnapshot>()
@@ -248,6 +249,23 @@ public class InvestmentPositionHistoryServiceImpl implements InvestmentPositionH
             return transaction.getTradeDate();
         }
         return transaction.getTransactionTime().toLocalDate();
+    }
+
+    /**
+     * 计算投资现金流日期；基金金额申购在下单日已扣款，不能等确认日才算净入金。
+     */
+    private LocalDate cashFlowDate(InvestmentTransaction transaction) {
+        if (transaction.getTradeDate() != null) {
+            return transaction.getTradeDate();
+        }
+        return transaction.getTransactionTime().toLocalDate();
+    }
+
+    /**
+     * 判断日期是否落在闭区间内。
+     */
+    private boolean inRange(LocalDate date, LocalDate start, LocalDate end) {
+        return date != null && !date.isBefore(start) && !date.isAfter(end);
     }
 
     /**

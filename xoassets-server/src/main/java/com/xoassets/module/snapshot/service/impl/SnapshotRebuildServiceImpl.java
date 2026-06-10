@@ -3,6 +3,7 @@ package com.xoassets.module.snapshot.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.xoassets.common.security.LoginUserContext;
+import com.xoassets.module.investment.scheduler.InvestmentDailySnapshotJob;
 import com.xoassets.module.snapshot.service.SnapshotRebuildService;
 import com.xoassets.module.snapshot.service.SnapshotService;
 import com.xoassets.persistence.entity.SnapshotRebuildTask;
@@ -49,11 +50,19 @@ public class SnapshotRebuildServiceImpl implements SnapshotRebuildService {
      * 运行中任务超过该分钟数未完成时允许重新捞起，避免进程中断后永久卡住。
      */
     private static final long RUNNING_STALE_MINUTES = 30;
+    /**
+     * 投资重建触发来源前缀。
+     */
+    private static final String TRIGGER_INVESTMENT_PREFIX = "INVESTMENT";
 
     /**
      * 资产快照服务。
      */
     private final SnapshotService snapshotService;
+    /**
+     * 投资日快照任务。
+     */
+    private final InvestmentDailySnapshotJob investmentDailySnapshotJob;
     /**
      * 重建任务数据访问组件。
      */
@@ -62,8 +71,12 @@ public class SnapshotRebuildServiceImpl implements SnapshotRebuildService {
     /**
      * 注入业务依赖。
      */
-    public SnapshotRebuildServiceImpl(SnapshotService snapshotService, SnapshotRebuildTaskMapper taskMapper) {
+    public SnapshotRebuildServiceImpl(
+            SnapshotService snapshotService,
+            InvestmentDailySnapshotJob investmentDailySnapshotJob,
+            SnapshotRebuildTaskMapper taskMapper) {
         this.snapshotService = snapshotService;
+        this.investmentDailySnapshotJob = investmentDailySnapshotJob;
         this.taskMapper = taskMapper;
     }
 
@@ -72,6 +85,21 @@ public class SnapshotRebuildServiceImpl implements SnapshotRebuildService {
      */
     @Override
     public void requestRebuild(Long userId, LocalDate startDate, String triggerType) {
+        requestRebuild(userId, startDate, triggerType, false);
+    }
+
+    /**
+     * 投资交易变更必须先重建投资日快照，再重建资产快照，保证投资趋势和净资产口径一致。
+     */
+    @Override
+    public void requestInvestmentRebuild(Long userId, LocalDate startDate, String triggerType) {
+        requestRebuild(userId, startDate, triggerType, true);
+    }
+
+    /**
+     * 近期请求直接重建；长跨度请求合并为待处理任务，避免补录老流水阻塞用户操作。
+     */
+    private void requestRebuild(Long userId, LocalDate startDate, String triggerType, boolean rebuildInvestment) {
         LocalDate today = LocalDate.now();
         LocalDate start = normalizeStart(startDate, today);
         if (userId == null || start == null) {
@@ -79,13 +107,17 @@ public class SnapshotRebuildServiceImpl implements SnapshotRebuildService {
         }
         if (daysBetween(start, today) <= SYNC_REBUILD_MAX_DAYS) {
             try {
-                rebuildRange(userId, start, today);
+                if (rebuildInvestment) {
+                    rebuildInvestmentRange(userId, start, today);
+                } else {
+                    rebuildRange(userId, start, today);
+                }
                 return;
             } catch (Exception exception) {
-                log.warn("近期资产快照同步重建失败，转为后台任务 userId={} startDate={}", userId, start, exception);
+                log.warn("近期快照同步重建失败，转为后台任务 userId={} startDate={} triggerType={}", userId, start, triggerType, exception);
             }
         }
-        mergePendingTask(userId, start, today, triggerType);
+        mergePendingTask(userId, start, today, normalizedTriggerType(triggerType, rebuildInvestment));
     }
 
     /**
@@ -109,6 +141,25 @@ public class SnapshotRebuildServiceImpl implements SnapshotRebuildService {
         }
         LocalDate cursor = start;
         while (!cursor.isAfter(end)) {
+            snapshotService.generateForUser(userId, cursor);
+            cursor = cursor.plusDays(1);
+        }
+    }
+
+    /**
+     * 按日期逐日先 upsert 投资日快照，再 upsert 资产快照，覆盖投资补录导致的持仓和净资产历史差异。
+     */
+    @Override
+    public void rebuildInvestmentRange(Long userId, LocalDate startDate, LocalDate endDate) {
+        LocalDate today = LocalDate.now();
+        LocalDate start = normalizeStart(startDate, today);
+        LocalDate end = normalizeEnd(endDate, today);
+        if (userId == null || start == null || end == null || start.isAfter(end)) {
+            return;
+        }
+        LocalDate cursor = start;
+        while (!cursor.isAfter(end)) {
+            investmentDailySnapshotJob.snapshotForUser(userId, cursor);
             snapshotService.generateForUser(userId, cursor);
             cursor = cursor.plusDays(1);
         }
@@ -153,7 +204,11 @@ public class SnapshotRebuildServiceImpl implements SnapshotRebuildService {
             return;
         }
         try {
-            rebuildRange(task.getUserId(), task.getStartDate(), task.getEndDate());
+            if (requiresInvestmentRebuild(task.getTriggerType())) {
+                rebuildInvestmentRange(task.getUserId(), task.getStartDate(), task.getEndDate());
+            } else {
+                rebuildRange(task.getUserId(), task.getStartDate(), task.getEndDate());
+            }
             taskMapper.update(null, new LambdaUpdateWrapper<SnapshotRebuildTask>()
                     .set(SnapshotRebuildTask::getStatus, STATUS_SUCCESS)
                     .set(SnapshotRebuildTask::getErrorMessage, null)
@@ -196,9 +251,36 @@ public class SnapshotRebuildServiceImpl implements SnapshotRebuildService {
                 .set(SnapshotRebuildTask::getStartDate, mergedStart)
                 .set(SnapshotRebuildTask::getEndDate, mergedEnd)
                 .set(SnapshotRebuildTask::getStatus, STATUS_PENDING)
-                .set(SnapshotRebuildTask::getTriggerType, triggerType == null ? exists.getTriggerType() : triggerType)
+                .set(SnapshotRebuildTask::getTriggerType, mergeTriggerType(exists.getTriggerType(), triggerType))
                 .set(SnapshotRebuildTask::getErrorMessage, null)
                 .eq(SnapshotRebuildTask::getId, exists.getId()));
+    }
+
+    /**
+     * 规范触发来源；投资触发统一保留 INVESTMENT 前缀，后台可据此补跑投资日快照。
+     */
+    private String normalizedTriggerType(String triggerType, boolean rebuildInvestment) {
+        if (rebuildInvestment && (triggerType == null || !triggerType.startsWith(TRIGGER_INVESTMENT_PREFIX))) {
+            return TRIGGER_INVESTMENT_PREFIX;
+        }
+        return triggerType == null ? "UNKNOWN" : triggerType;
+    }
+
+    /**
+     * 合并任务来源；任一来源需要投资重建时，合并任务也必须走投资重建路径。
+     */
+    private String mergeTriggerType(String existsTriggerType, String newTriggerType) {
+        if (requiresInvestmentRebuild(existsTriggerType) || requiresInvestmentRebuild(newTriggerType)) {
+            return requiresInvestmentRebuild(newTriggerType) ? newTriggerType : TRIGGER_INVESTMENT_PREFIX;
+        }
+        return newTriggerType == null ? existsTriggerType : newTriggerType;
+    }
+
+    /**
+     * 判断任务是否需要先补投资日快照。
+     */
+    private boolean requiresInvestmentRebuild(String triggerType) {
+        return triggerType != null && triggerType.startsWith(TRIGGER_INVESTMENT_PREFIX);
     }
 
     /**

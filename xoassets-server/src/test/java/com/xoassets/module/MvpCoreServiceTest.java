@@ -217,13 +217,14 @@ class MvpCoreServiceTest {
         HoldingMapper holdingMapper = mock(HoldingMapper.class);
         InvestmentTransactionMapper transactionMapper = mock(InvestmentTransactionMapper.class);
         AssetService assetService = mock(AssetService.class);
+        SnapshotRebuildService snapshotRebuildService = mock(SnapshotRebuildService.class);
         AccountServiceImpl accountService = new AccountServiceImpl(accountMapper, mock(TransactionRecordMapper.class), mock(com.xoassets.module.account.service.AccountBalanceService.class));
         HoldingServiceImpl holdingService = new HoldingServiceImpl(
                 holdingMapper, assetMapper, mock(AssetPriceCurrentMapper.class), mock(AssetPriceDailyMapper.class),
                 mock(InvestmentDailySnapshotMapper.class), transactionMapper, mock(MarketCalendarMapper.class), accountMapper, assetService, mock(com.xoassets.module.investment.service.InvestmentPositionHistoryService.class), mock(QuoteService.class), testExchangeRateService());
         InvestmentTransactionServiceImpl transactionService = new InvestmentTransactionServiceImpl(
                 transactionMapper, assetMapper, mock(AssetPriceDailyMapper.class), mock(AssetPriceCurrentMapper.class),
-                accountMapper, assetService, mock(FundConfirmDateService.class), holdingService, accountService, mock(com.xoassets.module.snapshot.service.SnapshotService.class), mock(InvestmentDailySnapshotJob.class));
+                accountMapper, assetService, mock(FundConfirmDateService.class), holdingService, accountService, snapshotRebuildService);
 
         mockAtomicBalance(accountMapper, bank);
         when(holdingMapper.update(any(), any())).thenReturn(1);
@@ -250,6 +251,7 @@ class MvpCoreServiceTest {
         assertEquals(bd("1353.0000"), holding.getTotalCost());
         assertEquals(bd("9.0200"), holding.getAvgCost());
         assertEquals(bd("147.0000"), sell.getRealizedProfit());
+        verify(snapshotRebuildService, atLeastOnce()).requestInvestmentRebuild(USER_ID, LocalDate.of(2026, 5, 1), "INVESTMENT_TRANSACTION");
     }
 
     @Test
@@ -260,13 +262,14 @@ class MvpCoreServiceTest {
         AssetMapper assetMapper = mock(AssetMapper.class);
         HoldingMapper holdingMapper = mock(HoldingMapper.class);
         InvestmentTransactionMapper transactionMapper = mock(InvestmentTransactionMapper.class);
+        SnapshotRebuildService snapshotRebuildService = mock(SnapshotRebuildService.class);
         AccountServiceImpl accountService = new AccountServiceImpl(accountMapper, mock(TransactionRecordMapper.class), mock(com.xoassets.module.account.service.AccountBalanceService.class));
         HoldingServiceImpl holdingService = new HoldingServiceImpl(
                 holdingMapper, assetMapper, mock(AssetPriceCurrentMapper.class), mock(AssetPriceDailyMapper.class),
                 mock(InvestmentDailySnapshotMapper.class), transactionMapper, mock(MarketCalendarMapper.class), accountMapper, mock(AssetService.class), mock(com.xoassets.module.investment.service.InvestmentPositionHistoryService.class), mock(QuoteService.class), testExchangeRateService());
         InvestmentTransactionServiceImpl transactionService = new InvestmentTransactionServiceImpl(
                 transactionMapper, assetMapper, mock(AssetPriceDailyMapper.class), mock(AssetPriceCurrentMapper.class),
-                accountMapper, mock(AssetService.class), mock(FundConfirmDateService.class), holdingService, accountService, mock(com.xoassets.module.snapshot.service.SnapshotService.class), mock(InvestmentDailySnapshotJob.class));
+                accountMapper, mock(AssetService.class), mock(FundConfirmDateService.class), holdingService, accountService, snapshotRebuildService);
         InvestmentTransaction sell = investmentRecord(99L, "SELL", "50.0000", "12.0000", "600.0000", "2.0000", "451.0000");
 
         mockAtomicBalance(accountMapper, bank);
@@ -284,6 +287,7 @@ class MvpCoreServiceTest {
         assertEquals(bd("1804.0000"), holding.getTotalCost());
         assertEquals(bd("9.0200"), holding.getAvgCost());
         assertEquals("REVOKED", revoked.getStatus());
+        verify(snapshotRebuildService).requestInvestmentRebuild(USER_ID, LocalDate.of(2026, 5, 1), "INVESTMENT_TRANSACTION");
 
         sell.setStatus("REVOKED");
         assertThrows(BusinessException.class, () -> transactionService.revoke(99L, request));
@@ -467,6 +471,26 @@ class MvpCoreServiceTest {
     }
 
     @Test
+    void investmentNetInflowShouldUseFundCashDateNotConfirmedDate() {
+        HoldingMapper holdingMapper = mock(HoldingMapper.class);
+        InvestmentTransactionMapper transactionMapper = mock(InvestmentTransactionMapper.class);
+        InvestmentDailySnapshotMapper dailySnapshotMapper = mock(InvestmentDailySnapshotMapper.class);
+        InvestmentPositionHistoryServiceImpl service = new InvestmentPositionHistoryServiceImpl(holdingMapper, transactionMapper, dailySnapshotMapper);
+        InvestmentTransaction fundBuy = investmentRecord(1L, "BUY", "0.0000", "0.0000", "1500.0000", "0.0000", "1500.0000");
+        fundBuy.setInputMode("AMOUNT_NAV");
+        fundBuy.setTradeAmount(bd("1500.0000"));
+        fundBuy.setStatus("CONFIRMED");
+        fundBuy.setTransactionTime(LocalDateTime.of(2026, 6, 4, 9, 30));
+        fundBuy.setConfirmedDate(LocalDate.of(2026, 6, 8));
+
+        when(transactionMapper.selectList(any())).thenReturn(List.of(fundBuy));
+
+        // 基金金额申购在下单日已扣款，确认日只增加份额，不应再次形成净入金。
+        assertEquals(bd("1500.0000"), service.netInflow(USER_ID, LocalDate.of(2026, 6, 4), LocalDate.of(2026, 6, 4)));
+        assertEquals(bd("0.0000"), service.netInflow(USER_ID, LocalDate.of(2026, 6, 8), LocalDate.of(2026, 6, 8)));
+    }
+
+    @Test
     void investmentPositionHistoryShouldKeepManualBaseWhenHoldingHasFundBuyTransaction() {
         HoldingMapper holdingMapper = mock(HoldingMapper.class);
         InvestmentTransactionMapper transactionMapper = mock(InvestmentTransactionMapper.class);
@@ -549,11 +573,10 @@ class MvpCoreServiceTest {
         FundConfirmDateService confirmDateService = mock(FundConfirmDateService.class);
         HoldingService holdingService = mock(HoldingService.class);
         AccountService accountService = mock(AccountService.class);
-        SnapshotService snapshotService = mock(SnapshotService.class);
-        InvestmentDailySnapshotJob investmentDailySnapshotJob = mock(InvestmentDailySnapshotJob.class);
+        SnapshotRebuildService snapshotRebuildService = mock(SnapshotRebuildService.class);
         InvestmentTransactionServiceImpl service = new InvestmentTransactionServiceImpl(
                 transactionMapper, assetMapper, dailyMapper, currentMapper, mock(AccountMapper.class),
-                assetService, confirmDateService, holdingService, accountService, snapshotService, investmentDailySnapshotJob);
+                assetService, confirmDateService, holdingService, accountService, snapshotRebuildService);
         Asset fund = asset(10L, "FUND-A", "基金 A", "FUND", "CNY");
         Account account = account(1L, USER_ID, "银行卡", "BANK", "9999.0000");
         Holding holding = holding(1L, USER_ID, 10L, "0.0000", "0.0000", "0.0000");
@@ -579,9 +602,7 @@ class MvpCoreServiceTest {
         assertEquals(bd("1.250000"), inserted.getConfirmedNav());
         assertEquals(LocalDate.of(2026, 6, 8), inserted.getConfirmedDate());
         verify(currentMapper, never()).selectById(any());
-        verify(investmentDailySnapshotJob).snapshotForUser(USER_ID, LocalDate.of(2026, 6, 4));
-        verify(investmentDailySnapshotJob).snapshotForUser(USER_ID, LocalDate.of(2026, 6, 8));
-        verify(snapshotService).generateForUser(USER_ID, LocalDate.of(2026, 6, 4));
+        verify(snapshotRebuildService).requestInvestmentRebuild(USER_ID, LocalDate.of(2026, 6, 4), "INVESTMENT_TRANSACTION");
     }
 
     @Test
@@ -592,11 +613,10 @@ class MvpCoreServiceTest {
         AssetPriceCurrentMapper currentMapper = mock(AssetPriceCurrentMapper.class);
         FundConfirmDateService confirmDateService = mock(FundConfirmDateService.class);
         HoldingService holdingService = mock(HoldingService.class);
-        SnapshotService snapshotService = mock(SnapshotService.class);
-        InvestmentDailySnapshotJob investmentDailySnapshotJob = mock(InvestmentDailySnapshotJob.class);
+        SnapshotRebuildService snapshotRebuildService = mock(SnapshotRebuildService.class);
         InvestmentTransactionServiceImpl service = new InvestmentTransactionServiceImpl(
                 transactionMapper, assetMapper, dailyMapper, currentMapper, mock(AccountMapper.class),
-                mock(AssetService.class), confirmDateService, holdingService, mock(AccountService.class), snapshotService, investmentDailySnapshotJob);
+                mock(AssetService.class), confirmDateService, holdingService, mock(AccountService.class), snapshotRebuildService);
         InvestmentTransaction pending = pendingFundBuy(LocalDate.of(2026, 6, 8));
         Asset fund = asset(10L, "FUND-A", "QDII 基金", "FUND", "CNY");
         AssetPriceCurrent current = price(10L, "1.30000000", "CNY", LocalDateTime.of(2026, 6, 4, 21, 30));
@@ -618,10 +638,7 @@ class MvpCoreServiceTest {
         assertEquals("CONFIRMED", updated.getStatus());
         assertEquals(bd("1.300000"), updated.getConfirmedNav());
         verify(holdingService).applyConfirmedBuy(eq(USER_ID), eq(1L), eq(10L), any(), eq(bd("1000.0000")));
-        verify(investmentDailySnapshotJob).snapshotForUser(USER_ID, LocalDate.of(2026, 6, 4));
-        verify(investmentDailySnapshotJob).snapshotForUser(USER_ID, LocalDate.of(2026, 6, 8));
-        verify(snapshotService).generateForUser(USER_ID, LocalDate.of(2026, 6, 4));
-        verify(snapshotService).generateForUser(USER_ID, LocalDate.of(2026, 6, 8));
+        verify(snapshotRebuildService).requestInvestmentRebuild(USER_ID, LocalDate.of(2026, 6, 4), "INVESTMENT_TRANSACTION");
     }
 
     @Test
@@ -634,7 +651,7 @@ class MvpCoreServiceTest {
         HoldingService holdingService = mock(HoldingService.class);
         InvestmentTransactionServiceImpl service = new InvestmentTransactionServiceImpl(
                 transactionMapper, assetMapper, dailyMapper, currentMapper, mock(AccountMapper.class),
-                mock(AssetService.class), confirmDateService, holdingService, mock(AccountService.class), mock(SnapshotService.class), mock(InvestmentDailySnapshotJob.class));
+                mock(AssetService.class), confirmDateService, holdingService, mock(AccountService.class), mock(SnapshotRebuildService.class));
         InvestmentTransaction pending = pendingFundBuy(LocalDate.of(2026, 6, 8));
         Asset fund = asset(10L, "FUND-A", "QDII 基金", "FUND", "CNY");
         AssetPriceCurrent staleCurrent = price(10L, "1.30000000", "CNY", LocalDateTime.of(2026, 6, 7, 21, 30));
@@ -2602,7 +2619,37 @@ class MvpCoreServiceTest {
         // 交易后来已确认，但 6 月 5 日仍处于申购已扣款、份额未确认状态，历史快照必须保留在途资产。
         assertEquals(bd("1500.0000"), captor.getValue().getMarketValue());
         assertEquals(bd("1500.0000"), captor.getValue().getTotalCost());
-        assertEquals(bd("1500.0000"), captor.getValue().getNetInflow());
+        assertEquals(bd("0.0000"), captor.getValue().getNetInflow());
+    }
+
+    @Test
+    void investmentSnapshotShouldNotRepeatInTransitAmountAsDailyNetInflow() {
+        InvestmentPositionHistoryService positionHistoryService = mock(InvestmentPositionHistoryService.class);
+        InvestmentTransactionMapper transactionMapper = mock(InvestmentTransactionMapper.class);
+        InvestmentDailySnapshotMapper dailySnapshotMapper = mock(InvestmentDailySnapshotMapper.class);
+        InvestmentDailySnapshotJob job = new InvestmentDailySnapshotJob(
+                positionHistoryService, mock(AssetPriceCurrentMapper.class), mock(AssetPriceDailyMapper.class), transactionMapper, dailySnapshotMapper);
+        InvestmentTransaction confirmedFundBuy = investmentRecord(1L, "BUY", "0.0000", "0.0000", "1500.0000", "0.0000", "1500.0000");
+        confirmedFundBuy.setInputMode("AMOUNT_NAV");
+        confirmedFundBuy.setTradeAmount(bd("1500.0000"));
+        confirmedFundBuy.setStatus("CONFIRMED");
+        confirmedFundBuy.setTransactionTime(LocalDateTime.of(2026, 6, 4, 9, 30));
+        confirmedFundBuy.setConfirmedDate(LocalDate.of(2026, 6, 8));
+        InvestmentDailySnapshot previous = investmentDailySnapshot(USER_ID, LocalDate.of(2026, 6, 4), "1500.0000");
+
+        when(positionHistoryService.positionsAt(USER_ID, LocalDate.of(2026, 6, 5))).thenReturn(Map.of());
+        when(transactionMapper.selectList(any())).thenReturn(List.of(confirmedFundBuy));
+        when(positionHistoryService.netInflow(USER_ID, LocalDate.of(2026, 6, 5), LocalDate.of(2026, 6, 5))).thenReturn(BigDecimal.ZERO);
+        when(dailySnapshotMapper.selectOne(any())).thenReturn(previous).thenReturn(null);
+
+        job.snapshotForUser(USER_ID, LocalDate.of(2026, 6, 5));
+
+        ArgumentCaptor<InvestmentDailySnapshot> captor = ArgumentCaptor.forClass(InvestmentDailySnapshot.class);
+        verify(dailySnapshotMapper).insert(captor.capture());
+        // 同一笔在途申购只在下单日形成净入金，后续存量在途资产不能每天重复压低 dailyProfit。
+        assertEquals(bd("1500.0000"), captor.getValue().getMarketValue());
+        assertEquals(bd("0.0000"), captor.getValue().getNetInflow());
+        assertEquals(bd("0.0000"), captor.getValue().getDailyProfit());
     }
 
     @Test

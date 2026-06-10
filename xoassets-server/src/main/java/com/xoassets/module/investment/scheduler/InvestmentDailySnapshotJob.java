@@ -168,7 +168,7 @@ public class InvestmentDailySnapshotJob {
         BigDecimal floatingProfitRate = rate(floatingProfit, totalCost);
         BigDecimal realizedProfit = realizedProfit(userId, snapshotDate);
         BigDecimal netInflow = positionHistoryService.netInflow(userId, snapshotDate, snapshotDate)
-                .add(inTransitAmount)
+                // 在途申购已体现在 marketValue 中，但净入金只在下单扣款日统计一次，不能每天按存量在途金额重复扣减收益。
                 .setScale(4, RoundingMode.HALF_UP);
         InvestmentDailySnapshot previous = previousSnapshot(userId, snapshotDate);
         BigDecimal dailyProfit = previous == null ? null : marketValue.subtract(previous.getMarketValue()).subtract(netInflow).setScale(4, RoundingMode.HALF_UP);

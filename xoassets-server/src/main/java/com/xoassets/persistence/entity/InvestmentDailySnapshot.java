@@ -49,15 +49,15 @@ public class InvestmentDailySnapshot {
      */
     private BigDecimal realizedProfit;
     /**
-     * 当日收益。
+     * 快照日资金流调整收益：本日投资市值 - 上一快照日投资市值 - 当日投资本金净流入。
      */
     private BigDecimal dailyProfit;
     /**
-     * 当日收益率。
+     * 快照日资金流调整收益率。
      */
     private BigDecimal dailyProfitRate;
     /**
-     * 净流入金额。
+     * 当日投资本金净流入，买入为正，卖出为负。
      */
     private BigDecimal netInflow;
     /**

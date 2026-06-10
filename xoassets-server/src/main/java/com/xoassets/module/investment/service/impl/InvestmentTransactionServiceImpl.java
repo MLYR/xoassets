@@ -9,7 +9,6 @@ import com.xoassets.module.account.service.AccountService;
 import com.xoassets.module.investment.dto.InvestmentTransactionConvertRequest;
 import com.xoassets.module.investment.dto.InvestmentTransactionRequest;
 import com.xoassets.module.investment.dto.InvestmentTransactionRevokeRequest;
-import com.xoassets.module.investment.scheduler.InvestmentDailySnapshotJob;
 import com.xoassets.module.investment.service.AssetService;
 import com.xoassets.module.investment.service.FundConfirmDateService;
 import com.xoassets.module.investment.service.HoldingService;
@@ -17,7 +16,7 @@ import com.xoassets.module.investment.service.HoldingTradeResult;
 import com.xoassets.module.investment.service.InvestmentTransactionService;
 import com.xoassets.module.investment.vo.FundConfirmPreviewVO;
 import com.xoassets.module.investment.vo.InvestmentTransactionVO;
-import com.xoassets.module.snapshot.service.SnapshotService;
+import com.xoassets.module.snapshot.service.SnapshotRebuildService;
 import com.xoassets.persistence.entity.Account;
 import com.xoassets.persistence.entity.Asset;
 import com.xoassets.persistence.entity.AssetPriceCurrent;
@@ -33,17 +32,19 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * 投资交易服务实现。
  */
+@Slf4j
 @Service
 public class InvestmentTransactionServiceImpl implements InvestmentTransactionService {
 
@@ -125,13 +126,9 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
      */
     private final AccountService accountService;
     /**
-     * 资产快照服务。
+     * 快照重建服务。
      */
-    private final SnapshotService snapshotService;
-    /**
-     * 投资日快照任务。
-     */
-    private final InvestmentDailySnapshotJob investmentDailySnapshotJob;
+    private final SnapshotRebuildService snapshotRebuildService;
 
     /**
      * 注入业务依赖。
@@ -146,8 +143,7 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
             FundConfirmDateService fundConfirmDateService,
             HoldingService holdingService,
             AccountService accountService,
-            SnapshotService snapshotService,
-            InvestmentDailySnapshotJob investmentDailySnapshotJob) {
+            SnapshotRebuildService snapshotRebuildService) {
         this.transactionMapper = transactionMapper;
         this.assetMapper = assetMapper;
         this.assetPriceDailyMapper = assetPriceDailyMapper;
@@ -157,8 +153,7 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
         this.fundConfirmDateService = fundConfirmDateService;
         this.holdingService = holdingService;
         this.accountService = accountService;
-        this.snapshotService = snapshotService;
-        this.investmentDailySnapshotJob = investmentDailySnapshotJob;
+        this.snapshotRebuildService = snapshotRebuildService;
     }
 
     /**
@@ -228,6 +223,7 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
         transaction.setNote(request.getNote());
         transaction.setDeleted(0);
         transactionMapper.insert(transaction);
+        requestInvestmentSnapshotRebuildAfterCommit(userId, transactionStartDate(transaction));
         return toVO(transaction, assetMapper.selectById(transaction.getAssetId()), account);
     }
 
@@ -323,6 +319,7 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
                     .eq(InvestmentTransaction::getId, id)
                     .eq(InvestmentTransaction::getUserId, userId)
                     .eq(InvestmentTransaction::getStatus, STATUS_PENDING_CONFIRM));
+            requestInvestmentSnapshotRebuildAfterCommit(userId, transactionStartDate(transaction));
             return toVO(transaction, assetMapper.selectById(transaction.getAssetId()), account);
         }
         BigDecimal costAmount = transaction.getCostAmount();
@@ -347,6 +344,7 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
         transactionMapper.update(transaction, new LambdaUpdateWrapper<InvestmentTransaction>()
                 .eq(InvestmentTransaction::getId, id)
                 .eq(InvestmentTransaction::getUserId, userId));
+        requestInvestmentSnapshotRebuildAfterCommit(userId, transactionStartDate(transaction));
         return toVO(transaction, assetMapper.selectById(transaction.getAssetId()), account);
     }
 
@@ -423,13 +421,14 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
         if (confirmedNav == null) {
             transaction.setStatus(STATUS_PENDING_CONFIRM);
             transactionMapper.insert(transaction);
+            requestInvestmentSnapshotRebuildAfterCommit(userId, transactionStartDate(transaction));
             return toVO(transaction, asset, account);
         }
         confirmFundTransactionFields(transaction, confirmedNav);
         HoldingTradeResult tradeResult = holdingService.applyConfirmedBuy(userId, transaction.getHoldingId(), asset.getId(), transaction.getConfirmedQuantity(), transaction.getCostAmount());
         transaction.setHoldingId(tradeResult.holding().getId());
         transactionMapper.insert(transaction);
-        refreshSnapshotsAfterConfirmation(transaction);
+        requestInvestmentSnapshotRebuildAfterCommit(userId, transactionStartDate(transaction));
         return toVO(transaction, asset, account);
     }
 
@@ -455,43 +454,50 @@ public class InvestmentTransactionServiceImpl implements InvestmentTransactionSe
         if (updated > 0) {
             // 只有成功抢到待确认状态的任务才能更新持仓，避免重复扫描导致份额重复累加。
             holdingService.applyConfirmedBuy(transaction.getUserId(), transaction.getHoldingId(), transaction.getAssetId(), transaction.getConfirmedQuantity(), transaction.getCostAmount());
-            refreshSnapshotsAfterConfirmation(transaction);
+            requestInvestmentSnapshotRebuildAfterCommit(transaction.getUserId(), transactionStartDate(transaction));
         }
     }
 
     /**
-     * 基金确认后刷新相关快照。
+     * 投资补录、确认或撤销会同时影响投资日快照和资产快照；事务提交后再重建，避免读取未提交数据。
      */
-    private void refreshSnapshotsAfterConfirmation(InvestmentTransaction transaction) {
-        Long userId = transaction.getUserId();
-        LocalDate today = LocalDate.now();
-        for (LocalDate snapshotDate : confirmationSnapshotDates(transaction, today)) {
-            investmentDailySnapshotJob.snapshotForUser(userId, snapshotDate);
-            snapshotService.generateForUser(userId, snapshotDate);
+    private void requestInvestmentSnapshotRebuildAfterCommit(Long userId, LocalDate startDate) {
+        if (startDate == null) {
+            return;
         }
-    }
-
-    /**
-     * 计算确认后需要刷新的快照日期。
-     */
-    private Set<LocalDate> confirmationSnapshotDates(InvestmentTransaction transaction, LocalDate today) {
-        Set<LocalDate> dates = new LinkedHashSet<>();
-        LocalDate start = transaction.getTransactionTime() == null ? transaction.getTradeDate() : transaction.getTransactionTime().toLocalDate();
-        if (start == null) {
-            start = transaction.getConfirmedDate();
-        }
-        LocalDate end = transaction.getConfirmedDate() == null ? today : transaction.getConfirmedDate();
-        if (start != null && end != null) {
-            LocalDate cursor = start;
-            LocalDate safeEnd = end.isAfter(today) ? today : end;
-            while (!cursor.isAfter(safeEnd)) {
-                // 基金确认会改变确认日前后的在途资产口径，确认成功后顺手修复该区间历史快照。
-                dates.add(cursor);
-                cursor = cursor.plusDays(1);
+        Runnable request = () -> {
+            try {
+                snapshotRebuildService.requestInvestmentRebuild(userId, startDate, "INVESTMENT_TRANSACTION");
+            } catch (Exception exception) {
+                log.warn("投资交易变更后请求快照重建失败 userId={} startDate={}", userId, startDate, exception);
             }
+        };
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                /**
+                 * 事务提交后再按历史投资流水重算快照，保证补录交易和持仓更新已落库。
+                 */
+                @Override
+                public void afterCommit() {
+                    request.run();
+                }
+            });
+            return;
         }
-        dates.add(today);
-        return dates;
+        request.run();
+    }
+
+    /**
+     * 投资交易的影响起点优先使用用户实际交易时间，其次用交易日和确认日兜底。
+     */
+    private LocalDate transactionStartDate(InvestmentTransaction transaction) {
+        if (transaction.getTransactionTime() != null) {
+            return transaction.getTransactionTime().toLocalDate();
+        }
+        if (transaction.getTradeDate() != null) {
+            return transaction.getTradeDate();
+        }
+        return transaction.getConfirmedDate();
     }
 
     /**

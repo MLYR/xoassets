@@ -139,9 +139,9 @@ com.xoassets
 - 后端返回给前端的 Long ID 必须按字符串处理，前端不得用 `number` 保存业务 ID，避免 JavaScript 精度丢失。
 - 投资模块中 `xo_asset`、`xo_asset_price_current`、`xo_asset_price_daily` 为公共数据不带 `user_id`；`xo_holding`、`xo_investment_transaction`、`xo_investment_daily_snapshot` 必须通过当前登录用户隔离。
 - 前端投资模块只暴露“持仓”概念，资产代码、类型、币种和行情源在持仓表单内维护；后端 `xo_asset` 只作为内部行情基础数据。
-- 新增持仓优先通过 `GET /api/assets/lookup` 自动识别资产信息；查询失败不能阻塞手动录入。保存持仓时若带 `latestPrice`，后端必须写入 `xo_asset_price_current`，带 `quoteTime` 时同步写入 `xo_asset_price_daily` 作为日级初始价。
+- 新增持仓优先通过 `GET /api/assets/lookup` 自动识别资产信息；查询失败不能阻塞手动录入。保存持仓时若带 `latestPrice`，后端必须写入 `xo_asset_price_current`，带 `quoteTime` 时同步写入 `xo_asset_price_daily` 作为日级初始价；历史持仓补录必须通过投资买入 / 卖出交易表达，不用直接修改当前持仓数量倒推历史。
 - 投资主页只展示聚合统计和图表，投资分布按具体投资产品统计，总投资资产曲线优先使用资产快照，收益贡献独占整行并支持总 / 当日 / 当月 / 当年切换且优先显示资产名称；基金、股票、虚拟货币模块分别承载持仓明细、买入卖出、编辑、价格刷新等操作；单个持仓详情使用 `/investments/holdings/:id`，详情页展示市值趋势、收益日历和交易记录；详情市值趋势必须按价格日期重建该持仓历史份额，不能用当前份额倒推历史。
-- 投资买入 / 卖出必须选择当前用户资金账户；买入扣减账户余额，卖出增加账户余额，交易、账户和持仓更新必须在同一事务内完成，且不写入普通流水。
+- 投资买入 / 卖出必须选择当前用户资金账户；买入扣减账户余额，卖出增加账户余额，交易、账户和持仓更新必须在同一事务内完成，且不写入普通流水；投资交易补录、基金确认或撤销后必须从交易日起重建投资日快照和资产快照。
 - 基金买入默认支持 `AMOUNT_NAV` 金额净值录入，基金可先创建 0 份额持仓；`transaction_time` 表示用户实际买入时间，后端通过 `xo_market_calendar` 计算有效申请日和确认日，15:00:00 及以前按当天申请，15:00 后或非交易日顺延，普通基金 T+1，名称包含 `QDII` 的基金 T+2；确认日净值缺失时交易保持 `PENDING_CONFIRM`，后续定时任务确认，股票等资产继续使用 `QUANTITY_PRICE` 数量价格录入。
 - 投资交易撤销必须使用 `cost_amount` 反向恢复历史成本，不物理删除交易；已撤销交易保留展示但不参与账户资金明细汇总。
 - 投资数量统一保留 10 位小数，手续费、成本、市值、盈亏和收益率统一按 4 位小数计算；当前价和日级价保留 8 位，并记录 previous_close、change_amount、change_percent、market_status，持仓接口返回 `priceScale`，CRYPTO 当前价至少展示 6 位，FUND / STOCK 展示 4 位。
@@ -153,12 +153,12 @@ com.xoassets
 - 行情刷新通过 `QuoteProvider` 扩展；CRYPTO 使用 CoinGecko，FUND 使用天天基金 F10 历史净值表和实时净值兜底，A 股使用新浪行情，美股使用 Yahoo Finance。第三方行情只能由后端调用，前端只调 XOAssets `/api/quotes/**`。
 - 投资页 CNY / USD 切换使用下拉框，默认人民币；USD/CNY 汇率由后端日缓存提供，MVP 可用进程内缓存，后续可替换为 Redis。
 - 第三方资产查询失败时，后端日志必须保留行情源、代码 / 市场、响应摘要和异常堆栈；前端错误提示保持简洁，不暴露第三方原文。
-- 行情缓存 TTL：CRYPTO 15 分钟、STOCK 15 分钟、FUND 1 天、MANUAL 不过期；自动行情刷新写 `xo_asset_price_current`，股票和虚拟货币原始快照写入 Redis ZSET `price:snapshot:{assetId}:{yyyyMM}`，TTL 3 天；读取某天原始快照必须通过当天起止毫秒 score 范围查询，禁止全量拉取整月 ZSET 后内存筛选；`xo_asset_price_daily` 保存长期日级价格，`xo_investment_daily_snapshot` 通过投资交易流水重建历史持仓和净入金后保存用户投资日快照；股票只在 09:30-15:30 之间拉取第三方行情；刷新失败保留最近价格，定时刷新失败不能影响应用启动。
+- 行情缓存 TTL：CRYPTO 15 分钟、STOCK 15 分钟、FUND 1 天、MANUAL 不过期；自动行情刷新写 `xo_asset_price_current`，股票和虚拟货币原始快照写入 Redis ZSET `price:snapshot:{assetId}:{yyyyMM}`，TTL 3 天；读取某天原始快照必须通过当天起止毫秒 score 范围查询，禁止全量拉取整月 ZSET 后内存筛选；`xo_asset_price_daily` 保存长期日级价格，`xo_investment_daily_snapshot` 通过投资交易流水重建历史持仓和当日投资本金净流入后保存用户投资日快照；`daily_profit` 是快照日资金流调整收益，不等同于收益日历展示日收益；股票只在 09:30-15:30 之间拉取第三方行情；刷新失败保留最近价格，定时刷新失败不能影响应用启动。
 - 投资日快照补跑按 `trade_date` 使用已回填的 `xo_asset_price_daily` 日级价格，不以价格行 `created_at` 限制历史修正，确保周末后和净值延迟时历史市值可被修正。
 - 基金金额买入从实际申购日至确认日前按在途投资资产计入；交易后续确认后，补跑确认日前历史快照仍必须保留这段在途金额，避免已扣款但未确认份额导致净资产假跌。
 - `xo_market_calendar` 是交易日判断的数据库权威来源；年度补齐任务只生成基础周末日历，交易所特殊休市日通过迁移脚本或人工修正写入数据库，禁止把年度休市日写死在 Java 或 yml。
 - 预算使用额从 `xo_transaction` 汇总，转账不计入，退款抵扣支出；预算接口必须按当前 user_id 隔离。
-- 资产快照写入 `xo_asset_snapshot`，同一用户同一天重复生成必须更新原记录；现金资产必须按账户初始余额 + 快照日前普通流水 / 投资交易 / 余额修正重建历史余额，正余额计入现金资产、负余额绝对值计入负债，不能用当前 `xo_account.balance` 回填历史；投资资产必须通过 `InvestmentPositionHistoryService.positionsAt(snapshotDate)` 重建快照日历史头寸，再使用同币种日级价 / 当前价估值，不能用当前 `xo_holding` 数量回填历史；普通流水补录、修改或删除后必须从受影响日期起触发资产快照重建，31 天内同步重建，长跨度任务写入 `xo_snapshot_rebuild_task` 后由 `rebuildPendingAssetSnapshots` 批量处理。
+- 资产快照写入 `xo_asset_snapshot`，同一用户同一天重复生成必须更新原记录；现金资产必须按账户初始余额 + 快照日前普通流水 / 投资交易 / 余额修正重建历史余额，正余额计入现金资产、负余额绝对值计入负债，不能用当前 `xo_account.balance` 回填历史；投资资产必须通过 `InvestmentPositionHistoryService.positionsAt(snapshotDate)` 重建快照日历史头寸，再使用同币种日级价 / 当前价估值，不能用当前 `xo_holding` 数量回填历史；普通流水补录、修改或删除后必须从受影响日期起触发资产快照重建，投资交易补录、基金确认或撤销后必须先重建投资日快照再重建资产快照，31 天内同步重建，长跨度任务写入 `xo_snapshot_rebuild_task` 后由 `rebuildPendingAssetSnapshots` 批量处理。
 - `/api/snapshots/latest` 的较昨日 / 较月初变化缺少基准快照时必须返回 `null`，前端展示 `--`，不能用 0 冒充缺失对比。
 - 首页和统计总资产口径优先使用资产快照：总资产 = 现金资产 + 投资资产，净资产 = 总资产 - 负债；没有快照时页面可退回当前实时概览。
 - 资产目标当前金额可手动填写，也可按当前净资产口径写入；目标接口必须按当前 user_id 隔离。
@@ -209,6 +209,7 @@ com.xoassets
 - 资产日级价格聚合：19:25-22:55 每 30 分钟，23:25 补一轮；股票 / 虚拟货币从 Redis 原始快照聚合，基金由净值刷新直接写日级价。
 - 投资资产日快照：19:30-23:30 每 30 分钟 upsert 最近 4 个自然日。
 - 资产快照：每天 23:50 生成所有启用用户当天快照。
+- 待重建资产快照处理：每 10 分钟处理 `xo_snapshot_rebuild_task`；投资触发的任务先补投资日快照再补资产快照。
 - 每日汇总：每天 00:10 生成昨日财务汇总。
 - AI 日报：每天 00:20 生成昨日 AI 报告。
 - 预算检查：每天 09:00 检查预算超支。

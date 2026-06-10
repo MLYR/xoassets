@@ -21,7 +21,7 @@ public interface InvestmentPositionHistoryService {
     BigDecimal quantityAt(Long userId, Long holdingId, Long assetId, LocalDate date);
 
     /**
-     * 统计指定日期区间内投资资产净入金；买入为正，卖出为负。
+     * 统计指定日期区间内投资本金净流入；买入为正，卖出为负。
      */
     BigDecimal netInflow(Long userId, LocalDate startDate, LocalDate endDate);
 
