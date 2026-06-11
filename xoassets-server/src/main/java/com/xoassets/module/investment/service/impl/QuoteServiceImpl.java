@@ -53,7 +53,7 @@ public class QuoteServiceImpl implements QuoteService {
     /**
      * 股票行情刷新结束时间。
      */
-    private static final LocalTime STOCK_REFRESH_END = LocalTime.of(15, 30);
+    private static final LocalTime STOCK_REFRESH_END = LocalTime.of(15, 0);
     /**
      * 基金资产类型常量。
      */
@@ -193,7 +193,7 @@ public class QuoteServiceImpl implements QuoteService {
         Asset asset = assetService.findAsset(assetId);
         AssetPriceCurrent latestPrice = latestPrice(assetId);
         if (!force && isOutsideStockRefreshWindow(asset)) {
-            // 股票行情只在 09:30-15:30 之间主动刷新；非交易时段直接复用最近快照，避免无意义写入。
+            // 股票行情只在 09:30-15:00 之间主动刷新；非交易时段直接复用最近快照，避免无意义写入。
             if (latestPrice != null) {
                 return toVO(latestPrice);
             }
@@ -285,7 +285,7 @@ public class QuoteServiceImpl implements QuoteService {
     }
 
     /**
-     * 股票只在开盘日 09:30-15:30 之间拉取第三方行情，其他时间保留最近快照。
+     * 股票只在开盘日 09:30-15:00 之间拉取第三方行情，其他时间保留最近快照。
      */
     private boolean isOutsideStockRefreshWindow(Asset asset) {
         if (!ASSET_TYPE_STOCK.equals(asset.getType())) {

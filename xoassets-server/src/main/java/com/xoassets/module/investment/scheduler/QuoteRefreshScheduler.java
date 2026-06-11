@@ -56,19 +56,30 @@ public class QuoteRefreshScheduler {
     }
 
     /**
-     * 股票和虚拟货币每 15 分钟刷新一次；股票交易窗口由 QuoteService 二次兜底。
+     * 股票开盘日 09:30-15:00 每 15 分钟刷新；交易日和交易窗口由 QuoteService 再兜底。
      */
-    @XxlJob("refreshMarketQuotes")
-    /**
-     * 刷新市场类资产行情。
-     */
-    public void refreshMarketQuotes() {
+    @XxlJob("refreshStockQuotes")
+    public void refreshStockQuotes() {
         try {
-            for (Long assetId : activeHoldingAssetIds(List.of(ASSET_TYPE_STOCK, ASSET_TYPE_CRYPTO), false)) {
+            for (Long assetId : activeHoldingAssetIds(List.of(ASSET_TYPE_STOCK), false)) {
                 refreshOne(assetId);
             }
         } catch (Exception exception) {
-            log.warn("股票和虚拟货币行情定时刷新任务执行失败", exception);
+            log.warn("股票行情定时刷新任务执行失败", exception);
+        }
+    }
+
+    /**
+     * 虚拟货币 24 小时每 15 分钟刷新，和股票任务分开避免休市窗口影响。
+     */
+    @XxlJob("refreshCryptoQuotes")
+    public void refreshCryptoQuotes() {
+        try {
+            for (Long assetId : activeHoldingAssetIds(List.of(ASSET_TYPE_CRYPTO), false)) {
+                refreshOne(assetId);
+            }
+        } catch (Exception exception) {
+            log.warn("虚拟货币行情定时刷新任务执行失败", exception);
         }
     }
 

@@ -153,7 +153,7 @@ com.xoassets
 - 行情刷新通过 `QuoteProvider` 扩展；CRYPTO 使用 CoinGecko，FUND 使用天天基金 F10 历史净值表和实时净值兜底，A 股使用新浪行情，美股使用 Yahoo Finance。第三方行情只能由后端调用，前端只调 XOAssets `/api/quotes/**`。
 - 投资页 CNY / USD 切换使用下拉框，默认人民币；USD/CNY 汇率由后端日缓存提供，MVP 可用进程内缓存，后续可替换为 Redis。
 - 第三方资产查询失败时，后端日志必须保留行情源、代码 / 市场、响应摘要和异常堆栈；前端错误提示保持简洁，不暴露第三方原文。
-- 行情缓存 TTL：CRYPTO 15 分钟、STOCK 15 分钟、FUND 1 天、MANUAL 不过期；自动行情刷新写 `xo_asset_price_current`，手动行情写当前价并直接沉淀单点日级价；手动和自动行情刷新成功后都必须重建受影响资产的 `xo_investment_holding_daily_profit`，即使第三方返回的行情时间和价格与 current 完全相同，也要触发收益重建，避免收益日历停留在旧计算结果；股票和虚拟货币原始快照写入 Redis ZSET `price:snapshot:{assetId}:{yyyyMM}`，TTL 3 天；读取某天原始快照必须通过当天起止毫秒 score 范围查询，禁止全量拉取整月 ZSET 后内存筛选；`xo_asset_price_daily` 保存长期日级价格，`xo_investment_holding_daily_profit` 保存每个持仓展示日真实收益；`xo_investment_daily_snapshot` 通过投资交易流水重建历史持仓和当日投资本金净流入后保存用户投资日快照；`daily_profit` 是快照日资金流调整收益，不等同于收益日历展示日收益，`calendar_profit` 才是持仓每日收益表按展示日聚合后的收益；`buy_amount` / `sell_amount` / `fee_amount` 按资金实际发生日统计，基金确认日只影响份额生效；股票只在 09:30-15:30 之间拉取第三方行情；刷新失败保留最近价格，定时刷新失败不能影响应用启动。
+- 行情缓存 TTL：CRYPTO 15 分钟、STOCK 15 分钟、FUND 1 天、MANUAL 不过期；自动行情刷新写 `xo_asset_price_current`，手动行情写当前价并直接沉淀单点日级价；手动和自动行情刷新成功后都必须重建受影响资产的 `xo_investment_holding_daily_profit`，即使第三方返回的行情时间和价格与 current 完全相同，也要触发收益重建，避免收益日历停留在旧计算结果；股票和虚拟货币原始快照写入 Redis ZSET `price:snapshot:{assetId}:{yyyyMM}`，TTL 3 天；读取某天原始快照必须通过当天起止毫秒 score 范围查询，禁止全量拉取整月 ZSET 后内存筛选；`xo_asset_price_daily` 保存长期日级价格，`xo_investment_holding_daily_profit` 保存每个持仓展示日真实收益；`xo_investment_daily_snapshot` 通过投资交易流水重建历史持仓和当日投资本金净流入后保存用户投资日快照；`daily_profit` 是快照日资金流调整收益，不等同于收益日历展示日收益，`calendar_profit` 才是持仓每日收益表按展示日聚合后的收益；`buy_amount` / `sell_amount` / `fee_amount` 按资金实际发生日统计，基金确认日只影响份额生效；股票只在开盘日 09:30-15:00 之间拉取第三方行情，虚拟货币全天每 15 分钟刷新；刷新失败保留最近价格，定时刷新失败不能影响应用启动。
 - 投资日快照补跑按 `trade_date` 使用已回填的 `xo_asset_price_daily` 日级价格，不以价格行 `created_at` 限制历史修正，确保周末后和净值延迟时历史市值可被修正。
 - 基金金额买入从实际申购日至确认日前按在途投资资产计入；交易后续确认后，补跑确认日前历史快照仍必须保留这段在途金额，避免已扣款但未确认份额导致净资产假跌。
 - `xo_market_calendar` 是交易日判断的数据库权威来源；年度补齐任务只生成基础周末日历，交易所特殊休市日通过迁移脚本或人工修正写入数据库，禁止把年度休市日写死在 Java 或 yml。
@@ -204,7 +204,7 @@ com.xoassets
 
 ## 11. 定时任务
 - 定时任务统一由 XXL-JOB Admin 触发，后端仅注册 executor handler；本地未启动 XXL-JOB Admin 或未开启 `XXL_JOB_EXECUTOR_ENABLED=true` 时不会自动执行定时任务。
-- 股票 / 虚拟货币行情同步：每 15 分钟；股票仅交易日 09:30-15:30 拉取，虚拟货币全天拉取。
+- 股票行情同步：开盘日 09:30-15:00 每 15 分钟；虚拟货币行情同步：全天每 15 分钟。
 - 基金净值晚间刷新：每天 18:00 首轮，18:15-23:45 每 15 分钟强制跟进刷新。
 - 资产日级价格聚合：每天 20:00-23:45 每 15 分钟处理晚间汇总和收尾汇总；股票 / 虚拟货币从 Redis 原始快照聚合，基金由净值刷新直接写日级价。
 - 投资资产日快照：每天 20:00 首轮，20:15-23:45 每 15 分钟先重建持仓每日收益，再 upsert 最近 4 个自然日投资快照。

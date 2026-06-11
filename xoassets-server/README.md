@@ -121,7 +121,10 @@ docker exec -i xoassets-mysql mysql -uroot -proot < src/main/resources/db/xxl-jo
 
 | 任务 | Handler | 默认调度 |
 |---|---|---|
-| 股票 / 虚拟货币行情刷新 | `refreshMarketQuotes` | `0 0/15 * * * ? *` |
+| 虚拟货币行情刷新 | `refreshCryptoQuotes` | `0 0/15 * * * ? *` |
+| 股票行情开盘刷新 | `refreshStockQuotes` | `0 30,45 9 ? * MON-FRI *` |
+| 股票行情盘中刷新 | `refreshStockQuotes` | `0 0/15 10-14 ? * MON-FRI *` |
+| 股票行情收盘刷新 | `refreshStockQuotes` | `0 0 15 ? * MON-FRI *` |
 | 基金净值晚间首轮刷新 | `refreshFundQuotes` | `0 0 18 * * ? *` |
 | 基金净值晚间跟进刷新 | `refreshFundQuotesFollowup` | `0 15/15 18-23 * * ? *` |
 | 资产日级价格晚间汇总 | `aggregateRecentAssetPrices` | `0 0/15 20-23 * * ? *` |
@@ -245,8 +248,8 @@ XXL_JOB_EXECUTOR_PORT=10099
 - 资产查询失败会在后端 WARN 日志中输出行情源、代码 / 市场、响应摘要和原始异常堆栈，便于区分网络失败、第三方格式变更和代码无效。
 - CoinGecko 支持 CRYPTO 资产 BTC、ETH、SOL、BNB、DOGE；天天基金支持基金单位净值；新浪支持 A 股；Yahoo Finance 支持美股。
 - `POST /api/quotes/refresh-batch` 支持按当前持仓资产批量刷新；刷新失败保留旧价格，不删除历史快照。
-- 行情缓存按资产类型控制刷新频率：CRYPTO 15 分钟、STOCK 15 分钟、FUND 1 天；MANUAL 价格不过期；股票只在 09:30-15:30 之间拉取第三方行情，基金净值每天 18:00 首轮、18:15-23:45 每 15 分钟强制跟进刷新。股票和虚拟货币原始行情写入 Redis ZSET `price:snapshot:{assetId}:{yyyyMM}`，TTL 3 天，日级汇总读取某天数据时按当天起止毫秒 score 范围查询，不全量拉取整月数据。`GET /api/exchange-rates/usd-cny` 返回 USD/CNY 日缓存汇率，MVP 使用进程内缓存，后续可替换为 Redis。
-- 后端行情刷新由 XXL-JOB 可视化调度中心触发，`refreshMarketQuotes` / `refreshFundQuotes` 等 handler 按资产类型分开处理；任务或单个资产失败只记录日志，不影响主应用启动。
+- 行情缓存按资产类型控制刷新频率：CRYPTO 15 分钟、STOCK 15 分钟、FUND 1 天；MANUAL 价格不过期；股票只在开盘日 09:30-15:00 之间拉取第三方行情，虚拟货币全天每 15 分钟刷新，基金净值每天 18:00 首轮、18:15-23:45 每 15 分钟强制跟进刷新。股票和虚拟货币原始行情写入 Redis ZSET `price:snapshot:{assetId}:{yyyyMM}`，TTL 3 天，日级汇总读取某天数据时按当天起止毫秒 score 范围查询，不全量拉取整月数据。`GET /api/exchange-rates/usd-cny` 返回 USD/CNY 日缓存汇率，MVP 使用进程内缓存，后续可替换为 Redis。
+- 后端行情刷新由 XXL-JOB 可视化调度中心触发，`refreshStockQuotes` / `refreshCryptoQuotes` / `refreshFundQuotes` 等 handler 按资产类型分开处理；任务或单个资产失败只记录日志，不影响主应用启动。
 - 市场交易日历使用 `xo_market_calendar` 存储，`MarketCalendarRefreshScheduler` 在应用启动和每年 1 月 1 日补齐当前年、下一年基础周末日历；春节、国庆等交易所特殊休市以数据库修正记录为准，不写死在 Java 或配置文件里。
 - 预算表 `xo_budget` 按当前用户隔离；每个用户每月只能有一个总预算，每个支出分类每月只能有一个分类预算。
 - 预算使用额从 `xo_transaction` 汇总，转账不计入预算，退款抵扣支出。
