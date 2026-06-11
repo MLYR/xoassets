@@ -22,7 +22,17 @@
         <CashflowAnalysis :loading="loading" :selected-month="selectedMonth" :income-expense-trend="incomeExpenseTrend" :expense-categories="expenseCategories" />
       </el-tab-pane>
       <el-tab-pane label="投资分析" name="investment">
-        <InvestmentAnalysis :loading="loading" :investment-trend="investmentTrend" />
+        <InvestmentAnalysis
+          v-model:investment-module="currentInvestmentModule"
+          v-model:investment-period="currentInvestmentPeriod"
+          :loading="investmentLoading"
+          :failed="investmentFailed"
+          :overview="investmentOverview"
+          :module-trend="investmentModuleTrend"
+          :daily-profit="investmentDailyProfit"
+          :holdings="investmentModuleHoldings"
+          @refresh="loadInvestmentAnalytics"
+        />
       </el-tab-pane>
       <el-tab-pane label="预算分析" name="budget">
         <BudgetAnalysis :loading="loading" :selected-month="selectedMonth" :budget-summary="budgetSummary" />
@@ -54,7 +64,16 @@ const {
   assetDistribution,
   investmentTrend,
   budgetSummary,
-  loadAnalytics
+  investmentLoading,
+  investmentFailed,
+  currentInvestmentModule,
+  currentInvestmentPeriod,
+  investmentOverview,
+  investmentModuleTrend,
+  investmentDailyProfit,
+  investmentModuleHoldings,
+  loadAnalytics,
+  loadInvestmentAnalytics
 } = useAnalyticsData();
 
 onMounted(() => {
@@ -63,6 +82,10 @@ onMounted(() => {
 
 watch([period, selectedMonth], () => {
   loadAnalytics();
+});
+
+watch([currentInvestmentModule, currentInvestmentPeriod], () => {
+  loadInvestmentAnalytics();
 });
 
 const latestNetAsset = computed(() => latestOf(netAssetsTrend.value)?.netAsset ?? null);
