@@ -164,6 +164,12 @@ export interface HoldingItem {
   yesterdayChangeRate?: number | null;
   /** 浮动盈亏。 */
   floatingProfit: number;
+  /** 已实现收益。 */
+  realizedProfit?: number | null;
+  /** 总收益。 */
+  totalProfit?: number | null;
+  /** 总收益率。 */
+  totalProfitRate?: number | null;
   /** 浮动盈亏率。 */
   floatingProfitRate: number;
   /** 回本涨跌幅。 */

@@ -194,6 +194,18 @@ public class HoldingVO {
      */
     private BigDecimal floatingProfit;
     /**
+     * 已实现收益。
+     */
+    private BigDecimal realizedProfit;
+    /**
+     * 总收益，已实现收益 + 当前浮动盈亏。
+     */
+    private BigDecimal totalProfit;
+    /**
+     * 总收益率。
+     */
+    private BigDecimal totalProfitRate;
+    /**
      * 浮动盈亏率。
      */
     private BigDecimal floatingProfitRate;

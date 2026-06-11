@@ -82,6 +82,7 @@ public class InvestmentPositionHistoryServiceImpl implements InvestmentPositionH
     public Map<Long, InvestmentPositionState> positionsAt(Long userId, LocalDate date) {
         LocalDateTime end = date.atTime(LocalTime.MAX);
         Map<Long, PositionAccumulator> positions = new LinkedHashMap<>();
+        addManualBaseHoldings(userId, date, positions);
         transactionMapper.selectList(new LambdaQueryWrapper<InvestmentTransaction>()
                         .eq(InvestmentTransaction::getUserId, userId)
                         .le(InvestmentTransaction::getTransactionTime, end)
@@ -91,7 +92,6 @@ public class InvestmentPositionHistoryServiceImpl implements InvestmentPositionH
                 .filter(this::isEffective)
                 .filter(transaction -> !effectiveDate(transaction).isAfter(date))
                 .forEach(transaction -> applyTransaction(positions, transaction));
-        addManualBaseHoldings(userId, date, positions);
         return positions.entrySet().stream()
                 .filter(entry -> entry.getValue().quantity.compareTo(BigDecimal.ZERO) > 0)
                 .collect(Collectors.toMap(
@@ -227,8 +227,29 @@ public class InvestmentPositionHistoryServiceImpl implements InvestmentPositionH
                         .orderByAsc(InvestmentTransaction::getId))
                 .stream()
                 .filter(this::isEffective)
-                .forEach(transaction -> applyTransaction(deltas, transaction));
+                .forEach(transaction -> applyTransactionDelta(deltas, transaction));
         return deltas;
+    }
+
+    /**
+     * 汇总交易净变化时保留卖出的负数量，用于从当前持仓反推出手工底仓。
+     */
+    private void applyTransactionDelta(Map<Long, PositionAccumulator> positions, InvestmentTransaction transaction) {
+        PositionAccumulator state = positions.computeIfAbsent(transaction.getHoldingId(), key -> new PositionAccumulator(transaction.getAssetId()));
+        BigDecimal quantity = scaleQuantity(transaction.getQuantity());
+        BigDecimal cost = costAmount(transaction);
+        if (TYPE_BUY.equals(transaction.getType())) {
+            state.quantity = state.quantity.add(quantity).setScale(10, RoundingMode.HALF_UP);
+            state.totalCost = state.totalCost.add(cost).setScale(4, RoundingMode.HALF_UP);
+            state.assetId = transaction.getAssetId();
+            return;
+        }
+        if (TYPE_SELL.equals(transaction.getType())) {
+            // 这里不能 max(0)：清仓后的手工底仓正是 current - (-sellQuantity) 反推出来的。
+            state.quantity = state.quantity.subtract(quantity).setScale(10, RoundingMode.HALF_UP);
+            state.totalCost = state.totalCost.subtract(cost).setScale(4, RoundingMode.HALF_UP);
+            state.assetId = transaction.getAssetId();
+        }
     }
 
     /**

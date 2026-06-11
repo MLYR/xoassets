@@ -457,10 +457,32 @@ public class InvestmentHoldingDailyProfitServiceImpl implements InvestmentHoldin
             dailyProfitMapper.insert(row);
             return;
         }
-        row.setId(exists.getId());
-        dailyProfitMapper.update(row, new LambdaUpdateWrapper<InvestmentHoldingDailyProfit>()
+        // 显式 set 可空字段，避免清仓日收益重建时旧 profit_rate / market_value 残留。
+        dailyProfitMapper.update(null, new LambdaUpdateWrapper<InvestmentHoldingDailyProfit>()
                 .eq(InvestmentHoldingDailyProfit::getId, exists.getId())
-                .eq(InvestmentHoldingDailyProfit::getDeleted, 0));
+                .eq(InvestmentHoldingDailyProfit::getDeleted, 0)
+                .set(InvestmentHoldingDailyProfit::getUserId, row.getUserId())
+                .set(InvestmentHoldingDailyProfit::getHoldingId, row.getHoldingId())
+                .set(InvestmentHoldingDailyProfit::getAssetId, row.getAssetId())
+                .set(InvestmentHoldingDailyProfit::getAssetType, row.getAssetType())
+                .set(InvestmentHoldingDailyProfit::getModule, row.getModule())
+                .set(InvestmentHoldingDailyProfit::getDisplayDate, row.getDisplayDate())
+                .set(InvestmentHoldingDailyProfit::getPriceDate, row.getPriceDate())
+                .set(InvestmentHoldingDailyProfit::getPreviousPriceDate, row.getPreviousPriceDate())
+                .set(InvestmentHoldingDailyProfit::getQuantityDate, row.getQuantityDate())
+                .set(InvestmentHoldingDailyProfit::getQuantity, row.getQuantity())
+                .set(InvestmentHoldingDailyProfit::getPrice, row.getPrice())
+                .set(InvestmentHoldingDailyProfit::getPreviousPrice, row.getPreviousPrice())
+                .set(InvestmentHoldingDailyProfit::getProfitAmount, row.getProfitAmount())
+                .set(InvestmentHoldingDailyProfit::getProfitRate, row.getProfitRate())
+                .set(InvestmentHoldingDailyProfit::getBaseAmount, row.getBaseAmount())
+                .set(InvestmentHoldingDailyProfit::getMarketValue, row.getMarketValue())
+                .set(InvestmentHoldingDailyProfit::getCurrency, row.getCurrency())
+                .set(InvestmentHoldingDailyProfit::getStatus, row.getStatus())
+                .set(InvestmentHoldingDailyProfit::getStatusLabel, row.getStatusLabel())
+                .set(InvestmentHoldingDailyProfit::getCalcVersion, row.getCalcVersion())
+                .set(InvestmentHoldingDailyProfit::getUpdatedAt, LocalDateTime.now())
+                .set(InvestmentHoldingDailyProfit::getDeleted, row.getDeleted()));
     }
 
     /**

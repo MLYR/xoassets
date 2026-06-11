@@ -216,7 +216,7 @@
             <template #default="{ row }"><AmountText :value="convertAmount(row.marketValue, row.currency)" :precision="4" :currency-symbol="currencySymbol" /></template>
           </el-table-column>
           <el-table-column label="持有收益" prop="floatingProfit" sortable="custom" min-width="160" align="right" header-align="right">
-            <template #default="{ row }"><AmountText :value="convertAmount(row.floatingProfit, row.currency)" with-sign :precision="4" :currency-symbol="currencySymbol" /></template>
+            <template #default="{ row }"><AmountText :value="holdingDisplayProfit(row)" with-sign :precision="4" :currency-symbol="currencySymbol" /></template>
           </el-table-column>
           <el-table-column label="今日收益/收益率" prop="todayProfit" sortable="custom" min-width="170" align="right" header-align="right">
             <template #default="{ row }">
@@ -1165,6 +1165,17 @@ function amountToCny(value: number, sourceCurrency?: string | null) {
   return round4(Number(value));
 }
 
+// 清仓持仓的当前浮动盈亏为 0，列表仍展示已实现后的总收益，避免卖出后收益看起来消失。
+function holdingDisplayProfit(item: HoldingItem) {
+  const profit = Number(item.quantity || 0) <= 0 && item.totalProfit !== null && item.totalProfit !== undefined ? item.totalProfit : item.floatingProfit;
+  return convertAmount(profit, item.currency);
+}
+
+// 排序必须和展示金额同源，清仓持仓不能继续按 0 浮动盈亏排序。
+function holdingRawDisplayProfit(item: HoldingItem) {
+  return Number(item.quantity || 0) <= 0 && item.totalProfit !== null && item.totalProfit !== undefined ? Number(item.totalProfit) : Number(item.floatingProfit || 0);
+}
+
 // 换算可为空金额。
 function convertNullableAmount(value?: number | null, sourceCurrency?: string | null) {
   if (value === null || value === undefined) {
@@ -1182,6 +1193,9 @@ function isModuleHoldingSortProp(prop?: string): prop is ModuleHoldingSortProp {
 function holdingSortValue(row: HoldingItem, prop: ModuleHoldingSortProp) {
   if (prop === 'latestPrice') {
     return row.latestPrice === null || row.latestPrice === undefined ? null : Number(row.latestPrice);
+  }
+  if (prop === 'floatingProfit') {
+    return amountToCny(holdingRawDisplayProfit(row), row.currency);
   }
   const value = row[prop];
   if (value === null || value === undefined) {

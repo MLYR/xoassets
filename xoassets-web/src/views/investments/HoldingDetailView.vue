@@ -58,7 +58,7 @@
         </div>
         <el-segmented v-model="trendMode" :options="trendModeOptions" />
       </div>
-      <el-empty v-if="!loading && priceSnapshots.length === 0" description="暂无价格记录" />
+      <el-empty v-if="!loading && priceSnapshots.length === 0 && chartPoints.length === 0" description="暂无价格记录" />
       <BaseChart v-else :option="priceChartOption" height="300px" />
     </section>
 
@@ -187,7 +187,7 @@ import AmountText from '@/components/finance/AmountText.vue';
 import MetricCard from '@/components/finance/MetricCard.vue';
 import { ROUTES } from '@/constants/routes';
 import { accountApi, type AccountItem } from '@/services/accountApi';
-import { investmentApi, type AssetPriceItem, type FundConfirmPreview, type HoldingDetailSummary, type HoldingItem, type InvestmentCalendarDayProfit, type InvestmentTransactionItem, type InvestmentTransactionType } from '@/services/investmentApi';
+import { investmentApi, type AssetPriceItem, type FundConfirmPreview, type HoldingChartPoint, type HoldingDetailSummary, type HoldingItem, type InvestmentCalendarDayProfit, type InvestmentTransactionItem, type InvestmentTransactionType } from '@/services/investmentApi';
 import { useThemeStore } from '@/stores/theme';
 import { readThemeVar } from '@/utils/theme';
 
@@ -198,6 +198,7 @@ const holding = ref<HoldingItem | null>(null);
 const summary = ref<HoldingDetailSummary | null>(null);
 const transactions = ref<InvestmentTransactionItem[]>([]);
 const priceSnapshots = ref<AssetPriceItem[]>([]);
+const chartPoints = ref<HoldingChartPoint[]>([]);
 const profitCalendar = ref<InvestmentCalendarDayProfit[]>([]);
 const accounts = ref<AccountItem[]>([]);
 const transactionPage = ref(1);
@@ -276,9 +277,10 @@ const calendarCells = computed(() => {
   return [...blanks, ...profitCalendar.value.map((item) => ({ key: item.date, empty: false, ...item }))];
 });
 const priceChartOption = computed<EChartsOption>(() => {
-  const points = [...priceSnapshots.value].reverse();
-  const quantity = Number(holding.value?.quantity || 0);
   const isMarketValue = trendMode.value === 'MARKET_VALUE';
+  const marketPoints = [...chartPoints.value].sort((left, right) => left.quoteTime.localeCompare(right.quoteTime));
+  const pricePoints = [...priceSnapshots.value].sort((left, right) => left.quoteTime.localeCompare(right.quoteTime));
+  const points = isMarketValue ? marketPoints : pricePoints;
   const axisText = readThemeVar('--xo-muted', themeStore.resolvedTheme === 'dark' ? '#94a3b8' : '#6b7280');
   const chartLine = readThemeVar('--xo-primary', '#2563eb');
   return {
@@ -293,8 +295,8 @@ const priceChartOption = computed<EChartsOption>(() => {
         smooth: true,
         symbol: 'circle',
         symbolSize: 6,
-        // 当前没有历史持仓数量快照，市值走势使用当前持仓数量乘以历史价格快照。
-        data: points.map((item) => roundTo(isMarketValue ? Number(item.price) * quantity : item.price, isMarketValue ? 4 : pricePrecision.value)),
+        // 总市值走势必须使用后端按历史头寸重建的 chartPoints；清仓后不能再用当前 0 份额倒推历史。
+        data: points.map((item) => roundTo(isMarketValue ? Number((item as HoldingChartPoint).totalAssetAmount) : Number((item as AssetPriceItem).price), isMarketValue ? 4 : pricePrecision.value)),
         lineStyle: { width: 3, color: chartLine },
         itemStyle: { color: chartLine },
         areaStyle: { color: 'rgba(37, 99, 235, 0.08)' }
@@ -336,6 +338,7 @@ async function loadPageData() {
     transactions.value = detail.transactions;
     clampTransactionPage();
     priceSnapshots.value = detail.priceSnapshots;
+    chartPoints.value = detail.chartPoints || [];
     accounts.value = accountList;
     if (isSameCalendarMonth(calendarMonth.value, new Date())) {
       profitCalendar.value = detail.profitCalendar || [];

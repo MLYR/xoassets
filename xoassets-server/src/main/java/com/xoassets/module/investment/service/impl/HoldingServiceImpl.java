@@ -867,6 +867,13 @@ public class HoldingServiceImpl implements HoldingService {
         BigDecimal profitRate = holding.getTotalCost().compareTo(BigDecimal.ZERO) == 0
                 ? BigDecimal.ZERO
                 : profit.multiply(BigDecimal.valueOf(100)).divide(holding.getTotalCost(), 4, RoundingMode.HALF_UP);
+        HoldingRealizedProfitData realizedProfitData = holdingRealizedProfitData(holding.getUserId(), holding.getId());
+        BigDecimal realizedProfit = realizedProfitData.realizedProfit();
+        BigDecimal totalProfit = realizedProfit.add(profit).setScale(4, RoundingMode.HALF_UP);
+        // 清仓后当前成本为 0，列表仍需要展示本轮交易已经落袋的收益，收益率分母使用已卖出成本 + 当前持仓成本。
+        BigDecimal totalProfitBase = realizedProfitData.realizedCost().add(scale4(holding.getTotalCost())).setScale(4, RoundingMode.HALF_UP);
+        BigDecimal totalProfitRate = totalProfitBase.compareTo(BigDecimal.ZERO) <= 0 ? BigDecimal.ZERO : rate(totalProfit, totalProfitBase);
+        boolean closedOut = scaleQuantity(holding.getQuantity()).compareTo(BigDecimal.ZERO) <= 0 && realizedProfit.compareTo(BigDecimal.ZERO) != 0;
         boolean todayPriceAvailable = todayPriceAvailable(asset, assetMeta, priceDate);
         InvestmentHoldingDailyProfitService.HoldingDailyProfitSummary previousCalendarProfit = holdingDailyProfitService.latestHoldingBefore(holding.getUserId(), holding.getId(), LocalDate.now());
         // 今日收益同时返回当前份额和上一日份额两个口径，便于后续确认最终展示方案。
@@ -922,8 +929,8 @@ public class HoldingServiceImpl implements HoldingService {
                 .marketStatus(matchedPrice == null ? null : matchedPrice.getMarketStatus())
                 .primaryProfitLabel("今日收益")
                 .primaryProfitAmount(todayProfit)
-                .secondaryProfitLabel("持有收益")
-                .secondaryProfitAmount(profit)
+                .secondaryProfitLabel(closedOut ? "总收益" : "持有收益")
+                .secondaryProfitAmount(closedOut ? totalProfit : profit)
                 .priceLabel(priceLabel(assetMeta))
                 .marketValue(marketValue)
                 .todayProfit(todayProfit)
@@ -938,6 +945,9 @@ public class HoldingServiceImpl implements HoldingService {
                 .yesterdayProfitBase(yesterdayProfitBase)
                 .yesterdayChangeRate(yesterdayChangeRate)
                 .floatingProfit(profit)
+                .realizedProfit(realizedProfit)
+                .totalProfit(totalProfit)
+                .totalProfitRate(totalProfitRate)
                 .floatingProfitRate(profitRate)
                 .breakEvenRate(breakEvenRate)
                 .remark(holding.getRemark())
@@ -1662,6 +1672,12 @@ public class HoldingServiceImpl implements HoldingService {
     }
 
     /**
+     * 持仓已实现收益汇总。
+     */
+    private record HoldingRealizedProfitData(BigDecimal realizedProfit, BigDecimal realizedCost) {
+    }
+
+    /**
      * 收益日历计算结果。
      */
     private record CalendarProfitData(BigDecimal profit, BigDecimal profitRate, BigDecimal marketValue, BigDecimal price, BigDecimal previousPrice, BigDecimal baseAmount) {
@@ -1717,6 +1733,42 @@ public class HoldingServiceImpl implements HoldingService {
                 .sorted(Comparator.comparing(AssetPriceVO::getQuoteTime).reversed())
                 .limit(30)
                 .toList();
+    }
+
+    /**
+     * 汇总单持仓已实现收益和对应已卖出成本，清仓持仓列表需要用它展示落袋收益。
+     */
+    private HoldingRealizedProfitData holdingRealizedProfitData(Long userId, Long holdingId) {
+        if (userId == null || holdingId == null) {
+            return new HoldingRealizedProfitData(BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP), BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP));
+        }
+        List<InvestmentTransaction> transactions = investmentTransactionMapper.selectList(new LambdaQueryWrapper<InvestmentTransaction>()
+                .eq(InvestmentTransaction::getUserId, userId)
+                .eq(InvestmentTransaction::getHoldingId, holdingId)
+                .eq(InvestmentTransaction::getType, "SELL"));
+        BigDecimal realizedProfit = BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
+        BigDecimal realizedCost = BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
+        for (InvestmentTransaction transaction : transactions == null ? List.<InvestmentTransaction>of() : transactions) {
+            if (!isEffectiveInvestmentTransaction(transaction)) {
+                continue;
+            }
+            realizedProfit = realizedProfit.add(scale4(transaction.getRealizedProfit())).setScale(4, RoundingMode.HALF_UP);
+            realizedCost = realizedCost.add(transactionCostAmount(transaction)).setScale(4, RoundingMode.HALF_UP);
+        }
+        return new HoldingRealizedProfitData(realizedProfit, realizedCost);
+    }
+
+    /**
+     * 读取交易成本；老数据缺 cost_amount 时只能退回交易金额，避免收益率分母直接为 0。
+     */
+    private BigDecimal transactionCostAmount(InvestmentTransaction transaction) {
+        if (transaction.getCostAmount() != null) {
+            return scale4(transaction.getCostAmount());
+        }
+        if (transaction.getTradeAmount() != null) {
+            return scale4(transaction.getTradeAmount());
+        }
+        return scale4(transaction.getAmount()).add(scale4(transaction.getFee())).setScale(4, RoundingMode.HALF_UP);
     }
 
     /**
