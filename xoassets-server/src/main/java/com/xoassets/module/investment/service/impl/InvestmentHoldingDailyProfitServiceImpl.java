@@ -337,8 +337,9 @@ public class InvestmentHoldingDailyProfitServiceImpl implements InvestmentHoldin
             if (previousPrice != null) {
                 LocalDate displayDate = calendarDisplayDate(assetMeta, price.tradeDate());
                 if (!displayDate.isBefore(start) && !displayDate.isAfter(end)) {
-                    LocalDate quantityDate = calendarProfitBaseQuantityDate(assetMeta, previousPriceDate, price.tradeDate());
-                    DailySegmentProfitData segmentProfit = dailySegmentProfit(userId, holding, assetMeta, quantityDate, price.tradeDate(), price.closePrice(), previousPrice, manualOnly);
+                    LocalDate quantityDate = calendarProfitBaseQuantityDate(assetMeta, previousPriceDate, displayDate);
+                    LocalDate endQuantityDate = calendarProfitEndQuantityDate(assetMeta, price.tradeDate(), displayDate);
+                    DailySegmentProfitData segmentProfit = dailySegmentProfit(userId, holding, assetMeta, quantityDate, endQuantityDate, price.closePrice(), previousPrice, manualOnly);
                     upsert(toRow(userId, holding, asset, assetMeta, displayDate, price, previousPriceDate, previousPrice, quantityDate, segmentProfit));
                 }
             }
@@ -647,11 +648,23 @@ public class InvestmentHoldingDailyProfitServiceImpl implements InvestmentHoldin
     /**
      * 收益基准数量日期。
      */
-    private LocalDate calendarProfitBaseQuantityDate(AssetMeta assetMeta, LocalDate previousPriceDate, LocalDate priceDate) {
+    private LocalDate calendarProfitBaseQuantityDate(AssetMeta assetMeta, LocalDate previousPriceDate, LocalDate displayDate) {
         if (assetMeta != null && (VALUATION_END_OF_DAY_NAV.equals(assetMeta.valuationMode()) || VALUATION_MONEY_FUND_YIELD.equals(assetMeta.valuationMode()))) {
-            return priceDate;
+            // 净值型基金的收益展示在净值日后的交易日；确认日新生效份额也应参与当天展示收益。
+            return displayDate;
         }
         return previousPriceDate;
+    }
+
+    /**
+     * 收益展示日持仓数量日期。
+     */
+    private LocalDate calendarProfitEndQuantityDate(AssetMeta assetMeta, LocalDate priceDate, LocalDate displayDate) {
+        if (assetMeta != null && (VALUATION_END_OF_DAY_NAV.equals(assetMeta.valuationMode()) || VALUATION_MONEY_FUND_YIELD.equals(assetMeta.valuationMode()))) {
+            // 与基准份额日期保持一致，避免确认日收益漏掉刚确认的基金份额。
+            return displayDate;
+        }
+        return priceDate;
     }
 
     /**
