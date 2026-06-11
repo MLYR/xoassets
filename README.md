@@ -161,11 +161,11 @@ XXL_JOB_EXECUTOR_ENABLED=true
 XXL_JOB_ADMIN_ADDRESSES=http://localhost:8081/xxl-job-admin
 XXL_JOB_ACCESS_TOKEN=xoassets-xxl-job-local-token
 XXL_JOB_EXECUTOR_APPNAME=xoassets-server
-XXL_JOB_EXECUTOR_ADDRESS=http://host.docker.internal:9999/
-XXL_JOB_EXECUTOR_PORT=9999
+XXL_JOB_EXECUTOR_ADDRESS=http://host.docker.internal:10099/
+XXL_JOB_EXECUTOR_PORT=10099
 ```
 
-本地 XXL-JOB Admin 跑在 Docker 中、后端 executor 跑在宿主机 IDEA 中时，`XXL_JOB_EXECUTOR_ADDRESS` 必须使用 `http://host.docker.internal:9999/`。不要依赖自动探测的 `192.168.x.x` 地址，否则换 Wi-Fi / 网络后 Admin 可能继续调用旧 IP。
+本地 XXL-JOB Admin 跑在 Docker 中、后端 executor 跑在宿主机 IDEA 中时，`XXL_JOB_EXECUTOR_ADDRESS` 必须使用 `http://host.docker.internal:10099/`。不要依赖自动探测的 `192.168.x.x` 地址，否则换 Wi-Fi / 网络后 Admin 可能继续调用旧 IP。`10099` 是 XOAssets 本地 executor 端口，用于避开其他项目常用的 `9999`。
 
 后端启动命令参考：
 

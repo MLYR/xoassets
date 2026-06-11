@@ -52,6 +52,7 @@ services:
       XXL_JOB_ACCESS_TOKEN: xoassets-xxl-job-local-token
       XXL_JOB_EXECUTOR_APPNAME: xoassets-server
       XXL_JOB_EXECUTOR_ADDRESS: http://xoassets-server:9999/
+      XXL_JOB_EXECUTOR_PORT: 9999
       TZ: Asia/Shanghai
     depends_on:
       xoassets-mysql:

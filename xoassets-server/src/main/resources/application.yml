@@ -63,7 +63,7 @@ xxl:
       appname: ${XXL_JOB_EXECUTOR_APPNAME:xoassets-server}
       address: ${XXL_JOB_EXECUTOR_ADDRESS:}
       ip: ${XXL_JOB_EXECUTOR_IP:}
-      port: ${XXL_JOB_EXECUTOR_PORT:9999}
+      port: ${XXL_JOB_EXECUTOR_PORT:10099}
       logpath: ${XXL_JOB_EXECUTOR_LOG_PATH:logs/xxl-job}
       logretentiondays: ${XXL_JOB_EXECUTOR_LOG_RETENTION_DAYS:30}
       timeout: ${XXL_JOB_EXECUTOR_TIMEOUT:3}
