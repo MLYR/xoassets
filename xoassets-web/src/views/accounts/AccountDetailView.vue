@@ -1,10 +1,17 @@
 <!-- 账户详情页：聚合展示普通流水、转账和投资交易形成的资金变化。 -->
 <template>
   <div class="page">
-    <div class="page-actions">
-      <el-button @click="$router.push('/accounts')">返回账户</el-button>
-      <el-button :icon="Edit" @click="openBalanceAdjustment">余额修正</el-button>
-      <el-button type="primary" :icon="Download" :loading="exporting" @click="handleExportLedger">导出账户明细</el-button>
+    <div class="account-detail-hero panel">
+      <div class="detail-title-block">
+        <span>账户详情</span>
+        <h1>{{ account?.name || '账户详情' }}</h1>
+        <p>{{ account?.type || '-' }} · {{ account?.currency || '-' }} · {{ account?.status === 1 ? '正常' : '停用' }}</p>
+      </div>
+      <div class="page-actions account-detail-actions">
+        <el-button @click="$router.push('/accounts')">返回账户</el-button>
+        <el-button :icon="Edit" @click="openBalanceAdjustment">余额修正</el-button>
+        <el-button type="primary" :icon="Download" :loading="exporting" @click="handleExportLedger">导出账户明细</el-button>
+      </div>
     </div>
 
     <section class="account-info panel panel-padding">
@@ -333,6 +340,51 @@ function formatDateTimeInput(date: Date) {
 </script>
 
 <style scoped>
+.account-detail-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 24px;
+  background:
+    linear-gradient(135deg, var(--xo-card-elevated), var(--xo-card)),
+    var(--xo-card);
+}
+
+.detail-title-block {
+  min-width: 0;
+}
+
+.detail-title-block span {
+  display: inline-flex;
+  margin-bottom: 8px;
+  color: var(--xo-primary);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.detail-title-block h1 {
+  margin: 0;
+  overflow: hidden;
+  color: var(--xo-text);
+  font-size: 26px;
+  line-height: 1.2;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail-title-block p {
+  margin: 8px 0 0;
+  color: var(--xo-muted);
+  font-size: 14px;
+}
+
+.account-detail-actions {
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+}
+
 .account-info {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -445,6 +497,16 @@ function formatDateTimeInput(date: Date) {
 }
 
 @media (max-width: 1080px) {
+  .account-detail-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .account-detail-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
   .account-info,
   .grid-4,
   .chart-grid,

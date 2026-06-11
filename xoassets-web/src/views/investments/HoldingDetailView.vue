@@ -1,13 +1,18 @@
 <!-- 投资持仓详情页：聚焦单个基金、股票或虚拟货币的收益、交易和价格记录。 -->
 <template>
   <div class="page">
-    <div class="page-actions page-actions-between">
-      <el-button class="back-button" @click="goBack">返回</el-button>
-      <div class="header-actions">
-        <el-button type="primary" @click="openTradeDialog('BUY')">买入</el-button>
-        <el-button type="primary" plain @click="openTradeDialog('SELL')">卖出</el-button>
-        <el-button @click="openQuoteDialog">手动价格</el-button>
-        <el-button :loading="refreshingQuote" @click="handleRefreshQuote">刷新行情</el-button>
+    <div class="holding-detail-toolbar panel">
+      <div class="detail-title-block">
+        <span>持仓详情</span>
+        <h1>{{ holding?.assetName || holding?.symbol || '持仓详情' }}</h1>
+        <p>{{ holding?.symbol || '-' }} · {{ holding?.assetType || '-' }} · {{ holding?.currency || '-' }}</p>
+      </div>
+      <div class="holding-toolbar-actions">
+        <el-button class="toolbar-back-button" :icon="ArrowLeft" @click="goBack">返回</el-button>
+        <el-button type="primary" :icon="Plus" @click="openTradeDialog('BUY')">买入</el-button>
+        <el-button class="toolbar-sell-button" :icon="Minus" @click="openTradeDialog('SELL')">卖出</el-button>
+        <el-button class="toolbar-ghost-button" :icon="EditPen" @click="openQuoteDialog">手动价格</el-button>
+        <el-button class="toolbar-ghost-button" :icon="Refresh" :loading="refreshingQuote" @click="handleRefreshQuote">刷新行情</el-button>
       </div>
     </div>
 
@@ -180,7 +185,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import type { EChartsOption } from 'echarts';
 import { useRoute, useRouter } from 'vue-router';
-import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
+import { ArrowLeft, ArrowRight, EditPen, Minus, Plus, Refresh } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import BaseChart from '@/components/charts/BaseChart.vue';
 import AmountText from '@/components/finance/AmountText.vue';
@@ -733,15 +738,91 @@ function roundTo(value: number, precision: number) {
 
 <style scoped>
 /* 详情页延续投资模块的玻璃面板、表格和数字排版风格。 */
-.back-button {
-  margin-bottom: 10px;
+.holding-detail-toolbar {
+  //position: sticky;
+  top: 16px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 20px;
+  background:
+    linear-gradient(135deg, var(--xo-card-elevated), var(--xo-card)),
+    var(--xo-card);
 }
 
-.header-actions {
+.detail-title-block {
+  min-width: 0;
+}
+
+.detail-title-block span {
+  display: inline-flex;
+  margin-bottom: 8px;
+  color: var(--xo-primary);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.detail-title-block h1 {
+  margin: 0;
+  overflow: hidden;
+  color: var(--xo-text);
+  font-size: 26px;
+  line-height: 1.2;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail-title-block p {
+  margin: 8px 0 0;
+  color: var(--xo-muted);
+  font-size: 14px;
+}
+
+.holding-toolbar-actions {
   display: flex;
-  gap: 10px;
+  flex: 0 0 auto;
   align-items: center;
-  flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px;
+  border: 1px solid var(--xo-border);
+  border-radius: 18px;
+  background: var(--xo-card-solid);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.holding-toolbar-actions :deep(.el-button) {
+  flex: 0 0 auto;
+  margin-left: 0;
+  border-radius: 12px;
+  font-weight: 700;
+}
+
+.holding-toolbar-actions :deep(.el-button--primary) {
+  border: 0;
+  background: var(--xo-brand-gradient);
+  box-shadow: 0 10px 18px rgba(37, 99, 235, 0.18);
+}
+
+.toolbar-back-button,
+.toolbar-ghost-button,
+.toolbar-sell-button {
+  border-color: transparent;
+  background: var(--xo-input-muted);
+}
+
+.toolbar-sell-button {
+  color: var(--xo-warning);
+}
+
+.toolbar-back-button:hover,
+.toolbar-ghost-button:hover,
+.toolbar-sell-button:hover {
+  border-color: var(--xo-primary-soft);
+  background: var(--xo-primary-softer);
+  color: var(--xo-primary);
 }
 
 .summary-grid {
@@ -945,12 +1026,31 @@ function roundTo(value: number, precision: number) {
 }
 
 @media (max-width: 960px) {
+  .holding-detail-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .holding-toolbar-actions {
+    width: 100%;
+    overflow-x: auto;
+  }
+
   .summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 640px) {
+  .holding-detail-toolbar {
+    top: 10px;
+    padding: 16px;
+  }
+
+  .detail-title-block h1 {
+    font-size: 22px;
+  }
+
   .section-head {
     align-items: flex-start;
     flex-direction: column;
