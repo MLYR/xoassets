@@ -20,6 +20,14 @@ public class AssetDistributionVO {
      */
     private String type;
     /**
+     * 下钻引用ID。
+     */
+    private Long refId;
+    /**
+     * 下钻引用类型：ACCOUNT / HOLDING。
+     */
+    private String refType;
+    /**
      * 数值。
      */
     private BigDecimal value;

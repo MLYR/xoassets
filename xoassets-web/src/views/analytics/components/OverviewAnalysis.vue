@@ -16,7 +16,7 @@
     <section class="panel panel-padding">
       <h3>当前资产分布</h3>
       <el-empty v-if="!loading && assetDistribution.length === 0" description="暂无资产分布数据" />
-      <BaseChart v-else :option="assetDistributionOption" />
+      <BaseChart v-else :option="assetDistributionOption" @chart-click="handleAssetDistributionClick" />
     </section>
   </div>
 </template>
@@ -24,8 +24,10 @@
 <script setup lang="ts">
 // 总览 Tab 只消费父级传入的数据，避免重复请求。
 import { computed } from 'vue';
+import { useRouter } from 'vue-router';
 import type { EChartsOption } from 'echarts';
 import BaseChart from '@/components/charts/BaseChart.vue';
+import { ROUTES } from '@/constants/routes';
 import type { AssetSnapshotItem } from '@/services/snapshotApi';
 import type { AssetDistributionItem, IncomeExpenseTrendPoint } from '@/services/statisticsApi';
 
@@ -35,6 +37,7 @@ const props = defineProps<{
   incomeExpenseTrend: IncomeExpenseTrendPoint[];
   assetDistribution: AssetDistributionItem[];
 }>();
+const router = useRouter();
 
 const netAssetOption = computed<EChartsOption>(() => ({
   tooltip: { trigger: 'axis' },
@@ -60,11 +63,25 @@ const incomeExpenseOption = computed<EChartsOption>(() => ({
 const assetDistributionOption = computed<EChartsOption>(() => ({
   color: [chartColor('--xo-chart-blue'), chartColor('--xo-chart-green'), chartColor('--xo-chart-purple'), chartColor('--xo-chart-yellow'), chartColor('--xo-chart-red')],
   tooltip: { trigger: 'item' },
-  series: [{ type: 'pie', radius: ['44%', '72%'], data: props.assetDistribution.map((item) => ({ name: item.name, value: item.value })) }]
+  series: [{ type: 'pie', radius: ['44%', '72%'], data: props.assetDistribution.map((item) => ({ name: item.name, value: item.value, refId: item.refId || null, refType: item.refType || null })) }]
 }));
 
 // 图表颜色从主题变量读取，暗色模式下跟随全局 token。
 function chartColor(name: string) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function handleAssetDistributionClick(params: unknown) {
+  const data = (params as { data?: { refId?: string | null; refType?: string | null } }).data;
+  if (!data?.refId) {
+    return;
+  }
+  if (data.refType === 'ACCOUNT') {
+    router.push(ROUTES.accountDetail.replace(':id', data.refId));
+    return;
+  }
+  if (data.refType === 'HOLDING') {
+    router.push(ROUTES.holdingDetail.replace(':id', data.refId));
+  }
 }
 </script>

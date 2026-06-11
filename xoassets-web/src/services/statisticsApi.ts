@@ -40,6 +40,10 @@ export interface AssetDistributionItem {
   name: string;
   /** 类型。 */
   type: string;
+  /** 下钻引用ID。 */
+  refId?: string | null;
+  /** 下钻引用类型。 */
+  refType?: 'ACCOUNT' | 'HOLDING' | string | null;
   /** 数值。 */
   value: number;
   /** 占比。 */

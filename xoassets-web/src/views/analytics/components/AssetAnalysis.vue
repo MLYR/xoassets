@@ -22,7 +22,7 @@
     <section class="panel panel-padding wide">
       <h3>当前资产分布</h3>
       <el-empty v-if="!loading && assetDistribution.length === 0" description="暂无资产分布数据" />
-      <BaseChart v-else :option="assetDistributionOption" height="320px" />
+      <BaseChart v-else :option="assetDistributionOption" height="320px" @chart-click="handleAssetDistributionClick" />
     </section>
   </div>
 </template>
@@ -30,8 +30,10 @@
 <script setup lang="ts">
 // 资产分析使用资产快照作为趋势权威来源。
 import { computed } from 'vue';
+import { useRouter } from 'vue-router';
 import type { EChartsOption } from 'echarts';
 import BaseChart from '@/components/charts/BaseChart.vue';
+import { ROUTES } from '@/constants/routes';
 import type { AssetSnapshotItem } from '@/services/snapshotApi';
 import type { AssetDistributionItem } from '@/services/statisticsApi';
 
@@ -40,6 +42,7 @@ const props = defineProps<{
   netAssetsTrend: AssetSnapshotItem[];
   assetDistribution: AssetDistributionItem[];
 }>();
+const router = useRouter();
 
 const netAssetOption = computed<EChartsOption>(() => lineOption('净资产', props.netAssetsTrend.map((item) => item.snapshotDate), props.netAssetsTrend.map((item) => item.netAsset), '--xo-chart-blue'));
 const totalAssetOption = computed<EChartsOption>(() => lineOption('总资产', props.netAssetsTrend.map((item) => item.snapshotDate), props.netAssetsTrend.map((item) => item.totalAsset), '--xo-chart-green'));
@@ -59,7 +62,7 @@ const assetStructureOption = computed<EChartsOption>(() => ({
 const assetDistributionOption = computed<EChartsOption>(() => ({
   color: [chartColor('--xo-chart-blue'), chartColor('--xo-chart-green'), chartColor('--xo-chart-purple'), chartColor('--xo-chart-yellow'), chartColor('--xo-chart-red')],
   tooltip: { trigger: 'item' },
-  series: [{ type: 'pie', radius: ['42%', '70%'], data: props.assetDistribution.map((item) => ({ name: item.name, value: item.value })) }]
+  series: [{ type: 'pie', radius: ['42%', '70%'], data: props.assetDistribution.map((item) => ({ name: item.name, value: item.value, refId: item.refId || null, refType: item.refType || null })) }]
 }));
 
 // 单线趋势图共用配置，保持资产类图表视觉一致。
@@ -76,5 +79,19 @@ function lineOption(name: string, xData: string[], data: number[], colorVar: str
 
 function chartColor(name: string) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function handleAssetDistributionClick(params: unknown) {
+  const data = (params as { data?: { refId?: string | null; refType?: string | null } }).data;
+  if (!data?.refId) {
+    return;
+  }
+  if (data.refType === 'ACCOUNT') {
+    router.push(ROUTES.accountDetail.replace(':id', data.refId));
+    return;
+  }
+  if (data.refType === 'HOLDING') {
+    router.push(ROUTES.holdingDetail.replace(':id', data.refId));
+  }
 }
 </script>
