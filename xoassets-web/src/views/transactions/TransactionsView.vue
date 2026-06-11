@@ -12,6 +12,9 @@
       <el-select v-model="accountFilter" placeholder="全部账户" clearable @change="reloadFromFirstPage">
         <el-option v-for="account in accounts" :key="account.id" :label="account.name" :value="account.id" />
       </el-select>
+      <el-select v-model="categoryFilter" placeholder="全部分类" clearable @change="reloadFromFirstPage">
+        <el-option v-for="category in categories" :key="category.id" :label="category.name" :value="category.id" />
+      </el-select>
       <el-button :icon="Filter">更多筛选</el-button>
       <el-button :icon="Download" :loading="exporting" @click="handleExport">导出</el-button>
       <el-button type="primary" :icon="Plus" @click="openCreateDialog">新增记账</el-button>
@@ -83,7 +86,8 @@
 
 <script setup lang="ts">
 // 记账页所有新增、编辑和删除都调用后端，账户余额联动由后端事务保证。
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { Delete, Download, Edit, Filter, Plus, Search } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import AmountText from '@/components/finance/AmountText.vue';
@@ -94,6 +98,7 @@ import { transactionApi, type TransactionApiType, type TransactionItem, type Tra
 import { exportApi } from '@/services/exportApi';
 import TransactionDialog from './components/TransactionDialog.vue';
 
+const route = useRoute();
 // 远程数据状态。
 const transactions = ref<TransactionItem[]>([]);
 const accounts = ref<AccountItem[]>([]);
@@ -111,6 +116,8 @@ const editingTransaction = ref<TransactionItem | null>(null);
 const keyword = ref('');
 const typeFilter = ref<TransactionApiType | ''>('');
 const accountFilter = ref<string | ''>('');
+const categoryFilter = ref<string | ''>('');
+const monthFilter = ref('');
 const pageNo = ref(1);
 // 列表统一默认 10 条，页大小选项和投资列表保持一致。
 const pageSize = ref(10);
@@ -118,8 +125,14 @@ const pageSizeOptions = [10, 50, 100, 300];
 
 // 页面进入时并行加载账户、分类和流水。
 onMounted(() => {
+  applyRouteFilters();
   loadOptions();
   loadTransactions();
+});
+
+watch(() => route.query, () => {
+  applyRouteFilters();
+  reloadFromFirstPage();
 });
 
 // 加载账户和分类，新增流水弹窗必须使用这些后端数据。
@@ -145,7 +158,9 @@ async function loadTransactions() {
       pageSize: pageSize.value,
       keyword: keyword.value || undefined,
       type: typeFilter.value || undefined,
-      accountId: accountFilter.value || undefined
+      accountId: accountFilter.value || undefined,
+      categoryId: categoryFilter.value || undefined,
+      ...monthDateRange(monthFilter.value)
     });
     transactions.value = result.records;
     total.value = result.total;
@@ -226,7 +241,9 @@ async function handleExport() {
     await exportApi.transactions({
       keyword: keyword.value || undefined,
       type: typeFilter.value || undefined,
-      accountId: accountFilter.value || undefined
+      accountId: accountFilter.value || undefined,
+      categoryId: categoryFilter.value || undefined,
+      ...monthDateRange(monthFilter.value)
     });
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '流水导出失败');
@@ -269,13 +286,44 @@ function formatAmountValue(row: TransactionItem) {
 function formatDateTime(value: string) {
   return value.replace('T', ' ').slice(0, 16);
 }
+
+// 分析页下钻会通过 query 传入 type/categoryId/month，这里映射到现有筛选条件。
+function applyRouteFilters() {
+  const queryType = singleQuery(route.query.type);
+  typeFilter.value = isTransactionType(queryType) ? queryType : '';
+  accountFilter.value = singleQuery(route.query.accountId) || '';
+  categoryFilter.value = singleQuery(route.query.categoryId) || '';
+  const queryMonth = singleQuery(route.query.month);
+  monthFilter.value = queryMonth && /^\d{4}-\d{2}$/.test(queryMonth) ? queryMonth : '';
+}
+
+function singleQuery(value: unknown) {
+  return Array.isArray(value) ? value[0] || '' : typeof value === 'string' ? value : '';
+}
+
+function isTransactionType(value: string): value is TransactionApiType {
+  return ['INCOME', 'EXPENSE', 'TRANSFER', 'REFUND'].includes(value);
+}
+
+// 月份 query 转成后端已支持的开始/结束日期，不新增流水接口参数。
+function monthDateRange(month: string) {
+  if (!/^\d{4}-\d{2}$/.test(month)) {
+    return {};
+  }
+  const [year, monthNumber] = month.split('-').map(Number);
+  const endDay = new Date(year, monthNumber, 0).getDate();
+  return {
+    startDate: `${month}-01`,
+    endDate: `${month}-${`${endDay}`.padStart(2, '0')}`
+  };
+}
 </script>
 
 <style scoped>
 /* 筛选区沿用原型横向工具栏，白色玻璃底让表格入口更轻。 */
 .filter-panel {
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) 160px 180px auto auto auto;
+  grid-template-columns: minmax(220px, 1fr) 150px 170px 170px auto auto auto;
   gap: 12px;
   padding: 16px;
   align-items: center;

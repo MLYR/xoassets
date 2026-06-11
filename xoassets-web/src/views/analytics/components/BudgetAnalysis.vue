@@ -31,7 +31,7 @@
       <h3>预算分类列表</h3>
       <el-empty v-if="!loading && budgetSummary.items.length === 0" description="暂无预算分类数据" />
       <div v-else class="budget-list">
-        <div v-for="item in budgetSummary.items" :key="item.id" class="budget-row">
+        <div v-for="item in budgetSummary.items" :key="item.id" class="budget-row" @click="openBudget(item)">
           <div>
             <strong>{{ item.categoryName || (item.budgetType === 'TOTAL' ? '总预算' : '未分类') }}</strong>
             <span>{{ item.usageStatusLabel }}</span>
@@ -41,6 +41,7 @@
             <AmountText :value="item.usedAmount" />
             <span>/</span>
             <AmountText :value="item.amount" muted />
+            <el-button v-if="item.usageStatus === 'OVER' && item.categoryId" link type="danger" @click.stop="openBudgetTransactions(item)">看流水</el-button>
           </div>
         </div>
       </div>
@@ -51,14 +52,17 @@
 <script setup lang="ts">
 // 预算 Tab 只展示 selectedMonth 对应的 budgetProgress 结果。
 import { computed } from 'vue';
+import { useRouter } from 'vue-router';
 import AmountText from '@/components/finance/AmountText.vue';
-import type { BudgetSummary } from '@/services/budgetApi';
+import { ROUTES } from '@/constants/routes';
+import type { BudgetItem, BudgetSummary } from '@/services/budgetApi';
 
 const props = defineProps<{
   loading: boolean;
   selectedMonth: string;
   budgetSummary: BudgetSummary;
 }>();
+const router = useRouter();
 
 const usageRateText = computed(() => `${safePercent(props.budgetSummary.usageRate).toFixed(1)}%`);
 const progressStatus = computed(() => (props.budgetSummary.usageStatus === 'OVER' ? 'exception' : props.budgetSummary.usageStatus === 'WARNING' ? 'warning' : undefined));
@@ -69,6 +73,27 @@ function safePercent(value: number | null | undefined) {
     return 0;
   }
   return Math.max(0, Math.min(100, Number(value)));
+}
+
+function openBudget(item: BudgetItem) {
+  router.push({
+    path: ROUTES.budgets,
+    query: {
+      month: props.selectedMonth,
+      ...(item.categoryId ? { categoryId: item.categoryId } : {})
+    }
+  });
+}
+
+function openBudgetTransactions(item: BudgetItem) {
+  router.push({
+    path: ROUTES.transactions,
+    query: {
+      type: 'EXPENSE',
+      month: props.selectedMonth,
+      categoryId: item.categoryId || undefined
+    }
+  });
 }
 </script>
 
@@ -123,6 +148,12 @@ function safePercent(value: number | null | undefined) {
   padding: 14px;
   border-radius: var(--xo-radius-inner);
   background: var(--xo-input-muted);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.budget-row:hover {
+  background: var(--xo-primary-softer);
 }
 
 .budget-row strong {

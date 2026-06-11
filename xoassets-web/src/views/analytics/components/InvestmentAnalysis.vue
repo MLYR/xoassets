@@ -16,7 +16,7 @@
 
     <template v-else>
       <section v-loading="loading" class="module-card-grid">
-        <div v-for="item in moduleAssets" :key="item.module" class="module-card panel panel-padding">
+        <div v-for="item in moduleAssets" :key="item.module" class="module-card panel panel-padding" @click="openInvestmentModule(item.module)">
           <div class="module-card-top">
             <span>{{ item.name }}</span>
             <el-tag round>{{ formatRatio(item.assetRatio) }}</el-tag>
@@ -116,10 +116,12 @@
 <script setup lang="ts">
 // 今日收益严格遵守 overview.todayProfitAvailable，缺少今日有效价时展示状态文案。
 import { computed } from 'vue';
+import { useRouter } from 'vue-router';
 import type { EChartsOption, SeriesOption } from 'echarts';
 import BaseChart from '@/components/charts/BaseChart.vue';
 import AmountText from '@/components/finance/AmountText.vue';
 import MetricCard from '@/components/finance/MetricCard.vue';
+import { ROUTES } from '@/constants/routes';
 import { formatAmount } from '@/utils/format';
 import type { HoldingItem, InvestmentCalendarDayProfit, InvestmentModuleAsset, InvestmentOverview, InvestmentTrend } from '@/services/investmentApi';
 import { ANALYTICS_INVESTMENT_MODULE_OPTIONS, ANALYTICS_INVESTMENT_PERIOD_OPTIONS, type AnalyticsInvestmentModule, type AnalyticsInvestmentPeriod } from '../composables/useAnalyticsData';
@@ -146,6 +148,7 @@ const emit = defineEmits<{
   'update:investmentPeriod': [value: AnalyticsInvestmentPeriod];
   refresh: [];
 }>();
+const router = useRouter();
 
 const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
 const moduleAssets = computed<InvestmentModuleAsset[]>(() => props.overview?.moduleAssets || []);
@@ -298,6 +301,10 @@ function chartColor(name: string) {
 function pad(value: number) {
   return `${value}`.padStart(2, '0');
 }
+
+function openInvestmentModule(module: string) {
+  router.push({ path: ROUTES.investments, query: { module } });
+}
 </script>
 
 <style scoped>
@@ -316,6 +323,13 @@ function pad(value: number) {
 .module-card {
   display: grid;
   gap: 14px;
+  cursor: pointer;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.module-card:hover {
+  box-shadow: var(--xo-shadow-hover);
+  transform: translateY(-2px);
 }
 
 .module-card-top,

@@ -13,8 +13,8 @@
     </section>
 
     <section v-loading="loading" class="budget-grid">
-      <el-empty v-if="!loading && budgets.length === 0" class="panel empty-panel" description="还没有预算，新增总预算或分类预算后即可跟踪进度" />
-      <article v-for="budget in budgets" :key="budget.id" class="panel panel-padding budget-card">
+      <el-empty v-if="!loading && displayBudgets.length === 0" class="panel empty-panel" description="还没有预算，新增总预算或分类预算后即可跟踪进度" />
+      <article v-for="budget in displayBudgets" :key="budget.id" class="panel panel-padding budget-card" :class="{ 'is-target': targetCategoryId === budget.categoryId }">
         <div class="budget-head">
           <div>
             <h3>{{ budgetTitle(budget) }}</h3>
@@ -75,6 +75,7 @@
 <script setup lang="ts">
 // 预算页使用后端实时汇总结果，转账不计入预算，退款由后端抵扣支出。
 import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { Plus } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import AmountText from '@/components/finance/AmountText.vue';
@@ -84,7 +85,9 @@ import { budgetApi, type BudgetItem, type BudgetRequest, type BudgetSummary, typ
 import { categoryApi, type CategoryItem } from '@/services/categoryApi';
 import { progressPercent } from '@/utils/format';
 
-const selectedMonth = ref(currentMonth());
+const route = useRoute();
+const selectedMonth = ref(routeMonth(route.query.month));
+const targetCategoryId = ref(singleQuery(route.query.categoryId));
 const budgets = ref<BudgetItem[]>([]);
 const categories = ref<CategoryItem[]>([]);
 const loading = ref(false);
@@ -94,6 +97,7 @@ const editingBudget = ref<BudgetItem | null>(null);
 const form = reactive<BudgetRequest>({ month: selectedMonth.value, budgetType: 'TOTAL', categoryId: null, amount: 0, status: 1 });
 const emptySummary = computed<BudgetSummary>(() => ({ month: selectedMonth.value, totalBudget: 0, totalUsed: 0, totalRemaining: 0, usageRate: 0, usageStatus: 'NORMAL', usageStatusLabel: '正常', items: [] }));
 const summary = ref<BudgetSummary>(emptySummary.value);
+const displayBudgets = computed(() => targetCategoryId.value ? budgets.value.filter((budget) => budget.categoryId === targetCategoryId.value) : budgets.value);
 const budgetTypeOptions = [
   { label: '总预算', value: 'TOTAL' },
   { label: '分类预算', value: 'CATEGORY' }
@@ -106,6 +110,11 @@ onMounted(() => {
 
 watch(selectedMonth, () => {
   loadBudgets();
+});
+
+watch(() => route.query, () => {
+  selectedMonth.value = routeMonth(route.query.month);
+  targetCategoryId.value = singleQuery(route.query.categoryId);
 });
 
 watch(() => form.budgetType, (type) => {
@@ -217,6 +226,15 @@ function currentMonth() {
   const date = new Date();
   return `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, '0')}`;
 }
+
+function routeMonth(value: unknown) {
+  const month = singleQuery(value);
+  return /^\d{4}-\d{2}$/.test(month) ? month : currentMonth();
+}
+
+function singleQuery(value: unknown) {
+  return Array.isArray(value) ? value[0] || '' : typeof value === 'string' ? value : '';
+}
 </script>
 
 <style scoped>
@@ -235,6 +253,11 @@ function currentMonth() {
 .budget-card:hover {
   box-shadow: var(--xo-shadow-hover);
   transform: translateY(-2px);
+}
+
+.budget-card.is-target {
+  border-color: var(--xo-primary);
+  box-shadow: var(--xo-shadow-hover);
 }
 
 .budget-head {

@@ -20,15 +20,26 @@ const props = withDefaults(
 );
 
 const chartRef = ref<HTMLDivElement | null>(null);
+const emit = defineEmits<{
+  chartClick: [params: unknown];
+}>();
 let chart: echarts.ECharts | null = null;
 let observer: ResizeObserver | null = null;
+
+// 将 ECharts 点击事件透出给分析页下钻，避免各页面直接操作图表实例。
+function handleChartClick(params: unknown) {
+  emit('chartClick', params);
+}
 
 // 渲染或更新图表；option 变化时复用已有实例，避免重复初始化。
 function renderChart() {
   if (!chartRef.value) {
     return;
   }
-  chart ??= echarts.init(chartRef.value);
+  if (!chart) {
+    chart = echarts.init(chartRef.value);
+    chart.on('click', handleChartClick);
+  }
   chart.setOption(props.option, true);
 }
 
@@ -53,6 +64,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   observer?.disconnect();
   window.removeEventListener('resize', resizeChart);
+  chart?.off('click', handleChartClick);
   chart?.dispose();
 });
 </script>

@@ -16,14 +16,14 @@
     <section class="panel panel-padding">
       <h3>{{ selectedMonth }} 支出分类</h3>
       <el-empty v-if="!loading && expenseCategories.length === 0" description="暂无支出分类数据" />
-      <BaseChart v-else :option="expenseOption" />
+      <BaseChart v-else :option="expenseOption" @chart-click="handleExpenseChartClick" />
     </section>
 
     <section class="panel panel-padding wide">
       <h3>支出分类排行</h3>
       <el-empty v-if="!loading && expenseCategories.length === 0" description="暂无支出排行数据" />
       <div v-else class="rank-list">
-        <div v-for="item in expenseCategories" :key="item.categoryId || item.categoryName || 'unknown'" class="rank-row">
+        <div v-for="item in expenseCategories" :key="item.categoryId || item.categoryName || 'unknown'" class="rank-row" @click="openExpenseTransactions(item)">
           <div class="rank-name">{{ item.categoryName || '未分类' }}</div>
           <el-progress :percentage="safePercent(item.percent)" :show-text="false" />
           <div class="rank-value">
@@ -39,9 +39,11 @@
 <script setup lang="ts">
 // 收支 Tab 的月份只影响分类数据，趋势仍按顶部周期展示。
 import { computed } from 'vue';
+import { useRouter } from 'vue-router';
 import type { EChartsOption } from 'echarts';
 import BaseChart from '@/components/charts/BaseChart.vue';
 import AmountText from '@/components/finance/AmountText.vue';
+import { ROUTES } from '@/constants/routes';
 import type { ExpenseCategoryStat, IncomeExpenseTrendPoint } from '@/services/statisticsApi';
 
 const props = defineProps<{
@@ -50,6 +52,7 @@ const props = defineProps<{
   incomeExpenseTrend: IncomeExpenseTrendPoint[];
   expenseCategories: ExpenseCategoryStat[];
 }>();
+const router = useRouter();
 
 const incomeExpenseOption = computed<EChartsOption>(() => ({
   tooltip: { trigger: 'axis' },
@@ -74,7 +77,7 @@ const balanceOption = computed<EChartsOption>(() => ({
 const expenseOption = computed<EChartsOption>(() => ({
   color: [chartColor('--xo-chart-blue'), chartColor('--xo-chart-green'), chartColor('--xo-chart-purple'), chartColor('--xo-chart-yellow'), chartColor('--xo-chart-red')],
   tooltip: { trigger: 'item' },
-  series: [{ type: 'pie', radius: '72%', data: props.expenseCategories.map((item) => ({ name: item.categoryName || '未分类', value: item.amount })) }]
+  series: [{ type: 'pie', radius: '72%', data: props.expenseCategories.map((item) => ({ name: item.categoryName || '未分类', value: item.amount, categoryId: item.categoryId || null })) }]
 }));
 
 // 后端 percent 为业务占比，前端兜底到 0-100 避免进度条异常。
@@ -87,6 +90,28 @@ function safePercent(value: number | null | undefined) {
 
 function chartColor(name: string) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function handleExpenseChartClick(params: unknown) {
+  const data = (params as { data?: { categoryId?: string | null } }).data;
+  const category = props.expenseCategories.find((item) => item.categoryId === data?.categoryId);
+  if (category) {
+    openExpenseTransactions(category);
+  }
+}
+
+function openExpenseTransactions(item: ExpenseCategoryStat) {
+  if (!item.categoryId) {
+    return;
+  }
+  router.push({
+    path: ROUTES.transactions,
+    query: {
+      type: 'EXPENSE',
+      categoryId: item.categoryId,
+      month: props.selectedMonth
+    }
+  });
 }
 </script>
 
@@ -102,6 +127,13 @@ function chartColor(name: string) {
   grid-template-columns: minmax(90px, 160px) minmax(120px, 1fr) minmax(140px, auto);
   align-items: center;
   gap: 14px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.rank-row:hover {
+  border-radius: var(--xo-radius-inner);
+  background: var(--xo-primary-softer);
 }
 
 .rank-name {
