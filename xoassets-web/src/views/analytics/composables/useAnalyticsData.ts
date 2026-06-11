@@ -1,6 +1,7 @@
 // 数据分析页数据中枢：统一管理筛选条件、日期区间和现有统计接口请求。
 import { computed, ref } from 'vue';
 import { ElMessage } from 'element-plus';
+import { analyticsApi, type AnalyticsInvestment, type AnalyticsOverviewParams } from '@/services/analyticsApi';
 import { snapshotApi, type AssetSnapshotItem } from '@/services/snapshotApi';
 import { statisticsApi, type AssetDistributionItem, type ExpenseCategoryStat, type IncomeExpenseTrendPoint, type InvestmentProfitTrendPoint } from '@/services/statisticsApi';
 import { investmentApi, type HoldingItem, type InvestmentCalendarDayProfit, type InvestmentOverview, type InvestmentTrend } from '@/services/investmentApi';
@@ -74,6 +75,35 @@ export function useAnalyticsData() {
 
   async function loadAnalytics() {
     loading.value = true;
+    investmentLoading.value = true;
+    try {
+      const overview = await analyticsApi.overview(analyticsParams());
+      applyAnalyticsOverview(overview);
+    } catch (error) {
+      await loadLegacyAnalytics();
+    } finally {
+      loading.value = false;
+      investmentLoading.value = false;
+    }
+  }
+
+  async function loadInvestmentAnalytics() {
+    investmentLoading.value = true;
+    investmentFailed.value = false;
+    try {
+      const overview = await analyticsApi.overview(analyticsParams());
+      applyInvestmentAnalytics(overview.investment);
+      investmentLoading.value = false;
+      return;
+    } catch {
+      // 聚合接口失败时回退投资模块旧接口，保证第三阶段上线可渐进。
+    }
+
+    await loadLegacyInvestmentAnalytics();
+    investmentLoading.value = false;
+  }
+
+  async function loadLegacyAnalytics() {
     try {
       const range = selectedRange.value;
       const [netAssets, expenses, incomeExpense, distribution, investment, budget] = await Promise.all([
@@ -91,17 +121,13 @@ export function useAnalyticsData() {
       assetDistribution.value = Array.isArray(distribution) ? distribution : [];
       investmentTrend.value = Array.isArray(investment) ? investment : [];
       budgetSummary.value = budget ?? emptyBudgetSummary(selectedMonth.value);
+      await loadLegacyInvestmentAnalytics();
     } catch (error) {
       ElMessage.error(error instanceof Error ? error.message : '统计数据加载失败');
-    } finally {
-      loading.value = false;
     }
-
-    await loadInvestmentAnalytics();
   }
 
-  async function loadInvestmentAnalytics() {
-    investmentLoading.value = true;
+  async function loadLegacyInvestmentAnalytics() {
     investmentFailed.value = false;
     const { year, month } = selectedMonthParts(selectedMonth.value);
 
@@ -122,7 +148,67 @@ export function useAnalyticsData() {
     if (failedCount > 0) {
       ElMessage.warning('部分投资分析数据加载失败，已隐藏不可用区域');
     }
-    investmentLoading.value = false;
+  }
+
+  // 生成聚合接口参数，确保筛选条件和旧接口回退使用同一范围。
+  function analyticsParams(): AnalyticsOverviewParams {
+    const range = selectedRange.value;
+    return {
+      startDate: range.startDate,
+      endDate: range.endDate,
+      startMonth: range.startMonth,
+      endMonth: range.endMonth,
+      selectedMonth: selectedMonth.value,
+      investmentModule: currentInvestmentModule.value,
+      investmentPeriod: currentInvestmentPeriod.value
+    };
+  }
+
+  // 应用后端聚合返回，所有数组继续兜底为空数组。
+  function applyAnalyticsOverview(overview: {
+    assetTrend?: AssetSnapshotItem[];
+    expenseCategories?: ExpenseCategoryStat[];
+    incomeExpenseTrend?: IncomeExpenseTrendPoint[];
+    assetDistribution?: AssetDistributionItem[];
+    budgetSummary?: BudgetSummary | null;
+    investment?: AnalyticsInvestment | null;
+  }) {
+    netAssetsTrend.value = Array.isArray(overview.assetTrend) ? overview.assetTrend : [];
+    expenseCategories.value = Array.isArray(overview.expenseCategories) ? overview.expenseCategories : [];
+    incomeExpenseTrend.value = Array.isArray(overview.incomeExpenseTrend) ? overview.incomeExpenseTrend : [];
+    assetDistribution.value = Array.isArray(overview.assetDistribution) ? overview.assetDistribution : [];
+    budgetSummary.value = overview.budgetSummary ?? emptyBudgetSummary(selectedMonth.value);
+    investmentTrend.value = [];
+    applyInvestmentAnalytics(overview.investment ?? null);
+  }
+
+  // 把聚合投资对象映射到现有投资 Tab 使用的数据形状。
+  function applyInvestmentAnalytics(investment: AnalyticsInvestment | null) {
+    if (!investment) {
+      investmentFailed.value = true;
+      investmentOverview.value = null;
+      investmentModuleTrend.value = null;
+      investmentDailyProfit.value = [];
+      investmentModuleHoldings.value = [];
+      return;
+    }
+    investmentFailed.value = false;
+    investmentOverview.value = {
+      totalInvestmentAsset: investment.totalInvestmentAsset,
+      totalCost: 0,
+      holdingProfit: investment.holdingProfit,
+      holdingProfitRate: investment.holdingProfitRate,
+      todayProfit: investment.todayProfit,
+      todayProfitAvailable: investment.todayProfitAvailable,
+      todayProfitAssetScope: investment.todayProfitStatusLabel || '今日有效价资产',
+      todayProfitStatusLabel: investment.todayProfitStatusLabel,
+      yesterdayProfit: investment.yesterdayProfit,
+      yesterdayProfitAssetScope: '收益日历聚合',
+      moduleAssets: Array.isArray(investment.moduleAssets) ? investment.moduleAssets : []
+    };
+    investmentModuleTrend.value = investment.trend ?? null;
+    investmentDailyProfit.value = Array.isArray(investment.dailyProfitCalendar) ? investment.dailyProfitCalendar : [];
+    investmentModuleHoldings.value = Array.isArray(investment.holdings) ? investment.holdings : [];
   }
 
   return {

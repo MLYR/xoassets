@@ -90,7 +90,7 @@ watch([currentInvestmentModule, currentInvestmentPeriod], () => {
 
 const latestNetAsset = computed(() => latestOf(netAssetsTrend.value)?.netAsset ?? null);
 const periodBalance = computed(() => incomeExpenseTrend.value.reduce((sum, item) => sum + Number(item.balance), 0));
-const latestInvestmentProfit = computed(() => latestOf(investmentTrend.value)?.floatingProfit ?? null);
+const latestInvestmentProfit = computed(() => investmentOverview.value?.holdingProfit ?? latestOf(investmentTrend.value)?.floatingProfit ?? null);
 const budgetRemaining = computed(() => budgetSummary.value.totalRemaining);
 
 // 取趋势最后一个点作为最新 KPI，空数组返回 null 供金额组件展示 --。
