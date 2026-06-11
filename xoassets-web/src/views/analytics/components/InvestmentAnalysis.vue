@@ -125,6 +125,7 @@ import { ROUTES } from '@/constants/routes';
 import { formatAmount } from '@/utils/format';
 import type { HoldingItem, InvestmentCalendarDayProfit, InvestmentModuleAsset, InvestmentOverview, InvestmentTrend } from '@/services/investmentApi';
 import { ANALYTICS_INVESTMENT_MODULE_OPTIONS, ANALYTICS_INVESTMENT_PERIOD_OPTIONS, type AnalyticsInvestmentModule, type AnalyticsInvestmentPeriod } from '../composables/useAnalyticsData';
+import { amountTooltip, categoryAxis, chartColor, chartLegend, valueAxis } from './chartFormat';
 
 interface CalendarCell extends Partial<InvestmentCalendarDayProfit> {
   key: string;
@@ -180,11 +181,11 @@ const trendOption = computed<EChartsOption>(() => {
   }
 
   return {
-    tooltip: { trigger: 'axis' },
-    legend: { top: 0 },
+    tooltip: { trigger: 'axis', valueFormatter: amountTooltip },
+    legend: chartLegend(),
     grid: { left: 52, right: 18, top: 42, bottom: 38 },
-    xAxis: { type: 'category', data: trendPoints.value.map((item) => item.date) },
-    yAxis: { type: 'value' },
+    xAxis: categoryAxis(trendPoints.value.map((item) => item.date)),
+    yAxis: valueAxis(),
     series
   };
 });
@@ -292,10 +293,6 @@ function calendarCellClass(cell: CalendarCell) {
     return 'is-negative';
   }
   return '';
-}
-
-function chartColor(name: string) {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
 function pad(value: number) {

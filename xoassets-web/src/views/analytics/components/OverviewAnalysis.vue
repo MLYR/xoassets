@@ -30,6 +30,7 @@ import BaseChart from '@/components/charts/BaseChart.vue';
 import { ROUTES } from '@/constants/routes';
 import type { AssetSnapshotItem } from '@/services/snapshotApi';
 import type { AssetDistributionItem, IncomeExpenseTrendPoint } from '@/services/statisticsApi';
+import { amountTooltip, categoryAxis, chartColor, chartLegend, valueAxis } from './chartFormat';
 
 const props = defineProps<{
   loading: boolean;
@@ -40,19 +41,19 @@ const props = defineProps<{
 const router = useRouter();
 
 const netAssetOption = computed<EChartsOption>(() => ({
-  tooltip: { trigger: 'axis' },
+  tooltip: { trigger: 'axis', valueFormatter: amountTooltip },
   grid: { left: 44, right: 18, top: 24, bottom: 36 },
-  xAxis: { type: 'category', data: props.netAssetsTrend.map((item) => item.snapshotDate) },
-  yAxis: { type: 'value' },
+  xAxis: categoryAxis(props.netAssetsTrend.map((item) => item.snapshotDate)),
+  yAxis: valueAxis(),
   series: [{ name: '净资产', type: 'line', smooth: true, data: props.netAssetsTrend.map((item) => item.netAsset), lineStyle: { color: chartColor('--xo-chart-blue'), width: 3 }, itemStyle: { color: chartColor('--xo-chart-blue') }, areaStyle: { color: chartColor('--xo-primary-soft') } }]
 }));
 
 const incomeExpenseOption = computed<EChartsOption>(() => ({
-  tooltip: { trigger: 'axis' },
-  legend: { top: 0 },
+  tooltip: { trigger: 'axis', valueFormatter: amountTooltip },
+  legend: chartLegend(),
   grid: { left: 44, right: 18, top: 36, bottom: 36 },
-  xAxis: { type: 'category', data: props.incomeExpenseTrend.map((item) => item.month) },
-  yAxis: { type: 'value' },
+  xAxis: categoryAxis(props.incomeExpenseTrend.map((item) => item.month)),
+  yAxis: valueAxis(),
   series: [
     { name: '收入', type: 'bar', data: props.incomeExpenseTrend.map((item) => item.income), itemStyle: { color: chartColor('--xo-chart-green'), borderRadius: [10, 10, 0, 0] } },
     { name: '支出', type: 'bar', data: props.incomeExpenseTrend.map((item) => item.expense), itemStyle: { color: chartColor('--xo-chart-red'), borderRadius: [10, 10, 0, 0] } },
@@ -62,14 +63,9 @@ const incomeExpenseOption = computed<EChartsOption>(() => ({
 
 const assetDistributionOption = computed<EChartsOption>(() => ({
   color: [chartColor('--xo-chart-blue'), chartColor('--xo-chart-green'), chartColor('--xo-chart-purple'), chartColor('--xo-chart-yellow'), chartColor('--xo-chart-red')],
-  tooltip: { trigger: 'item' },
+  tooltip: { trigger: 'item', valueFormatter: amountTooltip },
   series: [{ type: 'pie', radius: ['44%', '72%'], data: props.assetDistribution.map((item) => ({ name: item.name, value: item.value, refId: item.refId || null, refType: item.refType || null })) }]
 }));
-
-// 图表颜色从主题变量读取，暗色模式下跟随全局 token。
-function chartColor(name: string) {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-}
 
 function handleAssetDistributionClick(params: unknown) {
   const data = (params as { data?: { refId?: string | null; refType?: string | null } }).data;

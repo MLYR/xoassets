@@ -36,6 +36,7 @@ import BaseChart from '@/components/charts/BaseChart.vue';
 import { ROUTES } from '@/constants/routes';
 import type { AssetSnapshotItem } from '@/services/snapshotApi';
 import type { AssetDistributionItem } from '@/services/statisticsApi';
+import { amountTooltip, categoryAxis, chartColor, chartLegend, valueAxis } from './chartFormat';
 
 const props = defineProps<{
   loading: boolean;
@@ -48,11 +49,11 @@ const netAssetOption = computed<EChartsOption>(() => lineOption('净资产', pro
 const totalAssetOption = computed<EChartsOption>(() => lineOption('总资产', props.netAssetsTrend.map((item) => item.snapshotDate), props.netAssetsTrend.map((item) => item.totalAsset), '--xo-chart-green'));
 
 const assetStructureOption = computed<EChartsOption>(() => ({
-  tooltip: { trigger: 'axis' },
-  legend: { top: 0 },
+  tooltip: { trigger: 'axis', valueFormatter: amountTooltip },
+  legend: chartLegend(),
   grid: { left: 44, right: 18, top: 36, bottom: 36 },
-  xAxis: { type: 'category', data: props.netAssetsTrend.map((item) => item.snapshotDate) },
-  yAxis: { type: 'value' },
+  xAxis: categoryAxis(props.netAssetsTrend.map((item) => item.snapshotDate)),
+  yAxis: valueAxis(),
   series: [
     { name: '现金资产', type: 'line', smooth: true, data: props.netAssetsTrend.map((item) => item.cashAsset), lineStyle: { color: chartColor('--xo-chart-blue'), width: 3 }, itemStyle: { color: chartColor('--xo-chart-blue') } },
     { name: '投资资产', type: 'line', smooth: true, data: props.netAssetsTrend.map((item) => item.investmentAsset), lineStyle: { color: chartColor('--xo-chart-green'), width: 3 }, itemStyle: { color: chartColor('--xo-chart-green') } }
@@ -61,7 +62,7 @@ const assetStructureOption = computed<EChartsOption>(() => ({
 
 const assetDistributionOption = computed<EChartsOption>(() => ({
   color: [chartColor('--xo-chart-blue'), chartColor('--xo-chart-green'), chartColor('--xo-chart-purple'), chartColor('--xo-chart-yellow'), chartColor('--xo-chart-red')],
-  tooltip: { trigger: 'item' },
+  tooltip: { trigger: 'item', valueFormatter: amountTooltip },
   series: [{ type: 'pie', radius: ['42%', '70%'], data: props.assetDistribution.map((item) => ({ name: item.name, value: item.value, refId: item.refId || null, refType: item.refType || null })) }]
 }));
 
@@ -69,16 +70,12 @@ const assetDistributionOption = computed<EChartsOption>(() => ({
 function lineOption(name: string, xData: string[], data: number[], colorVar: string): EChartsOption {
   const color = chartColor(colorVar);
   return {
-    tooltip: { trigger: 'axis' },
+    tooltip: { trigger: 'axis', valueFormatter: amountTooltip },
     grid: { left: 44, right: 18, top: 24, bottom: 36 },
-    xAxis: { type: 'category', data: xData },
-    yAxis: { type: 'value' },
+    xAxis: categoryAxis(xData),
+    yAxis: valueAxis(),
     series: [{ name, type: 'line', smooth: true, data, lineStyle: { color, width: 3 }, itemStyle: { color }, areaStyle: { color: chartColor('--xo-primary-soft') } }]
   };
-}
-
-function chartColor(name: string) {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
 function handleAssetDistributionClick(params: unknown) {

@@ -45,6 +45,7 @@ import BaseChart from '@/components/charts/BaseChart.vue';
 import AmountText from '@/components/finance/AmountText.vue';
 import { ROUTES } from '@/constants/routes';
 import type { ExpenseCategoryStat, IncomeExpenseTrendPoint } from '@/services/statisticsApi';
+import { amountTooltip, categoryAxis, chartColor, chartLegend, valueAxis } from './chartFormat';
 
 const props = defineProps<{
   loading: boolean;
@@ -55,11 +56,11 @@ const props = defineProps<{
 const router = useRouter();
 
 const incomeExpenseOption = computed<EChartsOption>(() => ({
-  tooltip: { trigger: 'axis' },
-  legend: { top: 0 },
+  tooltip: { trigger: 'axis', valueFormatter: amountTooltip },
+  legend: chartLegend(),
   grid: { left: 44, right: 18, top: 36, bottom: 36 },
-  xAxis: { type: 'category', data: props.incomeExpenseTrend.map((item) => item.month) },
-  yAxis: { type: 'value' },
+  xAxis: categoryAxis(props.incomeExpenseTrend.map((item) => item.month)),
+  yAxis: valueAxis(),
   series: [
     { name: '收入', type: 'bar', data: props.incomeExpenseTrend.map((item) => item.income), itemStyle: { color: chartColor('--xo-chart-green'), borderRadius: [10, 10, 0, 0] } },
     { name: '支出', type: 'bar', data: props.incomeExpenseTrend.map((item) => item.expense), itemStyle: { color: chartColor('--xo-chart-red'), borderRadius: [10, 10, 0, 0] } }
@@ -67,16 +68,16 @@ const incomeExpenseOption = computed<EChartsOption>(() => ({
 }));
 
 const balanceOption = computed<EChartsOption>(() => ({
-  tooltip: { trigger: 'axis' },
+  tooltip: { trigger: 'axis', valueFormatter: amountTooltip },
   grid: { left: 44, right: 18, top: 24, bottom: 36 },
-  xAxis: { type: 'category', data: props.incomeExpenseTrend.map((item) => item.month) },
-  yAxis: { type: 'value' },
+  xAxis: categoryAxis(props.incomeExpenseTrend.map((item) => item.month)),
+  yAxis: valueAxis(),
   series: [{ name: '结余', type: 'line', smooth: true, data: props.incomeExpenseTrend.map((item) => item.balance), lineStyle: { color: chartColor('--xo-chart-blue'), width: 3 }, itemStyle: { color: chartColor('--xo-chart-blue') }, areaStyle: { color: chartColor('--xo-primary-soft') } }]
 }));
 
 const expenseOption = computed<EChartsOption>(() => ({
   color: [chartColor('--xo-chart-blue'), chartColor('--xo-chart-green'), chartColor('--xo-chart-purple'), chartColor('--xo-chart-yellow'), chartColor('--xo-chart-red')],
-  tooltip: { trigger: 'item' },
+  tooltip: { trigger: 'item', valueFormatter: amountTooltip },
   series: [{ type: 'pie', radius: '72%', data: props.expenseCategories.map((item) => ({ name: item.categoryName || '未分类', value: item.amount, categoryId: item.categoryId || null })) }]
 }));
 
@@ -86,10 +87,6 @@ function safePercent(value: number | null | undefined) {
     return 0;
   }
   return Math.max(0, Math.min(100, Number(value)));
-}
-
-function chartColor(name: string) {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
 function handleExpenseChartClick(params: unknown) {
