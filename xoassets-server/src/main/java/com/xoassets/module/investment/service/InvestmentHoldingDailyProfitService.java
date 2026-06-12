@@ -43,6 +43,11 @@ public interface InvestmentHoldingDailyProfitService {
     Map<LocalDate, DailyProfitSummary> aggregateByDate(Long userId, LocalDate startDate, LocalDate endDate);
 
     /**
+     * 按模块和日期聚合指定用户的持仓每日收益。
+     */
+    Map<String, Map<LocalDate, DailyProfitSummary>> aggregateByModuleAndDate(Long userId, LocalDate startDate, LocalDate endDate);
+
+    /**
      * 查询指定日期前最近一个收益日，返回 ALL 和各模块汇总。
      */
     Map<String, DailyProfitSummary> latestByModuleBefore(Long userId, LocalDate date);

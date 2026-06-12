@@ -296,12 +296,20 @@ public class InvestmentHoldingDailyProfitServiceImpl implements InvestmentHoldin
     }
 
     /**
+     * 按模块和展示日聚合持久化收益，供数据分析模块趋势复用同一收益口径。
+     */
+    @Override
+    public Map<String, Map<LocalDate, DailyProfitSummary>> aggregateByModuleAndDate(Long userId, LocalDate startDate, LocalDate endDate) {
+        return aggregatePersistedByModuleAndDate(userId, startDate, endDate);
+    }
+
+    /**
      * 查询最近收益日的 ALL 和模块汇总。
      */
     @Override
     public Map<String, DailyProfitSummary> latestByModuleBefore(Long userId, LocalDate date) {
         ensureCurrentMonthForUser(userId, YearMonth.now());
-        Map<String, Map<LocalDate, DailyProfitSummary>> rows = aggregateByModuleAndDate(userId, date.minusDays(40), date.minusDays(1));
+        Map<String, Map<LocalDate, DailyProfitSummary>> rows = aggregatePersistedByModuleAndDate(userId, date.minusDays(40), date.minusDays(1));
         Map<String, DailyProfitSummary> result = new HashMap<>();
         rows.forEach((module, dailyMap) -> dailyMap.entrySet().stream()
                 .max(Map.Entry.comparingByKey())
@@ -387,7 +395,7 @@ public class InvestmentHoldingDailyProfitServiceImpl implements InvestmentHoldin
     /**
      * 按模块和日期聚合持久化收益。
      */
-    private Map<String, Map<LocalDate, DailyProfitSummary>> aggregateByModuleAndDate(Long userId, LocalDate start, LocalDate end) {
+    private Map<String, Map<LocalDate, DailyProfitSummary>> aggregatePersistedByModuleAndDate(Long userId, LocalDate start, LocalDate end) {
         List<InvestmentHoldingDailyProfit> rows = dailyProfitMapper.selectList(new LambdaQueryWrapper<InvestmentHoldingDailyProfit>()
                 .eq(InvestmentHoldingDailyProfit::getUserId, userId)
                 .between(InvestmentHoldingDailyProfit::getDisplayDate, start, end)

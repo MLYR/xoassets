@@ -1447,6 +1447,8 @@ public class HoldingServiceImpl implements HoldingService {
         }
         Set<Long> moduleAssetIds = moduleHoldings.stream().map(Holding::getAssetId).filter(Objects::nonNull).collect(Collectors.toSet());
         Map<Long, List<AssetPriceDaily>> priceMap = dailyPricesUntil(moduleAssetIds, end, assetMap);
+        Map<LocalDate, InvestmentHoldingDailyProfitService.DailyProfitSummary> dailyProfitMap =
+                holdingDailyProfitService.aggregateByModuleAndDate(userId, start, end).getOrDefault(module, Map.of());
         List<InvestmentTrendPointVO> points = new ArrayList<>();
         for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
             Map<Long, InvestmentPositionState> positions = positionHistoryService.positionsAt(userId, date);
@@ -1467,6 +1469,7 @@ public class HoldingServiceImpl implements HoldingService {
                 totalCost = totalCost.add(amountToCny(scale4(state.totalCost()), asset.getCurrency()));
             }
             BigDecimal holdingProfit = assetAmount.subtract(totalCost).setScale(4, RoundingMode.HALF_UP);
+            InvestmentHoldingDailyProfitService.DailyProfitSummary dailyProfit = dailyProfitMap.get(date);
             points.add(InvestmentTrendPointVO.builder()
                     .date(date)
                     .marketValue(assetAmount.setScale(4, RoundingMode.HALF_UP))
@@ -1474,11 +1477,10 @@ public class HoldingServiceImpl implements HoldingService {
                     .assetAmount(assetAmount.setScale(4, RoundingMode.HALF_UP))
                     .holdingProfit(holdingProfit)
                     .primaryProfitLabel(modulePrimaryProfitLabel(module))
-                    // 模块重建趋势缺少逐日净流入口径，逐日收益返回 null，避免把累计收益差冒充日收益。
-                    .dailyProfit(null)
-                    .dailyProfitRate(null)
-                    // 趋势点只负责市值和持有收益；没有逐日收益归因时返回 null，避免把缺失收益冒充为 0。
-                    .primaryProfitAmount(null)
+                    // 模块趋势的当日收益读取持仓每日收益表，避免把累计收益差冒充日收益。
+                    .dailyProfit(dailyProfit == null ? null : scale4(dailyProfit.profit()))
+                    .dailyProfitRate(dailyProfit == null ? null : nullableRate(dailyProfit.profit(), dailyProfit.baseAmount()))
+                    .primaryProfitAmount(dailyProfit == null ? null : scale4(dailyProfit.profit()))
                     .build());
         }
         return points;
