@@ -47,6 +47,10 @@ public class InvestmentDailySnapshotJob {
      */
     private static final String STATUS_PENDING_CONFIRM = "PENDING_CONFIRM";
     /**
+     * 正常状态常量。
+     */
+    private static final String STATUS_NORMAL = "NORMAL";
+    /**
      * 已确认状态常量。
      */
     private static final String STATUS_CONFIRMED = "CONFIRMED";
@@ -216,7 +220,8 @@ public class InvestmentDailySnapshotJob {
         LocalDateTime end = snapshotDate.atTime(LocalTime.MAX);
         List<InvestmentTransaction> transactions = investmentTransactionMapper.selectList(new LambdaQueryWrapper<InvestmentTransaction>()
                 .eq(InvestmentTransaction::getUserId, userId)
-                .in(InvestmentTransaction::getStatus, "NORMAL", STATUS_CONFIRMED)
+                // 待确认基金申购按下单日真实扣款，买入统计必须和净入金、在途资产保持同一现金流口径。
+                .in(InvestmentTransaction::getStatus, STATUS_NORMAL, STATUS_CONFIRMED, STATUS_PENDING_CONFIRM)
                 .le(InvestmentTransaction::getTransactionTime, end));
         BigDecimal buyAmount = BigDecimal.ZERO;
         BigDecimal sellAmount = BigDecimal.ZERO;

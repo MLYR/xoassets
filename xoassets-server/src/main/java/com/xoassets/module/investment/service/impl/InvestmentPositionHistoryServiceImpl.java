@@ -38,6 +38,10 @@ public class InvestmentPositionHistoryServiceImpl implements InvestmentPositionH
      */
     private static final String STATUS_CONFIRMED = "CONFIRMED";
     /**
+     * 待确认状态常量。
+     */
+    private static final String STATUS_PENDING_CONFIRM = "PENDING_CONFIRM";
+    /**
      * 买入类型常量。
      */
     private static final String TYPE_BUY = "BUY";
@@ -128,7 +132,7 @@ public class InvestmentPositionHistoryServiceImpl implements InvestmentPositionH
                         .le(InvestmentTransaction::getTransactionTime, end.atTime(LocalTime.MAX))
                         .orderByAsc(InvestmentTransaction::getTransactionTime))
                 .stream()
-                .filter(this::isEffective)
+                .filter(this::isCashFlowEffective)
                 // 净入金按现金实际进出投资资产的日期统计；基金份额确认日只影响持仓生效，不应重复算入本金。
                 .filter(transaction -> inRange(cashFlowDate(transaction), start, end))
                 .map(this::netInflowAmount)
@@ -150,8 +154,8 @@ public class InvestmentPositionHistoryServiceImpl implements InvestmentPositionH
         Set<Long> transactionUsers = transactionMapper.selectList(new LambdaQueryWrapper<InvestmentTransaction>()
                         .le(InvestmentTransaction::getTransactionTime, endDate.atTime(LocalTime.MAX)))
                 .stream()
-                .filter(this::isEffective)
-                .filter(transaction -> inRange(effectiveDate(transaction), startDate, endDate) || inRange(cashFlowDate(transaction), startDate, endDate))
+                .filter(transaction -> (isEffective(transaction) && inRange(effectiveDate(transaction), startDate, endDate))
+                        || (isCashFlowEffective(transaction) && inRange(cashFlowDate(transaction), startDate, endDate)))
                 .map(InvestmentTransaction::getUserId)
                 .collect(Collectors.toSet());
         Set<Long> snapshotUsers = dailySnapshotMapper.selectList(new LambdaQueryWrapper<InvestmentDailySnapshot>()
@@ -257,6 +261,15 @@ public class InvestmentPositionHistoryServiceImpl implements InvestmentPositionH
      */
     private boolean isEffective(InvestmentTransaction transaction) {
         return STATUS_NORMAL.equals(transaction.getStatus()) || STATUS_CONFIRMED.equals(transaction.getStatus());
+    }
+
+    /**
+     * 判断交易现金流是否参与投资净入金；待确认基金申购已扣资金账户，但份额不能提前生效。
+     */
+    private boolean isCashFlowEffective(InvestmentTransaction transaction) {
+        return STATUS_NORMAL.equals(transaction.getStatus())
+                || STATUS_CONFIRMED.equals(transaction.getStatus())
+                || STATUS_PENDING_CONFIRM.equals(transaction.getStatus());
     }
 
     /**

@@ -98,7 +98,7 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                 .expenseCategories(expenseCategories)
                 .assetDistribution(assetDistribution)
                 .budgetSummary(budgetSummary)
-                .investment(buildInvestment(investmentOverview, investmentTrend, dailyProfitCalendar, holdings))
+                .investment(buildInvestment(investmentOverview, investmentTrend, latestSnapshot(assetTrend), dailyProfitCalendar, holdings))
                 .build();
     }
 
@@ -130,7 +130,8 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                 .periodIncome(periodIncome)
                 .periodExpense(periodExpense)
                 .periodBalance(periodBalance)
-                .investmentAsset(investmentOverview == null ? BigDecimal.ZERO : zeroIfNull(investmentOverview.getTotalInvestmentAsset()))
+                // 分析页资产趋势来自资产快照，KPI 投资资产也优先同源，避免漏掉待确认基金在途资产。
+                .investmentAsset(latestSnapshot == null ? investmentOverviewAmount(investmentOverview) : zeroIfNull(latestSnapshot.getInvestmentAsset()))
                 .investmentProfit(investmentOverview == null ? BigDecimal.ZERO : zeroIfNull(investmentOverview.getHoldingProfit()))
                 .budgetRemaining(budgetSummary == null ? BigDecimal.ZERO : zeroIfNull(budgetSummary.getTotalRemaining()))
                 .build();
@@ -142,11 +143,13 @@ public class AnalyticsServiceImpl implements AnalyticsService {
     private InvestmentAnalyticsVO buildInvestment(
             InvestmentOverviewVO overview,
             InvestmentTrendVO trend,
+            AssetSnapshotVO latestSnapshot,
             List<InvestmentCalendarDayProfitVO> dailyProfitCalendar,
             List<HoldingVO> holdings) {
         List<InvestmentModuleAssetVO> moduleAssets = overview == null ? Collections.emptyList() : safeList(overview.getModuleAssets());
         return InvestmentAnalyticsVO.builder()
-                .totalInvestmentAsset(overview == null ? BigDecimal.ZERO : zeroIfNull(overview.getTotalInvestmentAsset()))
+                // 投资分析顶部资产额与资产趋势同源，待确认申购作为在途投资资产展示。
+                .totalInvestmentAsset(latestSnapshot == null ? investmentOverviewAmount(overview) : zeroIfNull(latestSnapshot.getInvestmentAsset()))
                 .holdingProfit(overview == null ? BigDecimal.ZERO : zeroIfNull(overview.getHoldingProfit()))
                 .holdingProfitRate(overview == null ? BigDecimal.ZERO : zeroIfNull(overview.getHoldingProfitRate()))
                 .todayProfit(overview == null ? null : overview.getTodayProfit())
@@ -198,6 +201,20 @@ public class AnalyticsServiceImpl implements AnalyticsService {
      */
     private <T> List<T> safeList(List<T> items) {
         return items == null ? Collections.emptyList() : items;
+    }
+
+    /**
+     * 取资产趋势最后一个快照点，作为分析页资产 KPI 的同源基准。
+     */
+    private AssetSnapshotVO latestSnapshot(List<AssetSnapshotVO> assetTrend) {
+        return assetTrend == null || assetTrend.isEmpty() ? null : assetTrend.get(assetTrend.size() - 1);
+    }
+
+    /**
+     * 缺少资产快照时退回投资总览当前持仓资产额，保证历史数据为空时页面仍可展示。
+     */
+    private BigDecimal investmentOverviewAmount(InvestmentOverviewVO investmentOverview) {
+        return investmentOverview == null ? BigDecimal.ZERO : zeroIfNull(investmentOverview.getTotalInvestmentAsset());
     }
 
     /**
