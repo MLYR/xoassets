@@ -147,7 +147,7 @@ com.xoassets
 - 投资数量统一保留 10 位小数，手续费、成本、市值、盈亏和收益率统一按 4 位小数计算；当前价和日级价保留 8 位，并记录 previous_close、change_amount、change_percent、market_status，持仓接口返回 `priceScale`，CRYPTO 当前价至少展示 6 位，FUND / STOCK 展示 4 位。
 - 公共资产 `xo_asset` 必须写入 `market`，股票为 SH / SZ / BJ / US，基金为 CN_FUND，虚拟货币为 CRYPTO；资产唯一性按 `type + market + symbol + deleted` 判断。
 - 持仓收益分析字段由后端基于 `xo_asset_price_current` 当前价、`xo_asset_price_daily` 日级价格和 `xo_investment_holding_daily_profit` 持仓每日收益表计算，包括今日收益、昨日收益、浮动盈亏、已实现收益、总收益、收益率和回本涨幅；所有资产只有当前价格日期等于今天时才计算今日收益，其中基金和股票还必须当天为交易日，休市日返回 `todayPriceAvailable=false`、`priceStatus=MARKET_CLOSED` 并展示“休市”，交易日未更新返回 `priceStatus=TODAY_PRICE_NOT_AVAILABLE`，收益基准价格或基准数量缺失时对应字段返回 `null`，前端展示“暂无 / --”，不能用历史价、兜底价或其他值冒充今日价；今日收益同时返回当前 / 今日有效份额口径和上一交易日日终份额归因口径，Web 默认展示当前份额口径；每日收益日历、昨日收益、投资趋势每日收益和收益贡献必须从 `xo_investment_holding_daily_profit` 聚合，缺行时显示 `--`；持仓汇总、投资总览和模块卡通过 `todayProfitAvailable` / `primaryProfitAvailable` 标记今日收益是否可展示，不可用时金额返回 `null` 并显示 `--`，同时用 `todayProfitStatusLabel` / `primaryProfitStatusLabel` 说明“今日休市”或净值未更新原因。
-- 持仓估值只能使用与资产币种一致的 `xo_asset_price_current` 当前价；前端展示市值、成本和盈亏必须使用后端返回字段，不得用格式化后的当前价反算；清仓持仓的列表持有收益展示已实现收益 + 当前浮动盈亏，持仓详情总市值走势使用后端 `chartPoints`，不得用当前 0 份额倒推历史。
+- 持仓估值只能使用与资产币种一致的 `xo_asset_price_current` 当前价；前端展示市值、成本和盈亏必须使用后端返回字段，不得用格式化后的当前价反算；持仓创建后不允许删除，清仓持仓状态显示“清仓”，列表持有收益展示已实现收益 + 当前浮动盈亏，持仓详情总市值走势使用后端 `chartPoints`，不得用当前 0 份额倒推历史。
 - 账户余额校准必须生成 `xo_account_balance_adjustment` 修正事件；该事件进入账户账本和余额曲线，但不计入普通收入 / 支出统计。`PUT /api/accounts/{id}` 可兼容余额差异，但 Web/App 应优先调用专用余额修正接口。
 - 账户详情页通过聚合普通流水、投资交易和余额修正展示资金变化，投资买入计入账户流出，投资卖出计入账户流入，但不进入普通收支统计。
 - 行情刷新通过 `QuoteProvider` 扩展；CRYPTO 使用 CoinGecko，FUND 使用天天基金 F10 历史净值表和实时净值兜底，A 股使用新浪行情，美股使用 Yahoo Finance。第三方行情只能由后端调用，前端只调 XOAssets `/api/quotes/**`。

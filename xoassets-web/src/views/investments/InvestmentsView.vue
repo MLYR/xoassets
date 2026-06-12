@@ -240,12 +240,11 @@
           <el-table-column label="状态" width="130" align="center">
             <template #default="{ row }"><el-tag round :type="priceStatusTagType(row)">{{ priceStatusLabel(row) }}</el-tag></template>
           </el-table-column>
-          <el-table-column label="操作" width="240" align="center" fixed="right">
+          <el-table-column label="操作" width="190" align="center" fixed="right">
             <template #default="{ row }">
               <el-button link type="primary" @click.stop="openHoldingDetail(row)">详情</el-button>
               <el-button link type="primary" :loading="refreshingAssetId === row.assetId" @click.stop="handleRefreshQuote(row)">刷新</el-button>
               <el-button link type="primary" @click.stop="openQuoteDialog(row)">价格</el-button>
-              <el-button v-if="canDeleteHolding(row)" link type="danger" @click.stop="handleDeleteHolding(row)">删除</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -1128,27 +1127,6 @@ async function handleRefreshQuote(holding: HoldingItem) {
   }
 }
 
-// 判断能否删除持仓。
-function canDeleteHolding(holding: HoldingItem) {
-  return Number(holding.quantity || 0) <= 0;
-}
-
-// 删除持仓。
-async function handleDeleteHolding(holding: HoldingItem) {
-  try {
-    await ElMessageBox.confirm(`确认删除 ${holding.assetName || holding.symbol || '该持仓'}？`, '删除持仓', { type: 'warning' });
-  } catch {
-    return;
-  }
-  try {
-    await investmentApi.removeHolding(holding.id);
-    ElMessage.success('持仓已删除');
-    await loadPageData();
-  } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '持仓删除失败');
-  }
-}
-
 // 按展示币种换算金额。
 function convertAmount(value: number, sourceCurrency?: string | null) {
   const source = sourceCurrency || 'CNY';
@@ -1421,6 +1399,9 @@ function subTypeLabel(value?: string | null) {
 
 // 转换价格状态文案。
 function priceStatusLabel(row: HoldingItem) {
+  if (closedOutHolding(row)) {
+    return '清仓';
+  }
   if (row.priceStatus === 'MARKET_CLOSED') {
     return '休市';
   }
@@ -1432,10 +1413,19 @@ function priceStatusLabel(row: HoldingItem) {
 
 // 转换价格状态标签类型。
 function priceStatusTagType(row: HoldingItem) {
+  if (closedOutHolding(row)) {
+    return 'info';
+  }
   if (row.priceStatus === 'MARKET_CLOSED') {
     return 'info';
   }
   return row.todayPriceAvailable === false ? 'warning' : 'success';
+}
+
+// 清仓持仓仍保留历史收益和交易记录，状态显示为清仓但不允许删除。
+function closedOutHolding(row: HoldingItem) {
+  return Number(row.quantity || 0) <= 0
+    && (Math.abs(Number(row.realizedProfit || 0)) > 0 || Math.abs(Number(row.totalProfit || 0)) > 0);
 }
 
 // 生成模块不可用提示。

@@ -75,7 +75,7 @@ public interface HoldingService {
     HoldingVO update(Long id, HoldingRequest request);
 
     /**
-     * 删除当前用户持仓。
+     * 持仓创建后不支持删除，保留方法用于兼容旧接口并返回明确业务错误。
      */
     void delete(Long id);
 

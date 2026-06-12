@@ -545,17 +545,12 @@ public class HoldingServiceImpl implements HoldingService {
     }
 
     /**
-     * 只有清仓后的持仓允许删除，避免用户误删仍有市值的资产。
+     * 持仓承载历史交易、收益日历和清仓后的已实现收益，创建后不允许删除。
      */
     @Transactional(rollbackFor = Exception.class)
     @Override
     public void delete(Long id) {
-        Long userId = LoginUserContext.getUserId();
-        Holding holding = findOwnedHolding(id, userId);
-        if (holding.getQuantity() != null && holding.getQuantity().compareTo(BigDecimal.ZERO) > 0) {
-            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "持仓未清仓，不允许删除");
-        }
-        holdingMapper.delete(new LambdaQueryWrapper<Holding>().eq(Holding::getId, id).eq(Holding::getUserId, userId));
+        throw new BusinessException(ErrorCode.BUSINESS_ERROR, "持仓创建后不允许删除，可通过卖出交易清仓");
     }
 
     /**
@@ -875,13 +870,15 @@ public class HoldingServiceImpl implements HoldingService {
         BigDecimal totalProfitRate = totalProfitBase.compareTo(BigDecimal.ZERO) <= 0 ? BigDecimal.ZERO : rate(totalProfit, totalProfitBase);
         boolean closedOut = scaleQuantity(holding.getQuantity()).compareTo(BigDecimal.ZERO) <= 0 && realizedProfit.compareTo(BigDecimal.ZERO) != 0;
         boolean todayPriceAvailable = todayPriceAvailable(asset, assetMeta, priceDate);
+        boolean closedOutBeforePriceDate = closedOutBeforePriceDate(holding, priceDate);
+        boolean todayProfitEnabled = todayPriceAvailable && !closedOutBeforePriceDate;
         InvestmentHoldingDailyProfitService.HoldingDailyProfitSummary previousCalendarProfit = holdingDailyProfitService.latestHoldingBefore(holding.getUserId(), holding.getId(), LocalDate.now());
         // 今日收益同时返回当前份额和上一日份额两个口径，便于后续确认最终展示方案。
-        BigDecimal todayProfitByCurrentQuantity = todayPriceAvailable ? priceDiffProfit(holding.getQuantity(), latestPrice, previous) : null;
-        BigDecimal todayProfitBaseByCurrentQuantity = todayPriceAvailable && previous != null ? holding.getQuantity().multiply(previous).setScale(4, RoundingMode.HALF_UP) : null;
-        BigDecimal todayProfitByPreviousSnapshotQuantity = todayPriceAvailable ? priceDiffProfit(todayBaselineQuantity, latestPrice, previous) : null;
-        BigDecimal todayProfitBaseByPreviousSnapshotQuantity = todayPriceAvailable && previous != null ? todayBaselineQuantity.multiply(previous).setScale(4, RoundingMode.HALF_UP) : null;
-        DailySegmentProfitData todaySegmentProfit = todayPriceAvailable
+        BigDecimal todayProfitByCurrentQuantity = todayProfitEnabled ? priceDiffProfit(holding.getQuantity(), latestPrice, previous) : null;
+        BigDecimal todayProfitBaseByCurrentQuantity = todayProfitEnabled && previous != null ? holding.getQuantity().multiply(previous).setScale(4, RoundingMode.HALF_UP) : null;
+        BigDecimal todayProfitByPreviousSnapshotQuantity = todayProfitEnabled ? priceDiffProfit(todayBaselineQuantity, latestPrice, previous) : null;
+        BigDecimal todayProfitBaseByPreviousSnapshotQuantity = todayProfitEnabled && previous != null ? todayBaselineQuantity.multiply(previous).setScale(4, RoundingMode.HALF_UP) : null;
+        DailySegmentProfitData todaySegmentProfit = todayProfitEnabled
                 ? dailySegmentProfit(holding.getUserId(), holding, assetMeta, todayBaseQuantityDate, priceDate, latestPrice, previous, effectiveTransactionCount(holding.getUserId(), holding.getId()) == 0)
                 : null;
         // 券商软件会把今日新增仓位按成交价计算当日盈亏，不能把新增股数也按昨收价算。
@@ -923,7 +920,7 @@ public class HoldingServiceImpl implements HoldingService {
                 .previousPriceTime(previousDaily == null ? null : previousDaily.getTradeDate().atStartOfDay())
                 .priceDate(priceDate)
                 .todayPriceAvailable(todayPriceAvailable)
-                .todayProfitAvailable(todayPriceAvailable && todayProfit != null)
+                .todayProfitAvailable(todayProfitEnabled && todayProfit != null)
                 .priceStatus(priceStatus)
                 .latestPriceSource(matchedPrice == null ? null : matchedPrice.getSource())
                 .marketStatus(matchedPrice == null ? null : matchedPrice.getMarketStatus())
@@ -1275,6 +1272,16 @@ public class HoldingServiceImpl implements HoldingService {
                 .filter(this::isEffectiveInvestmentTransaction)
                 .filter(transaction -> date.equals(effectiveTransactionDate(transaction)))
                 .toList();
+    }
+
+    /**
+     * 判断是否已经在价格日前清仓；清仓当天仍保留卖出日收益归因。
+     */
+    private boolean closedOutBeforePriceDate(Holding holding, LocalDate priceDate) {
+        return priceDate != null
+                && scaleQuantity(holding.getQuantity()).compareTo(BigDecimal.ZERO) <= 0
+                && positionHistoryService.quantityAt(holding.getUserId(), holding.getId(), holding.getAssetId(), priceDate).compareTo(BigDecimal.ZERO) <= 0
+                && transactionsOnDate(holding.getUserId(), holding.getId(), priceDate).isEmpty();
     }
 
     /**

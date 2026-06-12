@@ -679,13 +679,6 @@ export const investmentApi = {
       data
     });
   },
-  // 删除持仓。
-  removeHolding(id: string) {
-    return request<void>({
-      url: `/holdings/${id}`,
-      method: 'DELETE'
-    });
-  },
   // 创建投资交易。
   createTransaction(data: InvestmentTransactionRequest) {
     return request<InvestmentTransactionItem>({

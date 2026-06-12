@@ -74,6 +74,10 @@ public class InvestmentHoldingDailyProfitServiceImpl implements InvestmentHoldin
      */
     private static final String STATUS_PRICE_MISSING = "PRICE_MISSING";
     /**
+     * 清仓后状态。
+     */
+    private static final String STATUS_CLOSED_OUT = "CLOSED_OUT";
+    /**
      * 交易日历优先级排序。
      */
     private static final String CALENDAR_PRIORITY_SQL = "order by case source when 'MANUAL' then 3 when 'EXCHANGE_ANNOUNCEMENT' then 2 when 'SYSTEM_WEEKDAY' then 1 else 0 end desc, id desc limit 1";
@@ -371,10 +375,10 @@ public class InvestmentHoldingDailyProfitServiceImpl implements InvestmentHoldin
         row.setProfitAmount(profit == null ? null : scale4(profit));
         row.setProfitRate(nullableRate(profit, baseAmount));
         row.setBaseAmount(baseAmount == null ? null : scale4(baseAmount));
-        row.setMarketValue(segmentProfit.endQuantity().multiply(price.closePrice()).setScale(4, RoundingMode.HALF_UP));
+        row.setMarketValue(scaleQuantity(segmentProfit.endQuantity()).multiply(price.closePrice()).setScale(4, RoundingMode.HALF_UP));
         row.setCurrency(StringUtils.hasText(asset.getCurrency()) ? asset.getCurrency() : "CNY");
-        row.setStatus(STATUS_NORMAL);
-        row.setStatusLabel("有收益");
+        row.setStatus(segmentProfit.status());
+        row.setStatusLabel(segmentProfit.statusLabel());
         row.setCalcVersion(CALC_VERSION);
         row.setDeleted(0);
         return row;
@@ -516,9 +520,13 @@ public class InvestmentHoldingDailyProfitServiceImpl implements InvestmentHoldin
                                                       BigDecimal currentPrice, BigDecimal previousPrice, boolean manualOnly) {
         BigDecimal baseQuantity = calendarQuantity(userId, holding, previousPriceDate, manualOnly);
         BigDecimal endQuantity = calendarQuantity(userId, holding, priceDate, manualOnly);
+        if (closedOutBeforePriceDate(userId, holding, priceDate, endQuantity)) {
+            // 清仓日之后刷新行情只说明公共价格变了，不能继续用清仓前历史份额生成该持仓收益。
+            return new DailySegmentProfitData(null, null, endQuantity, STATUS_CLOSED_OUT, "已清仓");
+        }
         if (assetMeta == null || !VALUATION_REALTIME_PRICE.equals(assetMeta.valuationMode()) || currentPrice == null || previousPrice == null) {
             BigDecimal profit = priceDiffProfit(baseQuantity, currentPrice, previousPrice);
-            return new DailySegmentProfitData(profit, baseQuantity.multiply(nullToZero(previousPrice)).setScale(4, RoundingMode.HALF_UP), endQuantity);
+            return normalSegment(profit, baseQuantity.multiply(nullToZero(previousPrice)).setScale(4, RoundingMode.HALF_UP), endQuantity);
         }
         BigDecimal remainingOldQuantity = baseQuantity;
         BigDecimal profit = BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
@@ -554,7 +562,24 @@ public class InvestmentHoldingDailyProfitServiceImpl implements InvestmentHoldin
             profit = profit.add(lot.quantity().multiply(currentPrice.subtract(lot.price()))).setScale(4, RoundingMode.HALF_UP);
             baseAmount = baseAmount.add(lot.quantity().multiply(lot.price())).setScale(4, RoundingMode.HALF_UP);
         }
-        return new DailySegmentProfitData(profit, baseAmount, endQuantity);
+        return normalSegment(profit, baseAmount, endQuantity);
+    }
+
+    /**
+     * 构造正常收益段。
+     */
+    private DailySegmentProfitData normalSegment(BigDecimal profit, BigDecimal baseAmount, BigDecimal endQuantity) {
+        return new DailySegmentProfitData(profit, baseAmount, endQuantity, STATUS_NORMAL, "有收益");
+    }
+
+    /**
+     * 判断是否已经在价格日前清仓；清仓当天仍允许按卖出价计算当日收益。
+     */
+    private boolean closedOutBeforePriceDate(Long userId, Holding holding, LocalDate priceDate, BigDecimal endQuantity) {
+        return priceDate != null
+                && scaleQuantity(holding.getQuantity()).compareTo(BigDecimal.ZERO) <= 0
+                && scaleQuantity(endQuantity).compareTo(BigDecimal.ZERO) <= 0
+                && transactionsOnDate(userId, holding.getId(), priceDate).isEmpty();
     }
 
     /**
@@ -850,7 +875,7 @@ public class InvestmentHoldingDailyProfitServiceImpl implements InvestmentHoldin
     private record CalendarProfitData(BigDecimal profit, BigDecimal profitRate, BigDecimal marketValue, BigDecimal price, BigDecimal previousPrice, BigDecimal baseAmount) {
     }
 
-    private record DailySegmentProfitData(BigDecimal profit, BigDecimal baseAmount, BigDecimal endQuantity) {
+    private record DailySegmentProfitData(BigDecimal profit, BigDecimal baseAmount, BigDecimal endQuantity, String status, String statusLabel) {
     }
 
     private record IntradayLot(BigDecimal quantity, BigDecimal price) {

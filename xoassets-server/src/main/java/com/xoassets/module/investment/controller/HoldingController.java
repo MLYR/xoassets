@@ -91,7 +91,7 @@ public class HoldingController {
     }
 
     /**
-     * 删除持仓。
+     * 持仓创建后不支持删除，保留接口用于兼容旧客户端并返回明确业务错误。
      */
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {

@@ -89,7 +89,7 @@ public class InvestmentHoldingDailyProfit {
      */
     private String currency;
     /**
-     * 计算状态：NORMAL / MARKET_CLOSED / PRICE_MISSING。
+     * 计算状态：NORMAL / MARKET_CLOSED / PRICE_MISSING / CLOSED_OUT。
      */
     private String status;
     /**
