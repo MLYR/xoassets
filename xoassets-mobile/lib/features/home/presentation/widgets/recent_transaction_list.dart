@@ -3,38 +3,43 @@ import 'package:flutter/material.dart';
 import '../../../../core/design/xo_colors.dart';
 import '../../../../core/design/xo_spacing.dart';
 import '../../../../core/widgets/xo_card.dart';
+import '../../../../core/widgets/xo_empty.dart';
 import '../../../../core/widgets/xo_money_text.dart';
+import '../../../ledger/data/repositories/transaction_repository.dart';
 
-/// 最近流水列表，使用 mock 数据验证列表骨架。
+/// 最近流水列表，首页只展示后端返回的最近 5 条。
 class RecentTransactionList extends StatelessWidget {
-  const RecentTransactionList({super.key});
+  const RecentTransactionList({required this.items, super.key});
+
+  final List<TransactionItemModel> items;
 
   @override
   Widget build(BuildContext context) {
-    const items = [('早餐', '-18.00'), ('地铁', '-7.00'), ('工资', '18000.00')];
-
     return XoCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('最近流水', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: XoSpacing.sm),
-          for (final item in items)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(item.$1),
-              subtitle: const Text(
-                '今天',
-                style: TextStyle(color: XoColors.textSecondary),
+          if (items.isEmpty)
+            const XoEmpty(message: '暂无最近流水')
+          else
+            for (final item in items)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(item.title),
+                subtitle: Text(
+                  item.transactionTime.isEmpty ? '暂无时间' : item.transactionTime,
+                  style: const TextStyle(color: XoColors.textSecondary),
+                ),
+                trailing: XoMoneyText(
+                  item.signedAmount,
+                  size: XoMoneySize.small,
+                  semantic: item.signedAmount.startsWith('-')
+                      ? XoMoneySemantic.expense
+                      : XoMoneySemantic.income,
+                ),
               ),
-              trailing: XoMoneyText(
-                item.$2,
-                size: XoMoneySize.small,
-                semantic: item.$2.startsWith('-')
-                    ? XoMoneySemantic.expense
-                    : XoMoneySemantic.income,
-              ),
-            ),
         ],
       ),
     );

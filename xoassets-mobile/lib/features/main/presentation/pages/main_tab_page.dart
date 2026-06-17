@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/routes.dart';
 import '../../../../core/design/xo_colors.dart';
+import '../../../../core/design/xo_shadows.dart';
 import '../../../../core/design/xo_spacing.dart';
 import '../../../../core/widgets/xo_bottom_sheet.dart';
 import '../../../home/presentation/pages/home_page.dart';
@@ -28,36 +29,46 @@ class MainTabPage extends ConsumerWidget {
     final tabIndex = ref.watch(mainTabProvider);
 
     return Scaffold(
-      backgroundColor: XoColors.pageBg,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: IndexedStack(index: tabIndex, children: _pages),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showQuickActions(context),
-        backgroundColor: XoColors.primary,
-        foregroundColor: Colors.white,
-        shape: const CircleBorder(),
-        child: const Icon(Icons.add),
+      floatingActionButton: Container(
+        width: 60,
+        height: 60,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF0A8A7B), Color(0xFF0A6A61)],
+          ),
+          shape: BoxShape.circle,
+          boxShadow: const [XoShadows.floating],
+        ),
+        child: FloatingActionButton(
+          onPressed: () => _showQuickActions(context),
+          backgroundColor: Colors.transparent,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: const CircleBorder(),
+          child: const Icon(Icons.add, size: 34),
+        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
-        color: XoColors.cardBg,
+        color: Theme.of(context).colorScheme.surface,
         elevation: 0,
         shape: const CircularNotchedRectangle(),
-        notchMargin: 8,
+        notchMargin: 10,
         child: SizedBox(
-          height: 64,
+          height: 78,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _TabButton(index: 0, icon: Icons.home_outlined, label: '首页'),
-              _TabButton(
-                index: 1,
-                icon: Icons.receipt_long_outlined,
-                label: '记账',
-              ),
-              const SizedBox(width: 48),
+              _TabButton(index: 0, icon: Icons.home_filled, label: '首页'),
+              _TabButton(index: 1, icon: Icons.edit_note_outlined, label: '记账'),
+              const SizedBox(width: 52),
               _TabButton(
                 index: 2,
-                icon: Icons.trending_up_outlined,
+                icon: Icons.query_stats_outlined,
                 label: '投资',
               ),
               _TabButton(index: 3, icon: Icons.person_outline, label: '我的'),
@@ -146,12 +157,20 @@ class _TabButton extends ConsumerWidget {
           horizontal: XoSpacing.sm,
           vertical: XoSpacing.xs,
         ),
+        // 测试环境底部栏可用高度更紧，控制图标和文案总高度避免 1px 溢出。
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: color),
+            Icon(icon, color: color, size: 25),
             const SizedBox(height: 2),
-            Text(label, style: TextStyle(color: color, fontSize: 12)),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
           ],
         ),
       ),

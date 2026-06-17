@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../design/xo_colors.dart';
 import '../design/xo_spacing.dart';
 
 /// 页面统一容器，负责背景、安全区、滚动和默认边距。
@@ -28,7 +27,7 @@ class XoPage extends StatelessWidget {
     );
 
     return Scaffold(
-      backgroundColor: XoColors.pageBg,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: appBar,
       body: body,
     );

@@ -16,12 +16,14 @@ class XoMoneyText extends StatelessWidget {
     this.size = XoMoneySize.medium,
     this.semantic = XoMoneySemantic.normal,
     this.hidden = false,
+    this.forceColor,
   });
 
   final Object value;
   final XoMoneySize size;
   final XoMoneySemantic semantic;
   final bool hidden;
+  final Color? forceColor;
 
   @override
   Widget build(BuildContext context) {
@@ -31,11 +33,13 @@ class XoMoneyText extends StatelessWidget {
       XoMoneySize.small => XoTextStyles.body,
     };
 
-    final color = switch (semantic) {
-      XoMoneySemantic.income => XoColors.income,
-      XoMoneySemantic.expense => XoColors.expense,
-      XoMoneySemantic.normal => XoColors.textMain,
-    };
+    final color =
+        forceColor ??
+        switch (semantic) {
+          XoMoneySemantic.income => XoColors.income,
+          XoMoneySemantic.expense => XoColors.expense,
+          XoMoneySemantic.normal => Theme.of(context).colorScheme.onSurface,
+        };
 
     return Text(
       hidden ? '¥****' : MoneyUtils.format(value),

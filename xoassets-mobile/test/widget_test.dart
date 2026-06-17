@@ -46,7 +46,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('早上好，看看今天的钱包'), findsOneWidget);
+    expect(find.text('早上好，Zero'), findsOneWidget);
     expect(find.text('首页'), findsOneWidget);
   });
 
@@ -189,6 +189,67 @@ class _FakeApiClient extends ApiClient {
         'username': 'demo',
         'nickname': 'Demo 用户',
         'avatarUrl': null,
+      });
+    }
+    if (path == '/snapshots/latest') {
+      return mapper({
+        'latest': {
+          'totalAsset': '128560.80',
+          'netAsset': '96520.30',
+          'monthlyIncome': '18000.00',
+          'monthlyExpense': '4268.90',
+          'monthlyBalance': '13731.10',
+        },
+        'netAssetChangeFromYesterday': '120.00',
+      });
+    }
+    if (path == '/dashboard/overview') {
+      return mapper({
+        'todayIncome': '0.00',
+        'todayExpense': '128.50',
+        'monthlyIncome': '18000.00',
+        'monthlyExpense': '4268.90',
+        'monthlyBalance': '13731.10',
+        'investmentYesterdayProfit': '126.30',
+        'investmentTodayProfit': '-58.20',
+      });
+    }
+    if (path == '/budgets/summary') {
+      return mapper({
+        'totalBudget': '6000.00',
+        'totalUsed': '4268.90',
+        'totalRemaining': '1731.10',
+        'usageRate': 0.71,
+        'usageStatusLabel': '预算正常',
+        'items': [],
+      });
+    }
+    if (path == '/reports') {
+      return mapper([
+        {
+          'title': '今日复盘',
+          'content': '今日支出正常。',
+          'reportDate': '2026-06-17',
+          'statusLabel': '已生成',
+        },
+      ]);
+    }
+    if (path == '/transactions') {
+      return mapper({
+        'records': [
+          {
+            'id': '1',
+            'type': 'EXPENSE',
+            'amount': '18.00',
+            'accountName': '支付宝',
+            'categoryName': '餐饮',
+            'transactionTime': '2026-06-17T08:00:00',
+            'note': '早餐',
+          },
+        ],
+        'total': 1,
+        'pageNo': 1,
+        'pageSize': 5,
       });
     }
     throw UnsupportedError('Unhandled GET $path');

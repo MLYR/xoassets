@@ -11,10 +11,12 @@ class AssetOverviewCard extends StatelessWidget {
     required this.totalAsset,
     required this.netAsset,
     super.key,
+    this.hidden = false,
   });
 
   final String totalAsset;
   final String netAsset;
+  final bool hidden;
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +26,7 @@ class AssetOverviewCard extends StatelessWidget {
         children: [
           const Text('总资产', style: TextStyle(color: XoColors.textSecondary)),
           const SizedBox(height: XoSpacing.xs),
-          XoMoneyText(totalAsset, size: XoMoneySize.large),
+          XoMoneyText(totalAsset, size: XoMoneySize.large, hidden: hidden),
           const SizedBox(height: XoSpacing.md),
           Row(
             children: [
@@ -33,7 +35,7 @@ class AssetOverviewCard extends StatelessWidget {
                 style: TextStyle(color: XoColors.textSecondary),
               ),
               const SizedBox(width: XoSpacing.sm),
-              XoMoneyText(netAsset, size: XoMoneySize.small),
+              XoMoneyText(netAsset, size: XoMoneySize.small, hidden: hidden),
             ],
           ),
         ],

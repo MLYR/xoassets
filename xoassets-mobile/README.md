@@ -169,7 +169,7 @@ design-qa.md
 ## 状态管理
 
 - `authProvider`：真实登录、Token 状态、当前用户、登录态恢复、退出登录。
-- `appSettingsProvider`：金额隐藏、深色模式预留。
+- `appSettingsProvider`：金额隐藏、跟随系统 / 浅色 / 深色主题，并通过 `shared_preferences` 持久化。
 - `mainTabProvider`：底部 Tab 当前 index。
 
 ## 网络请求
@@ -184,10 +184,24 @@ design-qa.md
 - `AppException`
 - `ErrorHandler`
 
-登录与当前用户接口已接入：
+已接入接口：
 
 - `POST /api/auth/login`
+- `POST /api/auth/register`
 - `GET /api/auth/me`
+- `GET /api/snapshots/latest`
+- `GET /api/dashboard/overview`
+- `GET /api/budgets/summary`
+- `GET /api/reports`
+- `POST /api/reports/generate-preview`
+- `GET /api/transactions`
+- `POST /api/transactions`
+- `GET /api/accounts`
+- `GET /api/categories`
+- `GET /api/investments/overview`
+- `GET /api/investments/holdings`
+- `POST /api/investment-transactions`
+- `POST /api/quotes/refresh-batch`
 
 当前后端暂无 `/api/auth/logout` 和 `/api/auth/refresh-token`，移动端退出登录仅清除本地 token，refresh token 字段先做兼容预留。
 
@@ -235,9 +249,15 @@ XO Design System 位于 `lib/core/design/`：
 - 我的页展示当前登录用户，并提供退出登录入口。
 - 登录 / 注册页提供基础 loading、空值校验、密码显隐、协议勾选、验证码倒计时和弹窗错误提示，Web 网络 / CORS 错误会转成中文提示。
 
+## 本次接口接入已完成
+
+- 首页已接入资产快照、首页统计、预算汇总、AI 报告和最近流水接口。
+- 记账页已接入流水列表；流水录入页已接入账户、分类和新增流水接口。
+- 投资页已接入投资总览、持仓列表和批量行情刷新接口；投资交易页已接入新增投资交易接口。
+- 设置页已支持 `system / light / dark` 主题模式，并通过 `shared_preferences` 持久化。
+
 ## 下一阶段建议
 
-- 接入首页资产快照、统计、预算和 AI 报告接口。
-- 接入记账流水列表与新增流水接口。
-- 接入投资持仓、投资交易和行情刷新接口。
-- 完成深色模式持久化和系统主题跟随。
+- 账户管理页接入真实账户详情与新增账户。
+- 分类管理页接入真实分类维护。
+- 投资交易页补齐资产搜索 / 新建持仓流程，减少依赖既有持仓。

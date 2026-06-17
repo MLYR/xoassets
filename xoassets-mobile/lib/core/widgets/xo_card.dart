@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../design/xo_colors.dart';
 import '../design/xo_radius.dart';
 import '../design/xo_spacing.dart';
 
@@ -22,7 +21,7 @@ class XoCard extends StatelessWidget {
     return Padding(
       padding: margin,
       child: Material(
-        color: XoColors.cardBg,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(XoRadius.card),
         elevation: 0,
         shadowColor: const Color(0x14000000),
@@ -31,7 +30,9 @@ class XoCard extends StatelessWidget {
           padding: padding,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(XoRadius.card),
-            border: Border.all(color: const Color(0x99E3EBE8)),
+            border: Border.all(
+              color: Theme.of(context).dividerColor.withValues(alpha: 0.48),
+            ),
           ),
           child: child,
         ),
