@@ -665,6 +665,28 @@ Token 可自动添加到请求头
 401 有统一处理
 ```
 
+### 当前完成情况
+
+```text
+已接入 POST /api/auth/login
+已接入 GET /api/auth/me
+accessToken 已保存到 Secure Storage
+请求已自动附加 Authorization: Bearer <token>
+401 / 40100 已统一清理本地 token
+退出登录当前按后端能力只清除本地 token
+登录失败、空值校验和网络 / CORS 错误已使用弹窗提示
+登录失败后保留输入框内容，避免路由刷新清空表单
+```
+
+### Web 调试注意
+
+```text
+Android Studio 的 Chrome 目标会启动 flutter run -d chrome 调试会话。
+该地址依赖自动弹出的 Chrome、DWDS 和 VM Service，不适合作为普通网页复制到其他浏览器。
+如果复制到其他浏览器出现白屏，优先使用 Android Studio 自动弹出的 Chrome，或改用 flutter build web + 静态服务器预览。
+Chrome DevTools 设备模式缩放不是 100% 时，CanvasKit 文字可能因浏览器缩放发虚。
+```
+
 ------
 
 ## 阶段 3：首页资产驾驶舱

@@ -1,6 +1,6 @@
 # XOAssets Mobile V2
 
-XOAssets / 小〇财迹新版移动端 Flutter App。当前阶段只交付 App 壳子：路由、底部导航、Material 3 主题、XO Design System、网络层、Token 存储、全局状态和核心页面骨架。
+XOAssets / 小〇财迹新版移动端 Flutter App。当前已完成 App 壳子、真实登录、基础 API 通信、Token 存储、登录态恢复和 401 基础处理。
 
 ## 技术栈
 
@@ -47,6 +47,39 @@ flutter devices
 flutter run -d <device-id>
 ```
 
+Android 模拟器访问本机后端时建议覆盖 API 地址：
+
+```bash
+flutter run -d <android-device-id> \
+  --dart-define=XO_API_BASE_URL=http://10.0.2.2:8080/api
+```
+
+Flutter Web 调试固定使用 5175 端口：
+
+```bash
+flutter run -d web-server \
+  --web-hostname 0.0.0.0 \
+  --web-port 5175 \
+  --dart-define=XO_API_BASE_URL=http://<你的电脑IP>:8080/api
+```
+
+启动后可在浏览器手动访问：
+
+```text
+http://localhost:5175
+http://<你的电脑IP>:5175
+```
+
+`0.0.0.0` 只用于服务监听，不建议在浏览器地址栏里访问。Android Studio 选择 Chrome 目标时会启动 `flutter run -d chrome --start-paused` 调试会话，这个地址依赖当前自动弹出的 Chrome、DWDS 和 VM Service；把地址复制到另一个浏览器可能只拿到临时 debug 壳，出现白屏。Chrome DevTools 设备模式如果缩放到 75% 之类的比例，Flutter Web 的 CanvasKit 画布会被浏览器缩放，文字可能发虚；预览时建议把缩放调回 100%，或直接使用 Android 模拟器查看真实移动端效果。
+
+如果只想稳定预览、不需要热重载，可以构建后用静态服务器打开，避免 Chrome Debug 的 DWDS WebSocket 干扰：
+
+```bash
+flutter build web \
+  --dart-define=XO_API_BASE_URL=http://<你的电脑IP>:8080/api
+python3 -m http.server 5175 --bind 0.0.0.0 --directory build/web
+```
+
 ## Android Studio 启动
 
 当前只需要先跑 Android：
@@ -57,6 +90,14 @@ flutter run -d <device-id>
 4. 入口文件选择 `lib/main.dart`。
 5. 设备选择 Android 模拟器，例如 `xoassets_api36`。
 6. 点击 Run。
+
+如果选择 Chrome / Web 目标运行，运行配置里已固定：
+
+```text
+--web-hostname=0.0.0.0 --web-port=5175 --dart-define=XO_API_BASE_URL=http://<你的电脑IP>:8080/api
+```
+
+Web 调试推荐用 `-d web-server` 后手动打开浏览器，不要用 Chrome Debug。Debug 会让 Android Studio 附加 `--start-paused`，页面可能白屏并出现 `$dwdsSseHandler` WebSocket 错误。
 
 如果控制台命令开头是 `dart ... lib/main.dart`，说明运行配置选错了；正确启动应由 Flutter 执行，或直接使用：
 
@@ -88,6 +129,8 @@ http://localhost:8080/api
 lib/core/constants/api_constants.dart
 ```
 
+可通过 `--dart-define=XO_API_BASE_URL=<url>` 覆盖。Android 模拟器访问宿主机本地后端通常使用 `http://10.0.2.2:8080/api`。
+
 当前机器如果缺 Android SDK、完整 Xcode 或 CocoaPods，需要先补齐对应移动端工具链后才能运行 Android / iOS 模拟器。
 
 ## 路由说明
@@ -107,7 +150,7 @@ lib/core/constants/api_constants.dart
 
 ## 状态管理
 
-- `authProvider`：mock 登录、Token 状态、退出登录预留。
+- `authProvider`：真实登录、Token 状态、当前用户、登录态恢复、退出登录。
 - `appSettingsProvider`：金额隐藏、深色模式预留。
 - `mainTabProvider`：底部 Tab 当前 index。
 
@@ -123,7 +166,12 @@ lib/core/constants/api_constants.dart
 - `AppException`
 - `ErrorHandler`
 
-本阶段不调用真实接口，但结构已按后续接入预留。
+登录与当前用户接口已接入：
+
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+
+当前后端暂无 `/api/auth/logout` 和 `/api/auth/refresh-token`，移动端退出登录仅清除本地 token，refresh token 字段先做兼容预留。
 
 ## Design System
 
@@ -153,9 +201,18 @@ XO Design System 位于 `lib/core/design/`：
 - Dio 网络层、Token 存储、偏好设置存储基础结构。
 - AGENTS.md 项目约束文件。
 
+## 第二阶段已完成
+
+- 登录页接入真实 `/api/auth/login`。
+- 登录成功后将 accessToken 保存到 `flutter_secure_storage`。
+- `AuthInterceptor` 自动为请求添加 `Authorization: Bearer <token>`。
+- `GET /api/auth/me` 用于 App 启动后的登录态恢复。
+- 401 / `40100` 会统一清理本地 token。
+- 我的页展示当前登录用户，并提供退出登录入口。
+- 登录页提供基础 loading、空值校验和弹窗错误提示，Web 网络 / CORS 错误会转成中文提示。
+
 ## 下一阶段建议
 
-- 接入真实登录 `/api/auth/**`。
 - 接入首页资产快照、统计、预算和 AI 报告接口。
 - 接入记账流水列表与新增流水接口。
 - 接入投资持仓、投资交易和行情刷新接口。
