@@ -14,6 +14,13 @@ class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
+      fontFamily: 'PingFang SC',
+      fontFamilyFallback: const [
+        'Hiragino Sans GB',
+        'Microsoft YaHei',
+        'Noto Sans SC',
+        'Arial',
+      ],
       colorScheme: scheme.copyWith(
         primary: XoColors.primary,
         surface: XoColors.cardBg,
@@ -50,17 +57,31 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.white,
+        labelStyle: const TextStyle(color: XoColors.textSecondary),
+        floatingLabelStyle: const TextStyle(
+          color: XoColors.primary,
+          fontWeight: FontWeight.w600,
+        ),
+        hintStyle: const TextStyle(color: XoColors.textPlaceholder),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 14,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(XoRadius.md),
           borderSide: const BorderSide(color: XoColors.border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(XoRadius.md),
-          borderSide: const BorderSide(color: XoColors.border),
+          borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(XoRadius.md),
-          borderSide: const BorderSide(color: XoColors.primary),
+          borderSide: const BorderSide(color: XoColors.primary, width: 1.4),
+        ),
+        disabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(XoRadius.md),
+          borderSide: const BorderSide(color: XoColors.border),
         ),
       ),
     );
@@ -74,6 +95,13 @@ class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
+      fontFamily: 'PingFang SC',
+      fontFamilyFallback: const [
+        'Hiragino Sans GB',
+        'Microsoft YaHei',
+        'Noto Sans SC',
+        'Arial',
+      ],
       colorScheme: scheme,
       scaffoldBackgroundColor: const Color(0xFF111827),
     );

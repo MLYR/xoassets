@@ -1,38 +1,110 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/storage/secure_storage_service.dart';
+import '../../../../core/errors/error_handler.dart';
+import '../../data/models/auth_user.dart';
+import '../../data/repositories/auth_repository.dart';
 
-/// 登录状态模型，本阶段只保存 mock token 和是否登录。
+enum AuthStatus { unknown, authenticated, unauthenticated }
+
+/// 登录状态模型，集中承载登录态、用户资料、加载和错误。
 class AuthState {
-  const AuthState({required this.isAuthenticated, this.accessToken});
+  const AuthState({
+    required this.status,
+    this.accessToken,
+    this.user,
+    this.isLoading = false,
+    this.errorMessage,
+  });
 
-  final bool isAuthenticated;
+  final AuthStatus status;
   final String? accessToken;
+  final AuthUser? user;
+  final bool isLoading;
+  final String? errorMessage;
 
-  AuthState copyWith({bool? isAuthenticated, String? accessToken}) {
+  bool get isAuthenticated => status == AuthStatus.authenticated;
+
+  AuthState copyWith({
+    AuthStatus? status,
+    String? accessToken,
+    AuthUser? user,
+    bool? isLoading,
+    String? errorMessage,
+    bool clearError = false,
+  }) {
     return AuthState(
-      isAuthenticated: isAuthenticated ?? this.isAuthenticated,
+      status: status ?? this.status,
       accessToken: accessToken ?? this.accessToken,
+      user: user ?? this.user,
+      isLoading: isLoading ?? this.isLoading,
+      errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
     );
   }
+
+  static const initial = AuthState(status: AuthStatus.unknown);
 }
 
-/// Auth provider 先承载 mock 登录，后续可替换为真实 `/api/auth/**`。
+/// Auth provider 负责真实登录、登录态恢复和退出登录。
 class AuthController extends Notifier<AuthState> {
   @override
   AuthState build() {
-    return const AuthState(isAuthenticated: false);
+    return AuthState.initial;
   }
 
-  Future<void> mockLogin() async {
-    const token = 'mock-xoassets-token';
-    await ref.read(secureStorageServiceProvider).saveTokens(accessToken: token);
-    state = const AuthState(isAuthenticated: true, accessToken: token);
+  Future<void> restoreSession() async {
+    if (state.status != AuthStatus.unknown) {
+      return;
+    }
+
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final session = await ref.read(authRepositoryProvider).restoreSession();
+      if (session == null) {
+        state = const AuthState(status: AuthStatus.unauthenticated);
+        return;
+      }
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        accessToken: session.accessToken,
+        user: session.user,
+      );
+    } catch (error) {
+      final appError = ErrorHandler.fromObject(error);
+      state = AuthState(
+        status: AuthStatus.unauthenticated,
+        errorMessage: appError.message,
+      );
+    }
+  }
+
+  Future<bool> login({
+    required String username,
+    required String password,
+  }) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final session = await ref
+          .read(authRepositoryProvider)
+          .login(username: username, password: password);
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        accessToken: session.accessToken,
+        user: session.user,
+      );
+      return true;
+    } catch (error) {
+      final appError = ErrorHandler.fromObject(error);
+      state = AuthState(
+        status: AuthStatus.unauthenticated,
+        errorMessage: appError.message,
+      );
+      return false;
+    }
   }
 
   Future<void> logout() async {
-    await ref.read(secureStorageServiceProvider).clearTokens();
-    state = const AuthState(isAuthenticated: false);
+    await ref.read(authRepositoryProvider).logout();
+    state = const AuthState(status: AuthStatus.unauthenticated);
   }
 }
 

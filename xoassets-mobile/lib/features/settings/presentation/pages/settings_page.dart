@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../app/routes.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/design/xo_spacing.dart';
 import '../../../../core/widgets/xo_card.dart';
 import '../../../../core/widgets/xo_page.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../main/presentation/providers/main_tab_provider.dart';
 import '../providers/app_settings_provider.dart';
 
 /// 设置页骨架，包含金额隐藏和深色模式预留开关。
@@ -43,7 +47,7 @@ class SettingsPage extends ConsumerWidget {
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.logout),
               title: const Text('退出登录'),
-              onTap: () {},
+              onTap: () => _confirmLogout(context, ref),
             ),
             const SizedBox(height: XoSpacing.md),
             const Text('版本 ${AppConstants.versionLabel}'),
@@ -51,5 +55,34 @@ class SettingsPage extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('退出登录'),
+        content: const Text('退出后需要重新登录才能查看资产数据。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('退出'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) {
+      return;
+    }
+
+    await ref.read(authProvider.notifier).logout();
+    ref.read(mainTabProvider.notifier).setIndex(0);
+    if (context.mounted) {
+      context.go(AppRoutes.login);
+    }
   }
 }
