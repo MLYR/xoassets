@@ -102,6 +102,35 @@ class AuthController extends Notifier<AuthState> {
     }
   }
 
+  Future<bool> register({
+    required String username,
+    required String password,
+  }) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      // 后端注册成功后不直接返回 token，因此立即复用登录接口建立安全会话。
+      await ref
+          .read(authRepositoryProvider)
+          .register(username: username, password: password, nickname: username);
+      final session = await ref
+          .read(authRepositoryProvider)
+          .login(username: username, password: password);
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        accessToken: session.accessToken,
+        user: session.user,
+      );
+      return true;
+    } catch (error) {
+      final appError = ErrorHandler.fromObject(error);
+      state = AuthState(
+        status: AuthStatus.unauthenticated,
+        errorMessage: appError.message,
+      );
+      return false;
+    }
+  }
+
   Future<void> logout() async {
     await ref.read(authRepositoryProvider).logout();
     state = const AuthState(status: AuthStatus.unauthenticated);

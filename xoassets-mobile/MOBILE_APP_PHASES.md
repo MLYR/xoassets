@@ -117,136 +117,1168 @@ AI 报告
 
 这些数据必须从后端接口获取。
 
-------
+## 5. App 端 UI 设计约束
 
-## 5. UI 设计约束
+### 5.1 整体视觉定位
 
-### 5.1 UI 方向
-
-整体风格：
+XOAssets Mobile V2 的 App 端 UI 风格统一定义为：
 
 ```text
-温和金融
-卡片化
-清晰
-干净
-克制
+科技金融
+简约高级
+安全可信
+数据智能
+清晰克制
 移动端优先
 ```
 
-### 5.2 不允许的风格
+整体视觉参考登录 / 注册页生成图的风格：
 
 ```text
-交易所风格
-博彩风格
-过度科技感
-过重玻璃拟态
-颜色过多
-图表堆叠
+深青绿色金融背景
+白色圆角内容卡片
+科技感数据波纹
+轻量金融插画
+克制的玻璃质感
+大圆角输入框
+深青绿色渐变主按钮
+线性功能图标
+干净留白
+强层级金额展示
+```
+
+UI 目标：
+
+- 看起来像专业金融 App，而不是普通后台系统。
+- 有科技感，但不能过度炫酷。
+- 有金融感，但不能像交易所或炒币 App。
+- 有高级感，但不能牺牲可读性。
+- 页面信息要清晰，不堆满图表和装饰。
+
+------
+
+### 5.2 视觉关键词
+
+必须遵守：
+
+```text
+深青绿
+白色卡片
+轻阴影
+大圆角
+线性图标
+数据波纹
+金融图表点缀
+柔和渐变
+克制科技感
+清晰表单
+```
+
+禁止出现：
+
+```text
+交易所黑金风
+博彩风
+荧光赛博风
+重度玻璃拟态
+重度霓虹效果
+杂乱渐变
+多套图标混用
 Web 页面缩小版
+后台管理系统风格
+过度堆叠图表
+```
+
+------
+
+### 5.3 页面背景规范
+
+App 端默认页面背景使用浅色金融背景：
+
+```text
+#F4FAF8
+```
+
+适用于：
+
+```text
+首页
+记账页
+投资页
+账户页
+预算页
+我的页
+设置页
+普通表单页
+```
+
+登录、注册、启动页允许使用深青绿色科技金融背景：
+
+```text
+#002F2A
+#003D36
+#004B43
+```
+
+登录 / 注册页背景可以包含：
+
+```text
+数据波纹
+金融城市剪影
+点阵球体
+趋势线
+柱状图
+柔和光点
+```
+
+但装饰必须弱化，不能干扰输入框和按钮。
+
+------
+
+### 5.4 卡片规范
+
+所有主要内容必须卡片化展示。
+
+卡片风格：
+
+```text
+白色背景
+大圆角
+轻阴影
+弱边框
+宽松内边距
+```
+
+推荐：
+
+```dart
+class XoCardTokens {
+  static const background = Color(0xFFFFFFFF);
+  static const border = Color(0xFFE3EBE8);
+  static const radius = 24.0;
+  static const padding = 20.0;
+}
+```
+
+卡片阴影：
+
+```dart
+static const cardShadow = BoxShadow(
+  color: Color(0x14002F2A),
+  blurRadius: 24,
+  offset: Offset(0, 10),
+);
+```
+
+禁止：
+
+```text
+强烈黑色阴影
+硬边框卡片
+小圆角后台风
+颜色过多的卡片
+同屏过多层级嵌套卡片
+```
+
+------
+
+### 5.5 表单规范
+
+登录、注册、记账、交易录入等表单统一使用大圆角输入框。
+
+输入框风格：
+
+```text
+高度 56
+圆角 16
+白色或极浅色背景
+浅灰绿色边框
+左侧线性图标
+右侧功能图标可选
+聚焦时使用主色边框
+```
+
+推荐：
+
+```dart
+class XoInputTokens {
+  static const height = 56.0;
+  static const radius = 16.0;
+  static const background = Color(0xFFFFFFFF);
+  static const border = Color(0xFFDCE7E3);
+  static const focusedBorder = Color(0xFF007C6E);
+}
+```
+
+输入框禁止：
+
+```text
+过小高度
+直角输入框
+高饱和边框
+多个颜色混用
+表单项间距过窄
+```
+
+------
+
+### 5.6 按钮规范
+
+主按钮统一使用深青绿色渐变。
+
+主按钮风格：
+
+```text
+深青绿渐变
+白色文字
+大圆角
+轻阴影
+高度 56
+字体加粗
+```
+
+推荐渐变：
+
+```dart
+static const primaryGradient = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [
+    Color(0xFF008071),
+    Color(0xFF004C43),
+  ],
+);
+```
+
+主按钮文字：
+
+```text
+16px
+FontWeight.w700
+白色
+```
+
+按钮高度：
+
+```text
+普通按钮：48
+主操作按钮：56
+底部固定按钮：56
+```
+
+按钮圆角：
+
+```text
+16 - 20
+```
+
+禁止：
+
+```text
+大面积红色按钮
+高饱和蓝紫渐变
+霓虹按钮
+多种主按钮样式并存
+```
+
+------
+
+### 5.7 登录 / 注册页视觉基线
+
+登录和注册页必须作为 App 的视觉基准。
+
+统一结构：
+
+```text
+顶部状态栏
+品牌 Logo + XOAssets + 小〇财迹
+科技金融插画区域
+标题文案
+副标题说明
+白色表单卡片
+主按钮
+辅助链接
+底部安全 / 智能 / 隐私类卖点
+```
+
+登录页标题示例：
+
+```text
+欢迎回来
+登录您的账户，开启智能资产管理之旅
+```
+
+注册页标题示例：
+
+```text
+创建账户
+注册新账户，开启您的资产管理之旅
+```
+
+登录 / 注册页允许出现的视觉元素：
+
+```text
+城市金融剪影
+数据波纹
+点阵地球
+趋势线
+柱状图
+柔和光点
+环形轨道
+```
+
+禁止：
+
+```text
+人物插画过大
+卡通风
+复杂 3D 模型
+过重科技背景
+背景压过表单
+```
+
+------
+
+### 5.8 首页视觉规范
+
+首页是资产驾驶舱。
+
+视觉重点：
+
+```text
+总资产最突出
+净资产清晰
+收支快览清晰
+投资摘要克制
+AI 总结轻量
+最近流水易读
+```
+
+首页卡片顺序建议：
+
+```text
+顶部问候
+总资产卡
+收支快览
+账户摘要
+投资摘要
+AI 今日总结
+最近流水
+```
+
+首页禁止：
+
+```text
+首屏堆多个图表
+首屏堆过多按钮
+投资收益和日常收支混在一起
+基金收益写成今日收益
+过度装饰背景
+```
+
+------
+
+### 5.9 图表视觉规范
+
+图表只作为辅助，不作为页面主体。
+
+图表风格：
+
+```text
+线条细
+颜色克制
+坐标弱化
+背景干净
+标签简洁
+默认不使用复杂 3D 图表
+```
+
+图表颜色：
+
+```text
+主趋势线：#007C6E
+辅助趋势线：#63BFB4
+警告线：#F2A93B
+负向线：#D9534F
+网格线：#E3EBE8
+```
+
+禁止：
+
+```text
+3D 饼图
+高饱和面积图
+过多图例
+一个页面堆多个复杂图表
 ```
 
 ------
 
 ## 6. XO Design System
 
-所有页面必须使用 XO Design System，不允许在页面里到处写死颜色、圆角、字号。
+所有页面必须使用 XO Design System。
 
-### 6.1 推荐主色
+禁止在页面里直接写死：
+
+```text
+颜色
+圆角
+字号
+阴影
+间距
+图标路径
+金额格式
+```
+
+所有设计 token 必须集中维护在：
+
+```text
+lib/core/design/
+```
+
+推荐目录：
+
+```text
+lib/core/design
+├── xo_colors.dart
+├── xo_radius.dart
+├── xo_spacing.dart
+├── xo_text_styles.dart
+├── xo_shadows.dart
+├── xo_gradients.dart
+├── xo_icons.dart
+└── xo_theme.dart
+```
+
+------
+
+### 6.1 颜色系统
 
 ```dart
 class XoColors {
-  static const primary = Color(0xFF1F7A5B);
+  XoColors._();
+
+  /// 品牌主色：深青绿，来自登录 / 注册页主视觉
+  static const primary = Color(0xFF007C6E);
+
+  /// 品牌深色：用于深色背景、Logo 背景、强调区域
+  static const primaryDark = Color(0xFF003D36);
+
+  /// 更深背景色：用于登录、注册、启动页科技金融背景
+  static const deepTeal = Color(0xFF002F2A);
+
+  /// 主色浅背景：用于图标底色、标签底色、轻提示背景
   static const primaryLight = Color(0xFFE8F5EF);
 
-  static const income = Color(0xFF1F7A5B);
-  static const expense = Color(0xFFD9534F);
-  static const warning = Color(0xFFF2A93B);
-  static const info = Color(0xFF3B82F6);
+  /// 科技青色：用于图表节点、数据波纹、轻量高光
+  static const techCyan = Color(0xFF2CCBC0);
 
-  static const pageBg = Color(0xFFF6F7F4);
+  /// 金融金色：少量用于高光、重要提示，不可大面积使用
+  static const financeGold = Color(0xFFE9C46A);
+
+  /// 页面背景
+  static const pageBg = Color(0xFFF4FAF8);
+
+  /// 卡片背景
   static const cardBg = Color(0xFFFFFFFF);
 
+  /// 输入框背景
+  static const inputBg = Color(0xFFFFFFFF);
+
+  /// 主文字
   static const textMain = Color(0xFF1F2933);
+
+  /// 次级文字
   static const textSecondary = Color(0xFF6B7280);
+
+  /// 占位文字
   static const textPlaceholder = Color(0xFFA0A7B1);
 
-  static const border = Color(0xFFE5E7EB);
+  /// 边框
+  static const border = Color(0xFFE3EBE8);
+
+  /// 弱分割线
+  static const divider = Color(0xFFEAF0EE);
+
+  /// 收入
+  static const income = Color(0xFF1F7A5B);
+
+  /// 支出
+  static const expense = Color(0xFFD9534F);
+
+  /// 警告
+  static const warning = Color(0xFFF2A93B);
+
+  /// 信息
+  static const info = Color(0xFF3B82F6);
+
+  /// 成功
+  static const success = Color(0xFF1F7A5B);
 }
 ```
 
-### 6.2 圆角
+颜色使用规则：
+
+```text
+主色只能使用深青绿系
+警告少量使用橙色
+支出使用柔和红色
+收入使用绿色
+科技青色只作为点缀
+金融金色只作为高光，不可大面积铺满
+```
+
+禁止：
+
+```text
+页面内随意出现高饱和紫色、荧光蓝、亮红、亮黄
+同一业务含义使用多个颜色
+```
+
+------
+
+### 6.2 渐变系统
+
+```dart
+class XoGradients {
+  XoGradients._();
+
+  static const primaryButton = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFF008071),
+      Color(0xFF004C43),
+    ],
+  );
+
+  static const authBackground = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      Color(0xFF002F2A),
+      Color(0xFF004C43),
+    ],
+  );
+
+  static const assetCard = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFF007C6E),
+      Color(0xFF003D36),
+    ],
+  );
+
+  static const lightCard = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFFFFFFF),
+      Color(0xFFF4FAF8),
+    ],
+  );
+}
+```
+
+渐变规则：
+
+```text
+主按钮可以用深青绿渐变
+总资产卡可以用深青绿渐变
+登录注册背景可以用深青绿渐变
+普通业务卡片默认白色，不要滥用渐变
+```
+
+------
+
+### 6.3 圆角系统
 
 ```dart
 class XoRadius {
+  XoRadius._();
+
+  static const xs = 6.0;
   static const sm = 8.0;
   static const md = 12.0;
-  static const lg = 18.0;
-  static const xl = 24.0;
+  static const lg = 16.0;
+  static const xl = 20.0;
+  static const xxl = 24.0;
+
+  /// 普通卡片
   static const card = 24.0;
-}
-```
 
-### 6.3 间距
+  /// 输入框
+  static const input = 16.0;
 
-```dart
-class XoSpacing {
-  static const xs = 4.0;
-  static const sm = 8.0;
-  static const md = 16.0;
-  static const lg = 24.0;
-  static const xl = 32.0;
-}
-```
+  /// 主按钮
+  static const button = 18.0;
 
-### 6.4 字体
-
-```dart
-class XoTextStyles {
-  static const titleLarge = TextStyle(
-    fontSize: 24,
-    fontWeight: FontWeight.w700,
-  );
-
-  static const titleMedium = TextStyle(
-    fontSize: 18,
-    fontWeight: FontWeight.w600,
-  );
-
-  static const body = TextStyle(
-    fontSize: 14,
-    fontWeight: FontWeight.w400,
-  );
-
-  static const caption = TextStyle(
-    fontSize: 12,
-    fontWeight: FontWeight.w400,
-  );
-
-  static const moneyLarge = TextStyle(
-    fontSize: 32,
-    fontWeight: FontWeight.w700,
-  );
-
-  static const moneyMedium = TextStyle(
-    fontSize: 20,
-    fontWeight: FontWeight.w600,
-  );
+  /// 底部弹层
+  static const bottomSheet = 28.0;
 }
 ```
 
 ------
 
-## 7. 核心组件约束
+### 6.4 间距系统
+
+```dart
+class XoSpacing {
+  XoSpacing._();
+
+  static const xs = 4.0;
+  static const sm = 8.0;
+  static const md = 12.0;
+  static const lg = 16.0;
+  static const xl = 20.0;
+  static const xxl = 24.0;
+  static const xxxl = 32.0;
+
+  /// 页面左右边距
+  static const pageHorizontal = 20.0;
+
+  /// 卡片内边距
+  static const cardPadding = 20.0;
+
+  /// 表单项间距
+  static const formGap = 16.0;
+}
+```
+
+------
+
+### 6.5 阴影系统
+
+```dart
+class XoShadows {
+  XoShadows._();
+
+  static const card = BoxShadow(
+    color: Color(0x14002F2A),
+    blurRadius: 24,
+    offset: Offset(0, 10),
+  );
+
+  static const button = BoxShadow(
+    color: Color(0x33004C43),
+    blurRadius: 18,
+    offset: Offset(0, 8),
+  );
+
+  static const floating = BoxShadow(
+    color: Color(0x26002F2A),
+    blurRadius: 28,
+    offset: Offset(0, 12),
+  );
+}
+```
+
+阴影规则：
+
+```text
+阴影必须轻
+阴影颜色使用深青绿透明色
+不要使用纯黑大阴影
+不要让页面显得厚重
+```
+
+------
+
+### 6.6 字体系统
+
+```dart
+class XoTextStyles {
+  XoTextStyles._();
+
+  static const display = TextStyle(
+    fontSize: 32,
+    fontWeight: FontWeight.w700,
+    height: 1.2,
+  );
+
+  static const titleLarge = TextStyle(
+    fontSize: 24,
+    fontWeight: FontWeight.w700,
+    height: 1.25,
+  );
+
+  static const titleMedium = TextStyle(
+    fontSize: 20,
+    fontWeight: FontWeight.w700,
+    height: 1.3,
+  );
+
+  static const titleSmall = TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+    height: 1.3,
+  );
+
+  static const bodyLarge = TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    height: 1.5,
+  );
+
+  static const body = TextStyle(
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    height: 1.45,
+  );
+
+  static const caption = TextStyle(
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    height: 1.4,
+  );
+
+  static const moneyLarge = TextStyle(
+    fontSize: 34,
+    fontWeight: FontWeight.w800,
+    height: 1.1,
+  );
+
+  static const moneyMedium = TextStyle(
+    fontSize: 22,
+    fontWeight: FontWeight.w700,
+    height: 1.2,
+  );
+
+  static const button = TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.w700,
+    height: 1.2,
+  );
+}
+```
+
+字体规则：
+
+```text
+金额数字必须更醒目
+标题加粗但不能过重
+正文保持清晰易读
+表单 placeholder 使用浅灰
+按钮文字统一加粗
+```
+
+------
+
+## 7. App 图标与 UI 图标规范
+
+### 7.1 图标类型
+
+App 端图标分为三类：
+
+```text
+App 启动图标 / 桌面图标
+启动页 Logo
+App 内部功能图标
+```
+
+三类图标必须分开管理，不允许混用。
+
+------
+
+### 7.2 App 启动图标
+
+App 启动图标用于 Android / iOS 桌面。
+
+设计方向：
+
+```text
+深青绿色圆角方形
+白色 XO 抽象符号
+简约金融科技感
+高识别度
+不要复杂文字
+不要过多细节
+```
+
+推荐规格：
+
+```text
+1024x1024 PNG
+```
+
+推荐文件：
+
+```text
+assets/images/app_icon.png
+assets/images/app_icon_foreground.png
+```
+
+推荐生成工具：
+
+```text
+flutter_launcher_icons
+```
+
+配置示例：
+
+```yaml
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/app_icon.png"
+  adaptive_icon_background: "#003D36"
+  adaptive_icon_foreground: "assets/images/app_icon_foreground.png"
+```
+
+禁止：
+
+```text
+App 图标里塞太多中文
+App 图标使用复杂城市背景
+App 图标使用过细线条
+App 图标直接截图 UI
+App 图标使用多种不统一颜色
+```
+
+------
+
+### 7.3 启动页 Logo
+
+启动页 Logo 用于 Splash。
+
+设计方向：
+
+```text
+XOAssets Logo
+小〇财迹
+深青绿主色
+白色或浅色背景
+干净居中
+```
+
+推荐文件：
+
+```text
+assets/images/splash_logo.png
+assets/icons/app/logo.svg
+assets/icons/app/logo_mark.svg
+```
+
+启动页背景：
+
+```text
+浅色启动页：#F4FAF8
+深色启动页：#003D36
+```
+
+推荐工具：
+
+```text
+flutter_native_splash
+```
+
+------
+
+### 7.4 App 内部图标风格
+
+App 内部所有功能图标统一使用 SVG。
+
+图标风格：
+
+```text
+线性图标
+24x24 画布
+2px 线宽
+圆角端点
+圆角连接
+默认单色
+可通过代码染色
+不使用复杂渐变
+不使用拟物图标
+不使用 Emoji
+```
+
+颜色规则：
+
+```text
+默认图标色：#6B7280
+选中图标色：#007C6E
+浅背景图标色：#007C6E
+危险图标色：#D9534F
+警告图标色：#F2A93B
+```
+
+------
+
+### 7.5 图标目录结构
+
+```text
+assets
+├── icons
+│   ├── app
+│   │   ├── logo.svg
+│   │   └── logo_mark.svg
+│   │
+│   ├── tab
+│   │   ├── home.svg
+│   │   ├── ledger.svg
+│   │   ├── investment.svg
+│   │   └── profile.svg
+│   │
+│   ├── action
+│   │   ├── add_transaction.svg
+│   │   ├── transfer.svg
+│   │   ├── investment_trade.svg
+│   │   ├── add_account.svg
+│   │   └── add_budget.svg
+│   │
+│   ├── category
+│   │   ├── food.svg
+│   │   ├── coffee.svg
+│   │   ├── transport.svg
+│   │   ├── shopping.svg
+│   │   ├── housing.svg
+│   │   ├── medical.svg
+│   │   ├── education.svg
+│   │   ├── entertainment.svg
+│   │   └── salary.svg
+│   │
+│   ├── account
+│   │   ├── cash.svg
+│   │   ├── bank_card.svg
+│   │   ├── credit_card.svg
+│   │   ├── alipay.svg
+│   │   └── wechat_pay.svg
+│   │
+│   └── investment
+│       ├── fund.svg
+│       ├── stock.svg
+│       ├── crypto.svg
+│       └── other.svg
+│
+└── images
+    ├── app_icon.png
+    └── splash_logo.png
+```
+
+------
+
+### 7.6 图标命名规范
+
+使用小写加下划线：
+
+```text
+home.svg
+bank_card.svg
+credit_card.svg
+add_transaction.svg
+investment_trade.svg
+wechat_pay.svg
+```
+
+禁止：
+
+```text
+图标1.svg
+icon-new-copy.svg
+Group 123.svg
+微信图标.svg
+未命名.svg
+```
+
+------
+
+### 7.7 图标代码约束
+
+所有 SVG 图标必须通过 `XoIcon` 使用。
+
+禁止页面直接调用：
+
+```dart
+SvgPicture.asset(...)
+```
+
+必须统一封装：
+
+```dart
+class XoIcon extends StatelessWidget {
+  const XoIcon(
+    this.assetName, {
+    super.key,
+    this.size = 24,
+    this.color,
+  });
+
+  final String assetName;
+  final double size;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SvgPicture.asset(
+      assetName,
+      width: size,
+      height: size,
+      colorFilter: color == null
+          ? null
+          : ColorFilter.mode(color!, BlendMode.srcIn),
+    );
+  }
+}
+```
+
+图标路径必须统一维护在 `XoIcons`：
+
+```dart
+class XoIcons {
+  XoIcons._();
+
+  static const home = 'assets/icons/tab/home.svg';
+  static const ledger = 'assets/icons/tab/ledger.svg';
+  static const investment = 'assets/icons/tab/investment.svg';
+  static const profile = 'assets/icons/tab/profile.svg';
+
+  static const addTransaction = 'assets/icons/action/add_transaction.svg';
+  static const transfer = 'assets/icons/action/transfer.svg';
+  static const investmentTrade = 'assets/icons/action/investment_trade.svg';
+  static const addAccount = 'assets/icons/action/add_account.svg';
+  static const addBudget = 'assets/icons/action/add_budget.svg';
+
+  static const cash = 'assets/icons/account/cash.svg';
+  static const bankCard = 'assets/icons/account/bank_card.svg';
+  static const creditCard = 'assets/icons/account/credit_card.svg';
+  static const alipay = 'assets/icons/account/alipay.svg';
+  static const wechatPay = 'assets/icons/account/wechat_pay.svg';
+
+  static const fund = 'assets/icons/investment/fund.svg';
+  static const stock = 'assets/icons/investment/stock.svg';
+  static const crypto = 'assets/icons/investment/crypto.svg';
+
+  static const food = 'assets/icons/category/food.svg';
+  static const coffee = 'assets/icons/category/coffee.svg';
+  static const transport = 'assets/icons/category/transport.svg';
+  static const shopping = 'assets/icons/category/shopping.svg';
+}
+```
+
+------
+
+### 7.8 图标承载容器
+
+分类、账户、投资类图标必须使用浅色圆形或圆角容器承载。
+
+推荐：
+
+```dart
+Container(
+  width: 44,
+  height: 44,
+  decoration: BoxDecoration(
+    color: XoColors.primaryLight,
+    borderRadius: BorderRadius.circular(22),
+  ),
+  child: const Center(
+    child: XoIcon(
+      XoIcons.food,
+      size: 24,
+      color: XoColors.primary,
+    ),
+  ),
+)
+```
+
+规则：
+
+```text
+底部 Tab 图标不加背景
+分类图标使用浅色圆形背景
+账户图标使用浅色圆角方形背景
+投资图标使用浅色圆角方形或圆形背景
+危险操作图标使用浅红背景
+警告操作图标使用浅橙背景
+```
+
+------
+
+### 7.9 底部 Tab 图标
+
+底部 Tab 图标使用线性 SVG。
+
+状态：
+
+```text
+未选中：#6B7280
+选中：#007C6E
+```
+
+底部 Tab 图标不使用复杂渐变。
+
+示例：
+
+```dart
+NavigationDestination(
+  icon: XoIcon(
+    XoIcons.home,
+    color: XoColors.textSecondary,
+  ),
+  selectedIcon: XoIcon(
+    XoIcons.home,
+    color: XoColors.primary,
+  ),
+  label: '首页',
+)
+```
+
+------
+
+### 7.10 插画规范
+
+登录、注册、启动页允许使用轻量金融科技插画。
+
+允许元素：
+
+```text
+数据波纹
+金融城市剪影
+点阵球体
+趋势线
+柱状图
+环形轨道
+柔和光点
+```
+
+插画规则：
+
+```text
+插画必须低对比
+插画不能影响表单阅读
+插画颜色必须使用深青绿、科技青、浅灰绿
+插画不能使用复杂人物
+插画不能使用卡通风
+插画不能抢主按钮和输入框层级
+```
+
+推荐放置位置：
+
+```text
+登录页顶部
+注册页顶部
+启动页中部或背景弱化区域
+空状态页面中心
+AI 报告页顶部轻量点缀
+```
+
+------
+
+## 8. 核心组件约束
 
 必须优先封装并复用以下组件。
 
-### 7.1 基础组件
+### 8.1 基础组件
 
 ```text
 XoPage
 XoCard
 XoMoneyText
+XoIcon
+XoButton
+XoTextField
 XoEmpty
 XoLoading
 XoErrorView
@@ -254,7 +1286,9 @@ XoSectionHeader
 XoBottomSheet
 ```
 
-### 7.2 业务组件
+------
+
+### 8.2 业务组件
 
 ```text
 XoAssetOverviewCard
@@ -264,22 +1298,63 @@ XoInvestmentItem
 XoBudgetProgressCard
 XoAiSummaryCard
 XoAccountCard
+XoFeatureIcon
+XoAuthHeader
+XoAuthScaffold
 ```
 
-### 7.3 组件使用规则
+------
+
+### 8.3 组件使用规则
 
 1. 页面容器必须优先使用 `XoPage`。
 2. 卡片必须优先使用 `XoCard`。
 3. 金额必须使用 `XoMoneyText`。
-4. 空状态必须使用 `XoEmpty`。
-5. 加载状态必须使用 `XoLoading`。
-6. 错误状态必须使用 `XoErrorView`。
-7. 不允许每个页面单独写一套卡片样式。
-8. 不允许金额格式散落在页面中。
+4. 图标必须使用 `XoIcon`。
+5. 主按钮必须使用 `XoButton`。
+6. 输入框必须使用 `XoTextField`。
+7. 空状态必须使用 `XoEmpty`。
+8. 加载状态必须使用 `XoLoading`。
+9. 错误状态必须使用 `XoErrorView`。
+10. 登录、注册页必须优先使用 `XoAuthScaffold`。
+11. 登录、注册页顶部品牌区域必须使用 `XoAuthHeader`。
+12. 不允许每个页面单独写一套卡片样式。
+13. 不允许金额格式散落在页面中。
+14. 不允许图标路径散落在页面中。
+15. 不允许页面直接写死渐变、阴影和圆角。
 
 ------
 
-## 8. 推荐目录结构
+## 9. Codex UI 执行约束
+
+当 Codex 执行 UI 相关任务时，必须遵守：
+
+```text
+先读取本 UI 规范
+先检查是否已有 XO Design System
+优先补全 token
+优先复用 XoPage / XoCard / XoIcon / XoButton / XoTextField
+不得直接在页面中硬编码颜色
+不得直接在页面中硬编码 SVG 路径
+不得引入大型 UI 组件库
+不得将 Web 页面缩小为移动端页面
+不得偏离深青绿科技金融风格
+```
+
+UI 任务完成后必须说明：
+
+```text
+新增了哪些 token
+新增了哪些组件
+新增了哪些图标资源
+修改了哪些页面
+是否符合登录 / 注册页视觉基线
+是否存在未完成的视觉资源
+```
+
+------
+
+## 10. 推荐目录结构
 
 ```text
 lib
@@ -297,8 +1372,11 @@ lib
 │   │   └── api_constants.dart
 │   │
 │   ├── design
+│   │   ├── xo_assets.dart
 │   │   ├── xo_colors.dart
+│   │   ├── xo_gradients.dart
 │   │   ├── xo_radius.dart
+│   │   ├── xo_shadows.dart
 │   │   ├── xo_spacing.dart
 │   │   ├── xo_text_styles.dart
 │   │   └── xo_theme.dart
@@ -327,6 +1405,8 @@ lib
 │   └── widgets
 │       ├── xo_page.dart
 │       ├── xo_card.dart
+│       ├── xo_button.dart
+│       ├── xo_text_field.dart
 │       ├── xo_money_text.dart
 │       ├── xo_empty.dart
 │       ├── xo_loading.dart
@@ -355,7 +1435,7 @@ lib
 
 ------
 
-## 9. 路由约束
+## 11. 路由约束
 
 必须使用 `go_router`。
 
@@ -364,6 +1444,7 @@ lib
 ```text
 /splash
 /login
+/register
 /main
 /transaction/edit
 /investment/trade
@@ -378,6 +1459,7 @@ lib
 class AppRoutes {
   static const splash = '/splash';
   static const login = '/login';
+  static const register = '/register';
   static const main = '/main';
   static const transactionEdit = '/transaction/edit';
   static const investmentTrade = '/investment/trade';
@@ -389,7 +1471,7 @@ class AppRoutes {
 
 ------
 
-## 10. 底部导航约束
+## 12. 底部导航约束
 
 底部导航固定为：
 
@@ -413,7 +1495,7 @@ class AppRoutes {
 
 ------
 
-## 11. 全局状态约束
+## 13. 全局状态约束
 
 必须使用 Riverpod。
 
@@ -425,18 +1507,18 @@ appSettingsProvider
 mainTabProvider
 ```
 
-### 11.1 authProvider
+### 13.1 authProvider
 
 职责：
 
 ```text
 登录状态
 Token 状态
-Mock 登录
+真实登录 / 注册状态
 退出登录
 ```
 
-### 11.2 appSettingsProvider
+### 13.2 appSettingsProvider
 
 职责：
 
@@ -446,7 +1528,7 @@ Mock 登录
 主题配置预留
 ```
 
-### 11.3 mainTabProvider
+### 13.3 mainTabProvider
 
 职责：
 
@@ -456,7 +1538,7 @@ Mock 登录
 
 ------
 
-## 12. 网络层约束
+## 14. 网络层约束
 
 必须使用 Dio。
 
@@ -472,7 +1554,7 @@ AppException
 ErrorHandler
 ```
 
-### 12.1 网络层规则
+### 14.1 网络层规则
 
 1. 统一配置 `baseUrl`。
 2. 统一配置超时时间。
@@ -481,8 +1563,9 @@ ErrorHandler
 5. 统一处理业务异常。
 6. 页面不允许直接调用 Dio。
 7. 页面必须通过 Repository / ApiClient 间接调用接口。
+8. 注册成功后如后端未直接返回 Token，必须复用登录接口建立会话，不允许前端伪造 Token。
 
-### 12.2 默认 API 地址
+### 14.2 默认 API 地址
 
 ```text
 http://localhost:8080/api

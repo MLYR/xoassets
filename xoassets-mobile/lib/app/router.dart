@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
 
 import '../features/auth/presentation/pages/login_page.dart';
+import '../features/auth/presentation/pages/register_page.dart';
 import '../features/auth/presentation/providers/auth_provider.dart';
 import '../features/budget/presentation/pages/budget_page.dart';
 import '../features/investment/presentation/pages/investment_trade_page.dart';
@@ -26,14 +27,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final path = state.uri.path;
       final isSplash = path == AppRoutes.splash;
       final isLogin = path == AppRoutes.login;
+      final isRegister = path == AppRoutes.register;
 
       if (authState.status == AuthStatus.unknown) {
         return isSplash ? null : AppRoutes.splash;
       }
       if (!authState.isAuthenticated) {
-        return isLogin ? null : AppRoutes.login;
+        // 注册页与登录页同属未登录白名单，避免注册流程被守卫打断。
+        return (isLogin || isRegister) ? null : AppRoutes.login;
       }
-      if (isSplash || isLogin) {
+      if (isSplash || isLogin || isRegister) {
         return AppRoutes.main;
       }
       return null;
@@ -46,6 +49,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.login,
         builder: (context, state) => const LoginPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.register,
+        builder: (context, state) => const RegisterPage(),
       ),
       GoRoute(
         path: AppRoutes.main,

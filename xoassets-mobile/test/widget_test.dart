@@ -28,7 +28,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('欢迎回来'), findsOneWidget);
-    expect(find.text('登录'), findsOneWidget);
+    expect(find.text('立即登录'), findsOneWidget);
   });
 
   testWidgets('restores token and reaches main tabs', (tester) async {
@@ -128,9 +128,13 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, '用户名'), 'bad-user');
+    await tester.enterText(
+      find.widgetWithText(TextField, '手机号/邮箱'),
+      'bad-user',
+    );
     await tester.enterText(find.widgetWithText(TextField, '密码'), 'bad-pass');
-    await tester.tap(find.widgetWithText(FilledButton, '登录'));
+    await tester.ensureVisible(find.text('立即登录'));
+    await tester.tap(find.text('立即登录'));
     await tester.pumpAndSettle();
 
     expect(find.text('登录失败'), findsOneWidget);

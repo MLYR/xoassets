@@ -133,11 +133,29 @@ lib/core/constants/api_constants.dart
 
 当前机器如果缺 Android SDK、完整 Xcode 或 CocoaPods，需要先补齐对应移动端工具链后才能运行 Android / iOS 模拟器。
 
+## 登录 / 注册视觉基线
+
+登录和注册页是 XOAssets Mobile V2 的当前视觉基准：
+
+- 整体风格：深青绿色科技金融、白色圆角表单卡片、轻量金融插画、克制玻璃质感。
+- 品牌区统一使用 `XoAuthHeader`，表单页统一使用 `XoAuthScaffold`。
+- 表单输入统一使用 `XoTextField`：56 高度、大圆角、浅灰绿色边框、左侧线性图标。
+- 主操作统一使用 `XoButton`：56 高度、深青绿色渐变、白色加粗文字、轻阴影。
+- 视觉资源统一放在 `assets/images/auth/`，路径由 `XoAssets` 维护。
+- 页面不要绕过 `lib/core/design/` 直接散落颜色、渐变、圆角、阴影或图片路径。
+
+本次设计 QA 记录位于：
+
+```text
+design-qa.md
+```
+
 ## 路由说明
 
 ```text
 /splash
 /login
+/register
 /main
 /transaction/edit
 /investment/trade
@@ -178,7 +196,10 @@ lib/core/constants/api_constants.dart
 XO Design System 位于 `lib/core/design/`：
 
 - `XoColors`
+- `XoAssets`
+- `XoGradients`
 - `XoRadius`
+- `XoShadows`
 - `XoSpacing`
 - `XoTextStyles`
 - `AppTheme`
@@ -187,6 +208,8 @@ XO Design System 位于 `lib/core/design/`：
 
 - `XoPage`
 - `XoCard`
+- `XoButton`
+- `XoTextField`
 - `XoMoneyText`
 - `XoSectionHeader`
 - `XoBottomSheet`
@@ -204,12 +227,13 @@ XO Design System 位于 `lib/core/design/`：
 ## 第二阶段已完成
 
 - 登录页接入真实 `/api/auth/login`。
+- 注册页接入真实 `/api/auth/register`，注册成功后复用登录接口建立会话。
 - 登录成功后将 accessToken 保存到 `flutter_secure_storage`。
 - `AuthInterceptor` 自动为请求添加 `Authorization: Bearer <token>`。
 - `GET /api/auth/me` 用于 App 启动后的登录态恢复。
 - 401 / `40100` 会统一清理本地 token。
 - 我的页展示当前登录用户，并提供退出登录入口。
-- 登录页提供基础 loading、空值校验和弹窗错误提示，Web 网络 / CORS 错误会转成中文提示。
+- 登录 / 注册页提供基础 loading、空值校验、密码显隐、协议勾选、验证码倒计时和弹窗错误提示，Web 网络 / CORS 错误会转成中文提示。
 
 ## 下一阶段建议
 

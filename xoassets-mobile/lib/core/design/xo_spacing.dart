@@ -5,4 +5,7 @@ class XoSpacing {
   static const md = 16.0;
   static const lg = 24.0;
   static const xl = 32.0;
+  static const pageHorizontal = 20.0;
+  static const cardPadding = 20.0;
+  static const formGap = 16.0;
 }

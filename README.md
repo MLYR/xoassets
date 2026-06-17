@@ -1,13 +1,14 @@
 # 小〇财迹
 
-小〇财迹是面向个人用户的资产管理与财务复盘工具。当前仓库包含 Vue3 前端和 Spring Boot 后端 MVP。
+小〇财迹是面向个人用户的资产管理与财务复盘工具。当前仓库包含 Vue3 Web 管理端、Flutter 新版移动端、旧 uni-app 移动端和 Spring Boot 后端 MVP。
 
 ## 项目结构
 
 ```text
 .
 ├── xoassets-web      Vue3 + TypeScript + Vite Web 管理端
-├── xoassets-app      uni-app + Vue3 + Pinia 移动端 App
+├── xoassets-mobile   Flutter 新版移动端 App
+├── xoassets-app      uni-app + Vue3 + Pinia 旧移动端 App
 ├── xoassets-server   Java 17 + Spring Boot 3 后端
 ├── AGENTS.md         AI 协作规范
 └── 小〇财迹_产品需求_设计_开发文档.md
@@ -20,7 +21,8 @@
 - 后端：已创建 Spring Boot MVP，覆盖登录注册、账户、分类、流水、首页统计、基础图表统计、资产快照、投资持仓维护、行情刷新、预算管理、资产目标和 AI 报告模板生成。
 - 体验稳定性：核心业务页已补齐空状态、删除二次确认、金额输入大于 0 校验、后端错误 message 展示和统一 loading 状态。
 - 暂不做：自动同步银行卡 / 支付宝 / 微信、AI 报告真实调用、自动交易或投资建议；行情只在后端接入，前端不直连第三方。
-- 移动端：已创建 uni-app 独立项目，复用后端 API；保留 uni-app + Vue3 + SCSS + 自研 App 组件体系，禁止引入 Element Plus 或重型 UI 库。当前已补齐主题系统和通用 UI 组件层（`AppPage`、`AppCard`、`AppAmount`、`AppIcon`、`AppActionButton`、`AppSectionHeader`、`AppBottomTabs`），所有页面主视觉必须由 `src/theme/` 和 App 组件控制。首页已升级为卡片化 Dashboard，样式全部通过 theme 系统驱动；后续弹窗、Picker、表单增强可按需评估轻量组件，但不能绕开 theme。
+- Flutter 新版移动端：`xoassets-mobile` 已完成 App 壳子、真实登录、注册页、基础 API 通信、Token 存储、登录态恢复和 401 基础处理；登录 / 注册页是当前移动端视觉基准，采用深青绿色科技金融风格、白色圆角表单卡片、轻量金融插画、`XoAuthScaffold` / `XoAuthHeader` / `XoTextField` / `XoButton` 和集中维护的 XO Design System token。
+- 旧移动端：`xoassets-app` 为 uni-app 独立项目，复用后端 API；保留 uni-app + Vue3 + SCSS + 自研 App 组件体系，禁止引入 Element Plus 或重型 UI 库。当前已补齐主题系统和通用 UI 组件层（`AppPage`、`AppCard`、`AppAmount`、`AppIcon`、`AppActionButton`、`AppSectionHeader`、`AppBottomTabs`），所有页面主视觉必须由 `src/theme/` 和 App 组件控制。首页已升级为卡片化 Dashboard，样式全部通过 theme 系统驱动；后续弹窗、Picker、表单增强可按需评估轻量组件，但不能绕开 theme。
 
 ## 前后端联调状态
 

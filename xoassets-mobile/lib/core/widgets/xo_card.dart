@@ -31,6 +31,7 @@ class XoCard extends StatelessWidget {
           padding: padding,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(XoRadius.card),
+            border: Border.all(color: const Color(0x99E3EBE8)),
           ),
           child: child,
         ),

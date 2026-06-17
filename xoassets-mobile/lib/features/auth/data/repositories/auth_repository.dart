@@ -30,6 +30,19 @@ class AuthRepository {
     return session;
   }
 
+  Future<AuthUser> register({
+    required String username,
+    required String password,
+    String? nickname,
+  }) {
+    // 注册接口只创建用户，登录态仍沿用 login 签发 JWT，避免前端伪造 token。
+    return apiClient.postData<AuthUser>(
+      '/auth/register',
+      data: {'username': username, 'password': password, 'nickname': nickname},
+      mapper: AuthUser.fromJson,
+    );
+  }
+
   Future<AuthSession?> restoreSession() async {
     final accessToken = await secureStorage.readAccessToken();
     if (accessToken == null || accessToken.isEmpty) {
