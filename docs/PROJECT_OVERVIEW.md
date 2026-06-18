@@ -2,7 +2,9 @@
 
 ## 1. 项目定位
 
-XOAssets / 小〇财迹 是个人资产管理与财务复盘工具，核心能力包括：
+XOAssets / 小〇财迹 是个人资产管理与财务复盘工具。
+
+核心能力：
 
 - 账户管理
 - 分类管理
@@ -20,15 +22,14 @@ XOAssets / 小〇财迹 是个人资产管理与财务复盘工具，核心能�
 ```text
 xoassets-server   Java 17 + Spring Boot 3 后端
 xoassets-web      Vue3 + TypeScript + Vite Web 管理端
-xoassets-mobile   Flutter 新版移动端 App
-xoassets-app      uni-app + Vue3 + Pinia 旧移动端 App
+xoassets-app      React Native 新版移动端 App
 ```
 
-## 3. 当前进度
+## 3. 当前重点
 
 ### 后端
 
-已覆盖：
+后端是业务和数据口径权威，覆盖：
 
 - 登录注册
 - 账户
@@ -45,20 +46,6 @@ xoassets-app      uni-app + Vue3 + Pinia 旧移动端 App
 
 ### Web 前端
 
-已接入：
-
-- 登录 / 注册 / 用户中心
-- 账户管理
-- 分类管理
-- 记账流水
-- 投资持仓
-- 投资子页面
-- 预算管理
-- 首页
-- 数据分析
-- 资产目标
-- AI 报告模板页
-
 Web 端继续使用：
 
 - Vue 3
@@ -68,25 +55,19 @@ Web 端继续使用：
 - Vue Router
 - `xo-design` tokens
 
-### Flutter 新版移动端
+### React Native 新版移动端
 
-已完成：
+新版移动端使用 React Native 技术栈，从零开始实现：
 
 - App 壳子
-- 真实登录
-- 注册页
-- 基础 API 通信
-- Token 存储
-- 登录态恢复
-- 401 基础处理
-- 首页核心接口接入
-- 记账页部分接口接入
-- 投资页部分接口接入
-- 主题模式设置
-
-### 旧 uni-app 移动端
-
-`xoassets-app` 是旧移动端独立项目，默认保留，不作为 Flutter 新版移动端依据。
+- 登录注册
+- 首页资产驾驶舱
+- 记账
+- 账户管理
+- 投资管理
+- 预算管理
+- AI 财务报告
+- 设置与系统能力
 
 ## 4. 第一版功能边界
 

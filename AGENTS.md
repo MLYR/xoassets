@@ -1,4 +1,4 @@
-# XOAssets AI 协作规范
+# XOAssets Codex 协作规范
 
 ## 1. 项目定位
 
@@ -16,20 +16,19 @@ XOAssets / 小〇财迹 是面向个人用户的资产管理与财务复盘工�
 ```text
 xoassets-server   Java 17 + Spring Boot 3 后端
 xoassets-web      Vue3 + TypeScript + Vite Web 管理端
-xoassets-mobile   Flutter 新版移动端 App
-xoassets-app      旧 uni-app 移动端，默认不作为新版 App 依据
+xoassets-app      React Native 新版移动端 App
 ```
 
-如果实际目录与上述不一致，AI 必须先说明，不允许擅自重命名、迁移或删除目录。
+如果实际目录与上述不一致，Codex 必须先说明当前目录结构，不允许擅自重命名、迁移或删除目录。
 
 ## 2. 文档优先级
 
-AI 执行任务前按以下顺序读取：
+Codex 执行任务前按以下顺序读取：
 
 1. 根目录 `AGENTS.md`
 2. 当前子项目目录下的 `AGENTS.md`
 3. 当前任务相关 `docs/*.md`
-4. 移动端任务读取 `xoassets-mobile/MOBILE_APP_PHASES.md`
+4. 移动端任务读取 `xoassets-app/MOBILE_APP_PHASES.md`
 5. Swagger / Knife4j / 后端接口文档
 6. 当前代码实现
 
@@ -54,7 +53,7 @@ AI 执行任务前按以下顺序读取：
 
 ## 4. 技术栈边界
 
-### 后端
+### 4.1 后端
 
 - Java 17
 - Spring Boot 3.x
@@ -74,7 +73,7 @@ AI 执行任务前按以下顺序读取：
 - 不要在 Mapper XML 中堆复杂业务判断。
 - 金额、收益、资产口径以后端计算为准。
 
-### Web 前端
+### 4.2 Web 前端
 
 - Vue 3
 - Vite
@@ -92,28 +91,83 @@ Web 规则：
 - 禁止引入新的重型 UI 框架。
 - 禁止为单个页面重复造独立视觉规则。
 
-### Flutter 移动端
+### 4.3 React Native 移动端
 
-- Flutter / Dart
-- Material 3
+移动端目录：
+
+```text
+xoassets-app/
+```
+
+移动端技术栈：
+
+- React Native
+- TypeScript
+- Expo
+- Expo Router
+- NativeWind
 - 自研 XO Design System
-- Riverpod
-- go_router
-- Dio
-- flutter_secure_storage
-- shared_preferences
+- Zustand
+- TanStack Query
+- Axios
+- React Hook Form
+- Zod
+- expo-secure-store
+- @react-native-async-storage/async-storage
+- react-native-svg
+- react-native-reanimated
 
 移动端规则：
 
-- 新版移动端从零开始，不复用旧 uni-app 代码。
+- 新版移动端从零开始。
 - App 只能通过后端 HTTP API 获取数据。
 - App 不允许直接连接 MySQL。
-- 第一版不做离线能力。
-- 第一版不引入 SQLite / Drift / Hive / Isar。
-- Token 使用 `flutter_secure_storage`。
-- 普通配置使用 `shared_preferences`。
+- 第一版不做离线数据库。
+- 第一版不引入 SQLite / WatermelonDB / Realm / TypeORM / Prisma Client。
+- Token 使用 `expo-secure-store` 保存。
+- 普通配置使用 `@react-native-async-storage/async-storage` 保存。
+- 服务端状态使用 TanStack Query 管理。
+- 本地 UI 状态使用 Zustand 管理。
 
-## 5. 业务口径入口
+## 5. 移动端 UI 风格约束
+
+移动端视觉统一参考 shadcn/ui：
+
+```text
+简洁
+克制
+卡片化
+弱边框
+低饱和
+清晰层级
+强一致性
+浅色优先，深色可扩展
+```
+
+参考地址：
+
+```text
+https://ui.shadcn.com/docs/installation
+```
+
+规则：
+
+- shadcn/ui 只作为设计语言、组件结构、视觉密度和交互状态参考。
+- React Native 端不直接运行 shadcn/ui Web 安装命令。
+- React Native 端不直接使用 shadcn/ui Web 组件。
+- 不使用 DOM、CSS Modules、浏览器专属 API。
+- 不把 Web 页面缩小后搬到移动端。
+- 所有组件必须通过 XO Design System 在 React Native 原生组件上实现。
+- shadcn/ui 常见组件需要映射为 `XoButton`、`XoCard`、`XoTextField`、`XoBadge`、`XoTabs`、`XoBottomSheet`、`XoDialog`、`XoSkeleton`、`XoEmpty`。
+
+详细 UI 规范查看：
+
+```text
+xoassets-app/docs/MOBILE_UI_DESIGN_SYSTEM.md
+xoassets-app/docs/SHADCN_UI_STYLE_GUIDE.md
+```
+
+## 6. 业务口径入口
 
 详细业务规则统一查看：
 
@@ -121,7 +175,7 @@ Web 规则：
 docs/BUSINESS_RULES.md
 ```
 
-AI 不得在前端或移动端重新实现后端业务计算口径，尤其是：
+Codex 不得在前端或移动端重新实现后端业务计算口径，尤其是：
 
 - 净资产
 - 总资产
@@ -131,7 +185,7 @@ AI 不得在前端或移动端重新实现后端业务计算口径，尤其是�
 - 预算使用额
 - 用户数据隔离
 
-## 6. 接口入口
+## 7. 接口入口
 
 详细接口约定查看：
 
@@ -147,7 +201,7 @@ docs/API_CONTRACTS.md
 - App 不直接访问对象存储密钥。
 - 后端 Long ID 在前端和移动端按字符串处理。
 
-## 7. 安全要求
+## 8. 安全要求
 
 - 使用 JWT 登录认证。
 - 请求头格式：`Authorization: Bearer <token>`。
@@ -158,7 +212,7 @@ docs/API_CONTRACTS.md
 - 外部输入必须校验。
 - 异常路径要显式处理。
 
-## 8. 禁止事项
+## 9. 禁止事项
 
 默认禁止：
 
@@ -174,7 +228,7 @@ docs/API_CONTRACTS.md
 - 用历史价或兜底价冒充今日价格。
 - 给用户提供投资买卖建议。
 
-## 9. Git 规则
+## 10. Git 规则
 
 未经用户明确要求，不执行：
 
@@ -195,7 +249,7 @@ git branch
 type(scope): summary
 ```
 
-## 10. 验证入口
+## 11. 验证入口
 
 详细验证清单查看：
 
@@ -208,20 +262,20 @@ docs/VALIDATION_CHECKLIST.md
 ```bash
 cd xoassets-server && ./mvnw test
 cd xoassets-web && npm run build
-cd xoassets-mobile && flutter analyze && flutter test
+cd xoassets-app && npm run typecheck
 ```
 
 如果无法验证，必须说明原因和剩余风险。
 
-## 11. AI 工作流
+## 12. Codex 工作流
 
 详细工作流查看：
 
 ```text
-docs/AI_AGENT_WORKFLOW.md
+docs/CODEX_WORKFLOW.md
 ```
 
-AI 每次执行前必须输出：
+Codex 每次执行前必须输出：
 
 ```text
 当前目录结构分析
@@ -233,7 +287,7 @@ AI 每次执行前必须输出：
 需要用户确认的问题
 ```
 
-AI 每次执行后必须输出：
+Codex 每次执行后必须输出：
 
 ```text
 完成内容

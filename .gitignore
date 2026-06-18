@@ -17,3 +17,5 @@ logs/
 .idea/
 .env
 .DS_Store
+
+.playwright-cli

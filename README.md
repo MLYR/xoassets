@@ -1,46 +1,63 @@
-# 小〇财迹 / XOAssets
+# XOAssets / 小〇财迹
 
-小〇财迹是面向个人用户的资产管理与财务复盘工具。当前仓库包含：
+XOAssets 是个人资产管理与财务复盘项目，当前仓库包含：
 
 ```text
 xoassets-server   Java 17 + Spring Boot 3 后端
 xoassets-web      Vue3 + TypeScript + Vite Web 管理端
-xoassets-mobile   Flutter 新版移动端 App
-xoassets-app      uni-app 旧移动端 App
-AGENTS.md         AI 协作规范
+xoassets-app      React Native 新版移动端 App
+AGENTS.md         Codex 协作规范
 ```
 
 ## 当前重点
 
 - 后端是业务和数据口径权威。
-- Web 是已有管理端 / Web 前端。
-- Flutter 是新版移动端方向。
-- 旧 uni-app 目录保留，但默认不作为新版移动端依据。
-
-## 当前暂不支持
-
-- 银行卡自动同步。
-- 支付宝自动同步。
-- 微信自动同步。
-- 银行、券商、基金平台自动持仓同步。
-- 真实 AI 调用。
-- 投资建议。
-- 自动交易。
+- Web 是现有管理端 / Web 前端。
+- 新版移动端以 `xoassets-app` 为准，使用 React Native + Expo。
+- 移动端视觉统一参考 shadcn/ui 设计语言，但必须用 React Native 原生组件 + XO Design System 实现。
 
 ## 文档入口
 
 | 文件 | 说明 |
 |---|---|
-| `AGENTS.md` | AI 协作主约束 |
-| `docs/PROJECT_OVERVIEW.md` | 项目概览和当前进度 |
-| `docs/BUSINESS_RULES.md` | 核心业务口径 |
-| `docs/API_CONTRACTS.md` | 接口约定和联调状态 |
-| `docs/LOCAL_DEVELOPMENT.md` | 本地启动、Docker、XXL-JOB |
-| `docs/VALIDATION_CHECKLIST.md` | MVP 验收和测试命令 |
-| `docs/AI_AGENT_WORKFLOW.md` | AI 执行前后流程 |
-| `xoassets-mobile/AGENTS.md` | Flutter 移动端 AI 约束 |
-| `xoassets-mobile/MOBILE_APP_PHASES.md` | 移动端阶段计划 |
-| `xoassets-mobile/docs/MOBILE_UI_DESIGN_SYSTEM.md` | 移动端 UI 规范 |
+| `AGENTS.md` | 根目录 Codex 协作约束 |
+| `docs/PROJECT_OVERVIEW.md` | 项目概览 |
+| `docs/BUSINESS_RULES.md` | 业务口径 |
+| `docs/API_CONTRACTS.md` | 接口约定 |
+| `docs/LOCAL_DEVELOPMENT.md` | 本地开发与联调 |
+| `docs/VALIDATION_CHECKLIST.md` | 验证清单 |
+| `docs/CODEX_WORKFLOW.md` | Codex 工作流 |
+| `xoassets-app/AGENTS.md` | 移动端子项目约束 |
+| `xoassets-app/MOBILE_APP_PHASES.md` | 移动端阶段计划 |
+| `xoassets-app/README.md` | 移动端说明 |
+
+## 移动端技术栈
+
+```text
+React Native
+TypeScript
+Expo
+Expo Router
+NativeWind
+自研 XO Design System
+Zustand
+TanStack Query
+Axios
+React Hook Form
+Zod
+expo-secure-store
+@react-native-async-storage/async-storage
+react-native-svg
+react-native-reanimated
+```
+
+## UI 风格
+
+- 移动端 UI 风格统一参考 shadcn/ui：简洁、克制、卡片化、弱边框、低饱和、清晰层级、强一致性。
+- 参考文档：`https://ui.shadcn.com/docs/installation`
+- React Native 端只参考设计语言和组件模式，不直接安装 Web 组件。
+- 不使用 DOM、浏览器专属 API、Web 组件库。
+- 页面必须用 React Native 原生组件和自研 XO Design System 实现。
 
 ## 快速启动
 
@@ -59,12 +76,12 @@ npm install
 npm run dev
 ```
 
-Flutter：
+移动端：
 
 ```bash
-cd xoassets-mobile
-flutter pub get
-flutter run
+cd xoassets-app
+npm install
+npm run start
 ```
 
 接口文档：
