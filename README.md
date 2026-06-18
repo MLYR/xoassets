@@ -1,182 +1,57 @@
-# 小〇财迹
+# 小〇财迹 / XOAssets
 
-小〇财迹是面向个人用户的资产管理与财务复盘工具。当前仓库包含 Vue3 Web 管理端、Flutter 新版移动端、旧 uni-app 移动端和 Spring Boot 后端 MVP。
-
-## 项目结构
+小〇财迹是面向个人用户的资产管理与财务复盘工具。当前仓库包含：
 
 ```text
-.
-├── xoassets-web      Vue3 + TypeScript + Vite Web 管理端
-├── xoassets-mobile   Flutter 新版移动端 App
-├── xoassets-app      uni-app + Vue3 + Pinia 旧移动端 App
-├── xoassets-server   Java 17 + Spring Boot 3 后端
-├── AGENTS.md         AI 协作规范
-└── 小〇财迹_产品需求_设计_开发文档.md
+xoassets-server   Java 17 + Spring Boot 3 后端
+xoassets-web      Vue3 + TypeScript + Vite Web 管理端
+xoassets-mobile   Flutter 新版移动端 App
+xoassets-app      uni-app 旧移动端 App
+AGENTS.md         AI 协作规范
 ```
 
-## 当前进度
+## 当前重点
 
-- 前端：已重建为 Vue3、Element Plus、ECharts、Pinia、Vue Router 项目；登录、注册、用户中心、账户管理、分类管理、记账流水、投资持仓、投资子页面、预算管理、首页、数据分析、资产目标和 AI 报告模板页已接入后端接口。
-- 前端视觉：Web 端继续使用 Element Plus + ECharts，并以 `xo-design` tokens 统一覆盖颜色、圆角、阴影、按钮、输入框、表格、卡片、弹窗和分段控件；重点页已按 `xoassets-web/原型图/` 统一为现代金融 SaaS 风格，禁止为单个页面重复造独立视觉规则。
-- 后端：已创建 Spring Boot MVP，覆盖登录注册、账户、分类、流水、首页统计、基础图表统计、资产快照、投资持仓维护、行情刷新、预算管理、资产目标和 AI 报告模板生成。
-- 体验稳定性：核心业务页已补齐空状态、删除二次确认、金额输入大于 0 校验、后端错误 message 展示和统一 loading 状态。
-- 暂不做：自动同步银行卡 / 支付宝 / 微信、AI 报告真实调用、自动交易或投资建议；行情只在后端接入，前端不直连第三方。
-- Flutter 新版移动端：`xoassets-mobile` 已完成 App 壳子、真实登录、注册页、基础 API 通信、Token 存储、登录态恢复和 401 基础处理；登录 / 注册页是当前移动端视觉基准，采用深青绿色科技金融风格、白色圆角表单卡片、轻量金融插画、`XoAuthScaffold` / `XoAuthHeader` / `XoTextField` / `XoButton` 和集中维护的 XO Design System token。
-- 旧移动端：`xoassets-app` 为 uni-app 独立项目，复用后端 API；保留 uni-app + Vue3 + SCSS + 自研 App 组件体系，禁止引入 Element Plus 或重型 UI 库。当前已补齐主题系统和通用 UI 组件层（`AppPage`、`AppCard`、`AppAmount`、`AppIcon`、`AppActionButton`、`AppSectionHeader`、`AppBottomTabs`），所有页面主视觉必须由 `src/theme/` 和 App 组件控制。首页已升级为卡片化 Dashboard，样式全部通过 theme 系统驱动；后续弹窗、Picker、表单增强可按需评估轻量组件，但不能绕开 theme。
+- 后端是业务和数据口径权威。
+- Web 是已有管理端 / Web 前端。
+- Flutter 是新版移动端方向。
+- 旧 uni-app 目录保留，但默认不作为新版移动端依据。
 
-## 前后端联调状态
+## 当前暂不支持
 
-- 认证：`POST /api/auth/register`、`POST /api/auth/login`、`GET /api/auth/me` 已在前端封装为 `authApi`。
-- 登录态：前端使用 Axios 请求封装，JWT 存入 `localStorage`，请求自动携带 `Authorization: Bearer <token>`。
-- 路由守卫：没有 token 访问业务页会跳转 `/login`，401 响应会清理 token 并回到登录页。
-- 账户管理：`GET /api/accounts`、`POST /api/accounts`、`PUT /api/accounts/{id}`、`DELETE /api/accounts/{id}` 已接入账户页；余额校准通过 `POST /api/accounts/{id}/balance-adjustments` 生成专用修正记录；账户详情通过 `GET /api/accounts/{id}/ledger` 和 `/flow-statistics` 展示资金明细、余额修正、余额曲线和支出分类。
-- 分类管理：`GET /api/categories`、`POST /api/categories`、`PUT /api/categories/{id}`、`DELETE /api/categories/{id}`、`PUT /api/categories/{id}/status` 已接入分类页。
-- 记账流水：`GET /api/transactions`、`POST /api/transactions`、`PUT /api/transactions/{id}`、`DELETE /api/transactions/{id}` 已接入记账页，支持分页和流水图片。
-- 投资持仓：`GET /api/assets/lookup`、`GET /api/holdings`、`GET /api/holdings/summary`、`GET /api/holdings/{id}/detail`、`POST /api/holdings`、`PUT /api/holdings/{id}`、`POST /api/investment-transactions`、`GET /api/investment-transactions`、`GET /api/investment-transactions/fund-confirm-preview`、`POST /api/quotes/manual`、`POST /api/quotes/refresh`、`POST /api/quotes/refresh-batch` 已接入投资页；前端只暴露持仓概念，`xo_asset` 作为后端内部行情基础表；历史持仓补录通过投资买入 / 卖出交易表达，直接持仓编辑只适合当前基础信息维护；持仓创建后不允许删除，清仓后保留历史交易、收益和走势。
-- 投资展示：投资主页按总览 / 基金 / 股票 / 虚拟货币分模块展示统计和图表；资产趋势固定同图展示总览、股票、基金、虚拟货币四条线，并支持周 / 月 / 年维度切换，左轴金额单位为 k；每日收益区域可在收益日历和全持仓交易记录之间切换；每日收益日历、昨日收益、趋势图每日收益和收益贡献统一读取 `xo_investment_holding_daily_profit` 持仓每日收益表，投资趋势的总览和单模块当日收益都按模块聚合该表，不用累计收益差估算；基金、股票、虚拟货币模块内分别展示持仓表格、买入卖出、价格刷新和收益分析入口，持仓表格支持按持有市值、持有收益、今日收益、昨日收益和最新净值 / 当前价排序，默认持有市值倒序；单个持仓的收益汇总、交易记录和总市值 / 价格走势在 `/investments/holdings/:id` 查看；清仓持仓状态显示“清仓”，持有收益展示已实现收益 + 当前浮动盈亏，总市值走势读取后端按历史头寸重建的 `chartPoints`，不能用当前 0 份额倒推历史。
-- 投资交易：买入必须选择扣款账户并扣减余额，卖出必须选择到账账户并增加余额；买入 / 卖出不写入普通流水，不计入生活收支统计。基金可先创建 0 份额持仓，再用 `AMOUNT_NAV` 金额模式录入买入总金额和实际买入时间；后端按数据库市场日历计算有效申请日和确认日，普通基金 T+1、名称包含 `QDII` 的基金 T+2，确认净值优先取日级基金单位净值，当前价仅在报价日期等于确认日时兜底，净值未出时交易状态为 `PENDING_CONFIRM`，后续定时确认；买入 / 卖出补录、基金确认和撤销都会从交易日起重建投资日快照和资产快照。
-- 投资撤销：`PUT /api/investment-transactions/{id}/revoke` 会反向恢复资金账户和持仓，撤销记录仍保留在投资交易中；Web 全持仓交易记录和持仓详情交易记录统一展示类型 / 状态标签，交易列表不展示已实现盈亏列，全持仓交易记录点击整行进入持仓详情。
-- 投资精度：投资数量保留 10 位小数，手续费、成本、市值、盈亏和收益率统一按 4 位小数计算；行情价格快照保留 8 位，CRYPTO 当前价至少展示 6 位，FUND / STOCK 当前价展示 4 位。持仓列表的 `marketValue` 始终由后端使用同一个 `latestPrice` 计算，前端不使用格式化价格反算市值。
-- 行情接入：CRYPTO 使用 CoinGecko，FUND 使用天天基金 F10 历史净值表和实时净值兜底，A 股使用新浪行情，美股使用 Yahoo Finance；所有第三方行情只由后端 provider 拉取，自动行情写入 `xo_asset_price_current` 当前价；股票和虚拟货币原始快照写入 Redis ZSET，TTL 3 天，并由任务聚合到 `xo_asset_price_daily`，基金和手动价直接沉淀到日级价格表。
-- 旧价格快照表已退役；历史库执行 `xoassets-server/src/main/resources/db/migration-retire-asset-price.sql` 可把旧表历史价迁入 current/daily 并删除旧表。
-- 资产识别：新增持仓时可按资产类型输入代码或名称查询，后端返回名称、代码、市场、币种、行情源、行情键和当前价格；保存持仓时自动创建 / 复用 `xo_asset` 并写入 `xo_asset_price_current`，带报价日期的初始价同步写入 `xo_asset_price_daily`，查询失败仍可手动录入。
-- 资产查询日志：第三方资产查询失败时后端会记录行情源、代码 / 市场、响应摘要和原始异常堆栈，前端仍只展示可理解的失败提示。
-- 资产市场：`xo_asset.market` 用于区分 SH / SZ / BJ / US / CN_FUND / CRYPTO，资产唯一性按 `type + market + symbol + deleted` 判断。
-- 行情分层：持仓估值优先使用 `xo_asset_price_current`，今日收益仍按当前价动态计算；每日收益日历、昨日收益、趋势图每日收益和收益贡献统一使用 `xo_investment_holding_daily_profit`，该表按展示日保存每个持仓的真实日收益，`/api/investments/trend` 的 ALL / FUND / STOCK / CRYPTO 当日收益都从该表按模块聚合；净值型基金按净值日后的交易日展示收益，确认日当天新生效份额必须参与该展示日收益计算；手动和自动行情刷新成功后都会重建受影响资产的持仓每日收益，即使第三方返回的行情时间和价格与 current 完全相同，也会重建，避免 current 已更新但收益日历仍停留在旧计算结果；投资总资产较昨日 / 较上月使用 `xo_investment_daily_snapshot`。投资日快照按 `xo_investment_transaction` 重建历史持仓、成本、市值、已实现收益和当日投资本金净流入，不再用当前持仓回填历史；手工初始化持仓有后续交易时，历史头寸重建先反推出手工底仓再应用交易流水，清仓后也要保留清仓日前历史份额；`daily_profit` 是快照日资金流调整收益，公式为本日投资市值 - 上一快照日投资市值 - 当日投资本金净流入，不等同于收益日历展示日收益；`calendar_profit` 是从持仓每日收益表聚合出的真实展示日收益；`net_inflow`、`buy_amount`、`sell_amount`、`fee_amount` 按资金实际发生日统计，`PENDING_CONFIRM` 基金申购在下单扣款日计入净入金和买入统计，基金确认日只影响份额生效。基金金额买入在实际申购日到确认日前按在途投资资产计入，即使交易后来已确认，补跑确认日前历史快照也必须保留这段在途金额，但在途存量不能每天重复计入 `net_inflow`；补跑历史快照时按 `trade_date` 使用已回填的日级价格，不受价格行 `created_at` 晚于快照日影响。Redis key 为 `price:snapshot:{assetId}:{yyyyMM}`，仅短期保存股票和虚拟货币原始快照供日级汇总和排查，TTL 3 天，不作为长期权威数据；读取某天快照时通过 ZSET score 的当天起止毫秒范围查询，不全量拉取整月数据再筛选。CRYPTO 15 分钟内、STOCK 15 分钟内、FUND 1 天内不重复刷新，MANUAL 价格不过期；股票只在开盘日 09:30-15:00 之间拉取第三方行情，虚拟货币全天每 15 分钟刷新。USD/CNY 展示汇率由 `/api/exchange-rates/usd-cny` 返回后端日缓存，后续可替换为 Redis 缓存。
-- 市场日历：`xo_market_calendar` 是基金确认日和后续交易日判断的数据库权威来源；应用启动和年度任务都会补齐当前年、下一年基础周末日历，交易所公告休市日通过迁移或人工修正写入表中覆盖。
-- 预算管理：`GET /api/budgets`、`POST /api/budgets`、`PUT /api/budgets/{id}`、`DELETE /api/budgets/{id}`、`GET /api/budgets/summary` 已接入预算页和移动端首页预算进度卡片。
-- 资产快照：`GET /api/snapshots/latest`（返回最新快照 + 较昨日 / 较月初净资产变化金额，缺少基准快照时返回 `null` 并展示 `--`；本月只有最新一条且不是 1 号时，较月初也返回 `null`）、`GET /api/snapshots/trend`、`POST /api/snapshots/generate-today`、`POST /api/snapshots/generate?snapshotDate=yyyy-MM-dd`、`POST /api/snapshots/rebuild?startDate=yyyy-MM-dd&endDate=yyyy-MM-dd` 已接入首页和数据分析页；现金资产按账户初始余额和快照日前资金事件重建历史余额，投资资产按快照日重建历史头寸并用日级价 / 当前价估值，月度收支按截至快照日的月内累计记录，补跑历史快照不能用当前账户余额、当前持仓数量或快照日之后的流水倒推；普通流水补录、修改或删除后会从受影响日期起触发资产快照重建，投资交易补录、基金确认或撤销后会先重建投资日快照再重建资产快照，31 天内同步重建，超过 31 天合并写入 `xo_snapshot_rebuild_task` 由 `rebuildPendingAssetSnapshots` 批量处理；首页主净资产统一使用 `GET /api/dashboard/overview` 的 `netAssets`，快照仅用于今日变化、历史趋势和快照相关说明；移动端资产趋势折线图基于 `GET /api/statistics/net-assets-trend` 近 1 个月数据绘制。
-- 首页和统计：`GET /api/dashboard/overview` 返回账户、流水、投资和预算聚合指标，趋势率缺少上期基准时返回 `null` 并展示 `--`；`GET /api/statistics/net-assets-trend` 返回指定日期范围的净资产趋势数据（移动端首页使用近 1 个月范围）；`/api/statistics/*` 返回收支趋势、分类支出、资产分布、投资盈亏和预算进度，净资产 / 总资产趋势优先使用资产快照。
-- 首页净资产卡不展示百分比趋势，避免把当月结余环比误当成净资产涨跌；净资产“较昨日变化”使用资产快照金额单独展示。
-- 资产目标：`GET /api/goals`、`POST /api/goals`、`PUT /api/goals/{id}`、`DELETE /api/goals/{id}`、`GET /api/goals/summary` 已接入目标页。
-- AI 报告：`GET /api/reports`、`GET /api/reports/{id}`、`POST /api/reports/generate-preview` 已接入报告页，当前只生成模板化财务复盘，不调用真实 AI，不提供投资买卖建议。
-- CSV 导出：`GET /api/export/account-ledger`、`/transactions` 已接入账户详情和流水页，导出文件带 UTF-8 BOM；后端仍保留 `/api/export/investment-transactions` 供后续投资交易导出入口复用。
-- ID 处理：后端 Long ID 以字符串返回，前端接口类型使用 `string` 保存和回传 ID，避免 JavaScript 数字精度丢失。
-- 本地开发：前端 Vite 将 `/api` 代理到 `http://localhost:8080`。
+- 银行卡自动同步。
+- 支付宝自动同步。
+- 微信自动同步。
+- 银行、券商、基金平台自动持仓同步。
+- 真实 AI 调用。
+- 投资建议。
+- 自动交易。
 
-## 前端视觉约定
+## 文档入口
 
-- 视觉参考图目录：`xoassets-web/原型图/`。
-- 全局样式入口：`xoassets-web/src/styles/index.css`。
-- `xo-design` tokens：通过 `xoassets-web/src/styles/variables.css`、`global.css`、`layout.css` 统一定义和应用。
-- 主题变量：`xoassets-web/src/styles/variables.css`，同时维护日间和夜间 token。
-- Web 主题状态：`xoassets-web/src/stores/theme.ts`，支持 `system / light / dark`，默认跟随系统 `prefers-color-scheme`，顶部栏提供手动切换入口。
-- 全局组件皮肤：`xoassets-web/src/styles/global.css`，负责覆盖 Element Plus 的按钮、输入框、表格、卡片、弹窗、分段控件和 loading 遮罩。
-- 页面布局辅助类：`xoassets-web/src/styles/layout.css`。
-- 当前视觉基线：
-  - 页面背景使用浅灰蓝渐变 / `#F6F8FC` 体系。
-  - 主色以亮蓝 `#2563EB` 为核心，图表用低饱和蓝 / 绿 / 紫 / 黄。
-  - 卡片统一白色玻璃感、`20px` 圆角、柔和阴影、浅边框。
-  - 夜间模式使用深色玻璃卡片、弱边框、低饱和高光和半透明加载遮罩，避免刷新时统计卡片 / 图表区整块变黑。
-  - 表格表头浅灰底、hover 柔和高亮、金额右对齐且不换行。
-  - 侧边栏为白色背景，当前菜单浅蓝底 + 蓝字，不再使用旧深色侧栏风格。
-  - 继续使用 Element Plus + ECharts，不引入复杂 UI 框架。
-  - 单页不得重复定义独立视觉规则；新增视觉样式优先沉淀到 `xo-design` tokens 和全局样式。
+| 文件 | 说明 |
+|---|---|
+| `AGENTS.md` | AI 协作主约束 |
+| `docs/PROJECT_OVERVIEW.md` | 项目概览和当前进度 |
+| `docs/BUSINESS_RULES.md` | 核心业务口径 |
+| `docs/API_CONTRACTS.md` | 接口约定和联调状态 |
+| `docs/LOCAL_DEVELOPMENT.md` | 本地启动、Docker、XXL-JOB |
+| `docs/VALIDATION_CHECKLIST.md` | MVP 验收和测试命令 |
+| `docs/AI_AGENT_WORKFLOW.md` | AI 执行前后流程 |
+| `xoassets-mobile/AGENTS.md` | Flutter 移动端 AI 约束 |
+| `xoassets-mobile/MOBILE_APP_PHASES.md` | 移动端阶段计划 |
+| `xoassets-mobile/docs/MOBILE_UI_DESIGN_SYSTEM.md` | 移动端 UI 规范 |
 
-## 前端命令
+## 快速启动
 
-```bash
-cd xoassets-web
-npm install
-npm run dev
-npm run build
-```
-
-## 后端命令
-
-```bash
-cd xoassets-server
-mysql -uroot -p < src/main/resources/db/schema.sql
-mvn spring-boot:run
-```
-
-后端按 Java 17 编译。若本机有多个 JDK，建议显式指定：
-
-```bash
-cd xoassets-server
-JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn -DskipTests compile
-```
-
-后端接口文档：
-
-```text
-http://localhost:8080/doc.html
-```
-
-后端运行环境和日志：
-
-```bash
-XOASSETS_PROFILE=dev   # 默认值，输出业务、MyBatis、JDBC 等开发调试日志
-XOASSETS_PROFILE=test  # 测试环境，收敛框架日志
-XOASSETS_PROFILE=prod  # 生产环境，业务 INFO，框架日志以 WARN 为主
-XOASSETS_LOG_PATH=logs # 日志目录，默认写入后端工作目录下 logs/
-```
-
-后端使用 `logback-spring.xml` 按环境控制日志级别，并每天滚动保留 `xoassets-server.log` 和 `xoassets-server-error.log`；运行日志目录已加入 `.gitignore`，不要提交日志文件。
-
-## 本地开发启动
-
-本地开发以本机 MySQL 为准：后端用 IDEA / Maven 启动，前端用 Vite 启动；如需可视化定时任务，只用 Docker 单独启动 XXL-JOB Admin，并让它连接本机 MySQL。
-
-### 1. 初始化本机 MySQL
-
-```bash
-cd xoassets-server
-mysql -uroot -p < src/main/resources/db/schema.sql
-mysql -uroot -p xoassets < src/main/resources/db/migration-market-calendar.sql
-mysql -uroot -p xoassets < src/main/resources/db/dev-data.sql
-mysql -uroot -p < src/main/resources/db/xxl-job-init.sql
-```
-
-`xxl-job-init.sql` 会创建独立库 `xxl_job`，用于 XXL-JOB Admin；业务库仍是 `xoassets`。
-
-### 2. 本地 Docker 启动 XXL-JOB Admin，连接本机 MySQL
-
-默认按本机 MySQL `root / root` 连接：
-
-```bash
-cd /Users/zreo/CODE/XOAssets
-docker compose -f docker-compose.local-xxl.yml up -d
-```
-
-如果本机 MySQL 密码不是 `root`：
-
-```bash
-LOCAL_MYSQL_USERNAME=root LOCAL_MYSQL_PASSWORD=你的密码 docker compose -f docker-compose.local-xxl.yml up -d
-```
-
-访问：
-
-```text
-http://localhost:8081/xxl-job-admin
-admin / 123456
-```
-
-### 3. IDEA 启动后端
-
-不调试定时任务时，不需要开启 XXL-JOB executor。
-
-需要让后端注册到 XXL-JOB Admin 时，在 IDEA Run Configuration 加环境变量：
-
-```bash
-XXL_JOB_EXECUTOR_ENABLED=true
-XXL_JOB_ADMIN_ADDRESSES=http://localhost:8081/xxl-job-admin
-XXL_JOB_ACCESS_TOKEN=xoassets-xxl-job-local-token
-XXL_JOB_EXECUTOR_APPNAME=xoassets-server
-XXL_JOB_EXECUTOR_ADDRESS=http://host.docker.internal:10099/
-XXL_JOB_EXECUTOR_PORT=10099
-```
-
-本地 XXL-JOB Admin 跑在 Docker 中、后端 executor 跑在宿主机 IDEA 中时，`XXL_JOB_EXECUTOR_ADDRESS` 必须使用 `http://host.docker.internal:10099/`。不要依赖自动探测的 `192.168.x.x` 地址，否则换 Wi-Fi / 网络后 Admin 可能继续调用旧 IP。`10099` 是 XOAssets 本地 executor 端口，用于避开其他项目常用的 `9999`。
-
-后端启动命令参考：
+后端：
 
 ```bash
 cd xoassets-server
 JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn spring-boot:run
 ```
 
-### 4. 启动前端
+Web：
 
 ```bash
 cd xoassets-web
@@ -184,101 +59,22 @@ npm install
 npm run dev
 ```
 
-访问地址：
-
-- 前端开发地址：`http://localhost:5173`
-- 后端接口文档：`http://localhost:8080/doc.html`
-- XXL-JOB Admin：`http://localhost:8081/xxl-job-admin`
-- 开发测试账号：`demo / xoassets123`
-
-## 服务器 / 全量 Docker 一键部署
-
-服务器部署时使用仓库根目录的 `docker-compose.yml` 一键启动全套服务：MySQL 8、XXL-JOB Admin、Spring Boot 后端和 Nginx 前端。MySQL 首次初始化会自动执行 `schema.sql`、`migration-market-calendar.sql`、`dev-data.sql` 和 `xxl-job-init.sql`。
+Flutter：
 
 ```bash
-cd /path/to/XOAssets
-docker compose up -d
+cd xoassets-mobile
+flutter pub get
+flutter run
 ```
 
-访问地址：
+接口文档：
 
-- 前端：`http://服务器IP:8088`
-- 后端：`http://服务器IP:8080`
-- Knife4j：`http://服务器IP:8080/doc.html`
-- XXL-JOB Admin：`http://服务器IP:8081/xxl-job-admin`，账号密码 `admin / 123456`
-- MySQL：`服务器IP:3306`，账号密码 `root / root`
-- 开发测试账号：`demo / xoassets123`
-
-如果服务器上需要重新导入初始化数据，先删除 Docker 数据卷再启动：
-
-```bash
-docker compose down -v
-docker compose up -d
+```text
+http://localhost:8080/doc.html
 ```
 
-已有 Docker 数据卷升级到 XXL-JOB 或调整默认调度 cron 时，需手动导入初始化脚本同步任务清单：
+测试账号：
 
-```bash
-docker exec -i xoassets-mysql mysql -uroot -proot < xoassets-server/src/main/resources/db/xxl-job-init.sql
+```text
+demo / xoassets123
 ```
-
-## 开发测试数据
-
-`xoassets-server/src/main/resources/db/dev-data.sql` 包含：
-
-- 测试用户、默认账户、收入 / 支出分类。
-- 收入、支出、转账、退款流水，账户余额与流水影响自洽。
-- DOGE 和基金 A 投资资产、持仓、买入 / 卖出记录、行情价格快照。
-- 月度总预算、餐饮分类预算、资产目标、AI 模板报告。
-
-关键验收口径：
-
-- DOGE：`quantity = 881.3220000000`，`latestPrice = 0.72432000`，`marketValue = 638.3592`。
-- 投资收益分析：持仓接口返回最新价、昨价、前日价、今日收益、昨日收益、总收益、收益率和回本涨幅；当前价来自 `xo_asset_price_current`，昨价 / 前日价来自 `xo_asset_price_daily` 最近交易日；所有资产只有当前价格日期等于今天时才计算今日收益，其中基金和股票还必须当天为交易日，非交易日返回 `priceStatus=MARKET_CLOSED` 并展示“休市”，交易日未更新则标记“今日净值未更新 / 今日价未更新”；收益基准价格、基准持仓数量或快照缺失时对应字段返回 `null`，页面展示“暂无 / --”；持仓汇总、投资总览和模块卡通过 `todayProfitAvailable` / `primaryProfitAvailable` 控制今日收益是否展示，未更新时显示 `--` 而不是 0，并通过 `todayProfitStatusLabel` / `primaryProfitStatusLabel` 说明“今日休市”或“今日净值未更新”；每日收益日历和昨日收益来自 `xo_investment_holding_daily_profit`，行情刷新会即时重建当前展示日收益；净值型基金确认日当天新生效份额必须计入该展示日收益，避免金额申购确认日收益少算；新表为空或口径修复后需要补跑投资日快照生成数据。
-- 预算：5 月餐饮支出 `86.5000 - 20.0000 = 66.5000`，转账不进入预算。
-- 账户：银行卡 `21500.0000`，支付宝 `1933.5000`，与初始化余额和流水变更一致。
-
-## MVP 验收清单
-
-- 登录 `demo / xoassets123` 后能进入首页。
-- 首页总资产和净资产优先读取最新资产快照；现金资产只统计正余额账户，负余额账户计入负债。
-- 手动调用 `POST /api/snapshots/generate-today` 可生成 / 更新今天快照，数据分析页展示净资产、总资产、现金 / 投资资产趋势。
-- 记账新增收入后账户余额增加，新增支出后账户余额减少，转账只改变账户分布。
-- 账户详情能展示普通收支、转账、退款、投资买入、投资卖出和余额修正资金明细；余额修正不计入普通收支，但进入账户账本和日终余额曲线。
-- 删除流水后账户余额按原流水影响反向恢复。
-- 预算统计只计算支出和退款，转账不计入预算。
-- 投资持仓市值使用后端返回的 `latestPrice` 计算，DOGE 当前价至少显示 6 位小数。
-- 投资买入扣减资金账户余额，卖出增加资金账户余额，已实现盈亏只进入投资交易记录。
-- 投资交易撤销后账户余额和持仓数量 / 成本反向恢复，已撤销交易不参与账户资金明细汇总。
-- 投资日收益补跑或行情刷新后，`xo_investment_holding_daily_profit` 应有对应展示日数据，`xo_investment_daily_snapshot.calendar_profit` 同步写入聚合收益；周末或休市日无收益行时展示 `--`。
-- 账户详情和普通流水可导出 CSV，Excel 打开中文不乱码。
-- 数据分析页收支趋势排除转账，投资盈亏使用最新价格快照。
-- 用户 A 不能查看或修改用户 B 的账户、分类、流水、持仓、预算、目标。
-
-## 当前暂不支持
-
-- 银行卡 / 支付宝 / 微信自动同步。
-- 银行、券商、基金平台的自动持仓同步。
-- 真实 AI 调用。
-- 投资建议。
-- 自动交易。
-
-## 测试命令
-
-```bash
-cd xoassets-server
-JAVA_HOME=$(/usr/libexec/java_home -v 17) mvn test
-
-cd ../xoassets-web
-npm run build
-
-cd ../xoassets-app
-npm run type-check
-```
-
-## 后端结构约定
-
-- 业务层使用 `service` 接口 + `service/impl` 实现类结构。
-- Controller 和跨模块调用优先依赖 service 接口。
-- MyBatis-Plus 3.5.9 的分页拦截器需要保留 `mybatis-plus-jsqlparser` 依赖。
-- 后端测试会生成 JaCoCo 覆盖率报告；GitHub Actions 执行后端 `mvn test`、Web `npm run build` 和 App `npm run type-check`。
