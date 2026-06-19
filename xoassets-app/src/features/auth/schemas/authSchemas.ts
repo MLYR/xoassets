@@ -1,14 +1,13 @@
 import { z } from 'zod';
 
 export const loginSchema = z.object({
-  identifier: z.string().trim().min(1, '请输入手机号或邮箱'),
+  username: z.string().trim().min(1, '请输入账户名'),
   password: z.string().min(6, '密码至少 6 位')
 });
 
 export const registerSchema = z
   .object({
-    nickname: z.string().trim().min(1, '请输入昵称'),
-    identifier: z.string().trim().min(1, '请输入手机号或邮箱'),
+    username: z.string().trim().min(1, '请输入账户名'),
     password: z.string().min(6, '密码至少 6 位'),
     confirmPassword: z.string().min(6, '请再次输入密码')
   })
