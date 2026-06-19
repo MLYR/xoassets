@@ -17,6 +17,7 @@ XOAssets / 小〇财迹 是面向个人用户的资产管理与财务复盘工�
 xoassets-server   Java 17 + Spring Boot 3 后端
 xoassets-web      Vue3 + TypeScript + Vite Web 管理端
 xoassets-app      React Native 新版移动端 App
+docs              跨端业务、接口、工作流、验证文档
 ```
 
 如果实际目录与上述不一致，Codex 必须先说明当前目录结构，不允许擅自重命名、迁移或删除目录。
@@ -25,19 +26,22 @@ xoassets-app      React Native 新版移动端 App
 
 Codex 执行任务前按以下顺序读取：
 
-1. 根目录 `AGENTS.md`
-2. 当前子项目目录下的 `AGENTS.md`
-3. 当前任务相关 `docs/*.md`
-4. 移动端任务读取 `xoassets-app/MOBILE_APP_PHASES.md`
-5. Swagger / Knife4j / 后端接口文档
-6. 当前代码实现
+1. 根目录 `AGENTS.md`。
+2. 当前子项目目录下的 `AGENTS.md`。
+3. 当前任务相关 `docs/*.md`。
+4. 移动端任务额外读取：
+   - `xoassets-app/docs/REACT_NATIVE_REUSABLES_UI_CONSTRAINTS.md`
+   - `xoassets-app/docs/MOBILE_API_INTEGRATION.md`
+   - `xoassets-app/MOBILE_APP_PHASES.md`
+5. Swagger / Knife4j / 后端接口文档。
+6. 当前代码实现。
 
 冲突处理：
 
-- 先说明冲突点。
-- 说明影响范围和风险。
-- 采用最小必要修改。
-- 高风险场景先询问用户。
+- 子目录 `AGENTS.md` 可以细化根规则，但不能违反根规则。
+- 移动端 UI 规则以 `xoassets-app/docs/REACT_NATIVE_REUSABLES_UI_CONSTRAINTS.md` 为准。
+- 旧文档中关于 Web shadcn、Uiverse、自研未落地 XO Design System 的移动端 UI 描述不再作为主标准。
+- 发现冲突时先说明冲突点、影响范围、采用的规则和风险。
 
 ## 3. 总体执行原则
 
@@ -50,6 +54,7 @@ Codex 执行任务前按以下顺序读取：
 7. 每次完成后必须说明改动内容、验证情况、剩余风险。
 8. 不确定且高风险时先澄清。
 9. 低风险场景可做合理假设并推进，但必须说明假设。
+10. 用户要求直接修改文档或代码时，可以直接执行，但必须保持最小影响范围。
 
 ## 4. 技术栈边界
 
@@ -72,6 +77,7 @@ Codex 执行任务前按以下顺序读取：
 - 不要在 Controller 中堆复杂业务逻辑。
 - 不要在 Mapper XML 中堆复杂业务判断。
 - 金额、收益、资产口径以后端计算为准。
+- 所有用户数据查询、修改、删除必须按当前登录用户隔离。
 
 ### 4.2 Web 前端
 
@@ -106,7 +112,8 @@ xoassets-app/
 - Expo
 - Expo Router
 - NativeWind
-- 自研 XO Design System
+- React Native Reusables
+- `src/components/ui` 项目 UI 出口
 - Zustand
 - TanStack Query
 - Axios
@@ -128,44 +135,29 @@ xoassets-app/
 - 普通配置使用 `@react-native-async-storage/async-storage` 保存。
 - 服务端状态使用 TanStack Query 管理。
 - 本地 UI 状态使用 Zustand 管理。
+- UI 组件和视觉基准以 React Native Reusables 为准。
+- 页面必须优先从 `@/components/ui` 引入项目封装组件。
 
-## 5. 移动端 UI 风格约束
-
-移动端视觉统一参考 shadcn/ui：
-
-```text
-简洁
-克制
-卡片化
-弱边框
-低饱和
-清晰层级
-强一致性
-浅色优先，深色可扩展
-```
-
-参考地址：
-
-```text
-https://ui.shadcn.com/docs/installation
-```
-
-规则：
-
-- shadcn/ui 只作为设计语言、组件结构、视觉密度和交互状态参考。
-- React Native 端不直接运行 shadcn/ui Web 安装命令。
-- React Native 端不直接使用 shadcn/ui Web 组件。
-- 不使用 DOM、CSS Modules、浏览器专属 API。
-- 不把 Web 页面缩小后搬到移动端。
-- 所有组件必须通过 XO Design System 在 React Native 原生组件上实现。
-- shadcn/ui 常见组件需要映射为 `XoButton`、`XoCard`、`XoTextField`、`XoBadge`、`XoTabs`、`XoBottomSheet`、`XoDialog`、`XoSkeleton`、`XoEmpty`。
+## 5. 移动端 UI 约束入口
 
 详细 UI 规范查看：
 
 ```text
-xoassets-app/docs/MOBILE_UI_DESIGN_SYSTEM.md
-xoassets-app/docs/SHADCN_UI_STYLE_GUIDE.md
+xoassets-app/docs/REACT_NATIVE_REUSABLES_UI_CONSTRAINTS.md
+xoassets-app/docs/MOBILE_ICON_ASSETS_GUIDE.md
 ```
+
+强制规则：
+
+- React Native Reusables 是移动端 UI 组件和视觉基准。
+- NativeWind 是移动端样式基础。
+- `src/components/ui` 是项目唯一 UI 组件出口。
+- 新增通用 UI 组件必须收口到 `src/components/ui`。
+- 不直接使用 Web 版 shadcn/ui 组件。
+- 不使用 DOM、CSS Modules、浏览器专属 API。
+- 不把 Web 页面缩小后搬到移动端。
+- 不引入 React Native Paper / NativeBase / UI Kitten 等与当前风格冲突的大型主题型 UI 库。
+- 不继续按旧 Uiverse / Web shadcn 风格生成移动端页面。
 
 ## 6. 业务口径入口
 
@@ -191,6 +183,7 @@ Codex 不得在前端或移动端重新实现后端业务计算口径，尤其�
 
 ```text
 docs/API_CONTRACTS.md
+xoassets-app/docs/MOBILE_API_INTEGRATION.md
 ```
 
 通用原则：
@@ -200,6 +193,7 @@ docs/API_CONTRACTS.md
 - 第三方汇率只能由后端调用。
 - App 不直接访问对象存储密钥。
 - 后端 Long ID 在前端和移动端按字符串处理。
+- 不确定接口字段时查后端 Controller、DTO、Swagger / Knife4j，不要凭空编字段。
 
 ## 8. 安全要求
 
