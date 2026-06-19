@@ -27,6 +27,36 @@ export interface AssetSnapshotLatest {
   netAssetChangeFromMonthStart?: number | null;
 }
 
+export interface InvestmentModuleAsset {
+  module?: string | null;
+  name?: string | null;
+  assetAmount?: number | null;
+  assetRatio?: number | null;
+  primaryProfitLabel?: string | null;
+  primaryProfitAvailable?: boolean | null;
+  primaryProfitAmount?: number | null;
+  primaryProfitStatusLabel?: string | null;
+  yesterdayProfit?: number | null;
+  yesterdayProfitRate?: number | null;
+  holdingProfit?: number | null;
+  holdingProfitRate?: number | null;
+  holdingCount?: number | null;
+}
+
+export interface InvestmentOverview {
+  totalInvestmentAsset?: number | null;
+  totalCost?: number | null;
+  holdingProfit?: number | null;
+  holdingProfitRate?: number | null;
+  todayProfitAvailable?: boolean | null;
+  todayProfit?: number | null;
+  todayProfitAssetScope?: string | null;
+  todayProfitStatusLabel?: string | null;
+  yesterdayProfit?: number | null;
+  yesterdayProfitAssetScope?: string | null;
+  moduleAssets?: InvestmentModuleAsset[] | null;
+}
+
 export interface RecentTransaction {
   id: string;
   type?: string | null;

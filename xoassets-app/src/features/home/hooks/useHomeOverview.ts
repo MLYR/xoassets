@@ -19,6 +19,11 @@ export function useHomeOverview(enabled: boolean) {
     queryFn: homeApi.latestSnapshot,
     enabled
   });
+  const investmentOverviewQuery = useQuery({
+    queryKey: ['investment-overview'],
+    queryFn: homeApi.investmentOverview,
+    enabled
+  });
   const budgetMonth = getCurrentMonth();
   const budgetSummaryQuery = useQuery({
     queryKey: ['budget-summary', budgetMonth],
@@ -39,6 +44,7 @@ export function useHomeOverview(enabled: boolean) {
   return {
     overviewQuery,
     snapshotQuery,
+    investmentOverviewQuery,
     transactionsQuery,
     budgetSummaryQuery,
     reportsQuery

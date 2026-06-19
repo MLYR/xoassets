@@ -3,17 +3,12 @@ import {
   Bell,
   BriefcaseBusiness,
   ChevronRight,
-  CirclePlus,
   CreditCard,
   Eye,
   EyeOff,
-  Home,
   LineChart,
-  NotebookText,
-  PieChart,
   Sparkles,
   Utensils,
-  UserRound,
   WalletCards
 } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
@@ -22,9 +17,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useHomeOverview, formatMoney, formatPercent, formatSignedMoney } from '@/features/home';
 import { Card, CardContent, Separator, Text } from '@/components/ui';
+import { AuthLogo } from '@/features/auth/components/AuthLogo';
 import { useTheme } from '@/core/design/theme';
 import { useAuthStore } from '@/stores/authStore';
-import type { RecentTransaction } from '@/shared/types/asset';
+import type { InvestmentModuleAsset, RecentTransaction } from '@/shared/types/asset';
 
 type XoIcon = ComponentType<{ color?: string; size?: number; strokeWidth?: number; fill?: string }>;
 
@@ -38,15 +34,16 @@ export function HomeScreen() {
     restoreToken();
   }, [restoreToken]);
 
-  const { overviewQuery, snapshotQuery, transactionsQuery, budgetSummaryQuery, reportsQuery } = useHomeOverview(isLoggedIn);
+  const { overviewQuery, snapshotQuery, investmentOverviewQuery, transactionsQuery, budgetSummaryQuery, reportsQuery } = useHomeOverview(isLoggedIn);
 
   const overview = overviewQuery.data;
   const snapshot = snapshotQuery.data;
+  const investmentOverview = investmentOverviewQuery.data;
   const budgetSummary = budgetSummaryQuery.data;
   const reports = reportsQuery.data ?? [];
   const recentTransactions = (transactionsQuery.data?.records ?? transactionsQuery.data?.list ?? []).slice(0, 5);
-  const isInitialLoading = overviewQuery.isLoading || snapshotQuery.isLoading || transactionsQuery.isLoading;
-  const hasHomeError = overviewQuery.isError || snapshotQuery.isError || transactionsQuery.isError;
+  const isInitialLoading = overviewQuery.isLoading || snapshotQuery.isLoading || investmentOverviewQuery.isLoading || transactionsQuery.isLoading;
+  const hasHomeError = overviewQuery.isError || snapshotQuery.isError || transactionsQuery.isError || investmentOverviewQuery.isError;
   const totalAssets = snapshot?.latest?.totalAsset ?? overview?.totalAssets;
   const netAssets = snapshot?.latest?.netAsset ?? overview?.netAssets;
   const investmentAsset = snapshot?.latest?.investmentAsset ?? overview?.investmentMarketValue;
@@ -55,6 +52,7 @@ export function HomeScreen() {
   const monthlyChange = snapshot?.netAssetChangeFromMonthStart ?? null;
   const budgetUsageRate = budgetSummary?.usageRate ?? snapshot?.latest?.budgetUsageRate ?? overview?.budgetUsageRate;
   const aiReport = reports[0];
+  const investmentModules = investmentOverview?.moduleAssets ?? [];
 
   if (!isHydrated) {
     return (
@@ -75,7 +73,7 @@ export function HomeScreen() {
         <View style={styles.header}>
           <View style={styles.brandBlock}>
             <View style={styles.logoMark}>
-              <Text style={styles.logoText}>∞</Text>
+              <AuthLogo size={56} />
             </View>
             <View style={styles.headerCopy}>
               <Text style={styles.brandTitle}>小〇财迹</Text>
@@ -108,7 +106,7 @@ export function HomeScreen() {
                 <ChevronRight color={theme.mutedForeground} size={18} strokeWidth={2} />
               </PressableAnimated>
             </View>
-            <Text style={styles.assetAmount}>{maskMoney(formatMoney(totalAssets), amountVisible)}</Text>
+            <Text style={styles.assetAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{maskMoney(formatMoney(totalAssets), amountVisible)}</Text>
             <View style={styles.heroSummary}>
               <MiniStat label="净资产" value={maskMoney(formatMoney(netAssets), amountVisible)} />
               <View style={styles.verticalDivider} />
@@ -131,6 +129,26 @@ export function HomeScreen() {
         <Card style={styles.sectionCard}>
           <CardContent style={styles.sectionContent}>
             <View style={styles.rowBetween}>
+              <Text style={styles.sectionTitle}>投资概览</Text>
+              <View style={styles.linkButton}>
+                <Text style={styles.linkText}>全部</Text>
+                <ChevronRight color={theme.mutedForeground} size={18} strokeWidth={2} />
+              </View>
+            </View>
+            <View style={styles.investmentRow}>
+              {investmentModuleItems(investmentModules).map((item, index) => (
+                <View key={item.module || item.name || index} style={styles.investmentItemWrap}>
+                  <InvestmentStat item={item} amountVisible={amountVisible} />
+                  {index < 2 ? <InvestmentDivider /> : null}
+                </View>
+              ))}
+            </View>
+          </CardContent>
+        </Card>
+
+        <Card style={styles.sectionCard}>
+          <CardContent style={styles.sectionContent}>
+            <View style={styles.rowBetween}>
               <Text style={styles.sectionTitle}>本月预算</Text>
               <View style={styles.statusPill}>
                 <Sparkles color={theme.foreground} size={13} fill={theme.foreground} strokeWidth={2} />
@@ -145,25 +163,6 @@ export function HomeScreen() {
               <MiniStat label="剩余" value={maskMoney(formatMoney(budgetSummary?.totalRemaining), amountVisible)} compact align="right" />
             </View>
             <Text variant="caption">预算总额 {maskMoney(formatMoney(budgetSummary?.totalBudget), amountVisible)}</Text>
-          </CardContent>
-        </Card>
-
-        <Card style={styles.sectionCard}>
-          <CardContent style={styles.sectionContent}>
-            <View style={styles.rowBetween}>
-              <Text style={styles.sectionTitle}>投资概览</Text>
-              <View style={styles.linkButton}>
-                <Text style={styles.linkText}>全部</Text>
-                <ChevronRight color={theme.mutedForeground} size={18} strokeWidth={2} />
-              </View>
-            </View>
-            <View style={styles.investmentRow}>
-              <InvestmentStat label="基金 昨日收益" value={maskMoney(formatSignedMoney(overview?.investmentYesterdayProfit), amountVisible)} rate="--" />
-              <InvestmentDivider />
-              <InvestmentStat label="股票 今日收益" value={maskMoney(formatSignedMoney(overview?.investmentTodayProfit), amountVisible)} rate="--" />
-              <InvestmentDivider />
-              <InvestmentStat label="加密资产 24h" value="--" rate="--" />
-            </View>
           </CardContent>
         </Card>
 
@@ -199,7 +198,6 @@ export function HomeScreen() {
           </CardContent>
         </Card>
       </ScrollView>
-      <BottomNav />
     </SafeAreaView>
   );
 }
@@ -235,7 +233,7 @@ function MiniStat({ label, value, subValue, compact, align = 'left' }: { label: 
   return (
     <View style={[stylesStatic.miniStat, align === 'center' && stylesStatic.centerText, align === 'right' && stylesStatic.rightText]}>
       <Text variant="muted" style={compact ? stylesStatic.compactLabel : undefined}>{label}</Text>
-      <Text style={compact ? stylesStatic.compactValue : stylesStatic.miniValue}>{value} {subValue ? <Text variant="muted">{subValue}</Text> : null}</Text>
+      <Text style={compact ? stylesStatic.compactValue : stylesStatic.miniValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.76}>{value} {subValue ? <Text variant="muted">{subValue}</Text> : null}</Text>
     </View>
   );
 }
@@ -248,11 +246,11 @@ function MetricCard({ icon: Icon, label, value, trend }: { icon: XoIcon; label: 
     <Card style={styles.metricCard}>
       <CardContent style={styles.metricContent}>
         <View style={styles.iconBubble}>
-          <Icon color={theme.foreground} size={25} strokeWidth={2.3} />
+          <Icon color={theme.foreground} size={21} strokeWidth={2.3} />
         </View>
         <View style={styles.metricTextBlock}>
           <Text variant="muted" style={styles.metricLabel}>{label}</Text>
-          <Text style={styles.metricValue}>{value}</Text>
+          <Text style={styles.metricValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{value}</Text>
           <Text variant="caption">{trend}</Text>
         </View>
       </CardContent>
@@ -271,12 +269,15 @@ function ProgressBar({ value }: { value?: number | null }) {
   );
 }
 
-function InvestmentStat({ label, value, rate }: { label: string; value: string; rate: string }) {
+function InvestmentStat({ item, amountVisible }: { item: InvestmentModuleAsset; amountVisible: boolean }) {
   return (
     <View style={stylesStatic.investmentStat}>
-      <Text variant="muted">{label}</Text>
-      <Text style={stylesStatic.investmentValue}>{value}</Text>
-      <Text variant="muted">{rate}</Text>
+      <View style={stylesStatic.investmentTitleRow}>
+        <Text variant="muted" numberOfLines={1}>{item.name || moduleLabel(item.module)}</Text>
+        <Text variant="caption">昨/今收益</Text>
+      </View>
+      <Text style={stylesStatic.investmentValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{maskMoney(formatSignedMoney(item.yesterdayProfit), amountVisible)}</Text>
+      <Text style={stylesStatic.investmentValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{maskMoney(formatSignedMoney(item.primaryProfitAmount), amountVisible)}</Text>
     </View>
   );
 }
@@ -284,6 +285,19 @@ function InvestmentStat({ label, value, rate }: { label: string; value: string; 
 function InvestmentDivider() {
   const theme = useTheme();
   return <View style={[stylesStatic.investmentDivider, { backgroundColor: theme.border }]} />;
+}
+
+
+function investmentModuleItems(items: InvestmentModuleAsset[]) {
+  const map = new Map(items.map((item) => [item.module, item]));
+  return ['FUND', 'STOCK', 'CRYPTO'].map((module) => map.get(module) ?? { module, name: moduleLabel(module), primaryProfitAvailable: false });
+}
+
+function moduleLabel(module?: string | null) {
+  if (module === 'FUND') return '基金';
+  if (module === 'STOCK') return '股票';
+  if (module === 'CRYPTO') return '加密资产';
+  return '投资';
 }
 
 function TransactionRow({ item, amountVisible }: { item: RecentTransaction; amountVisible: boolean }) {
@@ -298,7 +312,7 @@ function TransactionRow({ item, amountVisible }: { item: RecentTransaction; amou
           <Icon color={theme.foreground} size={22} strokeWidth={2.2} />
         </View>
         <View style={styles.transactionTitleBlock}>
-          <Text style={styles.transactionTitle}>{item.categoryName || item.note || item.remark || item.type || '未命名记录'}</Text>
+          <Text style={styles.transactionTitle}>{item.note || item.remark || item.categoryName || item.type || '未命名记录'}</Text>
           <Text variant="muted">{transactionTypeLabel(item.type)}</Text>
         </View>
       </View>
@@ -306,7 +320,7 @@ function TransactionRow({ item, amountVisible }: { item: RecentTransaction; amou
         <Text variant="muted">{formatTransactionTime(item.transactionTime)}</Text>
       </View>
       <View style={styles.transactionAmountBlock}>
-        <Text style={styles.transactionAmount}>{maskMoney(formatTransactionAmount(item), amountVisible)}</Text>
+        <Text style={styles.transactionAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{maskMoney(formatTransactionAmount(item), amountVisible)}</Text>
         <Text variant="muted" style={styles.transactionAccount}>{item.accountName || item.targetAccountName || '--'}</Text>
       </View>
     </View>
@@ -334,36 +348,6 @@ function LoadingSkeleton() {
         <View style={[stylesStatic.skeletonLine, { backgroundColor: theme.secondary, width: '100%' }]} />
       </CardContent>
     </Card>
-  );
-}
-
-function BottomNav() {
-  const theme = useTheme();
-  const styles = useMemo(() => createStyles(theme), [theme]);
-
-  return (
-    <View style={styles.navBar}>
-      <NavItem icon={Home} label="首页" active />
-      <NavItem icon={NotebookText} label="记账" />
-      <PressableAnimated style={styles.addButton} onPress={() => undefined}>
-        <CirclePlus color={theme.primaryForeground} size={31} strokeWidth={2.1} />
-      </PressableAnimated>
-      <NavItem icon={PieChart} label="投资" />
-      <NavItem icon={UserRound} label="我的" />
-    </View>
-  );
-}
-
-function NavItem({ icon: Icon, label, active }: { icon: XoIcon; label: string; active?: boolean }) {
-  const theme = useTheme();
-  const styles = useMemo(() => createStyles(theme), [theme]);
-  const color = active ? theme.foreground : theme.mutedForeground;
-
-  return (
-    <PressableAnimated style={styles.navItem} onPress={() => undefined}>
-      <Icon color={color} size={25} strokeWidth={active ? 2.8 : 2} fill={active ? color : undefined} />
-      <Text style={[styles.navLabel, { color }]}>{label}</Text>
-    </PressableAnimated>
   );
 }
 
@@ -441,10 +425,10 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
       justifyContent: 'center'
     },
     content: {
-      gap: 16,
-      paddingBottom: 118,
-      paddingHorizontal: 20,
-      paddingTop: 28
+      gap: 14,
+      paddingBottom: 24,
+      paddingHorizontal: 16,
+      paddingTop: 20
     },
     header: {
       alignItems: 'center',
@@ -454,45 +438,40 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
     },
     brandBlock: {
       alignItems: 'center',
+      flex: 1,
       flexDirection: 'row',
-      gap: 14
+      gap: 10
     },
     logoMark: {
       alignItems: 'center',
       backgroundColor: theme.foreground,
       borderRadius: 12,
-      height: 64,
+      height: 56,
       justifyContent: 'center',
       shadowColor: theme.shadow,
       shadowOffset: { width: 0, height: 10 },
       shadowOpacity: 0.14,
       shadowRadius: 16,
-      width: 64
-    },
-    logoText: {
-      color: theme.primaryForeground,
-      fontSize: 46,
-      fontWeight: '700',
-      lineHeight: 52,
-      transform: [{ rotate: '-18deg' }]
+      width: 56
     },
     headerCopy: {
-      gap: 4
+      flexShrink: 1,
+      gap: 3
     },
     brandTitle: {
       color: theme.foreground,
-      fontSize: 31,
+      fontSize: 26,
       fontWeight: '800',
       letterSpacing: -1.2,
-      lineHeight: 34
+      lineHeight: 30
     },
     greeting: {
       color: theme.foreground,
-      fontSize: 18,
+      fontSize: 16,
       fontWeight: '700'
     },
     headerSub: {
-      fontSize: 15
+      fontSize: 13
     },
     bellButton: {
       alignItems: 'center',
@@ -514,8 +493,8 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
       borderRadius: 18
     },
     heroContent: {
-      gap: 18,
-      padding: 18
+      gap: 12,
+      padding: 14
     },
     rowBetween: {
       alignItems: 'center',
@@ -529,7 +508,7 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
     },
     sectionTitle: {
       color: theme.foreground,
-      fontSize: 20,
+      fontSize: 18,
       fontWeight: '800',
       letterSpacing: -0.4
     },
@@ -540,33 +519,33 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
     },
     linkText: {
       color: theme.mutedForeground,
-      fontSize: 16
+      fontSize: 14
     },
     assetAmount: {
       color: theme.foreground,
-      fontSize: 43,
+      fontSize: 34,
       fontWeight: '900',
-      letterSpacing: -2.4,
-      lineHeight: 52
+      letterSpacing: -1.4,
+      lineHeight: 42
     },
     heroSummary: {
       alignItems: 'center',
       backgroundColor: theme.secondary,
       borderRadius: 14,
       flexDirection: 'row',
-      gap: 18,
-      paddingHorizontal: 16,
-      paddingVertical: 16
+      gap: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 12
     },
     verticalDivider: {
       backgroundColor: theme.border,
-      height: 44,
+      height: 40,
       width: 1
     },
     metricGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 12
+      gap: 10
     },
     metricCard: {
       borderRadius: 15,
@@ -576,27 +555,28 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
     metricContent: {
       alignItems: 'center',
       flexDirection: 'row',
-      gap: 12,
-      padding: 14
+      gap: 8,
+      padding: 12
     },
     iconBubble: {
       alignItems: 'center',
       backgroundColor: theme.secondary,
-      borderRadius: 28,
-      height: 56,
+      borderRadius: 22,
+      height: 44,
       justifyContent: 'center',
-      width: 56
+      width: 44
     },
     metricTextBlock: {
       flex: 1,
+      minWidth: 0,
       gap: 4
     },
     metricLabel: {
-      fontSize: 15
+      fontSize: 13
     },
     metricValue: {
       color: theme.foreground,
-      fontSize: 19,
+      fontSize: 15,
       fontWeight: '800',
       letterSpacing: -0.4
     },
@@ -604,8 +584,8 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
       borderRadius: 16
     },
     sectionContent: {
-      gap: 14,
-      padding: 16
+      gap: 12,
+      padding: 14
     },
     statusPill: {
       alignItems: 'center',
@@ -613,12 +593,12 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
       borderRadius: 18,
       flexDirection: 'row',
       gap: 5,
-      paddingHorizontal: 10,
-      paddingVertical: 7
+      paddingHorizontal: 8,
+      paddingVertical: 6
     },
     statusText: {
       color: theme.foreground,
-      fontSize: 13,
+      fontSize: 12,
       fontWeight: '700'
     },
     budgetRow: {
@@ -630,96 +610,59 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
       alignItems: 'stretch',
       flexDirection: 'row'
     },
+    investmentItemWrap: {
+      flex: 1,
+      flexDirection: 'row'
+    },
     aiText: {
       lineHeight: 22
     },
     transactionRow: {
       alignItems: 'center',
       flexDirection: 'row',
-      gap: 10,
-      paddingVertical: 9
+      gap: 8,
+      paddingVertical: 8
     },
     transactionLeft: {
       alignItems: 'center',
       flex: 1.2,
       flexDirection: 'row',
-      gap: 10
+      gap: 8
     },
     transactionIcon: {
       alignItems: 'center',
       backgroundColor: theme.secondary,
       borderRadius: 22,
-      height: 44,
+      height: 40,
       justifyContent: 'center',
-      width: 44
+      width: 40
     },
     transactionTitleBlock: {
       flex: 1,
+      minWidth: 0,
       gap: 3
     },
     transactionTitle: {
       color: theme.foreground,
-      fontSize: 16,
+      fontSize: 15,
       fontWeight: '800'
     },
     transactionCenter: {
-      flex: 0.82
+      flex: 0.72
     },
     transactionAmountBlock: {
       alignItems: 'flex-end',
-      flex: 1
+      flex: 1,
+      minWidth: 0
     },
     transactionAmount: {
       color: theme.foreground,
-      fontSize: 17,
+      fontSize: 15,
       fontWeight: '800'
     },
     transactionAccount: {
       marginTop: 3,
       textAlign: 'right'
-    },
-    navBar: {
-      alignItems: 'center',
-      backgroundColor: theme.card,
-      borderColor: theme.border,
-      borderTopLeftRadius: 24,
-      borderTopRightRadius: 24,
-      borderWidth: 1,
-      bottom: 0,
-      flexDirection: 'row',
-      height: 86,
-      justifyContent: 'space-around',
-      left: 0,
-      paddingBottom: 10,
-      paddingHorizontal: 14,
-      position: 'absolute',
-      right: 0,
-      shadowColor: theme.shadow,
-      shadowOffset: { width: 0, height: -8 },
-      shadowOpacity: 0.08,
-      shadowRadius: 18
-    },
-    navItem: {
-      alignItems: 'center',
-      gap: 5,
-      minWidth: 50
-    },
-    navLabel: {
-      fontSize: 13,
-      fontWeight: '700'
-    },
-    addButton: {
-      alignItems: 'center',
-      backgroundColor: theme.foreground,
-      borderRadius: 28,
-      height: 56,
-      justifyContent: 'center',
-      marginTop: -30,
-      shadowColor: theme.shadow,
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: 0.18,
-      shadowRadius: 14,
-      width: 56
     }
   });
 
@@ -749,15 +692,15 @@ const stylesStatic = StyleSheet.create({
     alignItems: 'flex-end'
   },
   miniValue: {
-    fontSize: 19,
+    fontSize: 15,
     fontWeight: '800',
     letterSpacing: -0.4
   },
   compactLabel: {
-    fontSize: 14
+    fontSize: 12
   },
   compactValue: {
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: '700'
   },
   progressTrack: {
@@ -771,14 +714,20 @@ const stylesStatic = StyleSheet.create({
   },
   investmentStat: {
     flex: 1,
-    gap: 8
+    gap: 6
+  },
+  investmentTitleRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 4,
+    justifyContent: 'space-between'
   },
   investmentValue: {
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: '800'
   },
   investmentDivider: {
-    marginHorizontal: 14,
+    marginHorizontal: 8,
     width: 1
   },
   errorCard: {

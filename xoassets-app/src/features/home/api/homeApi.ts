@@ -1,5 +1,5 @@
 import type { ApiPage } from '@/shared/types/api';
-import type { AiReport, AssetSnapshotLatest, BudgetSummary, DashboardOverview, RecentTransaction } from '@/shared/types/asset';
+import type { AiReport, AssetSnapshotLatest, BudgetSummary, DashboardOverview, InvestmentOverview, RecentTransaction } from '@/shared/types/asset';
 
 import { request } from '@/api/http';
 
@@ -13,6 +13,12 @@ export const homeApi = {
   latestSnapshot() {
     return request<AssetSnapshotLatest>({
       url: '/api/snapshots/latest',
+      method: 'GET'
+    });
+  },
+  investmentOverview() {
+    return request<InvestmentOverview>({
+      url: '/api/investments/overview',
       method: 'GET'
     });
   },
