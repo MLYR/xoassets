@@ -14,7 +14,7 @@ AGENTS.md         Codex 协作规范
 - 后端是业务和数据口径权威。
 - Web 是现有管理端 / Web 前端。
 - 新版移动端以 `xoassets-app` 为准，使用 React Native + Expo。
-- 移动端视觉统一参考 shadcn/ui 设计语言，但必须用 React Native 原生组件 + XO Design System 实现。
+- 移动端 UI 以 React Native Reusables 为组件和视觉基准，样式基础为 NativeWind，项目组件出口为 `src/components/ui`。
 
 ## 文档入口
 
@@ -29,6 +29,8 @@ AGENTS.md         Codex 协作规范
 | `docs/CODEX_WORKFLOW.md` | Codex 工作流 |
 | `xoassets-app/AGENTS.md` | 移动端子项目约束 |
 | `xoassets-app/MOBILE_APP_PHASES.md` | 移动端阶段计划 |
+| `xoassets-app/docs/REACT_NATIVE_REUSABLES_UI_CONSTRAINTS.md` | 移动端 UI 组件库约束 |
+| `xoassets-app/docs/MOBILE_API_INTEGRATION.md` | 移动端接口接入约束 |
 | `xoassets-app/README.md` | 移动端说明 |
 
 ## 移动端技术栈
@@ -39,7 +41,8 @@ TypeScript
 Expo
 Expo Router
 NativeWind
-自研 XO Design System
+React Native Reusables
+src/components/ui
 Zustand
 TanStack Query
 Axios
@@ -53,11 +56,12 @@ react-native-reanimated
 
 ## UI 风格
 
-- 移动端 UI 风格统一参考 shadcn/ui：简洁、克制、卡片化、弱边框、低饱和、清晰层级、强一致性。
-- 参考文档：`https://ui.shadcn.com/docs/installation`
-- React Native 端只参考设计语言和组件模式，不直接安装 Web 组件。
-- 不使用 DOM、浏览器专属 API、Web 组件库。
-- 页面必须用 React Native 原生组件和自研 XO Design System 实现。
+- 移动端 UI 以 React Native Reusables 为准。
+- NativeWind 是样式基础。
+- `src/components/ui` 是项目唯一 UI 组件出口。
+- 不直接使用 Web 版 shadcn/ui 组件。
+- 不继续使用旧 Uiverse / Web shadcn 风格作为移动端主标准。
+- 不引入 React Native Paper / NativeBase / UI Kitten 等与当前风格冲突的大型主题型 UI 库。
 
 ## 快速启动
 
