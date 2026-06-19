@@ -57,12 +57,7 @@ feature api
 core/network/apiClient
 ```
 
-禁止：
-
-```tsx
-// 页面中直接散写 axios 调用
-axios.get('/api/accounts')
-```
+禁止页面中直接散写 `axios.get(...)`。
 
 ## 4. API Base URL
 
@@ -98,26 +93,15 @@ EXPO_PUBLIC_APP_ENV=dev
 
 ## 5. 鉴权规则
 
-Token 存储：
+请求头统一由网络层追加。
 
-| 数据 | 存储位置 |
-|---|---|
-| accessToken | `expo-secure-store` |
-| refreshToken | `expo-secure-store`，仅后端支持时使用 |
-| themeMode | `AsyncStorage` |
-| hideAmount | `AsyncStorage` |
+规则：
 
-请求头：
-
-```text
-Authorization: Bearer <accessToken>
-```
-
-401 处理：
-
-- 当前后端如果没有 refresh token 接口，移动端只清除本地 token 并跳转登录。
-- 后续后端支持 refresh token 后，再统一接入刷新逻辑。
-- 不允许每个页面单独处理 401。
+- 页面不直接拼接认证 Header。
+- 登录凭证类敏感信息使用 `expo-secure-store`。
+- 普通配置使用 `AsyncStorage`。
+- 未登录或登录失效时统一清理本地登录态并跳转登录页。
+- 不允许每个页面单独处理未登录逻辑。
 
 ## 6. 响应与错误处理
 
@@ -127,9 +111,9 @@ Authorization: Bearer <accessToken>
 - 后端业务错误。
 - 网络超时。
 - 无网络。
-- 401 未登录。
-- 403 无权限。
-- 500 服务异常。
+- 未登录。
+- 无权限。
+- 服务端异常。
 
 页面层只拿到适合展示的信息，不能直接展示敏感异常。
 
@@ -141,7 +125,7 @@ Authorization: Bearer <accessToken>
 | 登录失败 | 表单整体错误提示 |
 | 列表加载失败 | 页面错误态 |
 | 提交失败 | Toast / 文案提示 |
-| 401 | 清 token 并跳转登录 |
+| 未登录 | 清理本地登录态并跳转登录 |
 
 ## 7. TanStack Query 使用规则
 
