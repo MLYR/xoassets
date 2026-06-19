@@ -1,8 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
+
+const THEME_MODE_KEY = 'xoassets_theme_mode';
 
 interface ThemeState {
   themeMode: ThemeMode;
@@ -11,17 +12,18 @@ interface ThemeState {
   setIsDark: (isDark: boolean) => void;
 }
 
-export const useThemeStore = create<ThemeState>()(
-  persist(
-    (set) => ({
-      themeMode: 'system',
-      isDark: false,
-      setThemeMode: (themeMode) => set({ themeMode }),
-      setIsDark: (isDark) => set({ isDark })
-    }),
-    {
-      name: 'xoassets_theme_mode',
-      storage: createJSONStorage(() => AsyncStorage)
-    }
-  )
-);
+export const useThemeStore = create<ThemeState>((set) => ({
+  themeMode: 'system',
+  isDark: false,
+  setThemeMode: (themeMode) => {
+    set({ themeMode });
+    void AsyncStorage.setItem(THEME_MODE_KEY, themeMode);
+  },
+  setIsDark: (isDark) => set({ isDark })
+}));
+
+void AsyncStorage.getItem(THEME_MODE_KEY).then((themeMode) => {
+  if (themeMode === 'light' || themeMode === 'dark' || themeMode === 'system') {
+    useThemeStore.setState({ themeMode });
+  }
+});

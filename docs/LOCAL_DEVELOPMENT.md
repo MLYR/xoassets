@@ -43,20 +43,56 @@ xoassets-app/
 ```bash
 cd xoassets-app
 npm install
+```
+
+### Expo Go 真机调试
+
+当前 Expo Metro 固定使用 `8088` 端口，并跳过 Expo 联网依赖校验：
+
+```bash
 npm run start
 ```
 
-Android：
+手机和电脑需在同一局域网，启动后用 Expo Go 扫终端二维码。
+
+### Expo Web 预览
+
+```bash
+npm run web
+```
+
+访问地址：
+
+```text
+http://localhost:8088
+```
+
+### Android 模拟器
 
 ```bash
 npm run android:emulator
 npm run android
 ```
 
-iOS：
+说明：
+
+- `npm run android:emulator` 启动本机 AVD，默认 `xoassets_api36`，并等待系统启动完成。
+- `npm run android` 固定使用本机 OpenJDK 17、Android SDK 和 Metro `8088` 端口。
+- Android 构建前会执行 `scripts/patch-react-native-gradle-repos.js`，用于给 React Native / Expo 的 Gradle 插件和 RN 模块临时补国内 Maven 镜像，避免 Maven Central 403。
+- 如果只需要模拟器浏览器访问 Expo Web，可先执行 `adb reverse tcp:8088 tcp:8088`，再访问 `http://localhost:8088`。
+
+### iOS 模拟器
 
 ```bash
 npm run ios
+```
+
+### Expo 常用排查命令
+
+```bash
+lsof -nP -iTCP:8088 -sTCP:LISTEN
+EXPO_NO_DEPENDENCY_VALIDATION=1 npx expo start --port 8088 --clear
+adb reverse tcp:8088 tcp:8088
 ```
 
 ## 5. API Base URL
