@@ -22,11 +22,13 @@
 移动端任务必须先读取：
 
 1. `xoassets-app/AGENTS.md`
-2. `xoassets-app/MOBILE_APP_PHASES.md`
-3. `xoassets-app/docs/MOBILE_UI_DESIGN_SYSTEM.md`
+2. `xoassets-app/docs/REACT_NATIVE_REUSABLES_UI_CONSTRAINTS.md`
+3. `xoassets-app/MOBILE_APP_PHASES.md`
 4. `xoassets-app/docs/MOBILE_API_INTEGRATION.md`
 5. 后端接口文档 / Swagger / Knife4j
 6. 当前代码实现
+
+如旧文档或旧提示词中的 UI 风格与 `REACT_NATIVE_REUSABLES_UI_CONSTRAINTS.md` 冲突，以 `REACT_NATIVE_REUSABLES_UI_CONSTRAINTS.md` 为准。
 
 ## 3. 技术栈约束
 
@@ -38,7 +40,9 @@
 | 语言 | TypeScript |
 | 开发框架 | Expo |
 | 路由 | Expo Router |
-| 样式 | NativeWind + XO Design System |
+| 样式 | NativeWind |
+| UI 组件基准 | React Native Reusables |
+| 项目 UI 出口 | `src/components/ui` |
 | 服务端状态 | TanStack Query |
 | 本地 UI 状态 | Zustand |
 | 网络请求 | Axios |
@@ -61,8 +65,8 @@
 | Prisma Client | App 不直连数据库 |
 | WebView 套壳 | 本项目是原生体验 App |
 | App 直连 MySQL | App 只能通过后端 API 访问数据 |
-| 大型 UI 组件库 | UI 使用自研 XO Design System |
-| Web 版 shadcn/ui | 只能参考视觉，不能直接使用 |
+| React Native Paper / NativeBase / UI Kitten 等大型主题型 UI 库 | UI 以 React Native Reusables 为基准 |
+| Web 版 shadcn/ui 组件 | 只能理解设计理念，不能直接使用 |
 | 一次性实现所有业务 | 必须按阶段推进 |
 
 ## 4. 数据访问规则
@@ -122,27 +126,22 @@ AI 报告
 详细 UI 规范查看：
 
 ```text
-xoassets-app/docs/MOBILE_UI_DESIGN_SYSTEM.md
-xoassets-app/docs/SHADCN_UI_STYLE_GUIDE.md
-xoassets-app/docs/MOBILE_ICON_ASSETS_GUIDE.md
+xoassets-app/docs/REACT_NATIVE_REUSABLES_UI_CONSTRAINTS.md
 ```
 
 强制规则：
 
-- UI 使用 React Native 原生组件 + NativeWind + 自研 XO Design System。
-- 视觉统一参考 shadcn/ui 的设计语言：简洁、卡片化、弱边框、低饱和、清晰层级。
-- 参考 `https://ui.shadcn.com/docs/installation`，但不在 React Native 项目中直接运行 Web 安装命令。
-- 不直接使用 shadcn/ui Web 组件。
+- UI 使用 React Native Reusables + NativeWind + `src/components/ui`。
+- React Native Reusables 是移动端组件和视觉基准。
+- `src/components/ui` 是项目唯一 UI 组件出口。
+- 页面必须优先从 `@/components/ui` 引入 Button、Card、Input、Text 等组件。
+- 新增通用 UI 组件必须放入 `src/components/ui` 并从 `index.ts` 导出。
+- 不直接使用 Web 版 shadcn/ui 组件。
 - 不使用 DOM、CSS Modules、浏览器专属 API。
-- 所有颜色、圆角、间距、字体、阴影、图标路径必须集中维护。
-- 页面容器优先使用 `XoPage`。
-- 卡片优先使用 `XoCard`。
-- 金额展示必须使用 `XoMoneyText`。
-- 图标必须使用 `XoIcon`。
-- 主按钮必须使用 `XoButton`。
-- 输入框必须使用 `XoTextField`。
+- 所有颜色、圆角、间距、字体、阴影必须集中维护。
 - 不允许页面内到处写死颜色、圆角和字号。
 - 不允许将 Web 页面缩小后搬到移动端。
+- 不允许继续按照旧的 Uiverse / Web shadcn 安装方式生成移动端 UI。
 
 ## 7. 推荐目录结构
 
@@ -171,14 +170,15 @@ src
 ├── app
 │   ├── providers.tsx
 │   └── query-client.ts
+├── components
+│   └── ui
 ├── core
 │   ├── constants
 │   ├── design
 │   ├── errors
 │   ├── network
 │   ├── storage
-│   ├── utils
-│   └── components
+│   └── utils
 ├── features
 │   ├── auth
 │   ├── home
