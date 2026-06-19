@@ -11,7 +11,7 @@ export function useLoginForm() {
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      identifier: '',
+      username: '',
       password: ''
     }
   });
@@ -19,7 +19,7 @@ export function useLoginForm() {
   const onSubmit = form.handleSubmit(async (values) => {
     try {
       const result = await authApi.login({
-        username: values.identifier,
+        username: values.username,
         password: values.password
       });
       await login(result.token, result.user);
