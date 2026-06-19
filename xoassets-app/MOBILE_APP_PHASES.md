@@ -8,8 +8,9 @@
 - 不允许一次性实现所有业务。
 - 不允许未确认就引入新依赖。
 - 不允许修改与当前阶段无关的模块。
-- UI 规范查看 `docs/MOBILE_UI_DESIGN_SYSTEM.md` 和 `docs/SHADCN_UI_STYLE_GUIDE.md`。
+- UI 规范查看 `docs/REACT_NATIVE_REUSABLES_UI_CONSTRAINTS.md`。
 - 图标规范查看 `docs/MOBILE_ICON_ASSETS_GUIDE.md`。
+- 产品范围查看 `docs/MOBILE_PRODUCT_SPEC.md`。
 - 接口规则查看 `docs/MOBILE_API_INTEGRATION.md`。
 
 ## 2. 阶段总览
@@ -44,12 +45,11 @@
 扫描当前仓库结构
 确认 React Native 项目位置
 确认移动端目录为 xoassets-app
-建立 AGENTS.md
-建立 MOBILE_APP_PHASES.md
-建立 README.md
-建立基础 .gitignore
-确认 Node / pnpm 可用
-确认 Expo 启动方式
+建立或更新 AGENTS.md
+建立或更新 MOBILE_APP_PHASES.md
+建立或更新 README.md
+建立移动端 docs 约束入口
+确认 npm / Node / Expo 可用
 ```
 
 ### 禁止
@@ -65,7 +65,7 @@
 
 ```text
 项目目录清晰
-文档存在
+文档入口真实存在
 Codex 后续任务有约束依据
 ```
 
@@ -82,7 +82,7 @@ Codex 后续任务有约束依据
 配置 TypeScript
 配置 Expo Router
 配置 NativeWind
-建立 XO Design System
+建立 React Native Reusables 风格的 src/components/ui
 建立基础路由
 建立底部导航
 建立中间悬浮 + 操作面板
@@ -99,12 +99,10 @@ Codex 后续任务有约束依据
 
 ```text
 不要接真实业务接口
-不要引入 SQLite
-不要引入 WatermelonDB
-不要引入 Realm
+不要引入 SQLite / WatermelonDB / Realm
 不要实现离线数据库
 不要直接连接 MySQL
-不要引入大型 UI 库
+不要引入与 React Native Reusables 冲突的大型主题型 UI 库
 不要实现复杂图表
 ```
 
@@ -112,11 +110,9 @@ Codex 后续任务有约束依据
 
 ```text
 App 可以启动
-底部 Tab 可以切换
-中间 + 可以弹出操作面板
 基础页面可以跳转
 全局主题生效
-XO Design System 生效
+src/components/ui 生效
 Android 可以运行
 iOS 在环境支持时可以运行
 ```
@@ -232,8 +228,7 @@ GET /api/transactions
 ```text
 不要做本地离线记账
 不要把流水存在本地数据库
-不要引入 SQLite
-不要引入 WatermelonDB
+不要引入 SQLite / WatermelonDB
 不要把分类统计放在主记账页
 ```
 
@@ -438,7 +433,9 @@ GET /api/transactions
 推荐命令：
 
 ```bash
-pnpm lint
-pnpm typecheck
-pnpm test
+npm run typecheck
+npm run android
+npm run ios
 ```
+
+如果当前环境不支持 Android / iOS，必须说明原因和剩余风险。
