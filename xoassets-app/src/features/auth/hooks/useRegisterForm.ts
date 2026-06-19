@@ -11,8 +11,7 @@ export function useRegisterForm() {
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      nickname: '',
-      identifier: '',
+      username: '',
       password: '',
       confirmPassword: ''
     }
@@ -21,13 +20,12 @@ export function useRegisterForm() {
   const onSubmit = form.handleSubmit(async (values) => {
     try {
       await authApi.register({
-        nickname: values.nickname,
-        username: values.identifier,
+        username: values.username,
         password: values.password
       });
       // 后端注册接口只返回用户信息，注册成功后复用登录接口建立真实会话。
       const result = await authApi.login({
-        username: values.identifier,
+        username: values.username,
         password: values.password
       });
       await login(result.token, result.user);
