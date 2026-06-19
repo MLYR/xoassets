@@ -1,40 +1,64 @@
-import { Redirect, router } from 'expo-router';
-import { useEffect } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { Redirect } from 'expo-router';
+import {
+  Bell,
+  BriefcaseBusiness,
+  ChevronRight,
+  CirclePlus,
+  CreditCard,
+  Eye,
+  EyeOff,
+  Home,
+  LineChart,
+  NotebookText,
+  PieChart,
+  Sparkles,
+  Utensils,
+  UserRound,
+  WalletCards
+} from 'lucide-react-native';
+import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
+import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useHomeOverview, formatMoney, formatPercent, formatSignedMoney } from '@/features/home';
-import { Badge, Button, Card, CardContent, Separator, Text } from '@/components/ui';
+import { Card, CardContent, Separator, Text } from '@/components/ui';
 import { useTheme } from '@/core/design/theme';
 import { useAuthStore } from '@/stores/authStore';
+import type { RecentTransaction } from '@/shared/types/asset';
+
+type XoIcon = ComponentType<{ color?: string; size?: number; strokeWidth?: number; fill?: string }>;
 
 export function HomeScreen() {
   const theme = useTheme();
-  const { userInfo, logout, isHydrated, isLoggedIn, restoreToken } = useAuthStore();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+  const { userInfo, isHydrated, isLoggedIn, restoreToken } = useAuthStore();
+  const [amountVisible, setAmountVisible] = useState(true);
 
   useEffect(() => {
     restoreToken();
   }, [restoreToken]);
 
-  const { overviewQuery, snapshotQuery, transactionsQuery } = useHomeOverview(isLoggedIn);
+  const { overviewQuery, snapshotQuery, transactionsQuery, budgetSummaryQuery, reportsQuery } = useHomeOverview(isLoggedIn);
 
   const overview = overviewQuery.data;
   const snapshot = snapshotQuery.data;
-  const recentTransactions = transactionsQuery.data?.records ?? transactionsQuery.data?.list ?? [];
+  const budgetSummary = budgetSummaryQuery.data;
+  const reports = reportsQuery.data ?? [];
+  const recentTransactions = (transactionsQuery.data?.records ?? transactionsQuery.data?.list ?? []).slice(0, 5);
+  const isInitialLoading = overviewQuery.isLoading || snapshotQuery.isLoading || transactionsQuery.isLoading;
+  const hasHomeError = overviewQuery.isError || snapshotQuery.isError || transactionsQuery.isError;
   const totalAssets = snapshot?.latest?.totalAsset ?? overview?.totalAssets;
   const netAssets = snapshot?.latest?.netAsset ?? overview?.netAssets;
   const investmentAsset = snapshot?.latest?.investmentAsset ?? overview?.investmentMarketValue;
   const monthlyIncome = snapshot?.latest?.monthlyIncome ?? overview?.monthlyIncome;
-  const budgetUsageRate = snapshot?.latest?.budgetUsageRate ?? overview?.budgetUsageRate;
-  const todayChange = snapshot?.netAssetChangeFromYesterday ?? null;
-
-  async function handleLogout() {
-    await logout();
-    router.replace('/login');
-  }
+  const monthlyExpense = overview?.monthlyExpense;
+  const monthlyChange = snapshot?.netAssetChangeFromMonthStart ?? null;
+  const budgetUsageRate = budgetSummary?.usageRate ?? snapshot?.latest?.budgetUsageRate ?? overview?.budgetUsageRate;
+  const aiReport = reports[0];
 
   if (!isHydrated) {
     return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
+      <View style={styles.loading}>
         <ActivityIndicator color={theme.primary} />
       </View>
     );
@@ -45,152 +69,729 @@ export function HomeScreen() {
   }
 
   return (
-    <ScrollView style={[styles.page, { backgroundColor: theme.background }]} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <View style={styles.headerText}>
-          <Text variant="caption">欢迎回来</Text>
-          <Text variant="title">{userInfo?.nickname || userInfo?.username || 'XOAssets'}</Text>
+    <SafeAreaView style={styles.page}>
+      <GridBackdrop color={theme.border} />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        <View style={styles.header}>
+          <View style={styles.brandBlock}>
+            <View style={styles.logoMark}>
+              <Text style={styles.logoText}>∞</Text>
+            </View>
+            <View style={styles.headerCopy}>
+              <Text style={styles.brandTitle}>小〇财迹</Text>
+              <Text style={styles.greeting}>{getGreeting()}，{userInfo?.nickname || userInfo?.username || 'XOer'}</Text>
+              <Text variant="muted" style={styles.headerSub}>今天也把资产看清楚</Text>
+            </View>
+          </View>
+          <PressableAnimated style={styles.bellButton} onPress={() => undefined}>
+            <Bell color={theme.foreground} size={26} strokeWidth={2.2} />
+            <View style={styles.bellDot} />
+          </PressableAnimated>
         </View>
-        <Button variant="ghost" size="sm" onPress={handleLogout}>
-          退出
-        </Button>
-      </View>
 
-      <Card style={styles.heroCard}>
-        <CardContent style={styles.heroContent}>
-          <View style={styles.rowBetween}>
-            <Text variant="muted">总资产</Text>
-            <Badge variant="outline">Overview</Badge>
-          </View>
-          <Text variant="title" style={styles.assetAmount}>
-            {formatMoney(totalAssets)}
-          </Text>
-          <View style={styles.rowBetween}>
-            <Text variant="muted">较昨日变化</Text>
-            <Text
-              variant="subtitle"
-              style={{
-                color: todayChange && todayChange < 0 ? theme.destructive : theme.success
-              }}
-            >
-              {formatSignedMoney(todayChange)}
-            </Text>
-          </View>
-        </CardContent>
-      </Card>
+        {hasHomeError ? <ErrorCard message="首页数据加载失败，请稍后下拉刷新或重新进入。" /> : null}
+        {isInitialLoading ? <LoadingSkeleton /> : null}
 
-      <View style={styles.grid}>
-        <MetricCard label="净资产" value={formatMoney(netAssets)} />
-        <MetricCard label="投资市值" value={formatMoney(investmentAsset)} />
-        <MetricCard label="当月收入" value={formatMoney(monthlyIncome)} />
-        <MetricCard label="预算使用率" value={formatPercent(budgetUsageRate)} />
-      </View>
-
-      <Card>
-        <CardContent style={styles.section}>
-          <View style={styles.rowBetween}>
-            <Text variant="subtitle">资产分类</Text>
-            <Text variant="caption">后端口径</Text>
-          </View>
-          <Separator />
-          <CategoryRow label="现金与净资产" value={formatMoney(netAssets)} />
-          <CategoryRow label="投资资产" value={formatMoney(investmentAsset)} />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent style={styles.section}>
-          <View style={styles.rowBetween}>
-            <Text variant="subtitle">最近记录</Text>
-            <Text variant="caption">最新 3 条</Text>
-          </View>
-          <Separator />
-          {recentTransactions.length > 0 ? (
-            recentTransactions.map((item) => (
-              <CategoryRow
-                key={item.id}
-                label={item.categoryName || item.remark || item.type || '未命名记录'}
-                value={formatMoney(item.amount)}
+        <Card style={styles.heroCard}>
+          <CardContent style={styles.heroContent}>
+            <View style={styles.rowBetween}>
+              <PressableAnimated style={styles.inlineAction} onPress={() => setAmountVisible((visible) => !visible)}>
+                <Text style={styles.sectionTitle}>总资产</Text>
+                {amountVisible ? (
+                  <Eye color={theme.mutedForeground} size={18} strokeWidth={2.2} />
+                ) : (
+                  <EyeOff color={theme.mutedForeground} size={18} strokeWidth={2.2} />
+                )}
+              </PressableAnimated>
+              <PressableAnimated style={styles.linkButton} onPress={() => undefined}>
+                <Text style={styles.linkText}>资产详情</Text>
+                <ChevronRight color={theme.mutedForeground} size={18} strokeWidth={2} />
+              </PressableAnimated>
+            </View>
+            <Text style={styles.assetAmount}>{maskMoney(formatMoney(totalAssets), amountVisible)}</Text>
+            <View style={styles.heroSummary}>
+              <MiniStat label="净资产" value={maskMoney(formatMoney(netAssets), amountVisible)} />
+              <View style={styles.verticalDivider} />
+              <MiniStat
+                label="本月变化"
+                value={maskMoney(formatSignedMoney(monthlyChange), amountVisible)}
+                subValue={formatPercent(overview?.assetTrendRate)}
               />
-            ))
-          ) : (
-            <Text variant="muted">暂无最近记录</Text>
-          )}
-        </CardContent>
-      </Card>
-    </ScrollView>
+            </View>
+          </CardContent>
+        </Card>
+
+        <View style={styles.metricGrid}>
+          <MetricCard icon={WalletCards} label="净资产" value={maskMoney(formatMoney(netAssets), amountVisible)} trend={`较上月 ${formatPercent(overview?.balanceTrendRate)}`} />
+          <MetricCard icon={LineChart} label="投资市值" value={maskMoney(formatMoney(investmentAsset), amountVisible)} trend={`较上月 ${formatPercent(overview?.assetTrendRate)}`} />
+          <MetricCard icon={BriefcaseBusiness} label="本月收入" value={maskMoney(formatMoney(monthlyIncome), amountVisible)} trend={`较上月 ${formatPercent(overview?.incomeTrendRate)}`} />
+          <MetricCard icon={CreditCard} label="本月支出" value={maskMoney(formatMoney(monthlyExpense), amountVisible)} trend={`较上月 ${formatPercent(overview?.expenseTrendRate)}`} />
+        </View>
+
+        <Card style={styles.sectionCard}>
+          <CardContent style={styles.sectionContent}>
+            <View style={styles.rowBetween}>
+              <Text style={styles.sectionTitle}>本月预算</Text>
+              <View style={styles.statusPill}>
+                <Sparkles color={theme.foreground} size={13} fill={theme.foreground} strokeWidth={2} />
+                <Text style={styles.statusText}>{budgetSummary?.usageStatusLabel || '预算健康'}</Text>
+                <ChevronRight color={theme.mutedForeground} size={16} strokeWidth={2} />
+              </View>
+            </View>
+            <ProgressBar value={budgetUsageRate} />
+            <View style={styles.budgetRow}>
+              <MiniStat label="已用" value={maskMoney(formatMoney(budgetSummary?.totalUsed), amountVisible)} compact />
+              <MiniStat label="占比" value={formatPercent(budgetUsageRate)} compact align="center" />
+              <MiniStat label="剩余" value={maskMoney(formatMoney(budgetSummary?.totalRemaining), amountVisible)} compact align="right" />
+            </View>
+            <Text variant="caption">预算总额 {maskMoney(formatMoney(budgetSummary?.totalBudget), amountVisible)}</Text>
+          </CardContent>
+        </Card>
+
+        <Card style={styles.sectionCard}>
+          <CardContent style={styles.sectionContent}>
+            <View style={styles.rowBetween}>
+              <Text style={styles.sectionTitle}>投资概览</Text>
+              <View style={styles.linkButton}>
+                <Text style={styles.linkText}>全部</Text>
+                <ChevronRight color={theme.mutedForeground} size={18} strokeWidth={2} />
+              </View>
+            </View>
+            <View style={styles.investmentRow}>
+              <InvestmentStat label="基金 昨日收益" value={maskMoney(formatSignedMoney(overview?.investmentYesterdayProfit), amountVisible)} rate="--" />
+              <InvestmentDivider />
+              <InvestmentStat label="股票 今日收益" value={maskMoney(formatSignedMoney(overview?.investmentTodayProfit), amountVisible)} rate="--" />
+              <InvestmentDivider />
+              <InvestmentStat label="加密资产 24h" value="--" rate="--" />
+            </View>
+          </CardContent>
+        </Card>
+
+        <Card style={styles.sectionCard}>
+          <CardContent style={styles.sectionContent}>
+            <View style={styles.rowBetween}>
+              <Text style={styles.sectionTitle}>AI 今日总结</Text>
+              <Sparkles color={theme.foreground} size={18} strokeWidth={2.2} />
+            </View>
+            <Text variant="muted" style={styles.aiText}>{aiReport?.title || aiReport?.content || '今天的财务复盘还没有生成，可以先看资产与流水变化。'}</Text>
+          </CardContent>
+        </Card>
+
+        <Card style={styles.sectionCard}>
+          <CardContent style={styles.sectionContent}>
+            <View style={styles.rowBetween}>
+              <Text style={styles.sectionTitle}>最近记录</Text>
+              <View style={styles.linkButton}>
+                <Text style={styles.linkText}>查看全部</Text>
+                <ChevronRight color={theme.mutedForeground} size={18} strokeWidth={2} />
+              </View>
+            </View>
+            {recentTransactions.length > 0 ? (
+              recentTransactions.map((item, index) => (
+                <View key={item.id}>
+                  <TransactionRow item={item} amountVisible={amountVisible} />
+                  {index < recentTransactions.length - 1 ? <Separator /> : null}
+                </View>
+              ))
+            ) : (
+              <Text variant="muted">暂无最近记录</Text>
+            )}
+          </CardContent>
+        </Card>
+      </ScrollView>
+      <BottomNav />
+    </SafeAreaView>
   );
 }
 
-function MetricCard({ label, value }: { label: string; value: string }) {
+function GridBackdrop({ color }: { color: string }) {
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {Array.from({ length: 18 }).map((_, index) => (
+        <View key={`v-${index}`} style={[stylesStatic.gridLineVertical, { left: index * 28, backgroundColor: color }]} />
+      ))}
+      {Array.from({ length: 36 }).map((_, index) => (
+        <View key={`h-${index}`} style={[stylesStatic.gridLineHorizontal, { top: index * 28, backgroundColor: color }]} />
+      ))}
+    </View>
+  );
+}
+
+function PressableAnimated({ children, style, onPress }: { children: React.ReactNode; style?: object; onPress?: () => void }) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={() => Animated.spring(scale, { toValue: 0.96, useNativeDriver: true }).start()}
+      onPressOut={() => Animated.spring(scale, { toValue: 1, friction: 5, tension: 180, useNativeDriver: true }).start()}
+    >
+      <Animated.View style={[style, { transform: [{ scale }] }]}>{children}</Animated.View>
+    </Pressable>
+  );
+}
+
+function MiniStat({ label, value, subValue, compact, align = 'left' }: { label: string; value: string; subValue?: string; compact?: boolean; align?: 'left' | 'center' | 'right' }) {
+  return (
+    <View style={[stylesStatic.miniStat, align === 'center' && stylesStatic.centerText, align === 'right' && stylesStatic.rightText]}>
+      <Text variant="muted" style={compact ? stylesStatic.compactLabel : undefined}>{label}</Text>
+      <Text style={compact ? stylesStatic.compactValue : stylesStatic.miniValue}>{value} {subValue ? <Text variant="muted">{subValue}</Text> : null}</Text>
+    </View>
+  );
+}
+
+function MetricCard({ icon: Icon, label, value, trend }: { icon: XoIcon; label: string; value: string; trend: string }) {
+  const theme = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+
   return (
     <Card style={styles.metricCard}>
       <CardContent style={styles.metricContent}>
-        <Text variant="caption">{label}</Text>
-        <Text variant="subtitle">{value}</Text>
+        <View style={styles.iconBubble}>
+          <Icon color={theme.foreground} size={25} strokeWidth={2.3} />
+        </View>
+        <View style={styles.metricTextBlock}>
+          <Text variant="muted" style={styles.metricLabel}>{label}</Text>
+          <Text style={styles.metricValue}>{value}</Text>
+          <Text variant="caption">{trend}</Text>
+        </View>
       </CardContent>
     </Card>
   );
 }
 
-function CategoryRow({ label, value }: { label: string; value: string }) {
+function ProgressBar({ value }: { value?: number | null }) {
+  const theme = useTheme();
+  const percent = typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(value, 100)) : 0;
+
   return (
-    <View style={styles.rowBetween}>
-      <Text variant="body">{label}</Text>
-      <Text variant="subtitle">{value}</Text>
+    <View style={[stylesStatic.progressTrack, { backgroundColor: theme.secondary }]}>
+      <View style={[stylesStatic.progressFill, { width: `${percent}%`, backgroundColor: theme.foreground }]} />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  page: {
-    flex: 1
+function InvestmentStat({ label, value, rate }: { label: string; value: string; rate: string }) {
+  return (
+    <View style={stylesStatic.investmentStat}>
+      <Text variant="muted">{label}</Text>
+      <Text style={stylesStatic.investmentValue}>{value}</Text>
+      <Text variant="muted">{rate}</Text>
+    </View>
+  );
+}
+
+function InvestmentDivider() {
+  const theme = useTheme();
+  return <View style={[stylesStatic.investmentDivider, { backgroundColor: theme.border }]} />;
+}
+
+function TransactionRow({ item, amountVisible }: { item: RecentTransaction; amountVisible: boolean }) {
+  const theme = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+  const Icon = pickTransactionIcon(item);
+
+  return (
+    <View style={styles.transactionRow}>
+      <View style={styles.transactionLeft}>
+        <View style={styles.transactionIcon}>
+          <Icon color={theme.foreground} size={22} strokeWidth={2.2} />
+        </View>
+        <View style={styles.transactionTitleBlock}>
+          <Text style={styles.transactionTitle}>{item.categoryName || item.note || item.remark || item.type || '未命名记录'}</Text>
+          <Text variant="muted">{transactionTypeLabel(item.type)}</Text>
+        </View>
+      </View>
+      <View style={styles.transactionCenter}>
+        <Text variant="muted">{formatTransactionTime(item.transactionTime)}</Text>
+      </View>
+      <View style={styles.transactionAmountBlock}>
+        <Text style={styles.transactionAmount}>{maskMoney(formatTransactionAmount(item), amountVisible)}</Text>
+        <Text variant="muted" style={styles.transactionAccount}>{item.accountName || item.targetAccountName || '--'}</Text>
+      </View>
+    </View>
+  );
+}
+
+function ErrorCard({ message }: { message: string }) {
+  return (
+    <Card style={stylesStatic.errorCard}>
+      <CardContent>
+        <Text variant="error">{message}</Text>
+      </CardContent>
+    </Card>
+  );
+}
+
+function LoadingSkeleton() {
+  const theme = useTheme();
+
+  return (
+    <Card style={stylesStatic.skeletonCard}>
+      <CardContent style={stylesStatic.skeletonContent}>
+        <View style={[stylesStatic.skeletonLine, { backgroundColor: theme.secondary, width: '36%' }]} />
+        <View style={[stylesStatic.skeletonLine, { backgroundColor: theme.secondary, width: '68%', height: 34 }]} />
+        <View style={[stylesStatic.skeletonLine, { backgroundColor: theme.secondary, width: '100%' }]} />
+      </CardContent>
+    </Card>
+  );
+}
+
+function BottomNav() {
+  const theme = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+
+  return (
+    <View style={styles.navBar}>
+      <NavItem icon={Home} label="首页" active />
+      <NavItem icon={NotebookText} label="记账" />
+      <PressableAnimated style={styles.addButton} onPress={() => undefined}>
+        <CirclePlus color={theme.primaryForeground} size={31} strokeWidth={2.1} />
+      </PressableAnimated>
+      <NavItem icon={PieChart} label="投资" />
+      <NavItem icon={UserRound} label="我的" />
+    </View>
+  );
+}
+
+function NavItem({ icon: Icon, label, active }: { icon: XoIcon; label: string; active?: boolean }) {
+  const theme = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+  const color = active ? theme.foreground : theme.mutedForeground;
+
+  return (
+    <PressableAnimated style={styles.navItem} onPress={() => undefined}>
+      <Icon color={color} size={25} strokeWidth={active ? 2.8 : 2} fill={active ? color : undefined} />
+      <Text style={[styles.navLabel, { color }]}>{label}</Text>
+    </PressableAnimated>
+  );
+}
+
+function maskMoney(value: string, visible: boolean) {
+  return visible ? value : value === '--' ? '--' : '••••••';
+}
+
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 6) return '夜深了';
+  if (hour < 12) return '上午好';
+  if (hour < 18) return '下午好';
+  return '晚上好';
+}
+
+function transactionTypeLabel(type?: string | null) {
+  const typeMap: Record<string, string> = {
+    INCOME: '收入',
+    EXPENSE: '消费',
+    TRANSFER: '转账',
+    REFUND: '退款',
+    INVESTMENT: '投资'
+  };
+
+  return type ? typeMap[type] || type : '--';
+}
+
+function formatTransactionAmount(item: RecentTransaction) {
+  if (item.amount === null || item.amount === undefined || Number.isNaN(item.amount)) {
+    return '--';
+  }
+
+  const prefix = item.type === 'INCOME' || item.type === 'REFUND' ? '+' : item.type === 'TRANSFER' ? '' : '-';
+  return `${prefix} ${formatMoney(item.amount)}`;
+}
+
+function formatTransactionTime(value?: string | null) {
+  if (!value) {
+    return '--';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const dayText = isToday ? '今天' : date.toDateString() === yesterday.toDateString() ? '昨天' : `${date.getMonth() + 1}/${date.getDate()}`;
+  const time = date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
+  return `${dayText} ${time}`;
+}
+
+function pickTransactionIcon(item: RecentTransaction): XoIcon {
+  const text = `${item.categoryName || ''}${item.note || ''}${item.remark || ''}`;
+  if (text.includes('餐') || text.includes('饭') || text.includes('食')) return Utensils;
+  if (item.type === 'INCOME') return BriefcaseBusiness;
+  if (item.type === 'TRANSFER') return WalletCards;
+  if (item.type === 'INVESTMENT' || text.includes('基金') || text.includes('股票')) return LineChart;
+  return CreditCard;
+}
+
+const createStyles = (theme: ReturnType<typeof useTheme>) =>
+  StyleSheet.create({
+    page: {
+      backgroundColor: theme.background,
+      flex: 1
+    },
+    loading: {
+      alignItems: 'center',
+      backgroundColor: theme.background,
+      flex: 1,
+      justifyContent: 'center'
+    },
+    content: {
+      gap: 16,
+      paddingBottom: 118,
+      paddingHorizontal: 20,
+      paddingTop: 28
+    },
+    header: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 12
+    },
+    brandBlock: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 14
+    },
+    logoMark: {
+      alignItems: 'center',
+      backgroundColor: theme.foreground,
+      borderRadius: 12,
+      height: 64,
+      justifyContent: 'center',
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.14,
+      shadowRadius: 16,
+      width: 64
+    },
+    logoText: {
+      color: theme.primaryForeground,
+      fontSize: 46,
+      fontWeight: '700',
+      lineHeight: 52,
+      transform: [{ rotate: '-18deg' }]
+    },
+    headerCopy: {
+      gap: 4
+    },
+    brandTitle: {
+      color: theme.foreground,
+      fontSize: 31,
+      fontWeight: '800',
+      letterSpacing: -1.2,
+      lineHeight: 34
+    },
+    greeting: {
+      color: theme.foreground,
+      fontSize: 18,
+      fontWeight: '700'
+    },
+    headerSub: {
+      fontSize: 15
+    },
+    bellButton: {
+      alignItems: 'center',
+      height: 46,
+      justifyContent: 'center',
+      position: 'relative',
+      width: 46
+    },
+    bellDot: {
+      backgroundColor: theme.foreground,
+      borderRadius: 6,
+      height: 10,
+      position: 'absolute',
+      right: 8,
+      top: 8,
+      width: 10
+    },
+    heroCard: {
+      borderRadius: 18
+    },
+    heroContent: {
+      gap: 18,
+      padding: 18
+    },
+    rowBetween: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'space-between'
+    },
+    inlineAction: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 10
+    },
+    sectionTitle: {
+      color: theme.foreground,
+      fontSize: 20,
+      fontWeight: '800',
+      letterSpacing: -0.4
+    },
+    linkButton: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 3
+    },
+    linkText: {
+      color: theme.mutedForeground,
+      fontSize: 16
+    },
+    assetAmount: {
+      color: theme.foreground,
+      fontSize: 43,
+      fontWeight: '900',
+      letterSpacing: -2.4,
+      lineHeight: 52
+    },
+    heroSummary: {
+      alignItems: 'center',
+      backgroundColor: theme.secondary,
+      borderRadius: 14,
+      flexDirection: 'row',
+      gap: 18,
+      paddingHorizontal: 16,
+      paddingVertical: 16
+    },
+    verticalDivider: {
+      backgroundColor: theme.border,
+      height: 44,
+      width: 1
+    },
+    metricGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 12
+    },
+    metricCard: {
+      borderRadius: 15,
+      flexBasis: '47%',
+      flexGrow: 1
+    },
+    metricContent: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 12,
+      padding: 14
+    },
+    iconBubble: {
+      alignItems: 'center',
+      backgroundColor: theme.secondary,
+      borderRadius: 28,
+      height: 56,
+      justifyContent: 'center',
+      width: 56
+    },
+    metricTextBlock: {
+      flex: 1,
+      gap: 4
+    },
+    metricLabel: {
+      fontSize: 15
+    },
+    metricValue: {
+      color: theme.foreground,
+      fontSize: 19,
+      fontWeight: '800',
+      letterSpacing: -0.4
+    },
+    sectionCard: {
+      borderRadius: 16
+    },
+    sectionContent: {
+      gap: 14,
+      padding: 16
+    },
+    statusPill: {
+      alignItems: 'center',
+      backgroundColor: theme.secondary,
+      borderRadius: 18,
+      flexDirection: 'row',
+      gap: 5,
+      paddingHorizontal: 10,
+      paddingVertical: 7
+    },
+    statusText: {
+      color: theme.foreground,
+      fontSize: 13,
+      fontWeight: '700'
+    },
+    budgetRow: {
+      alignItems: 'flex-start',
+      flexDirection: 'row',
+      justifyContent: 'space-between'
+    },
+    investmentRow: {
+      alignItems: 'stretch',
+      flexDirection: 'row'
+    },
+    aiText: {
+      lineHeight: 22
+    },
+    transactionRow: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 10,
+      paddingVertical: 9
+    },
+    transactionLeft: {
+      alignItems: 'center',
+      flex: 1.2,
+      flexDirection: 'row',
+      gap: 10
+    },
+    transactionIcon: {
+      alignItems: 'center',
+      backgroundColor: theme.secondary,
+      borderRadius: 22,
+      height: 44,
+      justifyContent: 'center',
+      width: 44
+    },
+    transactionTitleBlock: {
+      flex: 1,
+      gap: 3
+    },
+    transactionTitle: {
+      color: theme.foreground,
+      fontSize: 16,
+      fontWeight: '800'
+    },
+    transactionCenter: {
+      flex: 0.82
+    },
+    transactionAmountBlock: {
+      alignItems: 'flex-end',
+      flex: 1
+    },
+    transactionAmount: {
+      color: theme.foreground,
+      fontSize: 17,
+      fontWeight: '800'
+    },
+    transactionAccount: {
+      marginTop: 3,
+      textAlign: 'right'
+    },
+    navBar: {
+      alignItems: 'center',
+      backgroundColor: theme.card,
+      borderColor: theme.border,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      borderWidth: 1,
+      bottom: 0,
+      flexDirection: 'row',
+      height: 86,
+      justifyContent: 'space-around',
+      left: 0,
+      paddingBottom: 10,
+      paddingHorizontal: 14,
+      position: 'absolute',
+      right: 0,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: -8 },
+      shadowOpacity: 0.08,
+      shadowRadius: 18
+    },
+    navItem: {
+      alignItems: 'center',
+      gap: 5,
+      minWidth: 50
+    },
+    navLabel: {
+      fontSize: 13,
+      fontWeight: '700'
+    },
+    addButton: {
+      alignItems: 'center',
+      backgroundColor: theme.foreground,
+      borderRadius: 28,
+      height: 56,
+      justifyContent: 'center',
+      marginTop: -30,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.18,
+      shadowRadius: 14,
+      width: 56
+    }
+  });
+
+const stylesStatic = StyleSheet.create({
+  gridLineVertical: {
+    bottom: 0,
+    opacity: 0.45,
+    position: 'absolute',
+    top: 0,
+    width: StyleSheet.hairlineWidth
   },
-  loading: {
-    alignItems: 'center',
+  gridLineHorizontal: {
+    height: StyleSheet.hairlineWidth,
+    left: 0,
+    opacity: 0.45,
+    position: 'absolute',
+    right: 0
+  },
+  miniStat: {
     flex: 1,
-    justifyContent: 'center'
+    gap: 6
   },
-  content: {
-    gap: 16,
-    padding: 20,
-    paddingTop: 64
+  centerText: {
+    alignItems: 'center'
   },
-  header: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between'
+  rightText: {
+    alignItems: 'flex-end'
   },
-  headerText: {
-    gap: 4
+  miniValue: {
+    fontSize: 19,
+    fontWeight: '800',
+    letterSpacing: -0.4
   },
-  heroCard: {
+  compactLabel: {
+    fontSize: 14
+  },
+  compactValue: {
+    fontSize: 17,
+    fontWeight: '700'
+  },
+  progressTrack: {
+    borderRadius: 999,
+    height: 9,
     overflow: 'hidden'
   },
-  heroContent: {
-    gap: 18
+  progressFill: {
+    borderRadius: 999,
+    height: '100%'
   },
-  assetAmount: {
-    fontSize: 34
-  },
-  rowBetween: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between'
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12
-  },
-  metricCard: {
-    flexBasis: '48%',
-    flexGrow: 1
-  },
-  metricContent: {
+  investmentStat: {
+    flex: 1,
     gap: 8
   },
-  section: {
+  investmentValue: {
+    fontSize: 17,
+    fontWeight: '800'
+  },
+  investmentDivider: {
+    marginHorizontal: 14,
+    width: 1
+  },
+  errorCard: {
+    borderRadius: 16
+  },
+  skeletonCard: {
+    borderRadius: 18
+  },
+  skeletonContent: {
     gap: 14
+  },
+  skeletonLine: {
+    borderRadius: 999,
+    height: 18
   }
 });
