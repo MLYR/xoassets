@@ -27,6 +27,10 @@ export function MainTabBar({ state, navigation }: BottomTabBarProps) {
       router.push(`/ledger?compose=${Date.now()}`);
       return;
     }
+    if (action === 'investment') {
+      router.push(`/investment?compose=${Date.now()}`);
+      return;
+    }
     navigation.navigate(action);
   }
 

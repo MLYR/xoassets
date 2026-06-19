@@ -189,13 +189,18 @@ DELETE /api/transactions/{id}
 投资：
 
 ```text
-GET  /api/assets/lookup
-GET  /api/holdings
-GET  /api/holdings/summary
-GET  /api/holdings/{id}/detail
-POST /api/investment-transactions
+GET  /api/investments/overview
+GET  /api/investments/holdings
+GET  /api/investments/trend
+GET  /api/investments/daily-profit
+GET  /api/investments/holdings/{id}/profit-calendar
 GET  /api/investment-transactions
+POST /api/investment-transactions
 POST /api/quotes/refresh-batch
+GET  /api/accounts
+GET  /api/assets/lookup
+GET  /api/assets/search
+POST /api/assets
 ```
 
 预算 / 报告：

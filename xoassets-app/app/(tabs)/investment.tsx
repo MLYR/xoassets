@@ -1,5 +1,5 @@
-import { PlaceholderTabScreen } from '@/components/navigation/PlaceholderTabScreen';
+import { InvestmentScreen } from '@/features/investment';
 
 export default function InvestmentTab() {
-  return <PlaceholderTabScreen title="投资" />;
+  return <InvestmentScreen />;
 }

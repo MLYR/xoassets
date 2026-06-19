@@ -271,20 +271,56 @@ public class InvestmentHoldingDailyProfitServiceImpl implements InvestmentHoldin
     public List<InvestmentCalendarDayProfitVO> userCalendar(Long userId, YearMonth month) {
         YearMonth targetMonth = month == null ? YearMonth.now() : month;
         ensureCurrentMonthForUser(userId, targetMonth);
-        Map<LocalDate, DailyProfitSummary> rows = aggregateByDate(userId, targetMonth.atDay(1), targetMonth.atEndOfMonth());
-        return rows.entrySet().stream()
-                .sorted(Map.Entry.comparingByKey())
-                .map(entry -> InvestmentCalendarDayProfitVO.builder()
-                        .date(entry.getKey())
-                        .profitAmount(scale4(entry.getValue().profit()))
-                        .profitRate(nullableRate(entry.getValue().profit(), entry.getValue().baseAmount()))
-                        .hasPrice(true)
-                        .tradingDay(null)
-                        .marketClosed(false)
-                        .statusLabel("有收益")
-                        .priceLabel("每日收益")
-                        .build())
-                .toList();
+        LocalDate start = targetMonth.atDay(1);
+        LocalDate end = targetMonth.atEndOfMonth();
+        Map<LocalDate, DailyProfitSummary> rows = aggregateByDate(userId, start, end);
+        List<Asset> activeAssets = activeCalendarAssets(userId);
+        List<InvestmentCalendarDayProfitVO> result = new ArrayList<>();
+        for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
+            DailyProfitSummary row = rows.get(date);
+            boolean marketClosed = row == null && calendarClosedForAllAssets(activeAssets, date);
+            result.add(InvestmentCalendarDayProfitVO.builder()
+                    .date(date)
+                    .profitAmount(row == null ? null : scale4(row.profit()))
+                    .profitRate(row == null ? null : nullableRate(row.profit(), row.baseAmount()))
+                    .hasPrice(row != null)
+                    .tradingDay(!marketClosed)
+                    .marketClosed(marketClosed)
+                    .statusLabel(marketClosed ? "休市" : row == null ? "无价格" : "有收益")
+                    .priceLabel("每日收益")
+                    .build());
+        }
+        return result;
+    }
+
+    /**
+     * 查询用户当前仍在统计范围内的投资资产，用于全持仓日历补齐休市状态。
+     */
+    private List<Asset> activeCalendarAssets(Long userId) {
+        if (userId == null) {
+            return List.of();
+        }
+        List<Holding> holdings = holdingMapper.selectList(new LambdaQueryWrapper<Holding>()
+                .eq(Holding::getUserId, userId)
+                .eq(Holding::getStatus, 1));
+        if (holdings == null || holdings.isEmpty()) {
+            return List.of();
+        }
+        Set<Long> assetIds = holdings.stream().map(Holding::getAssetId).filter(Objects::nonNull).collect(Collectors.toSet());
+        if (assetIds.isEmpty()) {
+            return List.of();
+        }
+        return assetMapper.selectBatchIds(assetIds);
+    }
+
+    /**
+     * 全持仓日历只有在所有当前统计资产都休市时，才展示为休市；含虚拟货币时不整体休市。
+     */
+    private boolean calendarClosedForAllAssets(List<Asset> assets, LocalDate date) {
+        if (assets == null || assets.isEmpty()) {
+            return false;
+        }
+        return assets.stream().allMatch(asset -> marketClosedForAsset(asset, date));
     }
 
     /**

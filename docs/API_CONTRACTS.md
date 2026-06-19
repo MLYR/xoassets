@@ -22,6 +22,7 @@
 | 模块 | 路径 |
 |---|---|
 | 公共投资资产 | `/api/assets/**` |
+| 投资聚合 | `/api/investments/**` |
 | 持仓 | `/api/holdings/**` |
 | 投资交易 | `/api/investment-transactions/**` |
 | 手动行情 | `/api/quotes/**` |
@@ -148,8 +149,15 @@
 - `GET /api/categories`
 - `GET /api/investments/overview`
 - `GET /api/investments/holdings`
+- `GET /api/investments/trend`
+- `GET /api/investments/daily-profit`
+- `GET /api/investments/holdings/{id}/profit-calendar`
+- `GET /api/investment-transactions`
 - `POST /api/investment-transactions`
 - `POST /api/quotes/refresh-batch`
+- `GET /api/assets/lookup`
+- `GET /api/assets/search`
+- `POST /api/assets`
 
 当前后端暂无：
 
