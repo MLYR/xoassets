@@ -1,4 +1,4 @@
-import { Redirect } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import {
   Bell,
   BriefcaseBusiness,
@@ -101,7 +101,7 @@ export function HomeScreen() {
                   <EyeOff color={theme.mutedForeground} size={18} strokeWidth={2.2} />
                 )}
               </PressableAnimated>
-              <PressableAnimated style={styles.linkButton} onPress={() => undefined}>
+              <PressableAnimated style={styles.linkButton} onPress={() => router.push('/account')}>
                 <Text style={styles.linkText}>资产详情</Text>
                 <ChevronRight color={theme.mutedForeground} size={18} strokeWidth={2} />
               </PressableAnimated>
@@ -130,10 +130,10 @@ export function HomeScreen() {
           <CardContent style={styles.sectionContent}>
             <View style={styles.rowBetween}>
               <Text style={styles.sectionTitle}>投资概览</Text>
-              <View style={styles.linkButton}>
+              <PressableAnimated style={styles.linkButton} onPress={() => router.push('/investment')}>
                 <Text style={styles.linkText}>全部</Text>
                 <ChevronRight color={theme.mutedForeground} size={18} strokeWidth={2} />
-              </View>
+              </PressableAnimated>
             </View>
             <View style={styles.investmentRow}>
               {investmentModuleItems(investmentModules).map((item, index) => (
@@ -150,11 +150,11 @@ export function HomeScreen() {
           <CardContent style={styles.sectionContent}>
             <View style={styles.rowBetween}>
               <Text style={styles.sectionTitle}>本月预算</Text>
-              <View style={styles.statusPill}>
+              <PressableAnimated style={styles.statusPill} onPress={() => router.push('/budget')}>
                 <Sparkles color={theme.foreground} size={13} fill={theme.foreground} strokeWidth={2} />
                 <Text style={styles.statusText}>{budgetSummary?.usageStatusLabel || '预算健康'}</Text>
                 <ChevronRight color={theme.mutedForeground} size={16} strokeWidth={2} />
-              </View>
+              </PressableAnimated>
             </View>
             <ProgressBar value={budgetUsageRate} />
             <View style={styles.budgetRow}>
@@ -180,15 +180,15 @@ export function HomeScreen() {
           <CardContent style={styles.sectionContent}>
             <View style={styles.rowBetween}>
               <Text style={styles.sectionTitle}>最近记录</Text>
-              <View style={styles.linkButton}>
+              <PressableAnimated style={styles.linkButton} onPress={() => router.push('/ledger')}>
                 <Text style={styles.linkText}>查看全部</Text>
                 <ChevronRight color={theme.mutedForeground} size={18} strokeWidth={2} />
-              </View>
+              </PressableAnimated>
             </View>
             {recentTransactions.length > 0 ? (
               recentTransactions.map((item, index) => (
                 <View key={item.id}>
-                  <TransactionRow item={item} amountVisible={amountVisible} />
+                  <TransactionRow item={item} amountVisible={amountVisible} onPress={() => router.push('/ledger')} />
                   {index < recentTransactions.length - 1 ? <Separator /> : null}
                 </View>
               ))
@@ -300,13 +300,13 @@ function moduleLabel(module?: string | null) {
   return '投资';
 }
 
-function TransactionRow({ item, amountVisible }: { item: RecentTransaction; amountVisible: boolean }) {
+function TransactionRow({ item, amountVisible, onPress }: { item: RecentTransaction; amountVisible: boolean; onPress?: () => void }) {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const Icon = pickTransactionIcon(item);
 
   return (
-    <View style={styles.transactionRow}>
+    <Pressable style={styles.transactionRow} onPress={onPress}>
       <View style={styles.transactionLeft}>
         <View style={styles.transactionIcon}>
           <Icon color={theme.foreground} size={22} strokeWidth={2.2} />
@@ -323,7 +323,7 @@ function TransactionRow({ item, amountVisible }: { item: RecentTransaction; amou
         <Text style={styles.transactionAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{maskMoney(formatTransactionAmount(item), amountVisible)}</Text>
         <Text variant="muted" style={styles.transactionAccount}>{item.accountName || item.targetAccountName || '--'}</Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 

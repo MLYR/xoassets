@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { BarChart3, Home, NotebookText, ReceiptText, TrendingUp, UserRound, WalletCards, X } from 'lucide-react-native';
+import { BarChart3, Home, NotebookText, ReceiptText, TrendingUp, WalletCards, X } from 'lucide-react-native';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useState } from 'react';
@@ -21,17 +21,17 @@ export function MainTabBar({ state, navigation }: BottomTabBarProps) {
   const styles = createStyles(theme, insets.bottom);
   const [quickOpen, setQuickOpen] = useState(false);
 
-  function handleQuickNavigate(action: 'ledger' | 'investment' | 'profile') {
+  function handleQuickNavigate(action: 'ledger' | 'investment' | 'account') {
     setQuickOpen(false);
     if (action === 'ledger') {
-      router.push(`/ledger?compose=${Date.now()}`);
+      router.push(`/transaction/edit?compose=${Date.now()}`);
       return;
     }
     if (action === 'investment') {
-      router.push(`/investment?compose=${Date.now()}`);
+      router.push(`/investment/trade?compose=${Date.now()}`);
       return;
     }
-    navigation.navigate(action);
+    router.push(`/account/new?compose=${Date.now()}`);
   }
 
   return (
@@ -68,7 +68,7 @@ export function MainTabBar({ state, navigation }: BottomTabBarProps) {
           <View style={styles.quickGrid}>
             <QuickAction icon={ReceiptText} label="记一笔" onPress={() => handleQuickNavigate('ledger')} />
             <QuickAction icon={TrendingUp} label="投资交易" onPress={() => handleQuickNavigate('investment')} />
-            <QuickAction icon={WalletCards} label="账户" onPress={() => handleQuickNavigate('profile')} />
+            <QuickAction icon={WalletCards} label="账户" onPress={() => handleQuickNavigate('account')} />
           </View>
         </View>
       </Modal>

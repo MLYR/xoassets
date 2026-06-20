@@ -38,7 +38,7 @@ const accountTypes = [
   { label: '其他', value: 'OTHER' }
 ];
 
-export function AccountScreen() {
+export function AccountScreen({ initialCreate = false }: { initialCreate?: boolean } = {}) {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const { isHydrated, isLoggedIn, restoreToken } = useAuthStore();
@@ -51,6 +51,15 @@ export function AccountScreen() {
   useEffect(() => {
     restoreToken();
   }, [restoreToken]);
+
+  useEffect(() => {
+    if (initialCreate) {
+      setForm(createEmptyForm());
+      setAdjustForm({ afterBalance: '', reason: '' });
+      setFormError(null);
+      setSheetMode('create');
+    }
+  }, [initialCreate]);
 
   const {
     overviewQuery,

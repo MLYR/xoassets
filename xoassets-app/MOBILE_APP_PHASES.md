@@ -207,6 +207,11 @@ GET /api/transactions
 金额隐藏正常
 ```
 
+### 当前实现约定
+
+- 首页资产详情、投资概览、本月预算和最近记录入口分别跳转到账户、投资、预算和记账页面。
+- 首页卡片只负责展示后端聚合数据和跳转，不在首页重算账户、投资、预算或流水口径。
+
 ## 阶段 4：记账与流水录入
 
 ### 目标
@@ -244,6 +249,12 @@ GET /api/transactions
 基础表单校验正常
 ```
 
+### 当前实现约定
+
+- 记账统计页的分类排行可点击查看当前周期内单独分类明细。
+- 记账统计页的明细排行可点击查看单条流水详情。
+- `/transaction/edit` 复用记账真实接口表单，用于快捷新建记账。
+
 ## 阶段 5：账户管理
 
 ### 目标
@@ -277,6 +288,7 @@ GET /api/transactions
 - 账户总览使用 `GET /api/accounts/overview`，列表兜底使用 `GET /api/accounts`。
 - 账户详情使用 `GET /api/accounts/{id}/ledger` 和 `GET /api/accounts/{id}/flow-statistics` 展示资金明细与统计。
 - 新增 / 编辑账户使用 `POST /api/accounts`、`PUT /api/accounts/{id}`；余额修正使用 `POST /api/accounts/{id}/balance-adjustments`。
+- `/account/new` 复用账户真实接口表单，用于快捷新建账户。
 
 ## 阶段 6：投资管理
 
@@ -322,6 +334,7 @@ GET /api/transactions
 - 趋势区支持总投资资产走势、收益走势、日历收益切换；曲线提示只在触摸交互时展示。
 - 投资页和持仓详情页复用收益日历组件，固定 5 行展示，支持左右滑动切月，休市状态以后端返回为准。
 - 持仓列表支持按市值和收益升降排序，点击持仓或交易记录进入详情。
+- `/investment/trade` 复用投资交易真实接口表单，用于快捷新建投资交易。
 
 ## 阶段 7：预算管理
 

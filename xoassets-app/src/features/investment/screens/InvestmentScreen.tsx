@@ -76,7 +76,7 @@ interface TransactionFormState {
   note: string;
 }
 
-export function InvestmentScreen() {
+export function InvestmentScreen({ initialCompose = false }: { initialCompose?: boolean } = {}) {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const params = useLocalSearchParams<{ compose?: string }>();
@@ -103,10 +103,10 @@ export function InvestmentScreen() {
   }, [restoreToken]);
 
   useEffect(() => {
-    if (params.compose) {
+    if (params.compose || initialCompose) {
       setComposerOpen(true);
     }
-  }, [params.compose]);
+  }, [initialCompose, params.compose]);
 
   const [calendarYear, calendarMonthNumber] = calendarMonth.split('-').map(Number);
   const {

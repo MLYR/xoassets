@@ -35,7 +35,7 @@ interface LedgerFormState {
   note: string;
 }
 
-export function LedgerScreen() {
+export function LedgerScreen({ initialCompose = false }: { initialCompose?: boolean } = {}) {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const params = useLocalSearchParams<{ compose?: string }>();
@@ -53,10 +53,10 @@ export function LedgerScreen() {
   }, [restoreToken]);
 
   useEffect(() => {
-    if (params.compose) {
+    if (params.compose || initialCompose) {
       setComposerOpen(true);
     }
-  }, [params.compose]);
+  }, [initialCompose, params.compose]);
 
   const statsRange = useMemo(() => getStatsRange(selectedDate, statsMode), [selectedDate, statsMode]);
   const {
@@ -368,6 +368,14 @@ function StatsPanel({
   const directionTotal = statsDirection === 'EXPENSE' ? statsSummary.expense : statsSummary.income;
   const periodCount = countDirectionTransactions(transactions, statsDirection);
   const averageAmount = periodCount > 0 ? directionTotal / periodCount : 0;
+  const [selectedCategoryShare, setSelectedCategoryShare] = useState<CategoryShare | null>(null);
+  const [selectedDetailTransaction, setSelectedDetailTransaction] = useState<LedgerTransaction | null>(null);
+  const selectedCategoryTransactions = useMemo(
+    () => selectedCategoryShare
+      ? transactions.filter((item) => item.type === statsDirection && sameCategory(item, selectedCategoryShare))
+      : [],
+    [selectedCategoryShare, statsDirection, transactions]
+  );
 
   return (
     <>
@@ -418,7 +426,7 @@ function StatsPanel({
         <CardContent style={styles.rankingContent}>
           <StatsCardTitle icon={PieChart} title={`${directionLabel(statsDirection)}分类排行`} />
           {directionShares.slice(0, 5).map((share) => (
-            <View key={share.name} style={styles.rankingRow}>
+            <Pressable key={share.key} style={styles.rankingRow} onPress={() => setSelectedCategoryShare(share)}>
               <View style={[styles.rankingIcon, { backgroundColor: share.color }]}>
                 <Text style={styles.categoryIconText}>{share.name.slice(0, 1)}</Text>
               </View>
@@ -432,7 +440,7 @@ function StatsPanel({
                 </View>
                 <Text variant="caption">{statsModeLabel(statsMode)}{directionLabel(statsDirection)}：{formatStatsMoney(share.amount)}</Text>
               </View>
-            </View>
+            </Pressable>
           ))}
           {directionShares.length === 0 ? <Text variant="muted">当前范围没有数据。</Text> : null}
         </CardContent>
@@ -446,7 +454,7 @@ function StatsPanel({
           </View>
           {transactions.filter((item) => item.type === statsDirection).slice(0, 5).map((item, index) => (
             <View key={String(item.id)}>
-              <View style={styles.detailRow}>
+              <Pressable style={styles.detailRow} onPress={() => setSelectedDetailTransaction(item)}>
                 <View style={[styles.categoryIcon, { backgroundColor: pickCategoryColor(item) }]}>
                   <Text style={styles.categoryIconText}>{categoryInitial(item)}</Text>
                 </View>
@@ -457,13 +465,24 @@ function StatsPanel({
                   <Text variant="muted">{formatShortDateTime(item.transactionTime)}</Text>
                 </View>
                 <Text style={styles.detailAmount}>{formatSignedAmount(item)}</Text>
-              </View>
+              </Pressable>
               {index < Math.min(transactions.filter((item) => item.type === statsDirection).length, 5) - 1 ? <Separator /> : null}
             </View>
           ))}
           {transactions.filter((item) => item.type === statsDirection).length === 0 ? <Text variant="muted">当前范围没有明细。</Text> : null}
         </CardContent>
       </Card>
+
+      <CategoryTransactionsModal
+        share={selectedCategoryShare}
+        transactions={selectedCategoryTransactions}
+        onSelectTransaction={setSelectedDetailTransaction}
+        onClose={() => setSelectedCategoryShare(null)}
+      />
+      <TransactionDetailModal
+        transaction={selectedDetailTransaction}
+        onClose={() => setSelectedDetailTransaction(null)}
+      />
     </>
   );
 }
@@ -561,6 +580,110 @@ function CategoryShareCard({ title, shares, total }: { title: string; shares: Ca
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function CategoryTransactionsModal({
+  share,
+  transactions,
+  onSelectTransaction,
+  onClose
+}: {
+  share: CategoryShare | null;
+  transactions: LedgerTransaction[];
+  onSelectTransaction: (item: LedgerTransaction) => void;
+  onClose: () => void;
+}) {
+  const theme = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+
+  return (
+    <Modal visible={Boolean(share)} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={styles.modalRoot}>
+        <Pressable style={styles.modalBackdrop} onPress={onClose} />
+        <View style={styles.sheet}>
+          <ScrollView contentContainerStyle={styles.sheetContent} showsVerticalScrollIndicator={false}>
+            <View style={styles.sheetHeader}>
+              <View>
+                <Text style={styles.sheetTitle}>{share?.name || '分类明细'}</Text>
+                <Text variant="muted">合计 {formatStatsMoney(share?.amount ?? 0)} · {transactions.length} 笔</Text>
+              </View>
+              <Pressable onPress={onClose}>
+                <X color={theme.foreground} size={24} />
+              </Pressable>
+            </View>
+            {transactions.map((item, index) => (
+              <View key={String(item.id)}>
+                <Pressable
+                  style={styles.detailRow}
+                  onPress={() => {
+                    onSelectTransaction(item);
+                    onClose();
+                  }}
+                >
+                  <View style={[styles.categoryIcon, { backgroundColor: pickCategoryColor(item) }]}>
+                    <Text style={styles.categoryIconText}>{categoryInitial(item)}</Text>
+                  </View>
+                  <View style={styles.detailInfo}>
+                    <Text style={styles.detailTitle} numberOfLines={1}>{item.note || item.categoryName || transactionTypeLabel(item.type)}</Text>
+                    <Text variant="muted">{formatShortDateTime(item.transactionTime)} · {item.accountName || '--'}</Text>
+                  </View>
+                  <Text style={styles.detailAmount}>{formatSignedAmount(item)}</Text>
+                </Pressable>
+                {index < transactions.length - 1 ? <Separator /> : null}
+              </View>
+            ))}
+            {transactions.length === 0 ? <Text variant="muted">当前分类没有明细。</Text> : null}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function TransactionDetailModal({ transaction, onClose }: { transaction: LedgerTransaction | null; onClose: () => void }) {
+  const theme = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+
+  return (
+    <Modal visible={Boolean(transaction)} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={styles.modalRoot}>
+        <Pressable style={styles.modalBackdrop} onPress={onClose} />
+        <View style={styles.sheet}>
+          <ScrollView contentContainerStyle={styles.sheetContent} showsVerticalScrollIndicator={false}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>明细详情</Text>
+              <Pressable onPress={onClose}>
+                <X color={theme.foreground} size={24} />
+              </Pressable>
+            </View>
+            {transaction ? (
+              <>
+                <DetailMetric label="金额" value={formatSignedAmount(transaction)} />
+                <DetailMetric label="类型" value={transactionTypeLabel(transaction.type)} />
+                <DetailMetric label="分类" value={transaction.categoryName || '--'} />
+                <DetailMetric label="账户" value={transaction.accountName || '--'} />
+                {transaction.targetAccountName ? <DetailMetric label="转入账户" value={transaction.targetAccountName} /> : null}
+                <DetailMetric label="时间" value={transaction.transactionTime?.replace('T', ' ').slice(0, 16) || '--'} />
+                <DetailMetric label="备注" value={transaction.note || '--'} />
+              </>
+            ) : null}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function DetailMetric({ label, value }: { label: string; value: string }) {
+  const theme = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+
+  return (
+    <View style={styles.sheetField}>
+      <Text style={styles.sheetFieldLabel}>{label}</Text>
+      <Text variant="muted">{value}</Text>
+    </View>
   );
 }
 
@@ -881,6 +1004,8 @@ interface TrendPoint {
 }
 
 interface CategoryShare {
+  key: string;
+  categoryId?: string | null;
   name: string;
   amount: number;
   color: string;
@@ -1010,22 +1135,33 @@ function buildCategoryShares(transactions: LedgerTransaction[], type: 'EXPENSE' 
   const colors = type === 'EXPENSE'
     ? ['#ff6b4a', '#ff9f43', '#7c6cff', '#55a6ff', '#f15f86', '#9ca3af']
     : ['#20b26b', '#42c8a0', '#7c6cff', '#55a6ff', '#ff9f43', '#9ca3af'];
-  const grouped = transactions.reduce<Record<string, number>>((map, item) => {
+  const grouped = transactions.reduce<Record<string, { name: string; categoryId?: string | null; amount: number }>>((map, item) => {
     if (item.type !== type) {
       return map;
     }
     const name = item.categoryName || transactionTypeLabel(item.type);
-    map[name] = (map[name] ?? 0) + (item.amount ?? 0);
+    const key = item.categoryId ? String(item.categoryId) : `name:${name}`;
+    map[key] = map[key] || { name, categoryId: item.categoryId ? String(item.categoryId) : null, amount: 0 };
+    map[key].amount += item.amount ?? 0;
     return map;
   }, {});
 
   return Object.entries(grouped)
-    .sort((a, b) => b[1] - a[1])
-    .map(([name, amount], index) => ({
-      name,
-      amount,
+    .sort((a, b) => b[1].amount - a[1].amount)
+    .map(([key, value], index) => ({
+      key,
+      categoryId: value.categoryId,
+      name: value.name,
+      amount: value.amount,
       color: colors[index % colors.length]
     }));
+}
+
+function sameCategory(item: LedgerTransaction, share: CategoryShare) {
+  if (share.categoryId) {
+    return String(item.categoryId ?? '') === share.categoryId;
+  }
+  return (item.categoryName || transactionTypeLabel(item.type)) === share.name;
 }
 
 function buildPolyline(points: TrendPoint[], field: 'income' | 'expense', maxAmount: number, left: number, top: number, width: number, height: number) {
