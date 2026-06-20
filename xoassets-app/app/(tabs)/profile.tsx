@@ -1,5 +1,5 @@
-import { AccountScreen } from '@/features/account';
+import { ProfileScreen } from '@/features/profile';
 
 export default function ProfileTab() {
-  return <AccountScreen />;
+  return <ProfileScreen />;
 }

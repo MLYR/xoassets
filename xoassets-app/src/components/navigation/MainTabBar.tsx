@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { BarChart3, Home, NotebookText, ReceiptText, TrendingUp, WalletCards, X } from 'lucide-react-native';
+import { BarChart3, Home, NotebookText, ReceiptText, TrendingUp, UserRound, WalletCards, X } from 'lucide-react-native';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useState } from 'react';
@@ -12,7 +12,7 @@ const tabItems = [
   { name: 'home', label: '首页', icon: Home },
   { name: 'ledger', label: '记账', icon: NotebookText },
   { name: 'investment', label: '投资', icon: BarChart3 },
-  { name: 'profile', label: '账户', icon: WalletCards }
+  { name: 'profile', label: '我的', icon: UserRound }
 ];
 
 export function MainTabBar({ state, navigation }: BottomTabBarProps) {
