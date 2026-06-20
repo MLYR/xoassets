@@ -146,6 +146,12 @@
 - `GET /api/transactions`
 - `POST /api/transactions`
 - `GET /api/accounts`
+- `GET /api/accounts/overview`
+- `POST /api/accounts`
+- `PUT /api/accounts/{id}`
+- `GET /api/accounts/{id}/ledger`
+- `GET /api/accounts/{id}/flow-statistics`
+- `POST /api/accounts/{id}/balance-adjustments`
 - `GET /api/categories`
 - `GET /api/investments/overview`
 - `GET /api/investments/holdings`

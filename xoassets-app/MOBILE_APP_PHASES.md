@@ -271,6 +271,13 @@ GET /api/transactions
 可以查看账户相关流水
 ```
 
+### 当前实现约定
+
+- 账户页使用 `src/features/account`，通过 TanStack Query 调用后端真实接口。
+- 账户总览使用 `GET /api/accounts/overview`，列表兜底使用 `GET /api/accounts`。
+- 账户详情使用 `GET /api/accounts/{id}/ledger` 和 `GET /api/accounts/{id}/flow-statistics` 展示资金明细与统计。
+- 新增 / 编辑账户使用 `POST /api/accounts`、`PUT /api/accounts/{id}`；余额修正使用 `POST /api/accounts/{id}/balance-adjustments`。
+
 ## 阶段 6：投资管理
 
 ### 目标
