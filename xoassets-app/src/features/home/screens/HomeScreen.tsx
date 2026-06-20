@@ -1,12 +1,12 @@
 import { Redirect, router } from 'expo-router';
 import {
-  Bell,
   BriefcaseBusiness,
   ChevronRight,
   CreditCard,
   Eye,
   EyeOff,
   LineChart,
+  Settings,
   Sparkles,
   Utensils,
   WalletCards
@@ -81,9 +81,8 @@ export function HomeScreen() {
               <Text variant="muted" style={styles.headerSub}>今天也把资产看清楚</Text>
             </View>
           </View>
-          <PressableAnimated style={styles.bellButton} onPress={() => undefined}>
-            <Bell color={theme.foreground} size={26} strokeWidth={2.2} />
-            <View style={styles.bellDot} />
+          <PressableAnimated style={styles.bellButton} onPress={() => router.push('/settings')}>
+            <Settings color={theme.foreground} size={24} strokeWidth={2.2} />
           </PressableAnimated>
         </View>
 
