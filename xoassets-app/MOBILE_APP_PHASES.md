@@ -339,6 +339,13 @@ GET /api/transactions
 可以看到超支提醒
 ```
 
+### 当前实现约定
+
+- 预算页使用 `src/features/budget`，通过 TanStack Query 调用后端真实接口。
+- 本月预算汇总使用 `GET /api/budgets/summary?month=YYYY-MM`，预算列表使用 `GET /api/budgets?month=YYYY-MM`。
+- 新增 / 编辑预算使用 `POST /api/budgets`、`PUT /api/budgets/{id}`。
+- 分类预算只允许选择后端返回的支出分类；总预算提交时不携带分类 ID。
+
 ## 阶段 8：AI 财务报告
 
 ### 目标

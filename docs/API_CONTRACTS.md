@@ -153,6 +153,9 @@
 - `GET /api/accounts/{id}/flow-statistics`
 - `POST /api/accounts/{id}/balance-adjustments`
 - `GET /api/categories`
+- `GET /api/budgets`
+- `POST /api/budgets`
+- `PUT /api/budgets/{id}`
 - `GET /api/investments/overview`
 - `GET /api/investments/holdings`
 - `GET /api/investments/trend`
