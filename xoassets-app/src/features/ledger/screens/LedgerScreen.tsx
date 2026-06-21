@@ -1,5 +1,9 @@
-import { Redirect, useLocalSearchParams } from 'expo-router';
-import { BarChart3, Camera, ChevronLeft, ChevronRight, Edit3, PieChart, ReceiptText, Trash2, WalletCards, X } from 'lucide-react-native';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
+import dayjs from 'dayjs';
+import 'dayjs/locale/zh-cn';
+import { BarChart3, Camera, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Edit3, PieChart, ReceiptText, Trash2, WalletCards, X } from 'lucide-react-native';
+import DateTimePicker from 'react-native-dates-picker';
+import type { DateType } from 'react-native-dates-picker';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,6 +27,9 @@ const transactionTypes: Array<{ label: string; value: LedgerTransactionType }> =
 ];
 
 const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+const emptyLedgerAccounts: LedgerAccount[] = [];
+const emptyLedgerCategories: LedgerCategory[] = [];
+dayjs.locale('zh-cn');
 
 interface LedgerFormState {
   id?: string;
@@ -31,6 +38,7 @@ interface LedgerFormState {
   accountId: string;
   targetAccountId: string;
   categoryId: string;
+  date: string;
   time: string;
   note: string;
 }
@@ -71,8 +79,8 @@ export function LedgerScreen({ initialCompose = false }: { initialCompose?: bool
     deleteMutation
   } = useLedger(selectedDate, isLoggedIn, statsRange);
 
-  const accounts = accountsQuery.data ?? [];
-  const categories = form.type === 'INCOME' ? incomeCategoriesQuery.data ?? [] : expenseCategoriesQuery.data ?? [];
+  const accounts = accountsQuery.data ?? emptyLedgerAccounts;
+  const categories = form.type === 'INCOME' ? incomeCategoriesQuery.data ?? emptyLedgerCategories : expenseCategoriesQuery.data ?? emptyLedgerCategories;
   const transactions = transactionsQuery.data?.records ?? transactionsQuery.data?.list ?? [];
   const monthTransactions = monthTransactionsQuery.data?.records ?? monthTransactionsQuery.data?.list ?? [];
   const statsTransactions = statsTransactionsQuery.data?.records ?? statsTransactionsQuery.data?.list ?? [];
@@ -145,7 +153,7 @@ export function LedgerScreen({ initialCompose = false }: { initialCompose?: bool
   }
 
   async function handleSubmit() {
-    const payload = buildRequest(form, selectedDate);
+    const payload = buildRequest(form);
     if ('error' in payload) {
       setFormError(payload.error);
       return;
@@ -172,11 +180,12 @@ export function LedgerScreen({ initialCompose = false }: { initialCompose?: bool
         accountId: String(item.accountId ?? ''),
         targetAccountId: String(item.targetAccountId ?? ''),
         categoryId: String(item.categoryId ?? ''),
+        date: item.transactionTime?.slice(0, 10) || selectedDate,
         time: formatTimeInput(item.transactionTime),
         note: item.note ?? ''
       });
     } else {
-      setForm(createEmptyForm(accounts));
+      setForm(createEmptyForm(accounts, selectedDate));
     }
     setFormError(null);
     setComposerOpen(true);
@@ -184,7 +193,7 @@ export function LedgerScreen({ initialCompose = false }: { initialCompose?: bool
 
   function closeComposer() {
     setComposerOpen(false);
-    setForm(createEmptyForm(accounts));
+    setForm(createEmptyForm(accounts, selectedDate));
     setFormError(null);
   }
 
@@ -810,93 +819,456 @@ function ComposerSheet({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalRoot}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalRoot}>
         <Pressable style={styles.modalBackdrop} onPress={onClose} />
-        <View style={styles.sheet}>
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.sheetContent}>
+        <View style={[styles.sheet, styles.composerSheet]}>
+          <ScrollView
+            style={styles.sheetScroller}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.sheetContent}
+          >
             <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>{form.id ? '编辑记录' : '添加记录'}</Text>
-              <Pressable onPress={onClose}>
-                <X color={theme.foreground} size={24} />
-              </Pressable>
-            </View>
-            <View style={styles.segmented}>
-              {transactionTypes.map((item) => (
-                <Pressable
-                  key={item.value}
-                  style={[styles.segmentButton, form.type === item.value ? styles.segmentActive : null]}
-                  onPress={() => onChange({ type: item.value, categoryId: '', targetAccountId: '' })}
-                >
-                  <Text style={[styles.segmentText, form.type === item.value ? styles.segmentTextActive : null]}>{item.label}</Text>
+              <Text style={styles.sheetTitle}>{form.id ? '编辑记录' : '记一笔'}</Text>
+              <View style={styles.sheetHeaderActions}>
+                <Pressable style={styles.headerSaveButton} disabled={isSubmitting} onPress={onSubmit}>
+                  <Text style={styles.headerSaveText}>{isSubmitting ? '保存中' : '保存'}</Text>
                 </Pressable>
-              ))}
-            </View>
-            <View style={styles.amountRow}>
-              <Input
-                keyboardType="decimal-pad"
-                placeholder="¥ 0.00"
-                value={form.amount}
-                onChangeText={(amount) => onChange({ amount })}
-                inputStyle={styles.amountInput}
-                containerStyle={styles.amountInputWrap}
-              />
-              <View style={styles.cameraBox}>
-                <Camera color={theme.foreground} size={22} />
-                <Text variant="caption">拍照</Text>
+                <Pressable onPress={onClose}>
+                  <X color={theme.foreground} size={24} />
+                </Pressable>
               </View>
             </View>
-            <SheetField label="分类" value={form.type === 'TRANSFER' ? '转账' : selectedName(categories, form.categoryId) || '请选择分类'} />
-            <ChoiceWrap>
-              {form.type === 'TRANSFER'
-                ? null
-                : categories.map((category) => (
-                    <ChoiceChip
-                      key={String(category.id)}
-                      label={category.name || '未命名分类'}
-                      selected={String(category.id) === form.categoryId}
-                      onPress={() => onChange({ categoryId: String(category.id) })}
-                    />
-                  ))}
-            </ChoiceWrap>
-            <SheetField label="账户" value={selectedName(accounts, form.accountId) || '默认账户'} />
-            <ChoiceWrap>
-              {accounts.map((account) => (
-                <ChoiceChip
-                  key={String(account.id)}
-                  label={account.name || '未命名账户'}
-                  selected={String(account.id) === form.accountId}
-                  onPress={() => onChange({ accountId: String(account.id) })}
-                />
-              ))}
-            </ChoiceWrap>
-            {form.type === 'TRANSFER' ? (
-              <>
-                <SheetField label="转入账户" value={selectedName(accounts, form.targetAccountId) || '请选择账户'} />
-                <ChoiceWrap>
-                  {accounts
-                    .filter((account) => String(account.id) !== form.accountId)
-                    .map((account) => (
-                      <ChoiceChip
-                        key={String(account.id)}
-                        label={account.name || '未命名账户'}
-                        selected={String(account.id) === form.targetAccountId}
-                        onPress={() => onChange({ targetAccountId: String(account.id) })}
-                      />
-                    ))}
-                </ChoiceWrap>
-              </>
-            ) : null}
-            <SheetField label="时间" value={form.time} />
-            <Input placeholder="HH:mm" value={form.time} onChangeText={(time) => onChange({ time })} />
-            <Input label="备注" placeholder="可选" value={form.note} onChangeText={(note) => onChange({ note })} />
+            <LedgerComposerFields form={form} accounts={accounts} categories={categories} onChange={onChange} />
+          </ScrollView>
+          <View style={styles.sheetFooter}>
             {formError ? <Text variant="error">{formError}</Text> : null}
             <Button loading={isSubmitting} onPress={onSubmit}>
               保存
             </Button>
-          </ScrollView>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </Modal>
+  );
+}
+
+function LedgerComposerFields({
+  form,
+  accounts,
+  categories,
+  onChange
+}: {
+  form: LedgerFormState;
+  accounts: LedgerAccount[];
+  categories: LedgerCategory[];
+  onChange: (patch: Partial<LedgerFormState>) => void;
+}) {
+  const theme = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+  const [openSelect, setOpenSelect] = useState<'category' | 'account' | 'targetAccount' | null>(null);
+  const [openPicker, setOpenPicker] = useState<'datetime' | null>(null);
+  const accountOptions = useMemo(
+    () => accounts.map((account) => ({ id: String(account.id), label: account.name || '未命名账户' })),
+    [accounts]
+  );
+  const categoryOptions = useMemo(
+    () => categories.map((category) => ({ id: String(category.id), label: category.name || '未命名分类' })),
+    [categories]
+  );
+  const targetAccountOptions = useMemo(
+    () => accounts
+      .filter((account) => String(account.id) !== form.accountId)
+      .map((account) => ({ id: String(account.id), label: account.name || '未命名账户' })),
+    [accounts, form.accountId]
+  );
+
+  function toggleSelect(key: 'category' | 'account' | 'targetAccount') {
+    setOpenPicker(null);
+    setOpenSelect((current) => (current === key ? null : key));
+  }
+
+  function togglePicker() {
+    setOpenSelect(null);
+    setOpenPicker((current) => (current === 'datetime' ? null : 'datetime'));
+  }
+
+  return (
+    <>
+      <View style={styles.segmented}>
+        {transactionTypes.map((item) => (
+          <Pressable
+            key={item.value}
+            style={[styles.segmentButton, form.type === item.value ? styles.segmentActive : null]}
+            onPress={() => {
+              setOpenSelect(null);
+              setOpenPicker(null);
+              onChange({ type: item.value, categoryId: '', targetAccountId: '' });
+            }}
+          >
+            <Text style={[styles.segmentText, form.type === item.value ? styles.segmentTextActive : null]}>{item.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+      <View style={styles.amountRow}>
+        <Input
+          keyboardType="decimal-pad"
+          placeholder="¥ 0.00"
+          value={form.amount}
+          onChangeText={(amount) => onChange({ amount })}
+          inputStyle={styles.amountInput}
+          containerStyle={styles.amountInputWrap}
+        />
+        <View style={styles.cameraBox}>
+          <Camera color={theme.foreground} size={22} />
+          <Text variant="caption">拍照</Text>
+        </View>
+      </View>
+      {form.type === 'TRANSFER' ? (
+        <SheetField label="分类" value="转账" />
+      ) : (
+        <SelectField
+          label="分类"
+          value={selectedName(categories, form.categoryId) || '请选择分类'}
+          open={openSelect === 'category'}
+          options={categoryOptions}
+          selectedId={form.categoryId}
+          emptyText="暂无可用分类"
+          onToggle={() => toggleSelect('category')}
+          onSelect={(categoryId) => {
+            onChange({ categoryId });
+            setOpenSelect(null);
+          }}
+        />
+      )}
+      <SelectField
+        label="账户"
+        value={selectedName(accounts, form.accountId) || '请选择账户'}
+        open={openSelect === 'account'}
+        options={accountOptions}
+        selectedId={form.accountId}
+        emptyText="暂无可用账户"
+        onToggle={() => toggleSelect('account')}
+        onSelect={(accountId) => {
+          onChange({ accountId });
+          setOpenSelect(null);
+        }}
+      />
+      {form.type === 'TRANSFER' ? (
+        <SelectField
+          label="转入账户"
+          value={selectedName(accounts, form.targetAccountId) || '请选择账户'}
+          open={openSelect === 'targetAccount'}
+          options={targetAccountOptions}
+          selectedId={form.targetAccountId}
+          emptyText="暂无可用转入账户"
+          onToggle={() => toggleSelect('targetAccount')}
+          onSelect={(targetAccountId) => {
+            onChange({ targetAccountId });
+            setOpenSelect(null);
+          }}
+        />
+      ) : null}
+      <DateTimeField
+        date={form.date}
+        time={form.time}
+        open={openPicker === 'datetime'}
+        onToggle={togglePicker}
+        onChange={onChange}
+      />
+      <Input label="备注" placeholder="可选" value={form.note} onChangeText={(note) => onChange({ note })} />
+    </>
+  );
+}
+
+export function LedgerQuickComposer({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const { isLoggedIn } = useAuthStore();
+  const selectedDate = useMemo(() => formatDate(new Date()), [visible]);
+  const [form, setForm] = useState<LedgerFormState>(() => createEmptyForm());
+  const [formError, setFormError] = useState<string | null>(null);
+  const {
+    accountsQuery,
+    expenseCategoriesQuery,
+    incomeCategoriesQuery,
+    createMutation
+  } = useLedger(selectedDate, visible && isLoggedIn, getStatsRange(selectedDate, 'month'));
+  const accounts = accountsQuery.data ?? emptyLedgerAccounts;
+  const categories = form.type === 'INCOME' ? incomeCategoriesQuery.data ?? emptyLedgerCategories : expenseCategoriesQuery.data ?? emptyLedgerCategories;
+
+  useEffect(() => {
+    if (visible) {
+      setForm(createEmptyForm(accounts, selectedDate));
+      setFormError(null);
+    }
+  }, [accounts, selectedDate, visible]);
+
+  useEffect(() => {
+    setForm((current) => ({
+      ...current,
+      accountId: current.accountId || String(accounts[0]?.id ?? ''),
+      targetAccountId: current.targetAccountId || String(accounts.find((account) => String(account.id) !== current.accountId)?.id ?? '')
+    }));
+  }, [accounts]);
+
+  useEffect(() => {
+    setForm((current) => {
+      if (current.type === 'TRANSFER') {
+        return { ...current, categoryId: '' };
+      }
+      return {
+        ...current,
+        categoryId: current.categoryId || String(categories[0]?.id ?? '')
+      };
+    });
+  }, [categories, form.type]);
+
+  function updateForm(patch: Partial<LedgerFormState>) {
+    setForm((current) => ({ ...current, ...patch }));
+    setFormError(null);
+  }
+
+  async function handleSubmit() {
+    const payload = buildRequest(form);
+    if ('error' in payload) {
+      setFormError(payload.error);
+      return;
+    }
+    try {
+      await createMutation.mutateAsync(payload.data);
+      onClose();
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : '保存流水失败');
+    }
+  }
+
+  return (
+    <ComposerSheet
+      visible={visible}
+      form={form}
+      formError={formError}
+      accounts={accounts}
+      categories={categories}
+      isSubmitting={createMutation.isPending}
+      onClose={onClose}
+      onChange={updateForm}
+      onSubmit={handleSubmit}
+    />
+  );
+}
+
+export function LedgerComposePage() {
+  const theme = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+  const { isHydrated, isLoggedIn, restoreToken } = useAuthStore();
+  const selectedDate = useMemo(() => formatDate(new Date()), []);
+  const [form, setForm] = useState<LedgerFormState>(() => createEmptyForm());
+  const [formError, setFormError] = useState<string | null>(null);
+  const {
+    accountsQuery,
+    expenseCategoriesQuery,
+    incomeCategoriesQuery,
+    createMutation
+  } = useLedger(selectedDate, isLoggedIn, getStatsRange(selectedDate, 'month'));
+  const accounts = accountsQuery.data ?? emptyLedgerAccounts;
+  const categories = form.type === 'INCOME' ? incomeCategoriesQuery.data ?? emptyLedgerCategories : expenseCategoriesQuery.data ?? emptyLedgerCategories;
+
+  useEffect(() => {
+    restoreToken();
+  }, [restoreToken]);
+
+  useEffect(() => {
+    setForm((current) => ({
+      ...current,
+      accountId: current.accountId || String(accounts[0]?.id ?? ''),
+      targetAccountId: current.targetAccountId || String(accounts.find((account) => String(account.id) !== current.accountId)?.id ?? '')
+    }));
+  }, [accounts]);
+
+  useEffect(() => {
+    setForm((current) => {
+      if (current.type === 'TRANSFER') {
+        return { ...current, categoryId: '' };
+      }
+      return {
+        ...current,
+        categoryId: current.categoryId || String(categories[0]?.id ?? '')
+      };
+    });
+  }, [categories, form.type]);
+
+  if (!isHydrated) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator color={theme.primary} />
+      </View>
+    );
+  }
+
+  if (!isLoggedIn) {
+    return <Redirect href="/login" />;
+  }
+
+  function updateForm(patch: Partial<LedgerFormState>) {
+    setForm((current) => ({ ...current, ...patch }));
+    setFormError(null);
+  }
+
+  async function handleSubmit() {
+    const payload = buildRequest(form);
+    if ('error' in payload) {
+      setFormError(payload.error);
+      return;
+    }
+
+    try {
+      await createMutation.mutateAsync(payload.data);
+      router.back();
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : '保存流水失败');
+    }
+  }
+
+  return (
+    <SafeAreaView edges={['top', 'left', 'right']} style={styles.page}>
+      <GridBackdrop color={theme.border} />
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.pageComposerRoot}>
+        <View style={styles.pageComposerHeader}>
+          <Pressable style={styles.pageHeaderSide} onPress={() => router.back()}>
+            <ChevronLeft color={theme.foreground} size={22} />
+          </Pressable>
+          <Text style={styles.sheetTitle}>记一笔</Text>
+          <View style={styles.pageHeaderSide} />
+        </View>
+        <ScrollView
+          style={styles.pageComposerScroll}
+          contentContainerStyle={styles.pageComposerContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <LedgerComposerFields form={form} accounts={accounts} categories={categories} onChange={updateForm} />
+          {formError ? <Text variant="error">{formError}</Text> : null}
+          {/* Android 当前运行态下 Pressable 外层样式可能不稳定，按钮视觉改由内部 View 承载。 */}
+          <Pressable
+            style={styles.pageComposerSubmitHitArea}
+            disabled={createMutation.isPending}
+            onPress={handleSubmit}
+          >
+            <View style={[styles.pageComposerSubmitButton, createMutation.isPending ? styles.pageComposerSubmitButtonDisabled : null]}>
+              {createMutation.isPending ? <ActivityIndicator color="#ffffff" /> : null}
+              <Text style={styles.pageComposerSubmitText}>{createMutation.isPending ? '保存中' : '保存'}</Text>
+            </View>
+          </Pressable>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+function DateTimeField({
+  date,
+  time,
+  open,
+  onToggle,
+  onChange
+}: {
+  date: string;
+  time: string;
+  open: boolean;
+  onToggle: () => void;
+  onChange: (patch: Partial<LedgerFormState>) => void;
+}) {
+  const theme = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+  const pickerValue = useMemo(() => toPickerValue(date, time), [date, time]);
+
+  return (
+    <View style={styles.pickerField}>
+      <Pressable style={styles.sheetField} onPress={onToggle}>
+        <Text style={styles.sheetFieldLabel}>日期时间</Text>
+        <View style={styles.selectValue}>
+          <Text variant="muted" style={styles.selectValueText} numberOfLines={1}>{formatDateTimeLabel(date, time)}</Text>
+          {open ? <ChevronUp color={theme.mutedForeground} size={18} /> : <ChevronDown color={theme.mutedForeground} size={18} />}
+        </View>
+      </Pressable>
+      {open ? (
+        <View style={styles.pickerPanel}>
+          <DateTimePicker
+            mode="single"
+            locale="zh-cn"
+            date={pickerValue}
+            format="YYYY-MM-DD HH:mm:ss"
+            height={320}
+            headerButtonsPosition="right"
+            timePicker
+            onChange={({ date: nextDate }) => onChange(toPickerPatch(nextDate, date, time))}
+            containerStyle={styles.pickerContainer}
+            headerTextStyle={styles.pickerHeaderText}
+            weekDaysTextStyle={styles.pickerWeekdayText}
+            calendarTextStyle={styles.pickerCalendarText}
+            selectedTextStyle={styles.pickerSelectedText}
+            selectedItemColor={theme.foreground}
+            todayTextStyle={styles.pickerTodayText}
+            wheelPickerContainerStyle={styles.wheelPickerContainer}
+            wheelPickerTextStyle={styles.wheelPickerText}
+            wheelPickerSelectedIndicatorStyle={styles.wheelPickerIndicator}
+          />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  open,
+  options,
+  selectedId,
+  emptyText,
+  onToggle,
+  onSelect
+}: {
+  label: string;
+  value: string;
+  open: boolean;
+  options: Array<{ id: string; label: string }>;
+  selectedId: string;
+  emptyText: string;
+  onToggle: () => void;
+  onSelect: (id: string) => void;
+}) {
+  const theme = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+
+  return (
+    <View style={styles.selectBox}>
+      <Pressable style={styles.sheetField} onPress={onToggle}>
+        <Text style={styles.sheetFieldLabel}>{label}</Text>
+        <View style={styles.selectValue}>
+          <Text variant="muted" style={styles.selectValueText} numberOfLines={1}>{value}</Text>
+          {open ? <ChevronUp color={theme.mutedForeground} size={18} /> : <ChevronDown color={theme.mutedForeground} size={18} />}
+        </View>
+      </Pressable>
+      {open ? (
+        <View style={styles.optionList}>
+          {options.length > 0 ? (
+            <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
+              {options.map((option) => (
+                <Pressable
+                  key={option.id}
+                  style={[styles.optionRow, option.id === selectedId ? styles.optionRowSelected : null]}
+                  onPress={() => onSelect(option.id)}
+                >
+                  <Text style={[styles.optionText, option.id === selectedId ? styles.optionTextSelected : null]}>{option.label}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          ) : (
+            <Text variant="muted" style={styles.emptyOption}>{emptyText}</Text>
+          )}
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -909,23 +1281,6 @@ function SheetField({ label, value }: { label: string; value: string }) {
       <Text style={styles.sheetFieldLabel}>{label}</Text>
       <Text variant="muted">{value} ›</Text>
     </View>
-  );
-}
-
-function ChoiceWrap({ children }: { children: React.ReactNode }) {
-  return <View style={stylesStatic.choiceWrap}>{children}</View>;
-}
-
-function ChoiceChip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
-  const theme = useTheme();
-  const styles = useMemo(() => createStyles(theme), [theme]);
-
-  return (
-    <Pressable style={[styles.choiceChip, selected ? styles.choiceChipSelected : null]} onPress={onPress}>
-      <Text style={[styles.choiceText, selected ? styles.choiceTextSelected : null]} numberOfLines={1}>
-        {label}
-      </Text>
-    </Pressable>
   );
 }
 
@@ -942,19 +1297,20 @@ function GridBackdrop({ color }: { color: string }) {
   );
 }
 
-function createEmptyForm(accounts: LedgerAccount[] = []): LedgerFormState {
+function createEmptyForm(accounts: LedgerAccount[] = [], date = formatDate(new Date())): LedgerFormState {
   return {
     type: 'EXPENSE',
     amount: '',
     accountId: String(accounts[0]?.id ?? ''),
     targetAccountId: String(accounts[1]?.id ?? ''),
     categoryId: '',
+    date,
     time: formatTimeInput(new Date().toISOString()),
     note: ''
   };
 }
 
-function buildRequest(form: LedgerFormState, selectedDate: string): { data: LedgerTransactionRequest } | { error: string } {
+function buildRequest(form: LedgerFormState): { data: LedgerTransactionRequest } | { error: string } {
   const amount = Number(form.amount);
   if (!Number.isFinite(amount) || amount <= 0) {
     return { error: '金额必须大于 0' };
@@ -972,6 +1328,9 @@ function buildRequest(form: LedgerFormState, selectedDate: string): { data: Ledg
   } else if (!form.categoryId) {
     return { error: '请选择分类' };
   }
+  if (!isValidDateInput(form.date)) {
+    return { error: '日期格式必须是 YYYY-MM-DD' };
+  }
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(form.time)) {
     return { error: '时间格式必须是 HH:mm' };
   }
@@ -983,7 +1342,7 @@ function buildRequest(form: LedgerFormState, selectedDate: string): { data: Ledg
       accountId: form.accountId,
       targetAccountId: form.type === 'TRANSFER' ? form.targetAccountId : null,
       categoryId: form.type === 'TRANSFER' ? null : form.categoryId,
-      transactionTime: `${selectedDate}T${form.time}:00`,
+      transactionTime: `${form.date}T${form.time}:00`,
       note: form.note.trim() || null
     }
   };
@@ -1344,6 +1703,14 @@ function parseDate(value: string) {
   return new Date(year, month - 1, day);
 }
 
+function isValidDateInput(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+  const parsed = parseDate(value);
+  return !Number.isNaN(parsed.getTime()) && formatDate(parsed) === value;
+}
+
 function addDays(date: Date, days: number) {
   const next = new Date(date);
   next.setDate(date.getDate() + days);
@@ -1386,6 +1753,35 @@ function formatTimeInput(value?: string | null) {
   return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
+function toPickerValue(date: string, time: string) {
+  const fallback = dayjs();
+  const value = dayjs(`${date}T${time}:00`);
+  return value.isValid() ? value : fallback;
+}
+
+function toPickerPatch(value: DateType, fallbackDate: string, fallbackTime: string): Partial<LedgerFormState> {
+  const parsed = dayjs(value);
+  if (!parsed.isValid()) {
+    return { date: fallbackDate, time: fallbackTime };
+  }
+  return {
+    date: parsed.format('YYYY-MM-DD'),
+    time: parsed.format('HH:mm')
+  };
+}
+
+function formatDateTimeLabel(date: string, time: string) {
+  if (!isValidDateInput(date)) {
+    return '请选择日期时间';
+  }
+  const parsed = parseDate(date);
+  const today = formatDate(new Date());
+  const tomorrow = formatDate(addDays(new Date(), 1));
+  const yesterday = formatDate(addDays(new Date(), -1));
+  const prefix = date === today ? '今天' : date === tomorrow ? '明天' : date === yesterday ? '昨天' : weekdays[parsed.getDay()];
+  return `${prefix} ${parsed.getMonth() + 1}月${parsed.getDate()}日 ${time}`;
+}
+
 const createStyles = (theme: ReturnType<typeof useTheme>) =>
   StyleSheet.create({
     page: {
@@ -1402,6 +1798,55 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
       gap: 14,
       padding: 16,
       paddingBottom: 28
+    },
+    pageComposerRoot: {
+      flex: 1,
+      position: 'relative'
+    },
+    pageComposerHeader: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingTop: 8,
+      paddingBottom: 12
+    },
+    pageHeaderSide: {
+      alignItems: 'center',
+      height: 36,
+      justifyContent: 'center',
+      width: 36
+    },
+    pageComposerScroll: {
+      flex: 1
+    },
+    pageComposerContent: {
+      gap: 12,
+      paddingHorizontal: 16,
+      paddingBottom: 28
+    },
+    pageComposerSubmitHitArea: {
+      alignSelf: 'stretch',
+      marginTop: 4
+    },
+    pageComposerSubmitButton: {
+      alignItems: 'center',
+      backgroundColor: '#111111',
+      borderColor: '#111111',
+      borderRadius: 8,
+      borderWidth: 1,
+      flexDirection: 'row',
+      gap: 8,
+      justifyContent: 'center',
+      minHeight: 52
+    },
+    pageComposerSubmitButtonDisabled: {
+      opacity: 0.5
+    },
+    pageComposerSubmitText: {
+      color: '#ffffff',
+      fontSize: theme.tokens.fontSize.subtitle,
+      fontWeight: '700'
     },
     header: {
       alignItems: 'center',
@@ -1822,15 +2267,55 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
       borderTopRightRadius: 22,
       maxHeight: '86%'
     },
+    composerSheet: {
+      height: '86%',
+      overflow: 'hidden',
+      position: 'relative'
+    },
+    sheetScroller: {
+      flex: 1,
+      marginBottom: 88
+    },
     sheetContent: {
       gap: 12,
       padding: 16,
-      paddingBottom: 28
+      paddingBottom: 24
+    },
+    // 真机小屏上保存按钮需要脱离内容滚动区，避免被下拉内容挤出可视范围。
+    sheetFooter: {
+      backgroundColor: theme.card,
+      borderTopColor: theme.border,
+      borderTopWidth: 1,
+      bottom: 0,
+      gap: 10,
+      left: 0,
+      padding: 16,
+      paddingTop: 12,
+      position: 'absolute',
+      right: 0
     },
     sheetHeader: {
       alignItems: 'center',
       flexDirection: 'row',
       justifyContent: 'space-between'
+    },
+    sheetHeaderActions: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 16
+    },
+    headerSaveButton: {
+      alignItems: 'center',
+      backgroundColor: theme.foreground,
+      borderRadius: 8,
+      justifyContent: 'center',
+      minHeight: 36,
+      paddingHorizontal: 14
+    },
+    headerSaveText: {
+      color: theme.primaryForeground,
+      fontSize: 14,
+      fontWeight: '800'
     },
     sheetTitle: {
       color: theme.foreground,
@@ -1873,25 +2358,101 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
       fontSize: 15,
       fontWeight: '800'
     },
-    choiceChip: {
-      backgroundColor: theme.secondary,
+    selectValue: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      flexShrink: 1,
+      gap: 6,
+      justifyContent: 'flex-end',
+      marginLeft: 12
+    },
+    selectValueText: {
+      flexShrink: 1,
+      maxWidth: 190
+    },
+    selectBox: {
+      gap: 6
+    },
+    pickerField: {
+      gap: 6
+    },
+    pickerPanel: {
+      backgroundColor: theme.card,
       borderColor: theme.border,
-      borderRadius: 16,
+      borderRadius: 8,
       borderWidth: 1,
-      paddingHorizontal: 12,
-      paddingVertical: 8
+      overflow: 'hidden',
+      paddingHorizontal: 4,
+      paddingVertical: 2
     },
-    choiceChipSelected: {
-      backgroundColor: theme.primary,
-      borderColor: theme.primary
+    pickerContainer: {
+      backgroundColor: 'transparent'
     },
-    choiceText: {
+    pickerHeaderText: {
       color: theme.foreground,
-      fontSize: 13,
+      fontSize: 15,
+      fontWeight: '800'
+    },
+    pickerWeekdayText: {
+      color: theme.mutedForeground,
+      fontSize: 12,
       fontWeight: '700'
     },
-    choiceTextSelected: {
-      color: theme.primaryForeground
+    pickerCalendarText: {
+      color: theme.foreground,
+      fontSize: 15,
+      fontWeight: '700'
+    },
+    pickerSelectedText: {
+      color: theme.primaryForeground,
+      fontWeight: '800'
+    },
+    pickerTodayText: {
+      color: theme.foreground,
+      fontWeight: '800'
+    },
+    wheelPickerContainer: {
+      minHeight: 160
+    },
+    wheelPickerText: {
+      color: theme.foreground,
+      fontSize: 15,
+      fontWeight: '800'
+    },
+    wheelPickerIndicator: {
+      backgroundColor: theme.secondary,
+      borderColor: theme.border,
+      borderRadius: 8,
+      borderWidth: 1
+    },
+    optionList: {
+      backgroundColor: theme.card,
+      borderColor: theme.border,
+      borderRadius: 8,
+      borderWidth: 1,
+      // 下拉项内部滚动，避免分类或账户过多时撑高整张表单。
+      maxHeight: 180,
+      overflow: 'hidden'
+    },
+    optionRow: {
+      justifyContent: 'center',
+      minHeight: 44,
+      paddingHorizontal: 12
+    },
+    optionRowSelected: {
+      backgroundColor: theme.secondary
+    },
+    optionText: {
+      color: theme.foreground,
+      fontSize: 14,
+      fontWeight: '700'
+    },
+    optionTextSelected: {
+      color: theme.foreground
+    },
+    emptyOption: {
+      paddingHorizontal: 12,
+      paddingVertical: 12
     }
   });
 
@@ -1909,11 +2470,6 @@ const stylesStatic = StyleSheet.create({
     opacity: 0.45,
     position: 'absolute',
     right: 0
-  },
-  choiceWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8
   },
   summaryBlock: {
     flex: 1,

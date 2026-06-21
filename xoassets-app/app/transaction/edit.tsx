@@ -1,5 +1,5 @@
-import { LedgerScreen } from '@/features/ledger';
+import { LedgerComposePage } from '@/features/ledger';
 
 export default function TransactionEditPage() {
-  return <LedgerScreen initialCompose />;
+  return <LedgerComposePage />;
 }
