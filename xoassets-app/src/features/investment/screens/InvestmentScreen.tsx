@@ -1,8 +1,10 @@
 import { Redirect, useLocalSearchParams } from 'expo-router';
 import {
   CalendarDays,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Eye,
   EyeOff,
   LineChart,
@@ -34,7 +36,8 @@ import type {
   InvestmentPeriod,
   InvestmentTransactionItem,
   InvestmentTransactionRequest,
-  LedgerAccount
+  LedgerAccount,
+  QuoteSource
 } from '../api/investmentTypes';
 import { useInvestment } from '../hooks/useInvestment';
 
@@ -53,6 +56,21 @@ const periods: Array<{ label: string; value: InvestmentPeriod }> = [
   { label: '全部', value: 'ALL' }
 ];
 
+const currencyOptions = [
+  { label: '人民币 CNY', value: 'CNY' },
+  { label: '美元 USD', value: 'USD' },
+  { label: '港币 HKD', value: 'HKD' },
+  { label: '欧元 EUR', value: 'EUR' }
+];
+
+const quoteSourceOptions: Array<{ label: string; value: QuoteSource }> = [
+  { label: '手动维护', value: 'MANUAL' },
+  { label: '天天基金', value: 'EASTMONEY' },
+  { label: '新浪行情', value: 'SINA' },
+  { label: 'Yahoo Finance', value: 'YAHOO' },
+  { label: 'CoinGecko', value: 'COINGECKO' }
+];
+
 const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
 
 type ChartMode = 'asset' | 'profit' | 'calendar';
@@ -67,6 +85,8 @@ interface TransactionFormState {
   accountId: string;
   keyword: string;
   market: string;
+  currency: string;
+  quoteSource: QuoteSource;
   inputMode: 'QUANTITY_PRICE' | 'AMOUNT_NAV';
   tradeAmount: string;
   quantity: string;
@@ -220,6 +240,8 @@ export function InvestmentScreen({ initialCompose = false }: { initialCompose?: 
         ...current,
         keyword: assetName(first),
         market: first.market || current.market,
+        currency: first.currency || current.currency,
+        quoteSource: first.quoteSource || current.quoteSource,
         price: first.latestPrice === null || first.latestPrice === undefined ? current.price : String(first.latestPrice),
         assetId: '',
         holdingId: ''
@@ -272,8 +294,8 @@ export function InvestmentScreen({ initialCompose = false }: { initialCompose?: 
         name: selectedLookup.name || current.keyword.trim(),
         type: assetType,
         market: selectedLookup.market || current.market.trim() || 'UNKNOWN',
-        currency: selectedLookup.currency || 'CNY',
-        quoteSource: selectedLookup.quoteSource || 'MANUAL',
+        currency: current.currency || selectedLookup.currency || 'CNY',
+        quoteSource: current.quoteSource || selectedLookup.quoteSource || 'MANUAL',
         quoteKey: selectedLookup.quoteKey || selectedLookup.symbol || current.keyword.trim()
       });
       assetId = String(createdAsset.id);
@@ -1031,21 +1053,36 @@ function TransactionComposer({
   const styles = useMemo(() => createStyles(theme), [theme]);
   const selectedHolding = holdings.find((item) => String(item.id) === form.holdingId);
   const isFundAmount = form.assetType === 'FUND' && form.type === 'BUY' && form.inputMode === 'AMOUNT_NAV';
+  const [openSelect, setOpenSelect] = useState<'holding' | 'account' | 'currency' | 'quoteSource' | null>(null);
+  const holdingOptions = useMemo(
+    () => holdings.map((item) => ({
+      label: [item.assetName || item.symbol || '未命名持仓', item.symbol].filter(Boolean).join(' · '),
+      value: String(item.id)
+    })),
+    [holdings]
+  );
+  const accountOptions = useMemo(
+    () => accounts.map((account) => ({
+      label: `${account.name || '未命名账户'} · ${account.currency || 'CNY'}`,
+      value: String(account.id)
+    })),
+    [accounts]
+  );
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalRoot}>
         <View style={styles.modalBackdrop} />
         <View style={styles.composerSheet}>
-          <View style={styles.rowBetween}>
+          <View style={styles.composerHeader}>
             <View>
-              <Text style={styles.sheetTitle}>投资交易</Text>
+              <Text style={styles.sheetTitle}>新增投资交易</Text>
               <Text variant="muted">买入会扣减资金账户，卖出会回到账户余额。</Text>
             </View>
             <Pressable style={styles.closeButton} onPress={onClose}><X color={theme.foreground} size={22} /></Pressable>
           </View>
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.formContent}>
-            <View style={styles.choiceRow}>
+          <ScrollView style={styles.composerScroll} showsVerticalScrollIndicator={false} contentContainerStyle={styles.formContent} keyboardShouldPersistTaps="handled">
+            <View style={styles.tradeTypeRow}>
               <ChoicePill label="买入" active={form.type === 'BUY'} onPress={() => onChange({ ...form, type: 'BUY' })} />
               <ChoicePill label="卖出" active={form.type === 'SELL'} onPress={() => onChange({ ...form, type: 'SELL', source: 'HOLDING' })} />
             </View>
@@ -1056,12 +1093,26 @@ function TransactionComposer({
 
             {form.source === 'HOLDING' ? (
               <View style={styles.selectorBlock}>
-                <Text variant="muted">选择持仓</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorRow}>
-                  {holdings.map((item) => (
-                    <ChoicePill key={String(item.id)} label={item.assetName || item.symbol || '--'} active={form.holdingId === String(item.id)} onPress={() => onChange({ ...form, holdingId: String(item.id), assetId: String(item.assetId), assetType: normalizeAssetType(item.assetType) })} />
-                  ))}
-                </ScrollView>
+                <DropdownField
+                  label="选择持仓"
+                  value={selectedHolding ? selectedHolding.assetName || selectedHolding.symbol || '未命名持仓' : '请选择持仓'}
+                  open={openSelect === 'holding'}
+                  options={holdingOptions}
+                  selectedValue={form.holdingId}
+                  emptyText="暂无可用持仓"
+                  onToggle={() => setOpenSelect((current) => current === 'holding' ? null : 'holding')}
+                  onSelect={(holdingId) => {
+                    const holding = holdings.find((item) => String(item.id) === holdingId);
+                    onChange({
+                      ...form,
+                      holdingId,
+                      assetId: String(holding?.assetId ?? ''),
+                      assetType: normalizeAssetType(holding?.assetType),
+                      currency: holding?.currency || form.currency
+                    });
+                    setOpenSelect(null);
+                  }}
+                />
                 {selectedHolding ? <Text variant="caption">{selectedHolding.symbol || '--'} · {moduleLabel(normalizeAssetType(selectedHolding.assetType) as InvestmentModule)}</Text> : null}
               </View>
             ) : (
@@ -1078,10 +1129,45 @@ function TransactionComposer({
               </View>
             )}
 
-            <Text variant="muted">资金账户</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorRow}>
-              {accounts.map((account) => <ChoicePill key={String(account.id)} label={account.name || '--'} active={form.accountId === String(account.id)} onPress={() => onChange({ ...form, accountId: String(account.id) })} />)}
-            </ScrollView>
+            <DropdownField
+              label="资金账户"
+              value={selectedAccountName(accounts, form.accountId) || '请选择资金账户'}
+              open={openSelect === 'account'}
+              options={accountOptions}
+              selectedValue={form.accountId}
+              emptyText="暂无可用资金账户"
+              onToggle={() => setOpenSelect((current) => current === 'account' ? null : 'account')}
+              onSelect={(accountId) => {
+                onChange({ ...form, accountId });
+                setOpenSelect(null);
+              }}
+            />
+            <View style={styles.twoColumns}>
+              <DropdownField
+                label="币种"
+                value={currencyLabel(form.currency)}
+                open={openSelect === 'currency'}
+                options={currencyOptions}
+                selectedValue={form.currency}
+                onToggle={() => setOpenSelect((current) => current === 'currency' ? null : 'currency')}
+                onSelect={(currency) => {
+                  onChange({ ...form, currency });
+                  setOpenSelect(null);
+                }}
+              />
+              <DropdownField
+                label="行情来源"
+                value={quoteSourceLabel(form.quoteSource)}
+                open={openSelect === 'quoteSource'}
+                options={quoteSourceOptions}
+                selectedValue={form.quoteSource}
+                onToggle={() => setOpenSelect((current) => current === 'quoteSource' ? null : 'quoteSource')}
+                onSelect={(quoteSource) => {
+                  onChange({ ...form, quoteSource });
+                  setOpenSelect(null);
+                }}
+              />
+            </View>
 
             {form.assetType === 'FUND' && form.type === 'BUY' ? (
               <View style={styles.choiceRow}>
@@ -1103,12 +1189,64 @@ function TransactionComposer({
               <Input containerStyle={styles.columnInput} label="交易时间" value={form.time} onChangeText={(time) => onChange({ ...form, time })} placeholder="YYYY-MM-DD HH:mm" />
             </View>
             <Input label="备注" value={form.note} onChangeText={(note) => onChange({ ...form, note })} placeholder="可选" />
+          </ScrollView>
+          <View style={styles.composerFooter}>
             {formError ? <Text variant="error">{formError}</Text> : null}
             <Button size="lg" loading={loading} onPress={onSubmit}>保存交易</Button>
-          </ScrollView>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </Modal>
+  );
+}
+
+function DropdownField({
+  label,
+  value,
+  open,
+  options,
+  selectedValue,
+  emptyText = '暂无可选项',
+  onToggle,
+  onSelect
+}: {
+  label: string;
+  value: string;
+  open: boolean;
+  options: Array<{ label: string; value: string }>;
+  selectedValue: string;
+  emptyText?: string;
+  onToggle: () => void;
+  onSelect: (value: string) => void;
+}) {
+  const theme = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+
+  return (
+    <View style={styles.dropdownBox}>
+      <Pressable style={styles.dropdownField} onPress={onToggle}>
+        <Text style={styles.sheetFieldLabel}>{label}</Text>
+        <View style={styles.dropdownValue}>
+          <Text variant="muted" style={styles.dropdownText} numberOfLines={1}>{value}</Text>
+          {open ? <ChevronUp color={theme.mutedForeground} size={18} /> : <ChevronDown color={theme.mutedForeground} size={18} />}
+        </View>
+      </Pressable>
+      {open ? (
+        <View style={styles.optionList}>
+          {options.length > 0 ? (
+            <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
+              {options.map((option) => (
+                <Pressable key={option.value} style={[styles.optionRow, option.value === selectedValue ? styles.optionRowSelected : null]} onPress={() => onSelect(option.value)}>
+                  <Text style={[styles.optionText, option.value === selectedValue ? styles.optionTextSelected : null]} numberOfLines={1}>{option.label}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          ) : (
+            <Text variant="muted" style={styles.emptyOption}>{emptyText}</Text>
+          )}
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -1215,6 +1353,8 @@ function createEmptyForm(): TransactionFormState {
     accountId: '',
     keyword: '',
     market: '',
+    currency: 'CNY',
+    quoteSource: 'MANUAL',
     inputMode: 'QUANTITY_PRICE',
     tradeAmount: '',
     quantity: '',
@@ -1410,6 +1550,21 @@ function assetName(item: AssetLookupItem) {
   return [item.name, item.symbol].filter(Boolean).join(' ') || '--';
 }
 
+function selectedAccountName(accounts: LedgerAccount[], accountId: string) {
+  const account = accounts.find((item) => String(item.id) === accountId);
+  return account ? `${account.name || '未命名账户'} · ${account.currency || 'CNY'}` : '';
+}
+
+function currencyLabel(currency?: string | null) {
+  const item = currencyOptions.find((candidate) => candidate.value === currency);
+  return item?.label || currency || '人民币 CNY';
+}
+
+function quoteSourceLabel(source?: string | null) {
+  const item = quoteSourceOptions.find((candidate) => candidate.value === source);
+  return item?.label || source || '手动维护';
+}
+
 function formatDate(date: Date) {
   const year = date.getFullYear();
   const month = `${date.getMonth() + 1}`.padStart(2, '0');
@@ -1516,11 +1671,16 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
     pressed: { opacity: 0.72, transform: [{ scale: 0.98 }] },
     modalRoot: { flex: 1, justifyContent: 'flex-end' },
     modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.22)' },
-    composerSheet: { backgroundColor: theme.card, borderColor: theme.border, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, maxHeight: '88%', padding: 16 },
+    composerSheet: { backgroundColor: theme.card, borderColor: theme.border, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, maxHeight: '88%' },
+    composerHeader: { alignItems: 'flex-start', flexDirection: 'row', gap: 12, justifyContent: 'space-between', padding: 16, paddingBottom: 10 },
+    composerScroll: { maxHeight: '100%' },
+    composerFooter: { backgroundColor: theme.card, borderColor: theme.border, borderTopWidth: StyleSheet.hairlineWidth, gap: 10, padding: 16, paddingTop: 12 },
     detailSheet: { backgroundColor: theme.card, borderColor: theme.border, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, bottom: 0, gap: 14, left: 0, maxHeight: '90%', padding: 16, position: 'absolute', right: 0 },
     sheetTitle: { color: theme.foreground, fontSize: 20, fontWeight: '900' },
+    sheetFieldLabel: { color: theme.foreground, fontSize: 14, fontWeight: '800' },
     closeButton: { alignItems: 'center', height: 34, justifyContent: 'center', width: 34 },
-    formContent: { gap: 13, paddingBottom: 20 },
+    formContent: { gap: 13, paddingHorizontal: 16, paddingBottom: 16 },
+    tradeTypeRow: { flexDirection: 'row', gap: 8, marginTop: 6 },
     choiceRow: { flexDirection: 'row', gap: 8 },
     choicePill: { alignItems: 'center', backgroundColor: theme.secondary, borderRadius: 16, flex: 1, minHeight: 34, justifyContent: 'center', paddingHorizontal: 10 },
     choicePillActive: { backgroundColor: theme.foreground },
@@ -1535,6 +1695,16 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
     twoColumns: { flexDirection: 'row', gap: 10 },
     columnInput: { flex: 1 },
     detailGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 12 },
+    dropdownBox: { flex: 1, gap: 8 },
+    dropdownField: { borderColor: theme.input, borderRadius: 10, borderWidth: 1, gap: 6, minHeight: 58, paddingHorizontal: 12, paddingVertical: 9 },
+    dropdownValue: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+    dropdownText: { flex: 1 },
+    optionList: { backgroundColor: theme.secondary, borderColor: theme.border, borderRadius: 12, borderWidth: 1, maxHeight: 190, overflow: 'hidden' },
+    optionRow: { paddingHorizontal: 12, paddingVertical: 11 },
+    optionRowSelected: { backgroundColor: theme.foreground },
+    optionText: { color: theme.foreground, fontSize: 14, fontWeight: '700' },
+    optionTextSelected: { color: theme.background },
+    emptyOption: { padding: 12 },
   });
 
 const stylesStatic = StyleSheet.create({

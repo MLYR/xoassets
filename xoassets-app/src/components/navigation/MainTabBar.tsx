@@ -7,6 +7,7 @@ import { useState } from 'react';
 
 import { Text } from '@/components/ui';
 import { useTheme } from '@/core/design/theme';
+import { LedgerQuickComposer } from '@/features/ledger';
 
 const tabItems = [
   { name: 'home', label: '首页', icon: Home },
@@ -20,11 +21,12 @@ export function MainTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const styles = createStyles(theme, insets.bottom);
   const [quickOpen, setQuickOpen] = useState(false);
+  const [ledgerComposerOpen, setLedgerComposerOpen] = useState(false);
 
   function handleQuickNavigate(action: 'ledger' | 'investment' | 'account') {
     setQuickOpen(false);
     if (action === 'ledger') {
-      router.push(`/transaction/edit?compose=${Date.now()}`);
+      setLedgerComposerOpen(true);
       return;
     }
     if (action === 'investment') {
@@ -72,6 +74,7 @@ export function MainTabBar({ state, navigation }: BottomTabBarProps) {
           </View>
         </View>
       </Modal>
+      <LedgerQuickComposer visible={ledgerComposerOpen} onClose={() => setLedgerComposerOpen(false)} />
     </>
   );
 }
@@ -221,24 +224,34 @@ const createStyles = (theme: ReturnType<typeof useTheme>, bottomInset: number) =
     },
     quickGrid: {
       flexDirection: 'row',
-      gap: 12
+      gap: 12,
+      justifyContent: 'space-between'
     },
     quickAction: {
       alignItems: 'center',
       flex: 1,
-      gap: 8
+      backgroundColor: theme.secondary,
+      borderColor: theme.border,
+      borderRadius: 14,
+      borderWidth: 1,
+      gap: 8,
+      minHeight: 86,
+      justifyContent: 'center',
+      paddingHorizontal: 6,
+      paddingVertical: 12
     },
     quickIcon: {
       alignItems: 'center',
-      backgroundColor: theme.secondary,
-      borderRadius: 18,
-      height: 48,
+      backgroundColor: theme.card,
+      borderRadius: 16,
+      height: 42,
       justifyContent: 'center',
-      width: 48
+      width: 42
     },
     quickLabel: {
       fontSize: 13,
-      fontWeight: '700'
+      fontWeight: '800',
+      textAlign: 'center'
     },
     pressed: {
       opacity: 0.76,

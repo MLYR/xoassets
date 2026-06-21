@@ -219,7 +219,13 @@ export function LedgerScreen({ initialCompose = false }: { initialCompose?: bool
       <GridBackdrop color={theme.border} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.title}>记账</Text>
+          <View>
+            <Text style={styles.title}>记账</Text>
+            <Text variant="muted">日历流水与本周、本月、本年统计</Text>
+          </View>
+        </View>
+
+        <View style={styles.controlBar}>
           <View style={styles.topSegmented}>
             <Pressable style={[styles.topSegmentButton, viewMode === 'calendar' ? styles.segmentActive : null]} onPress={() => setViewMode('calendar')}>
               <Text style={[styles.topSegmentText, viewMode === 'calendar' ? styles.segmentTextActive : null]}>日历</Text>
@@ -379,11 +385,16 @@ function StatsPanel({
   const averageAmount = periodCount > 0 ? directionTotal / periodCount : 0;
   const [selectedCategoryShare, setSelectedCategoryShare] = useState<CategoryShare | null>(null);
   const [selectedDetailTransaction, setSelectedDetailTransaction] = useState<LedgerTransaction | null>(null);
+  const [allDetailsOpen, setAllDetailsOpen] = useState(false);
   const selectedCategoryTransactions = useMemo(
     () => selectedCategoryShare
       ? transactions.filter((item) => item.type === statsDirection && sameCategory(item, selectedCategoryShare))
       : [],
     [selectedCategoryShare, statsDirection, transactions]
+  );
+  const directionTransactions = useMemo(
+    () => transactions.filter((item) => item.type === statsDirection),
+    [statsDirection, transactions]
   );
 
   return (
@@ -459,9 +470,12 @@ function StatsPanel({
         <CardContent style={styles.detailCard}>
           <View style={styles.sectionHeader}>
             <StatsCardTitle icon={ReceiptText} title={`${directionLabel(statsDirection)}明细排行`} />
-            <Text variant="muted">更多 ›</Text>
+            <Pressable style={styles.linkButton} onPress={() => setAllDetailsOpen(true)}>
+              <Text style={styles.linkText}>更多</Text>
+              <ChevronRight color={theme.mutedForeground} size={17} />
+            </Pressable>
           </View>
-          {transactions.filter((item) => item.type === statsDirection).slice(0, 5).map((item, index) => (
+          {directionTransactions.slice(0, 5).map((item, index) => (
             <View key={String(item.id)}>
               <Pressable style={styles.detailRow} onPress={() => setSelectedDetailTransaction(item)}>
                 <View style={[styles.categoryIcon, { backgroundColor: pickCategoryColor(item) }]}>
@@ -475,10 +489,10 @@ function StatsPanel({
                 </View>
                 <Text style={styles.detailAmount}>{formatSignedAmount(item)}</Text>
               </Pressable>
-              {index < Math.min(transactions.filter((item) => item.type === statsDirection).length, 5) - 1 ? <Separator /> : null}
+              {index < Math.min(directionTransactions.length, 5) - 1 ? <Separator /> : null}
             </View>
           ))}
-          {transactions.filter((item) => item.type === statsDirection).length === 0 ? <Text variant="muted">当前范围没有明细。</Text> : null}
+          {directionTransactions.length === 0 ? <Text variant="muted">当前范围没有明细。</Text> : null}
         </CardContent>
       </Card>
 
@@ -487,6 +501,13 @@ function StatsPanel({
         transactions={selectedCategoryTransactions}
         onSelectTransaction={setSelectedDetailTransaction}
         onClose={() => setSelectedCategoryShare(null)}
+      />
+      <DirectionTransactionsModal
+        visible={allDetailsOpen}
+        title={`${directionLabel(statsDirection)}明细`}
+        transactions={directionTransactions}
+        onSelectTransaction={setSelectedDetailTransaction}
+        onClose={() => setAllDetailsOpen(false)}
       />
       <TransactionDetailModal
         transaction={selectedDetailTransaction}
@@ -643,6 +664,67 @@ function CategoryTransactionsModal({
               </View>
             ))}
             {transactions.length === 0 ? <Text variant="muted">当前分类没有明细。</Text> : null}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function DirectionTransactionsModal({
+  visible,
+  title,
+  transactions,
+  onSelectTransaction,
+  onClose
+}: {
+  visible: boolean;
+  title: string;
+  transactions: LedgerTransaction[];
+  onSelectTransaction: (item: LedgerTransaction) => void;
+  onClose: () => void;
+}) {
+  const theme = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+  const total = transactions.reduce((sum, item) => sum + Math.abs(item.amount ?? 0), 0);
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={styles.modalRoot}>
+        <Pressable style={styles.modalBackdrop} onPress={onClose} />
+        <View style={styles.sheet}>
+          <ScrollView contentContainerStyle={styles.sheetContent} showsVerticalScrollIndicator={false}>
+            <View style={styles.sheetHeader}>
+              <View>
+                <Text style={styles.sheetTitle}>{title}</Text>
+                <Text variant="muted">合计 {formatStatsMoney(total)} · {transactions.length} 笔</Text>
+              </View>
+              <Pressable onPress={onClose}>
+                <X color={theme.foreground} size={24} />
+              </Pressable>
+            </View>
+            {transactions.map((item, index) => (
+              <View key={String(item.id)}>
+                <Pressable
+                  style={styles.detailRow}
+                  onPress={() => {
+                    onSelectTransaction(item);
+                    onClose();
+                  }}
+                >
+                  <View style={[styles.categoryIcon, { backgroundColor: pickCategoryColor(item) }]}>
+                    <Text style={styles.categoryIconText}>{categoryInitial(item)}</Text>
+                  </View>
+                  <View style={styles.detailInfo}>
+                    <Text style={styles.detailTitle} numberOfLines={1}>{item.note || item.categoryName || transactionTypeLabel(item.type)}</Text>
+                    <Text variant="muted">{formatShortDateTime(item.transactionTime)} · {item.accountName || '--'}</Text>
+                  </View>
+                  <Text style={styles.detailAmount}>{formatSignedAmount(item)}</Text>
+                </Pressable>
+                {index < transactions.length - 1 ? <Separator /> : null}
+              </View>
+            ))}
+            {transactions.length === 0 ? <Text variant="muted">当前范围没有明细。</Text> : null}
           </ScrollView>
         </View>
       </View>
@@ -1849,22 +1931,31 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
       fontWeight: '700'
     },
     header: {
-      alignItems: 'center',
-      flexDirection: 'row',
-      justifyContent: 'space-between',
+      gap: 4,
       paddingTop: 6
     },
     title: {
       color: theme.foreground,
-      fontSize: 24,
-      fontWeight: '800'
+      fontSize: 28,
+      fontWeight: '900'
+    },
+    controlBar: {
+      alignItems: 'center',
+      backgroundColor: theme.card,
+      borderColor: theme.border,
+      borderRadius: 16,
+      borderWidth: 1,
+      flexDirection: 'row',
+      gap: 10,
+      justifyContent: 'space-between',
+      padding: 10
     },
     topSegmented: {
       backgroundColor: theme.secondary,
       borderRadius: 18,
       flexDirection: 'row',
       padding: 3,
-      width: 128
+      flex: 1
     },
     topSegmentButton: {
       alignItems: 'center',
@@ -1882,7 +1973,7 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
       borderRadius: 18,
       flexDirection: 'row',
       padding: 3,
-      width: 108
+      flex: 0.86
     },
     directionButton: {
       alignItems: 'center',
@@ -1991,6 +2082,16 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
       alignItems: 'center',
       flexDirection: 'row',
       justifyContent: 'space-between'
+    },
+    linkButton: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 3
+    },
+    linkText: {
+      color: theme.mutedForeground,
+      fontSize: 14,
+      fontWeight: '700'
     },
     sectionTitle: {
       color: theme.foreground,
