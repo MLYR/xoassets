@@ -100,14 +100,14 @@ export function HomeScreen() {
                   <EyeOff color={theme.mutedForeground} size={18} strokeWidth={2.2} />
                 )}
               </PressableAnimated>
-              <PressableAnimated style={styles.linkButton} onPress={() => router.push('/account')}>
+              <PressableAnimated style={styles.linkButton} onPress={() => router.push('/assets/detail')}>
                 <Text style={styles.linkText}>资产详情</Text>
                 <ChevronRight color={theme.mutedForeground} size={18} strokeWidth={2} />
               </PressableAnimated>
             </View>
             <Text style={styles.assetAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{maskMoney(formatMoney(totalAssets), amountVisible)}</Text>
             <View style={styles.heroSummary}>
-              <MiniStat label="净资产" value={maskMoney(formatMoney(netAssets), amountVisible)} />
+              <MiniStat label="账户净资产" value={maskMoney(formatMoney(netAssets), amountVisible)} />
               <View style={styles.verticalDivider} />
               <MiniStat
                 label="本月变化"
@@ -119,7 +119,7 @@ export function HomeScreen() {
         </Card>
 
         <View style={styles.metricGrid}>
-          <MetricCard icon={WalletCards} label="净资产" value={maskMoney(formatMoney(netAssets), amountVisible)} trend={`较上月 ${formatPercent(overview?.balanceTrendRate)}`} />
+          <MetricCard icon={WalletCards} label="账户净资产" value={maskMoney(formatMoney(netAssets), amountVisible)} trend={`较上月 ${formatPercent(overview?.balanceTrendRate)}`} />
           <MetricCard icon={LineChart} label="投资市值" value={maskMoney(formatMoney(investmentAsset), amountVisible)} trend={`较上月 ${formatPercent(overview?.assetTrendRate)}`} />
           <MetricCard icon={BriefcaseBusiness} label="本月收入" value={maskMoney(formatMoney(monthlyIncome), amountVisible)} trend={`较上月 ${formatPercent(overview?.incomeTrendRate)}`} />
           <MetricCard icon={CreditCard} label="本月支出" value={maskMoney(formatMoney(monthlyExpense), amountVisible)} trend={`较上月 ${formatPercent(overview?.expenseTrendRate)}`} />
@@ -179,7 +179,7 @@ export function HomeScreen() {
           <CardContent style={styles.sectionContent}>
             <View style={styles.rowBetween}>
               <Text style={styles.sectionTitle}>最近记录</Text>
-              <PressableAnimated style={styles.linkButton} onPress={() => router.push('/ledger')}>
+              <PressableAnimated style={styles.linkButton} onPress={() => router.push('/ledger?view=stats&period=week')}>
                 <Text style={styles.linkText}>查看全部</Text>
                 <ChevronRight color={theme.mutedForeground} size={18} strokeWidth={2} />
               </PressableAnimated>

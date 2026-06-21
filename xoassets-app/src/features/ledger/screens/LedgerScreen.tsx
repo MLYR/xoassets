@@ -46,7 +46,7 @@ interface LedgerFormState {
 export function LedgerScreen({ initialCompose = false }: { initialCompose?: boolean } = {}) {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
-  const params = useLocalSearchParams<{ compose?: string }>();
+  const params = useLocalSearchParams<{ compose?: string; view?: LedgerViewMode; period?: StatsMode }>();
   const { isHydrated, isLoggedIn, restoreToken } = useAuthStore();
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
   const [viewMode, setViewMode] = useState<LedgerViewMode>('stats');
@@ -65,6 +65,15 @@ export function LedgerScreen({ initialCompose = false }: { initialCompose?: bool
       setComposerOpen(true);
     }
   }, [initialCompose, params.compose]);
+
+  useEffect(() => {
+    if (params.view === 'calendar' || params.view === 'stats') {
+      setViewMode(params.view);
+    }
+    if (params.period === 'week' || params.period === 'month' || params.period === 'year') {
+      setStatsMode(params.period);
+    }
+  }, [params.period, params.view]);
 
   const statsRange = useMemo(() => getStatsRange(selectedDate, statsMode), [selectedDate, statsMode]);
   const {
