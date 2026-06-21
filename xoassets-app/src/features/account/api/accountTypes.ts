@@ -49,6 +49,19 @@ export interface AccountRequest {
   remark?: string | null;
 }
 
+export interface AccountLedgerQueryParams {
+  pageNo?: number;
+  pageSize?: number;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface AccountFlowStatisticsQueryParams {
+  month?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
 export interface AccountBalanceAdjustmentRequest {
   afterBalance: string;
   reason?: string | null;
@@ -77,6 +90,12 @@ export interface AccountLedgerItem {
 }
 
 export interface AccountLedgerSummary {
+  currentBalance?: number | null;
+  initialBalance?: number | null;
+  totalInflow?: number | null;
+  totalOutflow?: number | null;
+  netInflow?: number | null;
+  transactionCount?: number | null;
   incomeAmount?: number | null;
   expenseAmount?: number | null;
   transferInAmount?: number | null;

@@ -1,5 +1,5 @@
-import { Redirect } from 'expo-router';
-import { ChevronRight, Edit3, Plus, SlidersHorizontal, WalletCards, X } from 'lucide-react-native';
+import { Redirect, router } from 'expo-router';
+import { ChevronDown, ChevronRight, ChevronUp, Plus, WalletCards, X } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,7 +9,7 @@ import { useTheme } from '@/core/design/theme';
 import { formatMoney, formatPercent, formatSignedMoney } from '@/features/home';
 import { useAuthStore } from '@/stores/authStore';
 
-import type { AccountItem, AccountLedgerItem, AccountRequest } from '../api/accountTypes';
+import type { AccountItem, AccountRequest } from '../api/accountTypes';
 import { useAccount } from '../hooks/useAccount';
 
 type AccountSheetMode = 'create' | 'edit' | 'adjust';
@@ -38,11 +38,17 @@ const accountTypes = [
   { label: '其他', value: 'OTHER' }
 ];
 
+const currencyOptions = [
+  { label: '人民币 CNY', value: 'CNY' },
+  { label: '美元 USD', value: 'USD' },
+  { label: '港币 HKD', value: 'HKD' },
+  { label: '欧元 EUR', value: 'EUR' }
+];
+
 export function AccountScreen({ initialCreate = false }: { initialCreate?: boolean } = {}) {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const { isHydrated, isLoggedIn, restoreToken } = useAuthStore();
-  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [sheetMode, setSheetMode] = useState<AccountSheetMode | null>(null);
   const [form, setForm] = useState<AccountFormState>(() => createEmptyForm());
   const [adjustForm, setAdjustForm] = useState<AdjustmentFormState>({ afterBalance: '', reason: '' });
@@ -64,26 +70,15 @@ export function AccountScreen({ initialCreate = false }: { initialCreate?: boole
   const {
     overviewQuery,
     listQuery,
-    ledgerQuery,
-    flowStatisticsQuery,
     createMutation,
     updateMutation,
     adjustBalanceMutation
-  } = useAccount(isLoggedIn, selectedAccountId);
+  } = useAccount(isLoggedIn);
 
   const overview = overviewQuery.data;
   const accounts = overview?.accounts ?? listQuery.data ?? [];
-  const selectedAccount = accounts.find((item) => String(item.id) === selectedAccountId) ?? accounts[0] ?? null;
-  const ledgerItems = ledgerQuery.data?.page?.records ?? ledgerQuery.data?.page?.list ?? [];
-  const flowStats = flowStatisticsQuery.data;
   const groupedAccounts = useMemo(() => groupAccounts(accounts), [accounts]);
   const isSubmitting = createMutation.isPending || updateMutation.isPending || adjustBalanceMutation.isPending;
-
-  useEffect(() => {
-    if (!selectedAccountId && accounts.length > 0) {
-      setSelectedAccountId(String(accounts[0].id));
-    }
-  }, [accounts, selectedAccountId]);
 
   if (!isHydrated) {
     return (
@@ -150,8 +145,7 @@ export function AccountScreen({ initialCreate = false }: { initialCreate?: boole
       if (sheetMode === 'edit' && form.id) {
         await updateMutation.mutateAsync({ id: form.id, data: payload.data });
       } else {
-        const created = await createMutation.mutateAsync(payload.data);
-        setSelectedAccountId(String(created.id));
+        await createMutation.mutateAsync(payload.data);
       }
       closeSheet();
     } catch (error) {
@@ -206,7 +200,7 @@ export function AccountScreen({ initialCreate = false }: { initialCreate?: boole
         <Card>
           <CardContent style={styles.summaryCard}>
             <View style={styles.summaryTop}>
-              <View>
+              <View style={styles.summaryMain}>
                 <Text variant="muted">账户总资产</Text>
                 <Text style={styles.totalAsset} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{formatMoney(overview?.totalAsset)}</Text>
               </View>
@@ -232,13 +226,13 @@ export function AccountScreen({ initialCreate = false }: { initialCreate?: boole
               </View>
               {group.items.map((account, index) => (
                 <View key={String(account.id)}>
-                  <Pressable style={styles.accountRow} onPress={() => setSelectedAccountId(String(account.id))}>
+                  <Pressable style={styles.accountRow} onPress={() => router.push(`/account/${account.id}`)}>
                     <View style={styles.accountIcon}>
                       <Text style={styles.accountIconText}>{accountInitial(account)}</Text>
                     </View>
                     <View style={styles.accountInfo}>
                       <Text style={styles.accountName}>{account.name || '未命名账户'}</Text>
-                      <Text variant="caption">{accountTypeLabel(account.type)} · {account.currency || 'CNY'}{account.tagText ? ` · ${account.tagText}` : ''}</Text>
+                      <Text variant="caption">{accountTypeLabel(account.type)} · {currencyLabel(account.currency)}{account.tagText ? ` · ${account.tagText}` : ''}</Text>
                     </View>
                     <View style={styles.accountRight}>
                       <Text style={styles.accountBalance} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{formatMoney(account.balance)}</Text>
@@ -251,52 +245,6 @@ export function AccountScreen({ initialCreate = false }: { initialCreate?: boole
             </CardContent>
           </Card>
         ))}
-
-        {selectedAccount ? (
-          <Card>
-            <CardContent style={styles.detailCard}>
-              <View style={styles.sectionHeader}>
-                <View>
-                  <Text style={styles.sectionTitle}>{selectedAccount.name || '账户详情'}</Text>
-                  <Text variant="muted">{accountTypeLabel(selectedAccount.type)} · 当前余额 {formatMoney(selectedAccount.balance)}</Text>
-                </View>
-                <View style={styles.actionRow}>
-                  <Pressable style={styles.iconButton} onPress={() => openEdit(selectedAccount)}>
-                    <Edit3 color={theme.foreground} size={18} />
-                  </Pressable>
-                  <Pressable style={styles.iconButton} onPress={() => openAdjust(selectedAccount)}>
-                    <SlidersHorizontal color={theme.foreground} size={18} />
-                  </Pressable>
-                </View>
-              </View>
-
-              <View style={styles.summaryGrid}>
-                <MiniStat label="收入" value={formatMoney(flowStats?.incomeAmount)} />
-                <MiniStat label="支出" value={formatMoney(flowStats?.expenseAmount)} />
-                <MiniStat label="净流入" value={formatSignedMoney(flowStats?.netFlowAmount)} />
-              </View>
-              <View style={styles.summaryGrid}>
-                <MiniStat label="投资买入" value={formatMoney(flowStats?.investmentBuyAmount)} />
-                <MiniStat label="投资卖出" value={formatMoney(flowStats?.investmentSellAmount)} />
-                <MiniStat label="余额修正" value={formatSignedMoney(flowStats?.adjustmentAmount)} />
-              </View>
-
-              <Text style={styles.sectionTitle}>账户流水</Text>
-              {ledgerQuery.isLoading ? <ActivityIndicator color={theme.primary} /> : null}
-              {ledgerQuery.isError ? <Text variant="error">账户流水加载失败。</Text> : null}
-              {ledgerItems.length > 0 ? (
-                ledgerItems.slice(0, 12).map((item, index) => (
-                  <View key={`${item.sourceType}-${item.id}`}>
-                    <LedgerRow item={item} />
-                    {index < Math.min(ledgerItems.length, 12) - 1 ? <Separator /> : null}
-                  </View>
-                ))
-              ) : (
-                <Text variant="muted">暂无账户流水。</Text>
-              )}
-            </CardContent>
-          </Card>
-        ) : null}
       </ScrollView>
 
       <AccountSheet
@@ -346,13 +294,19 @@ function AccountSheet({
 }) {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
+  const [currencyOpen, setCurrencyOpen] = useState(false);
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalRoot}>
         <Pressable style={styles.modalBackdrop} onPress={onClose} />
         <View style={styles.sheet}>
-          <ScrollView contentContainerStyle={styles.sheetContent} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.sheetScroller}
+            contentContainerStyle={styles.sheetContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>{mode === 'create' ? '新增账户' : mode === 'edit' ? '编辑账户' : '余额修正'}</Text>
               <Pressable onPress={onClose}>
@@ -376,21 +330,75 @@ function AccountSheet({
                     </Pressable>
                   ))}
                 </View>
-                <Input label="初始余额" keyboardType="decimal-pad" value={form.initialBalance} onChangeText={(initialBalance) => onFormChange({ initialBalance })} />
-                <Input label="当前余额" keyboardType="decimal-pad" value={form.balance} onChangeText={(balance) => onFormChange({ balance })} />
-                <Input label="币种" value={form.currency} onChangeText={(currency) => onFormChange({ currency })} />
+                <Input label={mode === 'edit' ? '余额' : '账户余额'} keyboardType="decimal-pad" value={form.balance} onChangeText={(balance) => onFormChange({ balance })} />
+                <DropdownField
+                  label="币种"
+                  value={currencyLabel(form.currency)}
+                  open={currencyOpen}
+                  options={currencyOptions}
+                  selectedValue={form.currency}
+                  onToggle={() => setCurrencyOpen((open) => !open)}
+                  onSelect={(currency) => {
+                    onFormChange({ currency });
+                    setCurrencyOpen(false);
+                  }}
+                />
                 <Input label="备注" placeholder="可选" value={form.remark} onChangeText={(remark) => onFormChange({ remark })} />
               </>
             )}
 
+          </ScrollView>
+          <View style={styles.sheetFooter}>
             {formError ? <Text variant="error">{formError}</Text> : null}
             <Button loading={isSubmitting} onPress={onSubmit}>
               保存
             </Button>
-          </ScrollView>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </Modal>
+  );
+}
+
+function DropdownField({
+  label,
+  value,
+  open,
+  options,
+  selectedValue,
+  onToggle,
+  onSelect
+}: {
+  label: string;
+  value: string;
+  open: boolean;
+  options: Array<{ label: string; value: string }>;
+  selectedValue: string;
+  onToggle: () => void;
+  onSelect: (value: string) => void;
+}) {
+  const theme = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+
+  return (
+    <View style={styles.dropdownBox}>
+      <Pressable style={styles.dropdownField} onPress={onToggle}>
+        <Text style={styles.sheetFieldLabel}>{label}</Text>
+        <View style={styles.dropdownValue}>
+          <Text variant="muted" style={styles.dropdownText}>{value}</Text>
+          {open ? <ChevronUp color={theme.mutedForeground} size={18} /> : <ChevronDown color={theme.mutedForeground} size={18} />}
+        </View>
+      </Pressable>
+      {open ? (
+        <View style={styles.optionList}>
+          {options.map((option) => (
+            <Pressable key={option.value} style={[styles.optionRow, option.value === selectedValue ? styles.optionRowSelected : null]} onPress={() => onSelect(option.value)}>
+              <Text style={[styles.optionText, option.value === selectedValue ? styles.optionTextSelected : null]}>{option.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -401,24 +409,6 @@ function MiniStat({ label, value, subValue }: { label: string; value: string; su
       <Text style={stylesStatic.miniValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>
         {value} {subValue ? <Text variant="muted">{subValue}</Text> : null}
       </Text>
-    </View>
-  );
-}
-
-function LedgerRow({ item }: { item: AccountLedgerItem }) {
-  const theme = useTheme();
-  const styles = useMemo(() => createStyles(theme), [theme]);
-
-  return (
-    <View style={styles.ledgerRow}>
-      <View style={styles.ledgerIcon}>
-        <Text style={styles.accountIconText}>{ledgerInitial(item)}</Text>
-      </View>
-      <View style={styles.ledgerInfo}>
-        <Text style={styles.ledgerTitle} numberOfLines={1}>{item.title || item.categoryName || item.assetName || ledgerTypeLabel(item.bizType)}</Text>
-        <Text variant="caption">{ledgerTypeLabel(item.bizType)} · {formatShortDateTime(item.transactionTime)}</Text>
-      </View>
-      <Text style={styles.ledgerAmount}>{formatLedgerAmount(item)}</Text>
     </View>
   );
 }
@@ -461,13 +451,13 @@ function buildAccountRequest(form: AccountFormState): { data: AccountRequest } |
   if (!form.name.trim()) {
     return { error: '账户名称不能为空' };
   }
-  const initialBalance = Number(form.initialBalance);
-  if (!Number.isFinite(initialBalance)) {
-    return { error: '初始余额必须是有效数字' };
-  }
-  const balance = form.balance.trim() ? Number(form.balance) : initialBalance;
+  const balance = Number(form.balance);
   if (!Number.isFinite(balance)) {
-    return { error: '当前余额必须是有效数字' };
+    return { error: '账户余额必须是有效数字' };
+  }
+  const initialBalance = form.initialBalance.trim() ? Number(form.initialBalance) : balance;
+  if (!Number.isFinite(initialBalance)) {
+    return { error: '账户初始数据异常，请重新进入页面' };
   }
 
   return {
@@ -486,7 +476,7 @@ function buildAccountRequest(form: AccountFormState): { data: AccountRequest } |
 
 function groupAccounts(accounts: AccountItem[]) {
   const groups = accounts.reduce<Record<string, AccountItem[]>>((map, account) => {
-    const name = account.group || accountTypeLabel(account.type);
+    const name = accountGroupLabel(account.group) || accountTypeLabel(account.type);
     map[name] = map[name] || [];
     map[name].push(account);
     return map;
@@ -500,40 +490,24 @@ function accountTypeLabel(type?: string | null) {
   return item?.label || type || '账户';
 }
 
+function accountGroupLabel(group?: string | null) {
+  const labels: Record<string, string> = {
+    bankCard: '银行卡',
+    thirdParty: '电子钱包',
+    cash: '现金',
+    credit: '信用账户',
+    other: '其他账户'
+  };
+  return group ? labels[group] || group : null;
+}
+
+function currencyLabel(currency?: string | null) {
+  const item = currencyOptions.find((candidate) => candidate.value === currency);
+  return item?.label || currency || '人民币 CNY';
+}
+
 function accountInitial(account: AccountItem) {
   return (account.name || accountTypeLabel(account.type)).slice(0, 1);
-}
-
-function ledgerInitial(item: AccountLedgerItem) {
-  return (item.title || item.categoryName || item.assetName || ledgerTypeLabel(item.bizType)).slice(0, 1);
-}
-
-function ledgerTypeLabel(type?: string | null) {
-  const labels: Record<string, string> = {
-    INCOME: '收入',
-    EXPENSE: '支出',
-    TRANSFER: '转账',
-    BUY: '投资买入',
-    SELL: '投资卖出',
-    BALANCE_ADJUSTMENT: '余额修正'
-  };
-  return type ? labels[type] || type : '资金明细';
-}
-
-function formatLedgerAmount(item: AccountLedgerItem) {
-  const amount = item.amount;
-  if (amount === null || amount === undefined || Number.isNaN(amount)) {
-    return '--';
-  }
-  const prefix = item.bizType === 'EXPENSE' || item.bizType === 'BUY' ? '-' : '+';
-  return `${prefix}${formatMoney(Math.abs(amount))}`;
-}
-
-function formatShortDateTime(value?: string | null) {
-  if (!value) {
-    return '--';
-  }
-  return value.replace('T', ' ').slice(5, 16);
 }
 
 function formatDate(date: Date) {
@@ -624,10 +598,15 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
       fontWeight: '900',
       marginTop: 4
     },
+    summaryMain: {
+      flex: 1,
+      minWidth: 0
+    },
     countPill: {
       alignItems: 'center',
       backgroundColor: theme.secondary,
       borderRadius: 999,
+      flexShrink: 1,
       flexDirection: 'row',
       gap: 6,
       paddingHorizontal: 10,
@@ -748,10 +727,21 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
       borderWidth: 1,
       maxHeight: '86%'
     },
+    sheetScroller: {
+      maxHeight: '100%'
+    },
     sheetContent: {
       gap: 14,
       padding: 18,
-      paddingBottom: 28
+      paddingBottom: 12
+    },
+    sheetFooter: {
+      backgroundColor: theme.card,
+      borderColor: theme.border,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      gap: 10,
+      padding: 18,
+      paddingTop: 12
     },
     sheetHeader: {
       alignItems: 'center',
@@ -789,5 +779,47 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
     },
     choiceTextSelected: {
       color: theme.primaryForeground
+    },
+    dropdownBox: {
+      gap: 8
+    },
+    dropdownField: {
+      borderColor: theme.input,
+      borderRadius: 10,
+      borderWidth: 1,
+      gap: 6,
+      minHeight: 58,
+      paddingHorizontal: 12,
+      paddingVertical: 9
+    },
+    dropdownValue: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'space-between'
+    },
+    dropdownText: {
+      flex: 1
+    },
+    optionList: {
+      backgroundColor: theme.secondary,
+      borderColor: theme.border,
+      borderRadius: 12,
+      borderWidth: 1,
+      overflow: 'hidden'
+    },
+    optionRow: {
+      paddingHorizontal: 12,
+      paddingVertical: 11
+    },
+    optionRowSelected: {
+      backgroundColor: theme.foreground
+    },
+    optionText: {
+      color: theme.foreground,
+      fontSize: 14,
+      fontWeight: '700'
+    },
+    optionTextSelected: {
+      color: theme.background
     }
   });

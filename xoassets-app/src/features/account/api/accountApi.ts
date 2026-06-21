@@ -2,8 +2,10 @@ import { request } from '@/api/http';
 
 import type {
   AccountBalanceAdjustmentRequest,
+  AccountFlowStatisticsQueryParams,
   AccountFlowStatistics,
   AccountItem,
+  AccountLedgerQueryParams,
   AccountLedgerPage,
   AccountOverview,
   AccountRequest
@@ -36,17 +38,41 @@ export const accountApi = {
       data
     });
   },
-  ledger(id: string, pageNo = 1, pageSize = 20) {
+  ledger(id: string, params: AccountLedgerQueryParams = {}) {
     return request<AccountLedgerPage>({
       url: `/api/accounts/${id}/ledger`,
       method: 'GET',
-      params: { pageNo, pageSize }
+      params: {
+        pageNo: params.pageNo ?? 1,
+        pageSize: params.pageSize ?? 30,
+        startDate: params.startDate,
+        endDate: params.endDate
+      }
     });
   },
-  flowStatistics(id: string) {
+  flowStatistics(id: string, params: AccountFlowStatisticsQueryParams = {}) {
     return request<AccountFlowStatistics>({
       url: `/api/accounts/${id}/flow-statistics`,
-      method: 'GET'
+      method: 'GET',
+      params
+    });
+  },
+  deleteAccount(id: string) {
+    return request<void>({
+      url: `/api/accounts/${id}`,
+      method: 'DELETE'
+    });
+  },
+  deleteTransaction(id: string) {
+    return request<void>({
+      url: `/api/transactions/${id}`,
+      method: 'DELETE'
+    });
+  },
+  revokeInvestmentTransaction(id: string) {
+    return request<void>({
+      url: `/api/investment-transactions/${id}/revoke`,
+      method: 'PUT'
     });
   },
   adjustBalance(id: string, data: AccountBalanceAdjustmentRequest) {

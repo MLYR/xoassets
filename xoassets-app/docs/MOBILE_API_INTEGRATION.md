@@ -179,6 +179,9 @@ GET /api/transactions
 
 ```text
 GET  /api/accounts
+GET  /api/accounts/overview
+GET  /api/accounts/{id}/ledger
+GET  /api/accounts/{id}/flow-statistics
 GET  /api/categories
 GET  /api/transactions
 POST /api/transactions
@@ -196,6 +199,7 @@ GET  /api/investments/daily-profit
 GET  /api/investments/holdings/{id}/profit-calendar
 GET  /api/investment-transactions
 POST /api/investment-transactions
+PUT  /api/investment-transactions/{id}/revoke
 POST /api/quotes/refresh-batch
 GET  /api/accounts
 GET  /api/assets/lookup

@@ -297,9 +297,11 @@ GET /api/transactions
 
 - 账户页使用 `src/features/account`，通过 TanStack Query 调用后端真实接口。
 - 账户总览使用 `GET /api/accounts/overview`，列表兜底使用 `GET /api/accounts`。
-- 账户详情使用 `GET /api/accounts/{id}/ledger` 和 `GET /api/accounts/{id}/flow-statistics` 展示资金明细与统计。
-- 新增 / 编辑账户使用 `POST /api/accounts`、`PUT /api/accounts/{id}`；余额修正使用 `POST /api/accounts/{id}/balance-adjustments`。
-- `/account/new` 复用账户真实接口表单，用于快捷新建账户。
+- 账户列表点击账户后进入 `/account/[id]` 独立详情页，不再在账户列表底部内嵌详情卡。
+- 账户详情使用 `GET /api/accounts/{id}/ledger` 和 `GET /api/accounts/{id}/flow-statistics` 展示资金明细与统计，支持按周 / 月 / 年透传 `startDate`、`endDate` 查询。
+- 账户详情明细按自然日分组展示；普通流水左滑删除走 `DELETE /api/transactions/{id}`，投资交易左滑处理按后端审计规则走 `PUT /api/investment-transactions/{id}/revoke`，余额修正当前后端暂无删除接口。
+- 新增 / 编辑账户使用 `POST /api/accounts`、`PUT /api/accounts/{id}`；新增和编辑表单不展示初始余额，新增时用账户余额作为后端必填的初始余额，编辑余额变化由后端生成余额修正。
+- `/account/new` 复用账户真实接口表单，用于快捷新建账户，币种使用移动端下拉选择。
 
 ## 阶段 6：投资管理
 
