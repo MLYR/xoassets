@@ -1,5 +1,6 @@
 import { Redirect, router } from 'expo-router';
-import { ChevronLeft, LogOut, ShieldCheck } from 'lucide-react-native';
+import Constants from 'expo-constants';
+import { ChevronLeft, Info, LogOut, Palette, ShieldCheck } from 'lucide-react-native';
 import { useEffect, useMemo } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,11 +8,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Card, CardContent, Separator, Text } from '@/components/ui';
 import { useTheme } from '@/core/design/theme';
 import { useAuthStore } from '@/stores/authStore';
+import { useThemeStore, type ThemeMode } from '@/stores/themeStore';
 
 export function SettingsScreen() {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
-  const { userInfo, isHydrated, isLoggedIn, restoreToken, logout } = useAuthStore();
+  const { isHydrated, isLoggedIn, restoreToken, logout } = useAuthStore();
+  const { themeMode, setThemeMode } = useThemeStore();
 
   useEffect(() => {
     restoreToken();
@@ -45,24 +48,28 @@ export function SettingsScreen() {
           </Pressable>
           <View style={styles.headerCopy}>
             <Text style={styles.title}>设置</Text>
-            <Text variant="muted">登录状态与本机安全</Text>
+            <Text variant="muted">偏好与本机安全</Text>
           </View>
         </View>
 
         <Card>
           <CardContent style={styles.cardContent}>
-            <View style={styles.profileRow}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{(userInfo?.nickname || userInfo?.username || 'X').slice(0, 1)}</Text>
+            <View style={styles.securityTitle}>
+              <View style={styles.securityIcon}>
+                <Palette color={theme.foreground} size={20} strokeWidth={2.3} />
               </View>
-              <View style={styles.profileCopy}>
-                <Text style={styles.profileName}>{userInfo?.nickname || userInfo?.username || 'XOAssets 用户'}</Text>
-                <Text variant="muted">{userInfo?.username || '已登录'}</Text>
+              <View>
+                <Text style={styles.sectionTitle}>显示偏好</Text>
+                <Text variant="muted">主题会保存在本机</Text>
               </View>
             </View>
-            <Separator />
-            <InfoRow label="认证状态" value="已登录" />
-            <InfoRow label="凭证存储" value="SecureStore" />
+            <View style={styles.themeSegmented}>
+              {themeOptions.map((item) => (
+                <Pressable key={item.value} style={[styles.themeButton, themeMode === item.value ? styles.themeButtonActive : null]} onPress={() => setThemeMode(item.value)}>
+                  <Text style={[styles.themeButtonText, themeMode === item.value ? styles.themeButtonTextActive : null]}>{item.label}</Text>
+                </Pressable>
+              ))}
+            </View>
           </CardContent>
         </Card>
 
@@ -77,16 +84,42 @@ export function SettingsScreen() {
                 <Text variant="muted">退出后会清理本地登录凭证</Text>
               </View>
             </View>
+            <InfoRow label="认证状态" value="已登录" />
+            <InfoRow label="凭证存储" value="SecureStore" />
+            <InfoRow label="后端退出接口" value="暂无" />
             <Button variant="destructive" onPress={handleLogout}>
               <LogOut color={theme.destructiveForeground} size={18} strokeWidth={2.3} />
               退出登录
             </Button>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardContent style={styles.cardContent}>
+            <View style={styles.securityTitle}>
+              <View style={styles.securityIcon}>
+                <Info color={theme.foreground} size={20} strokeWidth={2.3} />
+              </View>
+              <View>
+                <Text style={styles.sectionTitle}>关于</Text>
+                <Text variant="muted">当前 App 运行信息</Text>
+              </View>
+            </View>
+            <Separator />
+            <InfoRow label="应用" value="小〇财迹" />
+            <InfoRow label="版本" value={Constants.expoConfig?.version || '1.0.0'} />
+          </CardContent>
+        </Card>
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+const themeOptions: Array<{ label: string; value: ThemeMode }> = [
+  { label: '跟随系统', value: 'system' },
+  { label: '浅色', value: 'light' },
+  { label: '深色', value: 'dark' }
+];
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   const theme = useTheme();
@@ -223,5 +256,29 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
     sectionTitle: {
       fontSize: 17,
       fontWeight: '800'
+    },
+    themeSegmented: {
+      backgroundColor: theme.secondary,
+      borderRadius: 18,
+      flexDirection: 'row',
+      padding: 4
+    },
+    themeButton: {
+      alignItems: 'center',
+      borderRadius: 14,
+      flex: 1,
+      minHeight: 36,
+      justifyContent: 'center'
+    },
+    themeButtonActive: {
+      backgroundColor: theme.foreground
+    },
+    themeButtonText: {
+      color: theme.foreground,
+      fontSize: 13,
+      fontWeight: '800'
+    },
+    themeButtonTextActive: {
+      color: theme.background
     }
   });

@@ -1,4 +1,4 @@
-import type { AuthUser, LoginRequest, LoginResponse, RegisterRequest } from '@/shared/types/auth';
+import type { AuthUser, ChangePasswordRequest, LoginRequest, LoginResponse, RegisterRequest, UpdateProfileRequest } from '@/shared/types/auth';
 
 import { request } from '@/api/http';
 
@@ -21,6 +21,20 @@ export const authApi = {
     return request<AuthUser>({
       url: '/api/auth/me',
       method: 'GET'
+    });
+  },
+  updateProfile(data: UpdateProfileRequest) {
+    return request<AuthUser>({
+      url: '/api/auth/profile',
+      method: 'PUT',
+      data
+    });
+  },
+  changePassword(data: ChangePasswordRequest) {
+    return request<void>({
+      url: '/api/auth/password',
+      method: 'PUT',
+      data
     });
   }
 };

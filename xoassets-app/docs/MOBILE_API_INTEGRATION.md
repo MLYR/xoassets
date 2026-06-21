@@ -163,6 +163,8 @@ EXPO_PUBLIC_APP_ENV=dev
 POST /api/auth/login
 POST /api/auth/register
 GET  /api/auth/me
+PUT  /api/auth/profile
+PUT  /api/auth/password
 ```
 
 首页：

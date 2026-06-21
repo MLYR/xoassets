@@ -14,6 +14,15 @@ export interface RegisterRequest extends LoginRequest {
   nickname?: string;
 }
 
+export interface UpdateProfileRequest {
+  nickname: string;
+}
+
+export interface ChangePasswordRequest {
+  oldPassword: string;
+  newPassword: string;
+}
+
 export interface LoginResponse {
   token: string;
   user: AuthUser;
