@@ -2,6 +2,7 @@ package com.xoassets.module.auth.service;
 
 import com.xoassets.module.auth.dto.LoginRequest;
 import com.xoassets.module.auth.dto.RegisterRequest;
+import com.xoassets.module.auth.dto.RefreshRequest;
 import com.xoassets.module.auth.dto.ChangePasswordRequest;
 import com.xoassets.module.auth.dto.UpdateProfileRequest;
 import com.xoassets.module.auth.vo.LoginVO;
@@ -21,6 +22,11 @@ public interface AuthService {
      * 登录并返回 Token 和用户信息。
      */
     LoginVO login(LoginRequest request);
+
+    /**
+     * 使用刷新令牌换取新的访问令牌和刷新令牌。
+     */
+    LoginVO refresh(RefreshRequest request);
 
     /**
      * 查询当前用户信息。

@@ -5,9 +5,11 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.xoassets.common.api.ErrorCode;
 import com.xoassets.common.exception.BusinessException;
 import com.xoassets.common.security.JwtTokenProvider;
+import com.xoassets.common.security.LoginUser;
 import com.xoassets.common.security.LoginUserContext;
 import com.xoassets.module.auth.dto.ChangePasswordRequest;
 import com.xoassets.module.auth.dto.LoginRequest;
+import com.xoassets.module.auth.dto.RefreshRequest;
 import com.xoassets.module.auth.dto.RegisterRequest;
 import com.xoassets.module.auth.dto.UpdateProfileRequest;
 import com.xoassets.module.auth.service.AuthService;
@@ -17,6 +19,7 @@ import com.xoassets.module.category.service.CategoryService;
 import com.xoassets.persistence.entity.User;
 import com.xoassets.persistence.mapper.UserMapper;
 import java.time.LocalDateTime;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -98,7 +101,27 @@ public class AuthServiceImpl implements AuthService {
                 .set(User::getLastLoginAt, LocalDateTime.now()));
 
         return LoginVO.builder()
-                .token(jwtTokenProvider.createToken(user.getId(), user.getUsername()))
+                .accessToken(jwtTokenProvider.createAccessToken(user.getId(), user.getUsername()))
+                .refreshToken(jwtTokenProvider.createRefreshToken(user.getId(), user.getUsername()))
+                .user(toVO(user))
+                .build();
+    }
+
+    /**
+     * 使用刷新令牌换取新的访问令牌和刷新令牌。
+     */
+    @Override
+    public LoginVO refresh(RefreshRequest request) {
+        LoginUser loginUser;
+        try {
+            loginUser = jwtTokenProvider.parseRefreshToken(request.getRefreshToken());
+        } catch (RuntimeException exception) {
+            throw new AuthenticationCredentialsNotFoundException("Refresh token 无效或已过期", exception);
+        }
+        User user = findActiveUser(loginUser.userId());
+        return LoginVO.builder()
+                .accessToken(jwtTokenProvider.createAccessToken(user.getId(), user.getUsername()))
+                .refreshToken(jwtTokenProvider.createRefreshToken(user.getId(), user.getUsername()))
                 .user(toVO(user))
                 .build();
     }

@@ -3,6 +3,7 @@ package com.xoassets.module.auth.controller;
 import com.xoassets.common.api.Result;
 import com.xoassets.module.auth.dto.ChangePasswordRequest;
 import com.xoassets.module.auth.dto.LoginRequest;
+import com.xoassets.module.auth.dto.RefreshRequest;
 import com.xoassets.module.auth.dto.RegisterRequest;
 import com.xoassets.module.auth.dto.UpdateProfileRequest;
 import com.xoassets.module.auth.service.AuthService;
@@ -49,6 +50,14 @@ public class AuthController {
     @PostMapping("/login")
     public Result<LoginVO> login(@Valid @RequestBody LoginRequest request) {
         return Result.success(authService.login(request));
+    }
+
+    /**
+     * 刷新访问令牌。
+     */
+    @PostMapping("/refresh")
+    public Result<LoginVO> refresh(@Valid @RequestBody RefreshRequest request) {
+        return Result.success(authService.refresh(request));
     }
 
     /**

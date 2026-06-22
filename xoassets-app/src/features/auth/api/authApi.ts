@@ -17,6 +17,15 @@ export const authApi = {
       data
     });
   },
+  refresh(refreshToken: string) {
+    return request<LoginResponse>({
+      url: '/api/auth/refresh',
+      method: 'POST',
+      data: {
+        refreshToken
+      }
+    });
+  },
   me() {
     return request<AuthUser>({
       url: '/api/auth/me',

@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Collections;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -42,13 +43,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (StringUtils.hasText(authorization) && authorization.startsWith("Bearer ")) {
             String token = authorization.substring(7);
             try {
-                LoginUser loginUser = jwtTokenProvider.parseToken(token);
+                LoginUser loginUser = jwtTokenProvider.parseAccessToken(token);
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(loginUser, null, Collections.emptyList());
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             } catch (RuntimeException exception) {
                 log.debug("JWT 解析失败 uri={}, message={}", request.getRequestURI(), exception.getMessage());
                 SecurityContextHolder.clearContext();
+                throw new AuthenticationCredentialsNotFoundException("Token 无效或已过期", exception);
             }
         }
         filterChain.doFilter(request, response);

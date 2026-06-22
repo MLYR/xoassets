@@ -22,7 +22,7 @@ export function useLoginForm() {
         username: values.username,
         password: values.password
       });
-      await login(result.token, result.user);
+      await login(result.accessToken, result.refreshToken, result.user);
       router.replace('/home');
     } catch (error) {
       form.setError('root', {

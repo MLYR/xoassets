@@ -137,9 +137,10 @@ iOS 在环境支持时可以运行
 接入登录接口
 接入注册接口
 保存 accessToken
-保存 refreshToken，若后端支持
+保存 refreshToken
 请求自动带 Token
 401 自动处理
+refresh token 自动续期
 退出登录
 登录态恢复
 基础错误提示
@@ -167,7 +168,7 @@ Token 可自动添加到请求头
 
 ### 当前实现约定
 
-- 移动端退出登录通过 `/settings` 清理本地 token；后端当前没有 logout endpoint。
+- 移动端退出登录通过 `/settings` 清理本地登录态；后端当前没有 logout endpoint，但已支持 `/api/auth/refresh`，请求层会在访问令牌失效时自动续期。
 
 ## 阶段 3：首页资产驾驶舱
 
@@ -415,7 +416,7 @@ GET /api/transactions
 - 用户信息编辑从“我的”页用户卡片进入，支持修改显示名称和密码；用户名为登录账号，后端当前不支持修改。
 - 头像上传功能暂未接入，只保留头像入口和说明。
 - 设置页不再展示用户信息卡，用户资料统一收口到“我的”页；设置页提供跟随系统 / 浅色 / 深色主题切换、登录凭证说明、版本信息和退出登录。
-- 移动端退出登录通过 `/settings` 清理本地 token；后端当前没有 logout endpoint。
+- 移动端退出登录通过 `/settings` 清理本地登录态；后端当前没有 logout endpoint，但已支持 `/api/auth/refresh`，请求层会在访问令牌失效时自动续期。
 
 ## 阶段 10：附件与图片上传
 

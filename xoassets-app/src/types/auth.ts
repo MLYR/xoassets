@@ -24,6 +24,7 @@ export interface ChangePasswordRequest {
 }
 
 export interface LoginResponse {
-  token: string;
+  accessToken: string;
+  refreshToken: string;
   user: AuthUser;
 }

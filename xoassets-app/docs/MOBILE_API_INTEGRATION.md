@@ -98,7 +98,7 @@ EXPO_PUBLIC_APP_ENV=dev
 规则：
 
 - 页面不直接拼接认证 Header。
-- 登录凭证类敏感信息使用 `expo-secure-store`。
+- 登录凭证类敏感信息使用 `expo-secure-store`，其中 access token 用于请求头，refresh token 用于失效续期。
 - 普通配置使用 `AsyncStorage`。
 - 未登录或登录失效时统一清理本地登录态并跳转登录页。
 - 不允许每个页面单独处理未登录逻辑。
@@ -162,6 +162,7 @@ EXPO_PUBLIC_APP_ENV=dev
 ```text
 POST /api/auth/login
 POST /api/auth/register
+POST /api/auth/refresh
 GET  /api/auth/me
 PUT  /api/auth/profile
 PUT  /api/auth/password

@@ -69,6 +69,7 @@
 
 - `POST /api/auth/register`
 - `POST /api/auth/login`
+- `POST /api/auth/refresh`
 - `GET /api/auth/me`
 
 ### 账户管理
@@ -171,6 +172,5 @@
 当前后端暂无：
 
 - `/api/auth/logout`
-- `/api/auth/refresh-token`
 
-移动端退出登录当前仅清除本地 token，refresh token 字段先做兼容预留。
+移动端退出登录当前仍是清理本地登录态；登录失效后优先用 refresh token 刷新，刷新失败再回登录页。
