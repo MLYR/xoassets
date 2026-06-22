@@ -73,7 +73,7 @@ import { Bell, Monitor, Moon, Sunny, UserFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { ROUTES } from '@/constants/routes';
 import { authApi, type AuthUser } from '@/services/authApi';
-import { clearToken } from '@/services/token';
+import { clearTokens } from '@/services/token';
 import { useThemeStore, type ThemeMode } from '@/stores/theme';
 
 // 当前用户信息从后端 /api/auth/me 获取，避免继续使用硬编码名称。
@@ -223,7 +223,7 @@ async function handleLogout() {
 
 // 清理本地 token 并回到登录页。
 function logoutToLogin() {
-  clearToken();
+  clearTokens();
   router.replace(ROUTES.login);
 }
 </script>

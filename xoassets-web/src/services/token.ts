@@ -1,18 +1,25 @@
 // Token 存储工具：统一管理 localStorage 中的登录态。
-const TOKEN_KEY = 'xoassets_token';
+const ACCESS_TOKEN_KEY = 'xoassets_access_token';
+const REFRESH_TOKEN_KEY = 'xoassets_refresh_token';
 
-export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+export function getAccessToken(): string | null {
+  return localStorage.getItem(ACCESS_TOKEN_KEY);
 }
 
-export function setToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token);
+export function getRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH_TOKEN_KEY);
 }
 
-export function clearToken(): void {
-  localStorage.removeItem(TOKEN_KEY);
+export function setTokens(accessToken: string, refreshToken: string): void {
+  localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+  localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
 }
 
-export function hasToken(): boolean {
-  return Boolean(getToken());
+export function clearTokens(): void {
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
+}
+
+export function hasSession(): boolean {
+  return Boolean(getAccessToken() || getRefreshToken());
 }

@@ -43,8 +43,10 @@ export interface ChangePasswordRequest {
 
 /** 登录返回数据。 */
 export interface LoginResponse {
-  /** 登录令牌。 */
-  token: string;
+  /** 访问令牌。 */
+  accessToken: string;
+  /** 刷新令牌。 */
+  refreshToken: string;
   /** 用户信息。 */
   user: AuthUser;
 }
@@ -64,6 +66,16 @@ export const authApi = {
       url: '/auth/login',
       method: 'POST',
       data
+    });
+  },
+  // 刷新令牌。
+  refresh(refreshToken: string) {
+    return request<LoginResponse>({
+      url: '/auth/refresh',
+      method: 'POST',
+      data: {
+        refreshToken
+      }
     });
   },
   // 查询当前用户。

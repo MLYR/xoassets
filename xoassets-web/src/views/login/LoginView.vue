@@ -76,7 +76,7 @@ import { BRAND_NAME, BRAND_SHORT_NAME, BRAND_SYMBOL } from '@/constants/brand';
 import { ROUTES } from '@/constants/routes';
 import AmountText from '@/components/finance/AmountText.vue';
 import { authApi } from '@/services/authApi';
-import { setToken } from '@/services/token';
+import { setTokens } from '@/services/token';
 
 // 路由实例用于登录后跳转。
 const router = useRouter();
@@ -103,7 +103,7 @@ async function handleLogin() {
       username: form.username,
       password: form.password
     });
-    setToken(result.token);
+    setTokens(result.accessToken, result.refreshToken);
     ElMessage.success('登录成功');
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : ROUTES.dashboard;
     router.push(redirect);
