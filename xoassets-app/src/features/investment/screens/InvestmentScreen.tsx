@@ -171,13 +171,29 @@ export function InvestmentScreen({ initialCompose = false }: { initialCompose?: 
   }, [calendarMonth, selectedHolding]);
 
   useEffect(() => {
-    setForm((current) => ({
-      ...current,
-      accountId: current.accountId || String(accounts[0]?.id ?? ''),
-      holdingId: current.holdingId || String(holdings[0]?.id ?? ''),
-      assetId: current.assetId || String(holdings[0]?.assetId ?? ''),
-      assetType: module === 'ALL' ? current.assetType : (module as AssetType)
-    }));
+    setForm((current) => {
+      const nextAccountId = current.accountId || String(accounts[0]?.id ?? '');
+      const nextHoldingId = current.holdingId || String(holdings[0]?.id ?? '');
+      const nextAssetId = current.assetId || String(holdings[0]?.assetId ?? '');
+      const nextAssetType = module === 'ALL' ? current.assetType : (module as AssetType);
+
+      if (
+        current.accountId === nextAccountId &&
+        current.holdingId === nextHoldingId &&
+        current.assetId === nextAssetId &&
+        current.assetType === nextAssetType
+      ) {
+        return current;
+      }
+
+      return {
+        ...current,
+        accountId: nextAccountId,
+        holdingId: nextHoldingId,
+        assetId: nextAssetId,
+        assetType: nextAssetType
+      };
+    });
   }, [accounts, holdings, module]);
 
   if (!isHydrated) {
