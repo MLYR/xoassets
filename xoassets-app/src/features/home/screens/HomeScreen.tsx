@@ -179,7 +179,7 @@ export function HomeScreen() {
           <CardContent style={styles.sectionContent}>
             <View style={styles.rowBetween}>
               <Text style={styles.sectionTitle}>最近记录</Text>
-              <PressableAnimated style={styles.linkButton} onPress={() => router.push('/ledger?view=stats&period=week')}>
+              <PressableAnimated style={styles.linkButton} onPress={() => router.push(`/ledger?view=calendar&date=${encodeURIComponent(formatDateInput(new Date()))}`)}>
                 <Text style={styles.linkText}>查看全部</Text>
                 <ChevronRight color={theme.mutedForeground} size={18} strokeWidth={2} />
               </PressableAnimated>
@@ -187,7 +187,7 @@ export function HomeScreen() {
             {recentTransactions.length > 0 ? (
               recentTransactions.map((item, index) => (
                 <View key={item.id}>
-                  <TransactionRow item={item} amountVisible={amountVisible} onPress={() => router.push('/ledger')} />
+                  <TransactionRow item={item} amountVisible={amountVisible} onPress={() => router.push(`/ledger?view=calendar&date=${encodeURIComponent(item.transactionTime?.slice(0, 10) || formatDateInput(new Date()))}`)} />
                   {index < recentTransactions.length - 1 ? <Separator /> : null}
                 </View>
               ))
@@ -269,14 +269,17 @@ function ProgressBar({ value }: { value?: number | null }) {
 }
 
 function InvestmentStat({ item, amountVisible }: { item: InvestmentModuleAsset; amountVisible: boolean }) {
+  const theme = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+
   return (
     <View style={stylesStatic.investmentStat}>
       <View style={stylesStatic.investmentTitleRow}>
         <Text variant="muted" numberOfLines={1}>{item.name || moduleLabel(item.module)}</Text>
         <Text variant="caption">昨/今收益</Text>
       </View>
-      <Text style={stylesStatic.investmentValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{maskMoney(formatSignedMoney(item.yesterdayProfit), amountVisible)}</Text>
-      <Text style={stylesStatic.investmentValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{maskMoney(formatSignedMoney(item.primaryProfitAmount), amountVisible)}</Text>
+      <Text style={[stylesStatic.investmentValue, investmentProfitColor(item.yesterdayProfit, theme)]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{maskMoney(formatSignedMoney(item.yesterdayProfit), amountVisible)}</Text>
+      <Text style={[stylesStatic.investmentValue, investmentProfitColor(item.primaryProfitAmount, theme)]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{maskMoney(formatSignedMoney(item.primaryProfitAmount), amountVisible)}</Text>
     </View>
   );
 }
@@ -299,6 +302,16 @@ function moduleLabel(module?: string | null) {
   return '投资';
 }
 
+function investmentProfitColor(value: number | null | undefined, theme: ReturnType<typeof useTheme>) {
+  if (value === null || value === undefined || Number.isNaN(value) || value === 0) {
+    return { color: theme.foreground };
+  }
+  if (value > 0) {
+    return { color: theme.success };
+  }
+  return { color: theme.destructive };
+}
+
 function TransactionRow({ item, amountVisible, onPress }: { item: RecentTransaction; amountVisible: boolean; onPress?: () => void }) {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
@@ -312,14 +325,14 @@ function TransactionRow({ item, amountVisible, onPress }: { item: RecentTransact
         </View>
         <View style={styles.transactionTitleBlock}>
           <Text style={styles.transactionTitle}>{item.note || item.remark || item.categoryName || item.type || '未命名记录'}</Text>
-          <Text variant="muted">{transactionTypeLabel(item.type)}</Text>
+          <Text variant="muted">{transactionTypeLabel(item)}</Text>
         </View>
       </View>
       <View style={styles.transactionCenter}>
         <Text variant="muted">{formatTransactionTime(item.transactionTime)}</Text>
       </View>
       <View style={styles.transactionAmountBlock}>
-        <Text style={styles.transactionAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{maskMoney(formatTransactionAmount(item), amountVisible)}</Text>
+        <Text style={[styles.transactionAmount, transactionAmountStyle(item, theme)]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{maskMoney(formatTransactionAmount(item), amountVisible)}</Text>
         <Text variant="muted" style={styles.transactionAccount}>{item.accountName || item.targetAccountName || '--'}</Text>
       </View>
     </Pressable>
@@ -362,16 +375,27 @@ function getGreeting() {
   return '晚上好';
 }
 
-function transactionTypeLabel(type?: string | null) {
+function transactionTypeLabel(item: RecentTransaction) {
+  const type = item.type;
   const typeMap: Record<string, string> = {
     INCOME: '收入',
-    EXPENSE: '消费',
+    EXPENSE: item.categoryName || item.note || item.remark || '支出',
     TRANSFER: '转账',
     REFUND: '退款',
     INVESTMENT: '投资'
   };
 
   return type ? typeMap[type] || type : '--';
+}
+
+function transactionAmountStyle(item: RecentTransaction, theme: ReturnType<typeof useTheme>) {
+  if (item.type === 'INCOME' || item.type === 'REFUND') {
+    return { color: theme.success };
+  }
+  if (item.type === 'EXPENSE') {
+    return { color: theme.destructive };
+  }
+  return { color: theme.foreground };
 }
 
 function formatTransactionAmount(item: RecentTransaction) {
@@ -400,6 +424,13 @@ function formatTransactionTime(value?: string | null) {
   const dayText = isToday ? '今天' : date.toDateString() === yesterday.toDateString() ? '昨天' : `${date.getMonth() + 1}/${date.getDate()}`;
   const time = date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
   return `${dayText} ${time}`;
+}
+
+function formatDateInput(date: Date) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function pickTransactionIcon(item: RecentTransaction): XoIcon {

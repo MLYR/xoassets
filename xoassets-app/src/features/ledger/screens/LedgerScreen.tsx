@@ -5,9 +5,10 @@ import { BarChart3, Camera, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, E
 import DateTimePicker from 'react-native-dates-picker';
 import type { DateType } from 'react-native-dates-picker';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, G, Line, Polyline, Text as SvgText } from 'react-native-svg';
+import Animated, { Easing as ReanimatedEasing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { Button, Card, CardContent, Input, Separator, Text } from '@/components/ui';
 import { useTheme } from '@/core/design/theme';
@@ -46,15 +47,23 @@ interface LedgerFormState {
 export function LedgerScreen({ initialCompose = false }: { initialCompose?: boolean } = {}) {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
-  const params = useLocalSearchParams<{ compose?: string; view?: LedgerViewMode; period?: StatsMode }>();
+  const params = useLocalSearchParams<{ compose?: string; view?: LedgerViewMode; period?: StatsMode; date?: string }>();
   const { isHydrated, isLoggedIn, restoreToken } = useAuthStore();
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
   const [viewMode, setViewMode] = useState<LedgerViewMode>('stats');
   const [statsMode, setStatsMode] = useState<StatsMode>('month');
   const [statsDirection, setStatsDirection] = useState<StatsDirection>('EXPENSE');
   const [composerOpen, setComposerOpen] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<LedgerTransaction | null>(null);
   const [form, setForm] = useState<LedgerFormState>(() => createEmptyForm());
   const [formError, setFormError] = useState<string | null>(null);
+  const [animatingMonth, setAnimatingMonth] = useState(false);
+  const { width: screenWidth } = useWindowDimensions();
+  const slideDistance = Math.max(280, screenWidth - 32);
+  const slide = useSharedValue(0);
+  const calendarAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: slide.value }]
+  }));
 
   useEffect(() => {
     restoreToken();
@@ -73,7 +82,10 @@ export function LedgerScreen({ initialCompose = false }: { initialCompose?: bool
     if (params.period === 'week' || params.period === 'month' || params.period === 'year') {
       setStatsMode(params.period);
     }
-  }, [params.period, params.view]);
+    if (typeof params.date === 'string' && isValidDateInput(params.date)) {
+      setSelectedDate(params.date);
+    }
+  }, [params.date, params.period, params.view]);
 
   const statsRange = useMemo(() => getStatsRange(selectedDate, statsMode), [selectedDate, statsMode]);
   const {
@@ -136,6 +148,52 @@ export function LedgerScreen({ initialCompose = false }: { initialCompose?: bool
     setForm((current) => ({ ...current, id: undefined }));
     setFormError(null);
   }
+
+  function finishSwitchMonth(direction: -1 | 1) {
+    changeMonth(direction);
+    slide.value = direction * slideDistance;
+    slide.value = withTiming(0, { duration: 260, easing: ReanimatedEasing.out(ReanimatedEasing.cubic) }, () => runOnJS(setAnimatingMonth)(false));
+  }
+
+  function switchMonth(direction: -1 | 1) {
+    if (animatingMonth) {
+      return;
+    }
+    // 月份切换采用左右滑动：先滑出旧月份，再回弹展示新月份，和投资页日历保持一致。
+    setAnimatingMonth(true);
+    slide.value = withTiming(direction * -slideDistance, { duration: 220, easing: ReanimatedEasing.in(ReanimatedEasing.cubic) }, () => runOnJS(finishSwitchMonth)(direction));
+  }
+
+  const calendarPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onStartShouldSetPanResponderCapture: () => true,
+        onMoveShouldSetPanResponder: (_, gesture) => shouldHandleCalendarSwipe(gesture.dx, gesture.dy),
+        onMoveShouldSetPanResponderCapture: (_, gesture) => shouldHandleCalendarSwipe(gesture.dx, gesture.dy),
+        onPanResponderGrant: () => {
+          slide.value = 0;
+        },
+        onPanResponderMove: (_, gesture) => {
+          slide.value = Math.max(-slideDistance, Math.min(slideDistance, gesture.dx));
+        },
+        onPanResponderRelease: (_, gesture) => {
+          if (gesture.dx > 46) {
+            switchMonth(-1);
+            return;
+          }
+          if (gesture.dx < -46) {
+            switchMonth(1);
+            return;
+          }
+          slide.value = withTiming(0, { duration: 160, easing: ReanimatedEasing.out(ReanimatedEasing.cubic) });
+        },
+        onPanResponderTerminate: () => {
+          slide.value = withTiming(0, { duration: 160, easing: ReanimatedEasing.out(ReanimatedEasing.cubic) });
+        }
+      }),
+    [slideDistance]
+  );
 
   function changeStatsPeriod(offset: number) {
     setSelectedDate((current) => {
@@ -257,22 +315,26 @@ export function LedgerScreen({ initialCompose = false }: { initialCompose?: bool
           <>
             <Card>
               <CardContent style={styles.calendarCard}>
-                <MonthHeader selectedDate={selectedDate} onPrev={() => changeMonth(-1)} onNext={() => changeMonth(1)} />
-                <View style={styles.weekHeader}>
-                  {weekdays.map((day) => (
-                    <Text key={day} variant="caption" style={styles.weekText}>
-                      {day}
-                    </Text>
-                  ))}
-                </View>
-                <View style={styles.calendarGrid}>
-                  {chunkMonthCells(monthCells).map((row, rowIndex) => (
-                    <View key={`week-${rowIndex}`} style={styles.calendarWeekRow}>
-                      {row.map((cell) => (
-                        <DayCell key={cell.date} cell={cell} selected={cell.date === selectedDate} onPress={() => selectDate(cell.date)} />
+                <MonthHeader selectedDate={selectedDate} onPrev={() => switchMonth(-1)} onNext={() => switchMonth(1)} />
+                <View style={styles.calendarAnimated} {...calendarPanResponder.panHandlers}>
+                  <Animated.View style={calendarAnimatedStyle}>
+                    <View style={styles.weekHeader}>
+                      {weekdays.map((day) => (
+                        <Text key={day} variant="caption" style={styles.weekText}>
+                          {day}
+                        </Text>
                       ))}
                     </View>
-                  ))}
+                    <View style={styles.calendarGrid}>
+                      {chunkMonthCells(monthCells).map((row, rowIndex) => (
+                        <View key={`week-${rowIndex}`} style={styles.calendarWeekRow}>
+                          {row.map((cell) => (
+                            <DayCell key={cell.date} cell={cell} selected={cell.date === selectedDate} onPress={() => selectDate(cell.date)} />
+                          ))}
+                        </View>
+                      ))}
+                    </View>
+                  </Animated.View>
                 </View>
               </CardContent>
             </Card>
@@ -284,14 +346,28 @@ export function LedgerScreen({ initialCompose = false }: { initialCompose?: bool
                     <Text style={styles.sectionTitle}>{formatReadableDate(selectedDate)}</Text>
                     <Text variant="caption">收入 {formatMoney(daySummary.income)} · 支出 {formatMoney(daySummary.expense)}</Text>
                   </View>
-                  <Text style={styles.dayBalance}>{formatMoney(daySummary.income - daySummary.expense)}</Text>
+                  <Text
+                    style={[
+                      styles.dayBalance,
+                      // 右上角结余跟随正负变色，正数绿色、负数红色，方便快速扫一眼当天结果。
+                      daySummary.income - daySummary.expense >= 0 ? styles.positiveAmount : styles.negativeAmount
+                    ]}
+                  >
+                    {formatMoney(daySummary.income - daySummary.expense)}
+                  </Text>
                 </View>
                 {transactionsQuery.isLoading ? <ActivityIndicator color={theme.primary} /> : null}
                 {transactionsQuery.isError ? <Text variant="error">流水加载失败，请稍后重试。</Text> : null}
                 {transactions.length > 0 ? (
                   transactions.map((item, index) => (
                     <View key={String(item.id)}>
-                      <TransactionItem item={item} onEdit={openComposer} onDelete={handleDelete} />
+                      <TransactionItem
+                        item={item}
+                        onEdit={openComposer}
+                        onDelete={handleDelete}
+                        // 日历下方流水行点击直接打开详情，方便从首页跳转过来后继续查看。
+                        onSelectDetail={setSelectedTransaction}
+                      />
                       {index < transactions.length - 1 ? <Separator /> : null}
                     </View>
                   ))
@@ -326,6 +402,11 @@ export function LedgerScreen({ initialCompose = false }: { initialCompose?: bool
         onClose={closeComposer}
         onChange={updateForm}
         onSubmit={handleSubmit}
+      />
+
+      <TransactionDetailModal
+        transaction={selectedTransaction}
+        onClose={() => setSelectedTransaction(null)}
       />
     </SafeAreaView>
   );
@@ -401,10 +482,10 @@ function StatsPanel({
       : [],
     [selectedCategoryShare, statsDirection, transactions]
   );
-  const directionTransactions = useMemo(
-    () => transactions.filter((item) => item.type === statsDirection),
-    [statsDirection, transactions]
-  );
+  const directionTransactions = useMemo(() => {
+    const filtered = transactions.filter((item) => item.type === statsDirection);
+    return filtered.sort((a, b) => (b.amount ?? 0) - (a.amount ?? 0));
+  }, [statsDirection, transactions]);
 
   return (
     <>
@@ -496,7 +577,15 @@ function StatsPanel({
                   </Text>
                   <Text variant="muted">{formatShortDateTime(item.transactionTime)}</Text>
                 </View>
-                <Text style={styles.detailAmount}>{formatSignedAmount(item)}</Text>
+                <Text
+                  style={[
+                    styles.detailAmount,
+                    // 支出红色、收入绿色，和金额方向保持一致，列表扫一眼更直观。
+                    transactionAmountColor(item, theme)
+                  ]}
+                >
+                  {formatSignedAmount(item)}
+                </Text>
               </Pressable>
               {index < Math.min(directionTransactions.length, 5) - 1 ? <Separator /> : null}
             </View>
@@ -543,28 +632,56 @@ function ProgressLine({ label, value, max, color }: { label: string; value: numb
 
 function TrendLineChart({ points, direction }: { points: TrendPoint[]; direction: StatsDirection }) {
   const theme = useTheme();
-  const width = 320;
   const height = 210;
   const left = 48;
   const right = 12;
   const top = 18;
   const bottom = 34;
-  const chartWidth = width - left - right;
+  const [chartWidth, setChartWidth] = useState(0);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const resolvedWidth = chartWidth > 0 ? chartWidth : 320;
+  const chartInnerWidth = Math.max(resolvedWidth - left - right, 1);
   const chartHeight = height - top - bottom;
   const field = direction === 'EXPENSE' ? 'expense' : 'income';
   const maxAmount = Math.max(...points.map((point) => point[field]), 1);
-  const line = buildPolyline(points, field, maxAmount, left, top, chartWidth, chartHeight);
+  const line = buildPolyline(points, field, maxAmount, left, top, chartInnerWidth, chartHeight);
   const axisValues = [maxAmount, maxAmount / 2, 0];
   const labelIndexes = getAxisLabelIndexes(points.length);
+  const activePoint = activeIndex === null ? null : points[activeIndex] ?? null;
+  const activeDot = activePoint
+    ? getTrendPointPosition(points, activePoint, field, maxAmount, left, top, chartInnerWidth, chartHeight)
+    : null;
+
+  const responder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: (event) => {
+          setActiveIndex(getNearestTrendPointIndex(event.nativeEvent.locationX, points.length, resolvedWidth, left, right));
+        },
+        onPanResponderMove: (event) => {
+          setActiveIndex(getNearestTrendPointIndex(event.nativeEvent.locationX, points.length, resolvedWidth, left, right));
+        },
+        onPanResponderRelease: () => {
+          setActiveIndex(null);
+        },
+        onPanResponderTerminate: () => {
+          setActiveIndex(null);
+        }
+      }),
+    [points.length, resolvedWidth]
+  );
 
   return (
-    <View style={stylesStatic.chartWrap}>
-      <Svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
+    <View style={stylesStatic.chartWrap} onLayout={(event) => setChartWidth(event.nativeEvent.layout.width)}>
+      <View style={stylesStatic.chartTouchArea} {...responder.panHandlers} />
+      <Svg width={resolvedWidth} height={height} viewBox={`0 0 ${resolvedWidth} ${height}`}>
         {axisValues.map((value, index) => {
           const y = top + (index / 2) * chartHeight;
           return (
             <G key={`axis-${index}`}>
-              <Line x1={left} y1={y} x2={width - right} y2={y} stroke={theme.border} strokeWidth={1} strokeDasharray="4 6" />
+              <Line x1={left} y1={y} x2={resolvedWidth - right} y2={y} stroke={theme.border} strokeWidth={1} strokeDasharray="4 6" />
               <SvgText x={0} y={y + 4} fontSize={10} fill={theme.mutedForeground}>
                 {formatAxisMoney(value)}
               </SvgText>
@@ -573,7 +690,7 @@ function TrendLineChart({ points, direction }: { points: TrendPoint[]; direction
         })}
         <Polyline points={line} fill="none" stroke={theme.foreground} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
         {points.map((point, index) => {
-          const x = left + (points.length === 1 ? 0 : (index / (points.length - 1)) * chartWidth);
+          const x = left + (points.length === 1 ? 0 : (index / (points.length - 1)) * chartInnerWidth);
           const y = top + chartHeight - (point[field] / maxAmount) * chartHeight;
           return <Circle key={`${point.label}-dot`} cx={x} cy={y} r={3} fill={theme.foreground} />;
         })}
@@ -581,14 +698,34 @@ function TrendLineChart({ points, direction }: { points: TrendPoint[]; direction
           if (!labelIndexes.includes(index)) {
             return null;
           }
-          const x = left + (points.length === 1 ? 0 : (index / (points.length - 1)) * chartWidth);
+          const x = left + (points.length === 1 ? 0 : (index / (points.length - 1)) * chartInnerWidth);
           return (
             <SvgText key={point.label} x={x - 10} y={height - 8} fontSize={10} fill={theme.mutedForeground}>
               {point.label}
             </SvgText>
           );
         })}
+        {activeDot ? (
+          <>
+            <Line x1={activeDot.x} y1={top} x2={activeDot.x} y2={height - bottom} stroke={theme.foreground} strokeWidth={1} strokeDasharray="3 4" opacity={0.55} />
+            <Circle cx={activeDot.x} cy={activeDot.y} r={5} fill={theme.background} stroke={theme.foreground} strokeWidth={2} />
+          </>
+        ) : null}
       </Svg>
+      {activePoint && activeDot ? (
+        <View
+          style={[
+            stylesStatic.chartTooltip,
+            // 参考投资页的浮层：固定在图表上方，白底黑字，避免挡住折线主体。
+            { left: clampTooltipLeft(activeDot.x, resolvedWidth), top: 8 }
+          ]}
+        >
+          <Text style={stylesStatic.chartTooltipDate}>{formatTrendPointDate(activePoint.date)}</Text>
+          <Text style={stylesStatic.chartTooltipAmount}>
+            {formatStatsPlainAmount(activePoint[field])}
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -667,7 +804,15 @@ function CategoryTransactionsModal({
                     <Text style={styles.detailTitle} numberOfLines={1}>{item.note || item.categoryName || transactionTypeLabel(item.type)}</Text>
                     <Text variant="muted">{formatShortDateTime(item.transactionTime)} · {item.accountName || '--'}</Text>
                   </View>
-                  <Text style={styles.detailAmount}>{formatSignedAmount(item)}</Text>
+                  <Text
+                    style={[
+                      styles.detailAmount,
+                      // 弹层列表同样按方向着色，避免支出和收入混在一起时看不清。
+                      transactionAmountColor(item, theme)
+                    ]}
+                  >
+                    {formatSignedAmount(item)}
+                  </Text>
                 </Pressable>
                 {index < transactions.length - 1 ? <Separator /> : null}
               </View>
@@ -728,7 +873,15 @@ function DirectionTransactionsModal({
                     <Text style={styles.detailTitle} numberOfLines={1}>{item.note || item.categoryName || transactionTypeLabel(item.type)}</Text>
                     <Text variant="muted">{formatShortDateTime(item.transactionTime)} · {item.accountName || '--'}</Text>
                   </View>
-                  <Text style={styles.detailAmount}>{formatSignedAmount(item)}</Text>
+                  <Text
+                    style={[
+                      styles.detailAmount,
+                      // 同上：明细列表金额按收支颜色区分。
+                      transactionAmountColor(item, theme)
+                    ]}
+                  >
+                    {formatSignedAmount(item)}
+                  </Text>
                 </Pressable>
                 {index < transactions.length - 1 ? <Separator /> : null}
               </View>
@@ -758,32 +911,37 @@ function TransactionDetailModal({ transaction, onClose }: { transaction: LedgerT
               </Pressable>
             </View>
             {transaction ? (
-              <>
-                <DetailMetric label="金额" value={formatSignedAmount(transaction)} />
-                <DetailMetric label="类型" value={transactionTypeLabel(transaction.type)} />
-                <DetailMetric label="分类" value={transaction.categoryName || '--'} />
-                <DetailMetric label="账户" value={transaction.accountName || '--'} />
-                {transaction.targetAccountName ? <DetailMetric label="转入账户" value={transaction.targetAccountName} /> : null}
-                <DetailMetric label="时间" value={transaction.transactionTime?.replace('T', ' ').slice(0, 16) || '--'} />
-                <DetailMetric label="备注" value={transaction.note || '--'} />
-              </>
+              <View style={styles.detailMetricGrid}>
+                {chunkDetailMetrics([
+                  { label: '金额', value: formatSignedAmount(transaction) },
+                  { label: '类型', value: transactionTypeLabel(transaction.type) },
+                  { label: '分类', value: transaction.categoryName || '--' },
+                  { label: '账户', value: transaction.accountName || '--' },
+                  transaction.targetAccountName ? { label: '转入账户', value: transaction.targetAccountName } : null,
+                  { label: '时间', value: transaction.transactionTime?.replace('T', ' ').slice(0, 16) || '--' },
+                  { label: '备注', value: transaction.note || '--' }
+                ]).map((row, rowIndex) => (
+                  <View key={`detail-row-${rowIndex}`} style={styles.detailMetricRow}>
+                    {row.map((item, index) => (
+                      item ? (
+                        <View key={item.label} style={[styles.detailMetricCell, index === 0 ? styles.detailMetricCellLeft : styles.detailMetricCellRight]}>
+                          <Text style={styles.detailMetricLabel}>{item.label}</Text>
+                          <Text variant="muted" style={styles.detailMetricValue} numberOfLines={2}>
+                            {item.value}
+                          </Text>
+                        </View>
+                      ) : (
+                        <View key={`empty-${rowIndex}-${index}`} style={[styles.detailMetricCell, index === 0 ? styles.detailMetricCellLeft : styles.detailMetricCellRight, styles.detailMetricEmpty]} />
+                      )
+                    ))}
+                  </View>
+                ))}
+              </View>
             ) : null}
           </ScrollView>
         </View>
       </View>
     </Modal>
-  );
-}
-
-function DetailMetric({ label, value }: { label: string; value: string }) {
-  const theme = useTheme();
-  const styles = useMemo(() => createStyles(theme), [theme]);
-
-  return (
-    <View style={styles.sheetField}>
-      <Text style={styles.sheetFieldLabel}>{label}</Text>
-      <Text variant="muted">{value}</Text>
-    </View>
   );
 }
 
@@ -852,23 +1010,48 @@ function SummaryBlock({ label, value, tone }: { label: string; value: string; to
   );
 }
 
-function TransactionItem({ item, onEdit, onDelete }: { item: LedgerTransaction; onEdit: (item: LedgerTransaction) => void; onDelete: (item: LedgerTransaction) => void }) {
+function TransactionItem({
+  item,
+  onEdit,
+  onDelete,
+  onSelectDetail
+}: {
+  item: LedgerTransaction;
+  onEdit: (item: LedgerTransaction) => void;
+  onDelete: (item: LedgerTransaction) => void;
+  onSelectDetail: (item: LedgerTransaction) => void;
+}) {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
 
   return (
-    <View style={styles.transactionItem}>
+    <Pressable
+      style={styles.transactionItem}
+      onPress={() => onSelectDetail(item)}
+    >
       <View style={[styles.categoryIcon, { backgroundColor: pickCategoryColor(item) }]}>
         <Text style={styles.categoryIconText}>{categoryInitial(item)}</Text>
       </View>
       <View style={styles.transactionInfo}>
         <Text style={styles.transactionTitle}>{item.categoryName || transactionTypeLabel(item.type)}</Text>
         <Text variant="caption">
-          {transactionTypeLabel(item.type)} · {formatTimeInput(item.transactionTime)}
+          {/* 类型后面补上备注，列表里能直接看出这笔流水的补充说明。 */}
+          {transactionTypeLabel(item.type)}
+          {item.note ? ` · ${item.note}` : ''}
+          {` · ${formatTimeInput(item.transactionTime)}`}
         </Text>
       </View>
       <View style={styles.transactionRight}>
-        <Text style={styles.transactionAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+        <Text
+          style={[
+            styles.transactionAmount,
+            // 流水金额按收入/支出着色，和上方结余保持一致。
+            transactionAmountColor(item, theme)
+          ]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.75}
+        >
           {formatSignedAmount(item)}
         </Text>
         <View style={styles.transactionActions}>
@@ -880,7 +1063,7 @@ function TransactionItem({ item, onEdit, onDelete }: { item: LedgerTransaction; 
           </Pressable>
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -1495,8 +1678,12 @@ function buildMonthCells(selectedDate: string, transactions: LedgerTransaction[]
 
 
 function chunkMonthCells(cells: MonthCell[]) {
-  // 原生端百分比宽度偶发换行会挤出第 7 行，按周切块能固定只渲染 6 行。
-  return Array.from({ length: 6 }).map((_, index) => cells.slice(index * 7, index * 7 + 7));
+  // 日历固定只渲染 5 行，避免月视图过高。
+  return Array.from({ length: 5 }).map((_, index) => cells.slice(index * 7, index * 7 + 7));
+}
+
+function shouldHandleCalendarSwipe(dx: number, dy: number) {
+  return Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 10;
 }
 
 function summarizeMonthCells(cells: MonthCell[]) {
@@ -1624,11 +1811,62 @@ function buildPolyline(points: TrendPoint[], field: 'income' | 'expense', maxAmo
     .join(' ');
 }
 
+function getTrendPointPosition(
+  points: TrendPoint[],
+  targetPoint: TrendPoint,
+  field: 'income' | 'expense',
+  maxAmount: number,
+  left: number,
+  top: number,
+  width: number,
+  height: number
+) {
+  const index = points.findIndex((point) => point.date === targetPoint.date);
+  const x = left + (points.length === 1 ? 0 : (index / (points.length - 1)) * width);
+  const y = top + height - (targetPoint[field] / maxAmount) * height;
+  return { x, y };
+}
+
+function getNearestTrendPointIndex(locationX: number, length: number, width: number, left: number, right: number) {
+  if (length <= 1) {
+    return 0;
+  }
+  const innerWidth = Math.max(width - left - right, 1);
+  const x = Math.min(Math.max(locationX, left), width - right);
+  const ratio = (x - left) / innerWidth;
+  return Math.min(length - 1, Math.max(0, Math.round(ratio * (length - 1))));
+}
+
+function clampTooltipLeft(x: number, width: number) {
+  const tooltipWidth = 104;
+  return Math.min(Math.max(x - tooltipWidth / 2, 8), Math.max(width - tooltipWidth - 8, 8));
+}
+
 function getAxisLabelIndexes(length: number) {
   if (length <= 3) {
     return Array.from({ length }).map((_, index) => index);
   }
   return [0, Math.floor((length - 1) / 2), length - 1];
+}
+
+function formatTrendPointDate(value: string) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const date = parseDate(value);
+    return `${date.getMonth() + 1}月${date.getDate()}日`;
+  }
+  if (/^\d{4}-\d{2}$/.test(value)) {
+    return value.replace('-', '年') + '月';
+  }
+  return value;
+}
+
+function chunkDetailMetrics(items: Array<{ label: string; value: string } | null>) {
+  const filtered = items.filter(Boolean) as Array<{ label: string; value: string }>;
+  const rows: Array<Array<{ label: string; value: string } | null>> = [];
+  for (let index = 0; index < filtered.length; index += 2) {
+    rows.push([filtered[index], filtered[index + 1] ?? null]);
+  }
+  return rows;
 }
 
 function formatAxisMoney(value: number) {
@@ -1753,6 +1991,16 @@ function pickCategoryColor(item: LedgerTransaction) {
   if (item.type === 'INCOME') return '#20b26b';
   if (item.type === 'TRANSFER') return '#6b7cff';
   return '#ff7a45';
+}
+
+function transactionAmountColor(item: LedgerTransaction, theme: ReturnType<typeof useTheme>) {
+  if (item.type === 'INCOME' || item.type === 'REFUND') {
+    return { color: theme.success };
+  }
+  if (item.type === 'EXPENSE') {
+    return { color: theme.destructive };
+  }
+  return { color: theme.foreground };
 }
 
 function formatStatsMoney(value: number) {
@@ -2048,6 +2296,10 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
     calendarGrid: {
       gap: 8
     },
+    calendarAnimated: {
+      overflow: 'hidden',
+      position: 'relative'
+    },
     calendarWeekRow: {
       flexDirection: 'row'
     },
@@ -2111,6 +2363,12 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
       color: theme.success,
       fontSize: 14,
       fontWeight: '800'
+    },
+    positiveAmount: {
+      color: theme.success
+    },
+    negativeAmount: {
+      color: theme.destructive
     },
     transactionItem: {
       alignItems: 'center',
@@ -2375,6 +2633,8 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
       backgroundColor: theme.card,
       borderTopLeftRadius: 22,
       borderTopRightRadius: 22,
+      // 底部弹层内容少时也至少占半屏，避免看起来像一条小抽屉。
+      minHeight: '50%',
       maxHeight: '86%'
     },
     composerSheet: {
@@ -2467,6 +2727,43 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
       color: theme.foreground,
       fontSize: 15,
       fontWeight: '800'
+    },
+    detailMetricGrid: {
+      gap: 10
+    },
+    detailMetricRow: {
+      flexDirection: 'row',
+      gap: 10
+    },
+    detailMetricCell: {
+      backgroundColor: theme.card,
+      borderColor: theme.border,
+      borderRadius: 8,
+      borderWidth: 1,
+      flex: 1,
+      minHeight: 66,
+      paddingHorizontal: 12,
+      paddingVertical: 10
+    },
+    detailMetricCellLeft: {
+      marginRight: 0
+    },
+    detailMetricCellRight: {
+      marginLeft: 0
+    },
+    detailMetricEmpty: {
+      opacity: 0
+    },
+    detailMetricLabel: {
+      color: theme.foreground,
+      fontSize: 13,
+      fontWeight: '800'
+    },
+    detailMetricValue: {
+      color: theme.mutedForeground,
+      fontSize: 13,
+      lineHeight: 18,
+      marginTop: 8
     },
     selectValue: {
       alignItems: 'center',
@@ -2591,7 +2888,42 @@ const stylesStatic = StyleSheet.create({
   },
   chartWrap: {
     alignSelf: 'stretch',
+    height: 210,
     overflow: 'hidden'
+  },
+  chartTouchArea: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 2
+  },
+  chartTooltip: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    position: 'absolute',
+    width: 104,
+    elevation: 3,
+    zIndex: 3
+  },
+  chartTooltipDate: {
+    color: '#111111',
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'center'
+  },
+  chartTooltipAmount: {
+    color: '#111111',
+    fontSize: 11,
+    fontWeight: '900',
+    textAlign: 'center'
   },
   legendItem: {
     alignItems: 'center',
