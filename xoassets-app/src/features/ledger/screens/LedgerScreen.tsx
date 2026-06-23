@@ -5,12 +5,12 @@ import { BarChart3, Camera, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, E
 import DateTimePicker from 'react-native-dates-picker';
 import type { DateType } from 'react-native-dates-picker';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text as RNText, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, G, Line, Polyline, Text as SvgText } from 'react-native-svg';
 import Animated, { Easing as ReanimatedEasing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
-import { Button, Card, CardContent, Input, Separator, Text } from '@/components/ui';
+import { Card, CardContent, Input, Separator, Text } from '@/components/ui';
 import { useTheme } from '@/core/design/theme';
 import { formatMoney } from '@/features/home';
 import { useAuthStore } from '@/stores/authStore';
@@ -44,10 +44,10 @@ interface LedgerFormState {
   note: string;
 }
 
-export function LedgerScreen({ initialCompose = false }: { initialCompose?: boolean } = {}) {
+export function LedgerScreen() {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
-  const params = useLocalSearchParams<{ compose?: string; view?: LedgerViewMode; period?: StatsMode; date?: string }>();
+  const params = useLocalSearchParams<{ view?: LedgerViewMode; period?: StatsMode; date?: string }>();
   const { isHydrated, isLoggedIn, restoreToken } = useAuthStore();
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
   const [viewMode, setViewMode] = useState<LedgerViewMode>('stats');
@@ -68,12 +68,6 @@ export function LedgerScreen({ initialCompose = false }: { initialCompose?: bool
   useEffect(() => {
     restoreToken();
   }, [restoreToken]);
-
-  useEffect(() => {
-    if (params.compose || initialCompose) {
-      setComposerOpen(true);
-    }
-  }, [initialCompose, params.compose]);
 
   useEffect(() => {
     if (params.view === 'calendar' || params.view === 'stats') {
@@ -167,13 +161,10 @@ export function LedgerScreen({ initialCompose = false }: { initialCompose?: bool
   const calendarPanResponder = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onStartShouldSetPanResponderCapture: () => true,
+        onStartShouldSetPanResponder: () => false,
+        onStartShouldSetPanResponderCapture: () => false,
         onMoveShouldSetPanResponder: (_, gesture) => shouldHandleCalendarSwipe(gesture.dx, gesture.dy),
         onMoveShouldSetPanResponderCapture: (_, gesture) => shouldHandleCalendarSwipe(gesture.dx, gesture.dy),
-        onPanResponderGrant: () => {
-          slide.value = 0;
-        },
         onPanResponderMove: (_, gesture) => {
           slide.value = Math.max(-slideDistance, Math.min(slideDistance, gesture.dx));
         },
@@ -1105,22 +1096,22 @@ function ComposerSheet({
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>{form.id ? '编辑记录' : '记一笔'}</Text>
               <View style={styles.sheetHeaderActions}>
-                <Pressable style={styles.headerSaveButton} disabled={isSubmitting} onPress={onSubmit}>
-                  <Text style={styles.headerSaveText}>{isSubmitting ? '保存中' : '保存'}</Text>
-                </Pressable>
                 <Pressable onPress={onClose}>
                   <X color={theme.foreground} size={24} />
                 </Pressable>
               </View>
             </View>
-            <LedgerComposerFields form={form} accounts={accounts} categories={categories} onChange={onChange} />
+            <LedgerComposerFields
+                form={form}
+                accounts={accounts}
+                categories={categories}
+                onChange={onChange}
+                submitLabel={isSubmitting ? '保存中' : '保存'}
+                submitLoading={isSubmitting}
+                onSubmit={onSubmit}
+            />
+            {formError ? <Text variant="error" style={styles.submitError}>{formError}</Text> : null}
           </ScrollView>
-          <View style={styles.sheetFooter}>
-            {formError ? <Text variant="error">{formError}</Text> : null}
-            <Button loading={isSubmitting} onPress={onSubmit}>
-              保存
-            </Button>
-          </View>
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -1131,17 +1122,24 @@ function LedgerComposerFields({
   form,
   accounts,
   categories,
-  onChange
+  onChange,
+  submitLabel,
+  submitLoading,
+  onSubmit
 }: {
   form: LedgerFormState;
   accounts: LedgerAccount[];
   categories: LedgerCategory[];
   onChange: (patch: Partial<LedgerFormState>) => void;
+  submitLabel?: string;
+  submitLoading?: boolean;
+  onSubmit?: () => void;
 }) {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const [openSelect, setOpenSelect] = useState<'category' | 'account' | 'targetAccount' | null>(null);
   const [openPicker, setOpenPicker] = useState<'datetime' | null>(null);
+  const [submitPressed, setSubmitPressed] = useState(false);
   const accountOptions = useMemo(
     () => accounts.map((account) => ({ id: String(account.id), label: account.name || '未命名账户' })),
     [accounts]
@@ -1250,7 +1248,28 @@ function LedgerComposerFields({
         onToggle={togglePicker}
         onChange={onChange}
       />
-      <Input label="备注" placeholder="可选" value={form.note} onChangeText={(note) => onChange({ note })} />
+      <View style={styles.noteBlock}>
+        <Input label="备注" placeholder="可选" value={form.note} onChangeText={(note) => onChange({ note })} />
+      </View>
+        {onSubmit ? (
+          <View style={styles.submitActionBlock}>
+            <Pressable
+              accessibilityRole="button"
+              disabled={submitLoading}
+              style={[
+                styles.submitActionButton,
+                submitLoading ? styles.submitActionButtonDisabled : null,
+                submitPressed && !submitLoading ? styles.submitActionButtonPressed : null
+              ]}
+              onPressIn={() => setSubmitPressed(true)}
+              onPressOut={() => setSubmitPressed(false)}
+              onPress={onSubmit}
+            >
+              {submitLoading ? <ActivityIndicator color="#ffffff" /> : null}
+              <RNText style={styles.submitActionText}>{submitLabel || '保存'}</RNText>
+            </Pressable>
+        </View>
+      ) : null}
     </>
   );
 }
@@ -1382,6 +1401,15 @@ export function LedgerComposePage() {
     return <Redirect href="/login" />;
   }
 
+  function closeComposePage() {
+    // 记一笔页面既可能从模态打开，也可能直接进入；没有历史栈时不能直接 back。
+    if (router.canDismiss()) {
+      router.dismiss();
+      return;
+    }
+    router.replace('/ledger');
+  }
+
   function updateForm(patch: Partial<LedgerFormState>) {
     setForm((current) => ({ ...current, ...patch }));
     setFormError(null);
@@ -1396,7 +1424,7 @@ export function LedgerComposePage() {
 
     try {
       await createMutation.mutateAsync(payload.data);
-      router.back();
+      closeComposePage();
     } catch (error) {
       setFormError(error instanceof Error ? error.message : '保存流水失败');
     }
@@ -1407,7 +1435,7 @@ export function LedgerComposePage() {
       <GridBackdrop color={theme.border} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.pageComposerRoot}>
         <View style={styles.pageComposerHeader}>
-          <Pressable style={styles.pageHeaderSide} onPress={() => router.back()}>
+          <Pressable style={styles.pageHeaderSide} onPress={closeComposePage}>
             <ChevronLeft color={theme.foreground} size={22} />
           </Pressable>
           <Text style={styles.sheetTitle}>记一笔</Text>
@@ -1419,19 +1447,16 @@ export function LedgerComposePage() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <LedgerComposerFields form={form} accounts={accounts} categories={categories} onChange={updateForm} />
+          <LedgerComposerFields
+            form={form}
+            accounts={accounts}
+            categories={categories}
+            onChange={updateForm}
+            submitLabel={createMutation.isPending ? '保存中' : '保存'}
+            submitLoading={createMutation.isPending}
+            onSubmit={handleSubmit}
+          />
           {formError ? <Text variant="error">{formError}</Text> : null}
-          {/* Android 当前运行态下 Pressable 外层样式可能不稳定，按钮视觉改由内部 View 承载。 */}
-          <Pressable
-            style={styles.pageComposerSubmitHitArea}
-            disabled={createMutation.isPending}
-            onPress={handleSubmit}
-          >
-            <View style={[styles.pageComposerSubmitButton, createMutation.isPending ? styles.pageComposerSubmitButtonDisabled : null]}>
-              {createMutation.isPending ? <ActivityIndicator color="#ffffff" /> : null}
-              <Text style={styles.pageComposerSubmitText}>{createMutation.isPending ? '保存中' : '保存'}</Text>
-            </View>
-          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -2122,7 +2147,16 @@ function formatDateTimeLabel(date: string, time: string) {
 }
 
 const createStyles = (theme: ReturnType<typeof useTheme>) =>
-  StyleSheet.create({
+  (() => {
+    const isDark = theme.background === '#09090b';
+    const submitButtonBackground = isDark ? '#0f0f10' : '#ffffff';
+    const submitButtonText = isDark ? '#ffffff' : '#111111';
+    const submitButtonBorder = isDark ? '#2a2a2d' : '#e4e4e7';
+    const submitButtonGlow = isDark
+      ? '0 0 0 1px rgba(255,255,255,0.08), 0 0 24px rgba(96,165,250,0.16), 0 10px 24px rgba(0,0,0,0.38)'
+      : '0 0 0 1px rgba(0,0,0,0.06), 0 0 24px rgba(37,99,235,0.12), 0 10px 24px rgba(37,99,235,0.08)';
+
+    return StyleSheet.create({
     page: {
       backgroundColor: theme.background,
       flex: 1
@@ -2170,8 +2204,8 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
     },
     pageComposerSubmitButton: {
       alignItems: 'center',
-      backgroundColor: '#111111',
-      borderColor: '#111111',
+      backgroundColor: theme.primary,
+      borderColor: theme.primary,
       borderRadius: 8,
       borderWidth: 1,
       flexDirection: 'row',
@@ -2183,7 +2217,7 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
       opacity: 0.5
     },
     pageComposerSubmitText: {
-      color: '#ffffff',
+      color: theme.primaryForeground,
       fontSize: theme.tokens.fontSize.subtitle,
       fontWeight: '700'
     },
@@ -2674,23 +2708,55 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
       flexDirection: 'row',
       gap: 16
     },
-    headerSaveButton: {
-      alignItems: 'center',
-      backgroundColor: theme.foreground,
-      borderRadius: 8,
-      justifyContent: 'center',
-      minHeight: 36,
-      paddingHorizontal: 14
-    },
-    headerSaveText: {
-      color: theme.primaryForeground,
-      fontSize: 14,
-      fontWeight: '800'
-    },
     sheetTitle: {
       color: theme.foreground,
       fontSize: 22,
       fontWeight: '800'
+    },
+    noteBlock: {
+      gap: 6
+    },
+    submitActionBlock: {
+      marginTop: 12
+    },
+    submitError: {
+      marginTop: 10
+    },
+    submitActionButton: {
+      alignItems: 'center',
+      backgroundColor: submitButtonBackground,
+      borderColor: submitButtonBorder,
+      borderRadius: 14,
+      borderCurve: 'continuous',
+      borderWidth: 1,
+      flexDirection: 'row',
+      gap: 8,
+      justifyContent: 'center',
+      minHeight: 54,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      boxShadow: submitButtonGlow,
+      shadowColor: isDark ? '#ffffff' : '#2563eb',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: isDark ? 0.18 : 0.14,
+      shadowRadius: 12,
+      width: '100%',
+      elevation: 6
+    },
+    submitActionButtonPressed: {
+      opacity: 0.9,
+      transform: [{ scale: 0.985 }]
+    },
+    submitActionButtonDisabled: {
+      opacity: 0.55
+    },
+    submitActionText: {
+      color: submitButtonText,
+      fontSize: 16,
+      fontWeight: '700',
+      includeFontPadding: false,
+      lineHeight: 18,
+      textAlign: 'center'
     },
     amountRow: {
       alignItems: 'center',
@@ -2861,7 +2927,8 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
       paddingHorizontal: 12,
       paddingVertical: 12
     }
-  });
+    });
+  })();
 
 const stylesStatic = StyleSheet.create({
   gridLineVertical: {

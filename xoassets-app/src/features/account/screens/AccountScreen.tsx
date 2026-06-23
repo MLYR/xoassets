@@ -1,10 +1,11 @@
 import { Redirect, router } from 'expo-router';
-import { ChevronDown, ChevronRight, ChevronUp, Plus, WalletCards, X } from 'lucide-react-native';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Plus, WalletCards, X } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text as RNText, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button, Card, CardContent, Input, Separator, Text } from '@/components/ui';
+import { Card, CardContent, Input, Separator, Text } from '@/components/ui';
+import { SubmitActionButton as LedgerSubmitActionButton } from '@/components/ui/SubmitActionButton';
 import { useTheme } from '@/core/design/theme';
 import { formatMoney, formatPercent, formatSignedMoney } from '@/features/home';
 import { useAuthStore } from '@/stores/authStore';
@@ -63,7 +64,6 @@ export function AccountScreen({ initialCreate = false }: { initialCreate?: boole
       setForm(createEmptyForm());
       setAdjustForm({ afterBalance: '', reason: '' });
       setFormError(null);
-      setSheetMode('create');
     }
   }, [initialCreate]);
 
@@ -92,11 +92,33 @@ export function AccountScreen({ initialCreate = false }: { initialCreate?: boole
     return <Redirect href="/login" />;
   }
 
+  function closeCreatePage() {
+    // 新增账户现在是独立页面：优先关闭当前栈页，避免直接 back 时抛 GO_BACK 错误。
+    if (router.canDismiss()) {
+      router.dismiss();
+      return;
+    }
+    router.replace('/account');
+  }
+
+  if (initialCreate) {
+    return (
+      <AccountCreatePage
+        form={form}
+        formError={formError}
+        isSubmitting={isSubmitting}
+        onClose={closeCreatePage}
+        onFormChange={(patch) => {
+          setForm((current) => ({ ...current, ...patch }));
+          setFormError(null);
+        }}
+        onSubmit={submitAccount}
+      />
+    );
+  }
+
   function openCreate() {
-    setForm(createEmptyForm());
-    setAdjustForm({ afterBalance: '', reason: '' });
-    setFormError(null);
-    setSheetMode('create');
+    router.push('/account-new');
   }
 
   function openEdit(account: AccountItem) {
@@ -146,6 +168,10 @@ export function AccountScreen({ initialCreate = false }: { initialCreate?: boole
         await updateMutation.mutateAsync({ id: form.id, data: payload.data });
       } else {
         await createMutation.mutateAsync(payload.data);
+      }
+      if (initialCreate) {
+        closeCreatePage();
+        return;
       }
       closeSheet();
     } catch (error) {
@@ -269,6 +295,76 @@ export function AccountScreen({ initialCreate = false }: { initialCreate?: boole
   );
 }
 
+function AccountCreatePage({
+  form,
+  formError,
+  isSubmitting,
+  onClose,
+  onFormChange,
+  onSubmit
+}: {
+  form: AccountFormState;
+  formError: string | null;
+  isSubmitting: boolean;
+  onClose: () => void;
+  onFormChange: (patch: Partial<AccountFormState>) => void;
+  onSubmit: () => void;
+}) {
+  const theme = useTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+  const [currencyOpen, setCurrencyOpen] = useState(false);
+  const [submitPressed, setSubmitPressed] = useState(false);
+
+  return (
+    <SafeAreaView style={styles.page}>
+      <GridBackdrop color={theme.border} />
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.pageRoot}>
+        <View style={styles.pageHeader}>
+          <Pressable style={styles.pageHeaderSide} onPress={onClose}>
+            <ChevronLeft color={theme.foreground} size={22} />
+          </Pressable>
+          <Text style={styles.pageTitle}>新增账户</Text>
+          <View style={styles.pageHeaderSide} />
+        </View>
+        <ScrollView
+          style={styles.pageScroller}
+          contentContainerStyle={styles.pageContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Input label="账户名称" value={form.name} onChangeText={(name) => onFormChange({ name })} />
+          <Text style={styles.sheetFieldLabel}>账户类型</Text>
+          <View style={styles.choiceWrap}>
+            {accountTypes.map((item) => (
+              <Pressable key={item.value} style={[styles.choiceChip, form.type === item.value ? styles.choiceChipSelected : null]} onPress={() => onFormChange({ type: item.value })}>
+                <Text style={[styles.choiceText, form.type === item.value ? styles.choiceTextSelected : null]}>{item.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <Input label="账户余额" keyboardType="decimal-pad" value={form.balance} onChangeText={(balance) => onFormChange({ balance })} />
+          <DropdownField
+            label="币种"
+            value={currencyLabel(form.currency)}
+            open={currencyOpen}
+            options={currencyOptions}
+            selectedValue={form.currency}
+            onToggle={() => setCurrencyOpen((open) => !open)}
+            onSelect={(currency) => {
+              onFormChange({ currency });
+              setCurrencyOpen(false);
+            }}
+          />
+          <Input label="备注" placeholder="可选" value={form.remark} onChangeText={(remark) => onFormChange({ remark })} />
+          <View style={styles.submitActionBlock}>
+            <SubmitActionButton label="保存" loading={isSubmitting} pressed={submitPressed} onPressedChange={setSubmitPressed} onPress={onSubmit} />
+          </View>
+          {formError ? <Text variant="error" style={styles.sheetError}>{formError}</Text> : null}
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
 function AccountSheet({
   visible,
   mode,
@@ -295,6 +391,7 @@ function AccountSheet({
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const [currencyOpen, setCurrencyOpen] = useState(false);
+  const [submitPressed, setSubmitPressed] = useState(false);
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -346,17 +443,39 @@ function AccountSheet({
                 <Input label="备注" placeholder="可选" value={form.remark} onChangeText={(remark) => onFormChange({ remark })} />
               </>
             )}
-
+            <View style={styles.submitActionBlock}>
+              <SubmitActionButton label="保存" loading={isSubmitting} pressed={submitPressed} onPressedChange={setSubmitPressed} onPress={onSubmit} />
+            </View>
+            {formError ? <Text variant="error" style={styles.sheetError}>{formError}</Text> : null}
           </ScrollView>
-          <View style={styles.sheetFooter}>
-            {formError ? <Text variant="error">{formError}</Text> : null}
-            <Button loading={isSubmitting} onPress={onSubmit}>
-              保存
-            </Button>
-          </View>
         </View>
       </KeyboardAvoidingView>
     </Modal>
+  );
+}
+
+function SubmitActionButton({
+  label,
+  loading,
+  pressed,
+  onPressedChange,
+  onPress
+}: {
+  label: string;
+  loading: boolean;
+  pressed: boolean;
+  onPressedChange: (value: boolean) => void;
+  onPress: () => void;
+}) {
+  // 统一复用记一笔的提交按钮，避免各页面保存按钮样式继续漂移。
+  return (
+    <LedgerSubmitActionButton
+      label={label}
+      loading={loading}
+      pressed={pressed}
+      onPressedChange={onPressedChange}
+      onPress={onPress}
+    />
   );
 }
 
@@ -549,8 +668,16 @@ const stylesStatic = StyleSheet.create({
   }
 });
 
-const createStyles = (theme: ReturnType<typeof useTheme>) =>
-  StyleSheet.create({
+const createStyles = (theme: ReturnType<typeof useTheme>) => {
+  const isDark = theme.background === '#09090b';
+  const submitButtonBackground = isDark ? '#0f0f10' : '#ffffff';
+  const submitButtonText = isDark ? '#ffffff' : '#111111';
+  const submitButtonBorder = isDark ? '#2a2a2d' : '#e4e4e7';
+  const submitButtonGlow = isDark
+    ? '0 0 0 1px rgba(255,255,255,0.08), 0 0 24px rgba(96,165,250,0.16), 0 10px 24px rgba(0,0,0,0.38)'
+    : '0 0 0 1px rgba(0,0,0,0.06), 0 0 24px rgba(37,99,235,0.12), 0 10px 24px rgba(37,99,235,0.08)';
+
+  return StyleSheet.create({
     page: {
       backgroundColor: theme.background,
       flex: 1
@@ -565,6 +692,36 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
       gap: 14,
       padding: 18,
       paddingBottom: 112
+    },
+    pageRoot: {
+      flex: 1,
+      position: 'relative'
+    },
+    pageHeader: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingTop: 8,
+      paddingBottom: 12
+    },
+    pageHeaderSide: {
+      alignItems: 'center',
+      height: 36,
+      justifyContent: 'center',
+      width: 36
+    },
+    pageScroller: {
+      flex: 1
+    },
+    pageContent: {
+      gap: 14,
+      padding: 18,
+      paddingBottom: 28
+    },
+    pageTitle: {
+      fontSize: 22,
+      fontWeight: '900'
     },
     header: {
       alignItems: 'center',
@@ -725,23 +882,17 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
       borderTopLeftRadius: 22,
       borderTopRightRadius: 22,
       borderWidth: 1,
-      maxHeight: '86%'
+      height: '86%',
+      overflow: 'hidden',
+      position: 'relative'
     },
     sheetScroller: {
-      maxHeight: '100%'
+      flex: 1
     },
     sheetContent: {
       gap: 14,
       padding: 18,
-      paddingBottom: 12
-    },
-    sheetFooter: {
-      backgroundColor: theme.card,
-      borderColor: theme.border,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      gap: 10,
-      padding: 18,
-      paddingTop: 12
+      paddingBottom: 24
     },
     sheetHeader: {
       alignItems: 'center',
@@ -779,6 +930,54 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
     },
     choiceTextSelected: {
       color: theme.primaryForeground
+    },
+    submitActionBlock: {
+      marginTop: 12
+    },
+    submitActionButton: {
+      alignItems: 'center',
+      backgroundColor: submitButtonBackground,
+      borderColor: submitButtonBorder,
+      borderRadius: 14,
+      borderCurve: 'continuous',
+      borderWidth: 1,
+      flexDirection: 'row',
+      gap: 8,
+      justifyContent: 'center',
+      minHeight: 54,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      boxShadow: submitButtonGlow,
+      shadowColor: isDark ? '#ffffff' : '#2563eb',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: isDark ? 0.18 : 0.14,
+      shadowRadius: 12,
+      width: '100%',
+      elevation: 6
+    },
+    submitActionButtonContent: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 8,
+      justifyContent: 'center'
+    },
+    submitActionButtonPressed: {
+      opacity: 0.9,
+      transform: [{ scale: 0.985 }]
+    },
+    submitActionButtonDisabled: {
+      opacity: 0.55
+    },
+    submitActionText: {
+      color: submitButtonText,
+      fontSize: 16,
+      fontWeight: '700',
+      includeFontPadding: false,
+      lineHeight: 18,
+      textAlign: 'center'
+    },
+    sheetError: {
+      marginTop: 2
     },
     dropdownBox: {
       gap: 8
@@ -823,3 +1022,4 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
       color: theme.background
     }
   });
+};

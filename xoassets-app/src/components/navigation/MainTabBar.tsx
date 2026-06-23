@@ -7,7 +7,6 @@ import { useState } from 'react';
 
 import { Text } from '@/components/ui';
 import { useTheme } from '@/core/design/theme';
-import { LedgerQuickComposer } from '@/features/ledger';
 
 const tabItems = [
   { name: 'home', label: '首页', icon: Home },
@@ -21,19 +20,18 @@ export function MainTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const styles = createStyles(theme, insets.bottom);
   const [quickOpen, setQuickOpen] = useState(false);
-  const [ledgerComposerOpen, setLedgerComposerOpen] = useState(false);
 
   function handleQuickNavigate(action: 'ledger' | 'investment' | 'account') {
     setQuickOpen(false);
     if (action === 'ledger') {
-      setLedgerComposerOpen(true);
+      router.push('/transaction/edit');
       return;
     }
     if (action === 'investment') {
-      router.push(`/investment/trade?compose=${Date.now()}`);
+      router.push('/investment-trade');
       return;
     }
-    router.push(`/account/new?compose=${Date.now()}`);
+    router.push('/account-new');
   }
 
   return (
@@ -74,7 +72,6 @@ export function MainTabBar({ state, navigation }: BottomTabBarProps) {
           </View>
         </View>
       </Modal>
-      <LedgerQuickComposer visible={ledgerComposerOpen} onClose={() => setLedgerComposerOpen(false)} />
     </>
   );
 }

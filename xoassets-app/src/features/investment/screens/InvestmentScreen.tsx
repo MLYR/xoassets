@@ -1,4 +1,4 @@
-import { Redirect, useLocalSearchParams } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import {
   CalendarDays,
   ChevronDown,
@@ -16,11 +16,13 @@ import {
 } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, Easing, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Text as RNText } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AnimatedReanimated, { Easing as ReanimatedEasing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import Svg, { Circle, Line, Polyline, Rect, Text as SvgText } from 'react-native-svg';
 
 import { Button, Card, CardContent, Input, Separator, Text } from '@/components/ui';
+import { SubmitActionButton } from '@/components/ui/SubmitActionButton';
 import { formatMoney, formatSignedMoney } from '@/features/home';
 import { useTheme } from '@/core/design/theme';
 import { useAuthStore } from '@/stores/authStore';
@@ -99,7 +101,6 @@ interface TransactionFormState {
 export function InvestmentScreen({ initialCompose = false }: { initialCompose?: boolean } = {}) {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
-  const params = useLocalSearchParams<{ compose?: string }>();
   const { isHydrated, isLoggedIn, restoreToken } = useAuthStore();
   const [module, setModule] = useState<InvestmentModule>('ALL');
   const [period, setPeriod] = useState<InvestmentPeriod>('MONTH');
@@ -114,19 +115,12 @@ export function InvestmentScreen({ initialCompose = false }: { initialCompose?: 
   const [holdingSort, setHoldingSort] = useState<HoldingSortMode>('MARKET_DESC');
   const [refreshTip, setRefreshTip] = useState<string | null>(null);
   const refreshSpin = useRef(new Animated.Value(0)).current;
-  const [composerOpen, setComposerOpen] = useState(false);
   const [form, setForm] = useState<TransactionFormState>(() => createEmptyForm());
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     restoreToken();
   }, [restoreToken]);
-
-  useEffect(() => {
-    if (params.compose || initialCompose) {
-      setComposerOpen(true);
-    }
-  }, [initialCompose, params.compose]);
 
   const [calendarYear, calendarMonthNumber] = calendarMonth.split('-').map(Number);
   const {
@@ -208,6 +202,33 @@ export function InvestmentScreen({ initialCompose = false }: { initialCompose?: 
     return <Redirect href="/login" />;
   }
 
+  function closeComposePage() {
+    // 新增投资交易现在是独立页面：优先 dismiss，避免没有返回历史时触发 GO_BACK。
+    if (router.canDismiss()) {
+      router.dismiss();
+      return;
+    }
+    router.replace('/investment');
+  }
+
+  if (initialCompose) {
+    return (
+      <TransactionComposer
+        form={form}
+        formError={formError}
+        holdings={holdings}
+        accounts={accounts}
+        lookupItems={lookupMutation.data ?? []}
+        loading={createTransactionMutation.isPending || createAssetMutation.isPending}
+        lookupLoading={lookupMutation.isPending}
+        onClose={closeComposePage}
+        onLookup={handleLookup}
+        onSubmit={handleSubmitTransaction}
+        onChange={setForm}
+      />
+    );
+  }
+
   function changeCalendarMonth(offset: number) {
     const [year, month] = calendarMonth.split('-').map(Number);
     setCalendarMonth(monthKey(new Date(year, month - 1 + offset, 1)));
@@ -272,8 +293,8 @@ export function InvestmentScreen({ initialCompose = false }: { initialCompose?: 
     try {
       const request = await buildTransactionRequest(form, holdings, accounts, lookupMutation.data ?? []);
       await createTransactionMutation.mutateAsync(request);
-      setComposerOpen(false);
       setForm(createEmptyForm());
+      closeComposePage();
       Alert.alert('已保存', '投资交易已写入后端。');
     } catch (error) {
       setFormError(error instanceof Error ? error.message : '保存失败');
@@ -511,23 +532,6 @@ export function InvestmentScreen({ initialCompose = false }: { initialCompose?: 
         transaction={selectedTransaction}
         amountVisible={amountVisible}
         onClose={() => setSelectedTransaction(null)}
-      />
-      <TransactionComposer
-        visible={composerOpen}
-        form={form}
-        formError={formError}
-        holdings={holdings}
-        accounts={accounts}
-        lookupItems={lookupMutation.data ?? []}
-        loading={createTransactionMutation.isPending || createAssetMutation.isPending}
-        lookupLoading={lookupMutation.isPending}
-        onClose={() => {
-          setComposerOpen(false);
-          setFormError(null);
-        }}
-        onLookup={handleLookup}
-        onSubmit={handleSubmitTransaction}
-        onChange={setForm}
       />
     </SafeAreaView>
   );
@@ -1039,7 +1043,6 @@ function TransactionDetailModal({ transaction, amountVisible, onClose }: { trans
 }
 
 function TransactionComposer({
-  visible,
   form,
   formError,
   holdings,
@@ -1052,7 +1055,6 @@ function TransactionComposer({
   onSubmit,
   onChange
 }: {
-  visible: boolean;
   form: TransactionFormState;
   formError: string | null;
   holdings: HoldingItem[];
@@ -1070,6 +1072,7 @@ function TransactionComposer({
   const selectedHolding = holdings.find((item) => String(item.id) === form.holdingId);
   const isFundAmount = form.assetType === 'FUND' && form.type === 'BUY' && form.inputMode === 'AMOUNT_NAV';
   const [openSelect, setOpenSelect] = useState<'holding' | 'account' | 'currency' | 'quoteSource' | null>(null);
+  const [submitPressed, setSubmitPressed] = useState(false);
   const holdingOptions = useMemo(
     () => holdings.map((item) => ({
       label: [item.assetName || item.symbol || '未命名持仓', item.symbol].filter(Boolean).join(' · '),
@@ -1086,133 +1089,134 @@ function TransactionComposer({
   );
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalRoot}>
-        <View style={styles.modalBackdrop} />
-        <View style={styles.composerSheet}>
-          <View style={styles.composerHeader}>
-            <View>
-              <Text style={styles.sheetTitle}>新增投资交易</Text>
-              <Text variant="muted">买入会扣减资金账户，卖出会回到账户余额。</Text>
-            </View>
-            <Pressable style={styles.closeButton} onPress={onClose}><X color={theme.foreground} size={22} /></Pressable>
+    <SafeAreaView style={styles.page}>
+      <GridBackdrop color={theme.border} />
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.composerRoot}>
+        <View style={styles.composerHeader}>
+          <Pressable style={styles.closeButton} onPress={onClose}>
+            <ChevronLeft color={theme.foreground} size={22} />
+          </Pressable>
+          <View style={styles.composerHeaderText}>
+            <Text style={styles.sheetTitle}>新增投资交易</Text>
+            <Text variant="muted">买入会扣减资金账户，卖出会回到账户余额。</Text>
           </View>
-          <ScrollView style={styles.composerScroll} showsVerticalScrollIndicator={false} contentContainerStyle={styles.formContent} keyboardShouldPersistTaps="handled">
-            <View style={styles.tradeTypeRow}>
-              <ChoicePill label="买入" active={form.type === 'BUY'} onPress={() => onChange({ ...form, type: 'BUY' })} />
-              <ChoicePill label="卖出" active={form.type === 'SELL'} onPress={() => onChange({ ...form, type: 'SELL', source: 'HOLDING' })} />
-            </View>
-            <View style={styles.choiceRow}>
-              <ChoicePill label="现有持仓" active={form.source === 'HOLDING'} onPress={() => onChange({ ...form, source: 'HOLDING' })} />
-              <ChoicePill label="识别新资产" active={form.source === 'LOOKUP'} disabled={form.type === 'SELL'} onPress={() => onChange({ ...form, source: 'LOOKUP' })} />
-            </View>
+          <View style={styles.closeButton} />
+        </View>
+        <ScrollView style={styles.composerScroll} showsVerticalScrollIndicator={false} contentContainerStyle={styles.formContent} keyboardShouldPersistTaps="handled">
+          <View style={styles.tradeTypeRow}>
+            <ChoicePill label="买入" active={form.type === 'BUY'} onPress={() => onChange({ ...form, type: 'BUY' })} />
+            <ChoicePill label="卖出" active={form.type === 'SELL'} onPress={() => onChange({ ...form, type: 'SELL', source: 'HOLDING' })} />
+          </View>
+          <View style={styles.choiceRow}>
+            <ChoicePill label="现有持仓" active={form.source === 'HOLDING'} onPress={() => onChange({ ...form, source: 'HOLDING' })} />
+            <ChoicePill label="识别新资产" active={form.source === 'LOOKUP'} disabled={form.type === 'SELL'} onPress={() => onChange({ ...form, source: 'LOOKUP' })} />
+          </View>
 
-            {form.source === 'HOLDING' ? (
-              <View style={styles.selectorBlock}>
-                <DropdownField
-                  label="选择持仓"
-                  value={selectedHolding ? selectedHolding.assetName || selectedHolding.symbol || '未命名持仓' : '请选择持仓'}
-                  open={openSelect === 'holding'}
-                  options={holdingOptions}
-                  selectedValue={form.holdingId}
-                  emptyText="暂无可用持仓"
-                  onToggle={() => setOpenSelect((current) => current === 'holding' ? null : 'holding')}
-                  onSelect={(holdingId) => {
-                    const holding = holdings.find((item) => String(item.id) === holdingId);
-                    onChange({
-                      ...form,
-                      holdingId,
-                      assetId: String(holding?.assetId ?? ''),
-                      assetType: normalizeAssetType(holding?.assetType),
-                      currency: holding?.currency || form.currency
-                    });
-                    setOpenSelect(null);
-                  }}
-                />
-                {selectedHolding ? <Text variant="caption">{selectedHolding.symbol || '--'} · {moduleLabel(normalizeAssetType(selectedHolding.assetType) as InvestmentModule)}</Text> : null}
+          {form.source === 'HOLDING' ? (
+            <View style={styles.selectorBlock}>
+              <DropdownField
+                label="选择持仓"
+                value={selectedHolding ? selectedHolding.assetName || selectedHolding.symbol || '未命名持仓' : '请选择持仓'}
+                open={openSelect === 'holding'}
+                options={holdingOptions}
+                selectedValue={form.holdingId}
+                emptyText="暂无可用持仓"
+                onToggle={() => setOpenSelect((current) => current === 'holding' ? null : 'holding')}
+                onSelect={(holdingId) => {
+                  const holding = holdings.find((item) => String(item.id) === holdingId);
+                  onChange({
+                    ...form,
+                    holdingId,
+                    assetId: String(holding?.assetId ?? ''),
+                    assetType: normalizeAssetType(holding?.assetType),
+                    currency: holding?.currency || form.currency
+                  });
+                  setOpenSelect(null);
+                }}
+              />
+              {selectedHolding ? <Text variant="caption">{selectedHolding.symbol || '--'} · {moduleLabel(normalizeAssetType(selectedHolding.assetType) as InvestmentModule)}</Text> : null}
+            </View>
+          ) : (
+            <View style={styles.selectorBlock}>
+              <Text variant="muted">资产类型</Text>
+              <View style={styles.choiceRow}>
+                {(['FUND', 'STOCK', 'CRYPTO'] as AssetType[]).map((type) => <ChoicePill key={type} label={moduleLabel(type as InvestmentModule)} active={form.assetType === type} onPress={() => onChange({ ...form, assetType: type })} />)}
               </View>
-            ) : (
-              <View style={styles.selectorBlock}>
-                <Text variant="muted">资产类型</Text>
-                <View style={styles.choiceRow}>
-                  {(['FUND', 'STOCK', 'CRYPTO'] as AssetType[]).map((type) => <ChoicePill key={type} label={moduleLabel(type as InvestmentModule)} active={form.assetType === type} onPress={() => onChange({ ...form, assetType: type })} />)}
-                </View>
-                <View style={styles.lookupRow}>
-                  <Input containerStyle={styles.lookupInput} label="资产名称 / 代码" value={form.keyword} onChangeText={(keyword) => onChange({ ...form, keyword })} placeholder="如 110020 / BTC" />
-                  <Button style={styles.lookupButton} loading={lookupLoading} onPress={onLookup}><Search color={theme.primaryForeground} size={16} />识别</Button>
-                </View>
-                {lookupItems[0] ? <Text variant="caption">已识别：{assetName(lookupItems[0])} · {lookupItems[0].market || 'UNKNOWN'} · 最新价 {priceText(lookupItems[0].latestPrice)}</Text> : null}
+              <View style={styles.lookupRow}>
+                <Input containerStyle={styles.lookupInput} label="资产名称 / 代码" value={form.keyword} onChangeText={(keyword) => onChange({ ...form, keyword })} placeholder="如 110020 / BTC" />
+                <Button style={styles.lookupButton} loading={lookupLoading} onPress={onLookup}><Search color={theme.primaryForeground} size={16} />识别</Button>
               </View>
-            )}
+              {lookupItems[0] ? <Text variant="caption">已识别：{assetName(lookupItems[0])} · {lookupItems[0].market || 'UNKNOWN'} · 最新价 {priceText(lookupItems[0].latestPrice)}</Text> : null}
+            </View>
+          )}
 
+          <DropdownField
+            label="资金账户"
+            value={selectedAccountName(accounts, form.accountId) || '请选择资金账户'}
+            open={openSelect === 'account'}
+            options={accountOptions}
+            selectedValue={form.accountId}
+            emptyText="暂无可用资金账户"
+            onToggle={() => setOpenSelect((current) => current === 'account' ? null : 'account')}
+            onSelect={(accountId) => {
+              onChange({ ...form, accountId });
+              setOpenSelect(null);
+            }}
+          />
+          <View style={styles.twoColumns}>
             <DropdownField
-              label="资金账户"
-              value={selectedAccountName(accounts, form.accountId) || '请选择资金账户'}
-              open={openSelect === 'account'}
-              options={accountOptions}
-              selectedValue={form.accountId}
-              emptyText="暂无可用资金账户"
-              onToggle={() => setOpenSelect((current) => current === 'account' ? null : 'account')}
-              onSelect={(accountId) => {
-                onChange({ ...form, accountId });
+              label="币种"
+              value={currencyLabel(form.currency)}
+              open={openSelect === 'currency'}
+              options={currencyOptions}
+              selectedValue={form.currency}
+              onToggle={() => setOpenSelect((current) => current === 'currency' ? null : 'currency')}
+              onSelect={(currency) => {
+                onChange({ ...form, currency });
                 setOpenSelect(null);
               }}
             />
-            <View style={styles.twoColumns}>
-              <DropdownField
-                label="币种"
-                value={currencyLabel(form.currency)}
-                open={openSelect === 'currency'}
-                options={currencyOptions}
-                selectedValue={form.currency}
-                onToggle={() => setOpenSelect((current) => current === 'currency' ? null : 'currency')}
-                onSelect={(currency) => {
-                  onChange({ ...form, currency });
-                  setOpenSelect(null);
-                }}
-              />
-              <DropdownField
-                label="行情来源"
-                value={quoteSourceLabel(form.quoteSource)}
-                open={openSelect === 'quoteSource'}
-                options={quoteSourceOptions}
-                selectedValue={form.quoteSource}
-                onToggle={() => setOpenSelect((current) => current === 'quoteSource' ? null : 'quoteSource')}
-                onSelect={(quoteSource) => {
-                  onChange({ ...form, quoteSource });
-                  setOpenSelect(null);
-                }}
-              />
-            </View>
-
-            {form.assetType === 'FUND' && form.type === 'BUY' ? (
-              <View style={styles.choiceRow}>
-                <ChoicePill label="金额申购" active={form.inputMode === 'AMOUNT_NAV'} onPress={() => onChange({ ...form, inputMode: 'AMOUNT_NAV' })} />
-                <ChoicePill label="数量价格" active={form.inputMode === 'QUANTITY_PRICE'} onPress={() => onChange({ ...form, inputMode: 'QUANTITY_PRICE' })} />
-              </View>
-            ) : null}
-
-            {isFundAmount ? (
-              <Input label="买入总金额" value={form.tradeAmount} onChangeText={(tradeAmount) => onChange({ ...form, tradeAmount })} keyboardType="decimal-pad" placeholder="0.00" />
-            ) : (
-              <View style={styles.twoColumns}>
-                <Input containerStyle={styles.columnInput} label="数量" value={form.quantity} onChangeText={(quantity) => onChange({ ...form, quantity })} keyboardType="decimal-pad" placeholder="0" />
-                <Input containerStyle={styles.columnInput} label="价格" value={form.price} onChangeText={(price) => onChange({ ...form, price })} keyboardType="decimal-pad" placeholder="0.0000" />
-              </View>
-            )}
-            <View style={styles.twoColumns}>
-              <Input containerStyle={styles.columnInput} label="手续费" value={form.fee} onChangeText={(fee) => onChange({ ...form, fee })} keyboardType="decimal-pad" placeholder="0" />
-              <Input containerStyle={styles.columnInput} label="交易时间" value={form.time} onChangeText={(time) => onChange({ ...form, time })} placeholder="YYYY-MM-DD HH:mm" />
-            </View>
-            <Input label="备注" value={form.note} onChangeText={(note) => onChange({ ...form, note })} placeholder="可选" />
-          </ScrollView>
-          <View style={styles.composerFooter}>
-            {formError ? <Text variant="error">{formError}</Text> : null}
-            <Button size="lg" loading={loading} onPress={onSubmit}>保存交易</Button>
+            <DropdownField
+              label="行情来源"
+              value={quoteSourceLabel(form.quoteSource)}
+              open={openSelect === 'quoteSource'}
+              options={quoteSourceOptions}
+              selectedValue={form.quoteSource}
+              onToggle={() => setOpenSelect((current) => current === 'quoteSource' ? null : 'quoteSource')}
+              onSelect={(quoteSource) => {
+                onChange({ ...form, quoteSource });
+                setOpenSelect(null);
+              }}
+            />
           </View>
-        </View>
+
+          {form.assetType === 'FUND' && form.type === 'BUY' ? (
+            <View style={styles.choiceRow}>
+              <ChoicePill label="金额申购" active={form.inputMode === 'AMOUNT_NAV'} onPress={() => onChange({ ...form, inputMode: 'AMOUNT_NAV' })} />
+              <ChoicePill label="数量价格" active={form.inputMode === 'QUANTITY_PRICE'} onPress={() => onChange({ ...form, inputMode: 'QUANTITY_PRICE' })} />
+            </View>
+          ) : null}
+
+          {isFundAmount ? (
+            <Input label="买入总金额" value={form.tradeAmount} onChangeText={(tradeAmount) => onChange({ ...form, tradeAmount })} keyboardType="decimal-pad" placeholder="0.00" />
+          ) : (
+            <View style={styles.twoColumns}>
+              <Input containerStyle={styles.columnInput} label="数量" value={form.quantity} onChangeText={(quantity) => onChange({ ...form, quantity })} keyboardType="decimal-pad" placeholder="0" />
+              <Input containerStyle={styles.columnInput} label="价格" value={form.price} onChangeText={(price) => onChange({ ...form, price })} keyboardType="decimal-pad" placeholder="0.0000" />
+            </View>
+          )}
+          <View style={styles.twoColumns}>
+            <Input containerStyle={styles.columnInput} label="手续费" value={form.fee} onChangeText={(fee) => onChange({ ...form, fee })} keyboardType="decimal-pad" placeholder="0" />
+            <Input containerStyle={styles.columnInput} label="交易时间" value={form.time} onChangeText={(time) => onChange({ ...form, time })} placeholder="YYYY-MM-DD HH:mm" />
+          </View>
+          <Input label="备注" value={form.note} onChangeText={(note) => onChange({ ...form, note })} placeholder="可选" />
+          <View style={styles.submitActionBlock}>
+            <SubmitActionButton label={loading ? '保存中' : '保存'} loading={loading} pressed={submitPressed} onPressedChange={setSubmitPressed} onPress={onSubmit} />
+          </View>
+          {formError ? <Text variant="error" style={styles.composerError}>{formError}</Text> : null}
+        </ScrollView>
       </KeyboardAvoidingView>
-    </Modal>
+    </SafeAreaView>
   );
 }
 
@@ -1687,15 +1691,15 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
     pressed: { opacity: 0.72, transform: [{ scale: 0.98 }] },
     modalRoot: { flex: 1, justifyContent: 'flex-end' },
     modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.22)' },
-    composerSheet: { backgroundColor: theme.card, borderColor: theme.border, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, maxHeight: '88%' },
-    composerHeader: { alignItems: 'flex-start', flexDirection: 'row', gap: 12, justifyContent: 'space-between', padding: 16, paddingBottom: 10 },
-    composerScroll: { maxHeight: '100%' },
-    composerFooter: { backgroundColor: theme.card, borderColor: theme.border, borderTopWidth: StyleSheet.hairlineWidth, gap: 10, padding: 16, paddingTop: 12 },
+    composerRoot: { flex: 1, position: 'relative' },
+    composerHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12 },
+    composerHeaderText: { flex: 1, gap: 4, paddingHorizontal: 8 },
+    composerScroll: { flex: 1 },
     detailSheet: { backgroundColor: theme.card, borderColor: theme.border, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, bottom: 0, gap: 14, left: 0, maxHeight: '90%', padding: 16, position: 'absolute', right: 0 },
     sheetTitle: { color: theme.foreground, fontSize: 20, fontWeight: '900' },
     sheetFieldLabel: { color: theme.foreground, fontSize: 14, fontWeight: '800' },
     closeButton: { alignItems: 'center', height: 34, justifyContent: 'center', width: 34 },
-    formContent: { gap: 13, paddingHorizontal: 16, paddingBottom: 16 },
+    formContent: { gap: 13, paddingHorizontal: 16, paddingBottom: 20 },
     tradeTypeRow: { flexDirection: 'row', gap: 8, marginTop: 6 },
     choiceRow: { flexDirection: 'row', gap: 8 },
     choicePill: { alignItems: 'center', backgroundColor: theme.secondary, borderRadius: 16, flex: 1, minHeight: 34, justifyContent: 'center', paddingHorizontal: 10 },
@@ -1708,6 +1712,41 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
     lookupRow: { alignItems: 'flex-end', flexDirection: 'row', gap: 10 },
     lookupInput: { flex: 1 },
     lookupButton: { minHeight: 46 },
+    submitActionBlock: { marginTop: 12 },
+    submitActionButton: {
+      alignItems: 'center',
+      backgroundColor: theme.background === '#09090b' ? '#0f0f10' : '#ffffff',
+      borderColor: theme.background === '#09090b' ? '#2a2a2d' : '#e4e4e7',
+      borderRadius: 14,
+      borderCurve: 'continuous',
+      borderWidth: 1,
+      flexDirection: 'row',
+      gap: 8,
+      justifyContent: 'center',
+      minHeight: 54,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      shadowColor: theme.background === '#09090b' ? '#ffffff' : '#2563eb',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: theme.background === '#09090b' ? 0.18 : 0.14,
+      shadowRadius: 12,
+      width: '100%',
+      elevation: 6,
+      boxShadow: theme.background === '#09090b'
+        ? '0 0 0 1px rgba(255,255,255,0.08), 0 0 24px rgba(96,165,250,0.16), 0 10px 24px rgba(0,0,0,0.38)'
+        : '0 0 0 1px rgba(0,0,0,0.06), 0 0 24px rgba(37,99,235,0.12), 0 10px 24px rgba(37,99,235,0.08)'
+    },
+    submitActionButtonPressed: { opacity: 0.9, transform: [{ scale: 0.985 }] },
+    submitActionButtonDisabled: { opacity: 0.55 },
+    submitActionText: {
+      color: theme.background === '#09090b' ? '#ffffff' : '#111111',
+      fontSize: 16,
+      fontWeight: '700',
+      includeFontPadding: false,
+      lineHeight: 18,
+      textAlign: 'center'
+    },
+    composerError: { marginTop: 2 },
     twoColumns: { flexDirection: 'row', gap: 10 },
     columnInput: { flex: 1 },
     detailGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 12 },

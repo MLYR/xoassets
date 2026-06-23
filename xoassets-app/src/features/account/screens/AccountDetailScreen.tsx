@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button, Card, CardContent, Input, Separator, Text } from '@/components/ui';
+import { Card, CardContent, Input, Separator, Text } from '@/components/ui';
+import { SubmitActionButton } from '@/components/ui/SubmitActionButton';
 import { useTheme } from '@/core/design/theme';
 import { formatMoney, formatSignedMoney } from '@/features/home';
 import { useAuthStore } from '@/stores/authStore';
@@ -329,6 +330,7 @@ function AccountEditSheet({
 }) {
   const theme = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
+  const [submitPressed, setSubmitPressed] = useState(false);
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -355,7 +357,7 @@ function AccountEditSheet({
           </ScrollView>
           <View style={styles.sheetFooter}>
             {formError ? <Text variant="error">{formError}</Text> : null}
-            <Button loading={loading} onPress={onSubmit}>保存</Button>
+            <SubmitActionButton label={loading ? '保存中' : '保存'} loading={loading} pressed={submitPressed} onPressedChange={setSubmitPressed} onPress={onSubmit} />
           </View>
         </View>
       </KeyboardAvoidingView>
