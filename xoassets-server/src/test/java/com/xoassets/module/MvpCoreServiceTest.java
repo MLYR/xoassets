@@ -1901,9 +1901,10 @@ class MvpCoreServiceTest {
         TransactionRecordMapper transactionMapper = mock(TransactionRecordMapper.class);
         InvestmentTransactionMapper investmentTransactionMapper = mock(InvestmentTransactionMapper.class);
         HoldingService holdingService = mock(HoldingService.class);
+        com.xoassets.module.snapshot.service.SnapshotService snapshotService = mock(com.xoassets.module.snapshot.service.SnapshotService.class);
         com.xoassets.module.budget.service.BudgetService budgetService = mock(com.xoassets.module.budget.service.BudgetService.class);
         DashboardServiceImpl dashboard = new DashboardServiceImpl(
-                accountMapper, transactionMapper, investmentTransactionMapper, holdingService, budgetService);
+                accountMapper, transactionMapper, investmentTransactionMapper, holdingService, snapshotService, budgetService);
 
         HoldingVO holding = HoldingVO.builder()
                 .assetName("DOGE")
@@ -1916,9 +1917,17 @@ class MvpCoreServiceTest {
         // 首页今日盈亏直接复用投资总览，避免和投资页出现两套今日收益口径。
         when(holdingService.overview()).thenReturn(InvestmentOverviewVO.builder()
                 .totalInvestmentAsset(bd("638.3592"))
+                .pendingConfirmAmount(BigDecimal.ZERO)
                 .holdingProfit(bd("109.5660"))
                 .yesterdayProfit(bd("-8.7600"))
                 .todayProfit(bd("12.3400"))
+                .build());
+        when(snapshotService.latest()).thenReturn(com.xoassets.module.snapshot.vo.AssetSnapshotLatestVO.builder()
+                .latest(com.xoassets.module.snapshot.vo.AssetSnapshotVO.builder()
+                        .totalAsset(bd("1638.3592"))
+                        .investmentAsset(bd("638.3592"))
+                        .netAsset(bd("1538.3592"))
+                        .build())
                 .build());
         // 首页投资总收益需要把已实现卖出收益和当前持仓浮动收益合并展示。
         when(investmentTransactionMapper.selectList(any())).thenReturn(List.of(investmentTransaction("SELL", "20.0000", "NORMAL")));
@@ -1945,15 +1954,24 @@ class MvpCoreServiceTest {
         TransactionRecordMapper transactionMapper = mock(TransactionRecordMapper.class);
         InvestmentTransactionMapper investmentTransactionMapper = mock(InvestmentTransactionMapper.class);
         HoldingService holdingService = mock(HoldingService.class);
+        com.xoassets.module.snapshot.service.SnapshotService snapshotService = mock(com.xoassets.module.snapshot.service.SnapshotService.class);
         com.xoassets.module.budget.service.BudgetService budgetService = mock(com.xoassets.module.budget.service.BudgetService.class);
         DashboardServiceImpl dashboard = new DashboardServiceImpl(
-                accountMapper, transactionMapper, investmentTransactionMapper, holdingService, budgetService);
+                accountMapper, transactionMapper, investmentTransactionMapper, holdingService, snapshotService, budgetService);
 
         when(accountMapper.selectList(any())).thenReturn(List.of(account(1L, USER_ID, "银行卡", "BANK", "1000.0000")));
         when(holdingService.overview()).thenReturn(InvestmentOverviewVO.builder()
                 .totalInvestmentAsset(BigDecimal.ZERO)
+                .pendingConfirmAmount(BigDecimal.ZERO)
                 .holdingProfit(BigDecimal.ZERO)
                 .todayProfit(null)
+                .build());
+        when(snapshotService.latest()).thenReturn(com.xoassets.module.snapshot.vo.AssetSnapshotLatestVO.builder()
+                .latest(com.xoassets.module.snapshot.vo.AssetSnapshotVO.builder()
+                        .totalAsset(bd("1000.0000"))
+                        .investmentAsset(BigDecimal.ZERO)
+                        .netAsset(bd("1000.0000"))
+                        .build())
                 .build());
         when(investmentTransactionMapper.selectList(any())).thenReturn(List.of());
         when(transactionMapper.selectList(any())).thenReturn(List.of());
@@ -1973,9 +1991,10 @@ class MvpCoreServiceTest {
         TransactionRecordMapper transactionMapper = mock(TransactionRecordMapper.class);
         InvestmentTransactionMapper investmentTransactionMapper = mock(InvestmentTransactionMapper.class);
         HoldingService holdingService = mock(HoldingService.class);
+        com.xoassets.module.snapshot.service.SnapshotService snapshotService = mock(com.xoassets.module.snapshot.service.SnapshotService.class);
         com.xoassets.module.budget.service.BudgetService budgetService = mock(com.xoassets.module.budget.service.BudgetService.class);
         DashboardServiceImpl dashboard = new DashboardServiceImpl(
-                accountMapper, transactionMapper, investmentTransactionMapper, holdingService, budgetService);
+                accountMapper, transactionMapper, investmentTransactionMapper, holdingService, snapshotService, budgetService);
         TransactionRecord monthlyIncome = record("INCOME", "1000.0000", 1L, null, 10L);
         TransactionRecord monthlyExpense = record("EXPENSE", "400.0000", 1L, null, 11L);
         TransactionRecord monthlyRefund = record("REFUND", "100.0000", 1L, null, 11L);
@@ -1985,8 +2004,16 @@ class MvpCoreServiceTest {
         when(accountMapper.selectList(any())).thenReturn(List.of(account(1L, USER_ID, "银行卡", "BANK", "1000.0000")));
         when(holdingService.overview()).thenReturn(InvestmentOverviewVO.builder()
                 .totalInvestmentAsset(BigDecimal.ZERO)
+                .pendingConfirmAmount(BigDecimal.ZERO)
                 .holdingProfit(BigDecimal.ZERO)
                 .todayProfit(null)
+                .build());
+        when(snapshotService.latest()).thenReturn(com.xoassets.module.snapshot.vo.AssetSnapshotLatestVO.builder()
+                .latest(com.xoassets.module.snapshot.vo.AssetSnapshotVO.builder()
+                        .totalAsset(bd("1000.0000"))
+                        .investmentAsset(BigDecimal.ZERO)
+                        .netAsset(bd("1000.0000"))
+                        .build())
                 .build());
         when(investmentTransactionMapper.selectList(any())).thenReturn(List.of());
         when(budgetService.summary("2026-05")).thenReturn(BudgetSummaryVO.builder().usageRate(bd("0.0000")).items(List.of()).build());

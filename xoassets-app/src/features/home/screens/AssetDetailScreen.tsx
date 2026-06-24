@@ -90,7 +90,7 @@ export function AssetDetailScreen() {
               <Metric label="投资资产" value={formatMoney(investmentOverview?.totalInvestmentAsset)} />
               <Metric label="账户净资产" value={formatMoney(snapshot?.latest?.netAsset)} />
             </View>
-            <Text variant="caption">总资产以资产快照为准；账户余额和投资资产分别来自账户、投资聚合接口。</Text>
+            <Text variant="caption">总资产以资产快照为准；投资资产包含在途基金买入。</Text>
           </CardContent>
         </Card>
 

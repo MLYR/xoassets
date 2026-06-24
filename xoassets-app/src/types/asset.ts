@@ -45,6 +45,7 @@ export interface InvestmentModuleAsset {
 
 export interface InvestmentOverview {
   totalInvestmentAsset?: number | null;
+  pendingConfirmAmount?: number | null;
   totalCost?: number | null;
   holdingProfit?: number | null;
   holdingProfitRate?: number | null;

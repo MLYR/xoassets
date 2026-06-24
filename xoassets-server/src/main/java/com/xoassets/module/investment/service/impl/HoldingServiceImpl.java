@@ -316,8 +316,11 @@ public class HoldingServiceImpl implements HoldingService {
         Long userId = LoginUserContext.getUserId();
         List<HoldingVO> holdings = list();
         BigDecimal totalMarketValue = holdings.stream().map(item -> amountToCny(item.getMarketValue(), item.getCurrency())).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(4, RoundingMode.HALF_UP);
+        BigDecimal pendingConfirmAmount = sumPendingConfirmAmount(userId, holdings);
+        // 投资总览要把待确认基金买入算成在途投资资产，避免现金已扣但投资总额没加回去。
+        BigDecimal totalInvestmentAsset = totalMarketValue.add(pendingConfirmAmount).setScale(4, RoundingMode.HALF_UP);
         BigDecimal totalCost = holdings.stream().map(item -> amountToCny(item.getTotalCost(), item.getCurrency())).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(4, RoundingMode.HALF_UP);
-        BigDecimal holdingProfit = holdings.stream().map(item -> amountToCny(item.getFloatingProfit(), item.getCurrency())).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(4, RoundingMode.HALF_UP);
+        BigDecimal holdingProfit = totalMarketValue.subtract(totalCost).setScale(4, RoundingMode.HALF_UP);
         boolean todayProfitAvailable = holdings.stream().anyMatch(this::hasTodayProfit);
         // 总览今日收益只有存在今日有效价格时才返回金额，避免基金净值未出或休市时把 0 当成收益。
         BigDecimal todayProfit = todayProfitAvailable ? holdings.stream()
@@ -330,7 +333,8 @@ public class HoldingServiceImpl implements HoldingService {
         // 总览昨日收益必须和“每日收益”图、持仓详情日历同源，不能再按列表字段另算一遍。
         BigDecimal yesterdayProfit = yesterdayAggregate == null ? null : scale4(yesterdayAggregate.profit());
         return InvestmentOverviewVO.builder()
-                .totalInvestmentAsset(totalMarketValue)
+                .totalInvestmentAsset(totalInvestmentAsset)
+                .pendingConfirmAmount(pendingConfirmAmount)
                 .totalCost(totalCost)
                 .holdingProfit(holdingProfit)
                 .holdingProfitRate(totalCost.compareTo(BigDecimal.ZERO) <= 0 ? BigDecimal.ZERO : rate(holdingProfit, totalCost))
@@ -340,8 +344,34 @@ public class HoldingServiceImpl implements HoldingService {
                 .todayProfitStatusLabel(todayProfitStatusLabel(holdings, todayProfitAvailable))
                 .yesterdayProfit(yesterdayProfit)
                 .yesterdayProfitAssetScope("上一收益日")
-                .moduleAssets(moduleAssets(holdings, totalMarketValue, latestProfitByModule))
+                .moduleAssets(moduleAssets(holdings, totalInvestmentAsset, pendingConfirmAmount, latestProfitByModule))
                 .build();
+    }
+
+    /**
+     * 汇总待确认基金买入金额，作为在途投资资产展示。
+     */
+    private BigDecimal sumPendingConfirmAmount(Long userId, List<HoldingVO> holdings) {
+        if (userId == null || holdings == null || holdings.isEmpty()) {
+            return BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
+        }
+        Set<Long> holdingIds = holdings.stream()
+                .map(HoldingVO::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (holdingIds.isEmpty()) {
+            return BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
+        }
+        return investmentTransactionMapper.selectList(new LambdaQueryWrapper<InvestmentTransaction>()
+                        .eq(InvestmentTransaction::getUserId, userId)
+                        .eq(InvestmentTransaction::getType, "BUY")
+                        .eq(InvestmentTransaction::getInputMode, "AMOUNT_NAV")
+                        .eq(InvestmentTransaction::getStatus, "PENDING_CONFIRM")
+                        .in(InvestmentTransaction::getHoldingId, holdingIds))
+                .stream()
+                .map(transaction -> scale4(transaction.getTradeAmount()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(4, RoundingMode.HALF_UP);
     }
 
     /**
@@ -955,10 +985,10 @@ public class HoldingServiceImpl implements HoldingService {
     /**
      * 汇总总览里的三大模块卡片，模块收益使用各模块自己的主收益口径。
      */
-    private List<InvestmentModuleAssetVO> moduleAssets(List<HoldingVO> holdings, BigDecimal totalMarketValue, Map<String, InvestmentHoldingDailyProfitService.DailyProfitSummary> latestProfitByModule) {
-        return List.of(moduleAsset("FUND", "基金", holdings, totalMarketValue, latestProfitByModule),
-                moduleAsset("STOCK", "股票", holdings, totalMarketValue, latestProfitByModule),
-                moduleAsset("CRYPTO", "虚拟货币", holdings, totalMarketValue, latestProfitByModule));
+    private List<InvestmentModuleAssetVO> moduleAssets(List<HoldingVO> holdings, BigDecimal totalInvestmentAsset, BigDecimal pendingConfirmAmount, Map<String, InvestmentHoldingDailyProfitService.DailyProfitSummary> latestProfitByModule) {
+        return List.of(moduleAsset("FUND", "基金", holdings, totalInvestmentAsset, pendingConfirmAmount, latestProfitByModule),
+                moduleAsset("STOCK", "股票", holdings, totalInvestmentAsset, BigDecimal.ZERO, latestProfitByModule),
+                moduleAsset("CRYPTO", "虚拟货币", holdings, totalInvestmentAsset, BigDecimal.ZERO, latestProfitByModule));
     }
 
     /**
@@ -1362,11 +1392,14 @@ public class HoldingServiceImpl implements HoldingService {
     /**
      * 构建模块资产统计。
      */
-    private InvestmentModuleAssetVO moduleAsset(String module, String name, List<HoldingVO> holdings, BigDecimal totalMarketValue, Map<String, InvestmentHoldingDailyProfitService.DailyProfitSummary> latestProfitByModule) {
+    private InvestmentModuleAssetVO moduleAsset(String module, String name, List<HoldingVO> holdings, BigDecimal totalInvestmentAsset, BigDecimal pendingConfirmAmount, Map<String, InvestmentHoldingDailyProfitService.DailyProfitSummary> latestProfitByModule) {
         List<HoldingVO> moduleHoldings = holdings.stream()
                 .filter(item -> module.equals(moduleOf(item.getAssetType())))
                 .toList();
         BigDecimal assetAmount = moduleHoldings.stream().map(item -> amountToCny(item.getMarketValue(), item.getCurrency())).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(4, RoundingMode.HALF_UP);
+        if ("FUND".equals(module)) {
+            assetAmount = assetAmount.add(pendingConfirmAmount).setScale(4, RoundingMode.HALF_UP);
+        }
         BigDecimal totalCost = moduleHoldings.stream().map(item -> amountToCny(item.getTotalCost(), item.getCurrency())).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(4, RoundingMode.HALF_UP);
         BigDecimal holdingProfit = moduleHoldings.stream().map(item -> amountToCny(item.getFloatingProfit(), item.getCurrency())).reduce(BigDecimal.ZERO, BigDecimal::add).setScale(4, RoundingMode.HALF_UP);
         boolean primaryProfitAvailable = moduleHoldings.stream().anyMatch(this::hasTodayProfit);
@@ -1383,7 +1416,7 @@ public class HoldingServiceImpl implements HoldingService {
                 .module(module)
                 .name(name)
                 .assetAmount(assetAmount)
-                .assetRatio(totalMarketValue.compareTo(BigDecimal.ZERO) <= 0 ? BigDecimal.ZERO : assetAmount.multiply(BigDecimal.valueOf(100)).divide(totalMarketValue, 4, RoundingMode.HALF_UP))
+                .assetRatio(totalInvestmentAsset.compareTo(BigDecimal.ZERO) <= 0 ? BigDecimal.ZERO : assetAmount.multiply(BigDecimal.valueOf(100)).divide(totalInvestmentAsset, 4, RoundingMode.HALF_UP))
                 .primaryProfitLabel(modulePrimaryProfitLabel(module))
                 .primaryProfitAvailable(primaryProfitAvailable)
                 .primaryProfitAmount(primaryProfitAmount)

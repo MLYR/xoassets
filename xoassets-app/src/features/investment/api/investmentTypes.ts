@@ -7,6 +7,7 @@ export type InvestmentInputMode = 'QUANTITY_PRICE' | 'AMOUNT_NAV';
 
 export interface InvestmentOverview {
   totalInvestmentAsset?: number | null;
+  pendingConfirmAmount?: number | null;
   totalCost?: number | null;
   holdingProfit?: number | null;
   holdingProfitRate?: number | null;

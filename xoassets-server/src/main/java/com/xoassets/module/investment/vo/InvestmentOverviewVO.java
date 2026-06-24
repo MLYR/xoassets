@@ -17,6 +17,10 @@ public class InvestmentOverviewVO {
      */
     private BigDecimal totalInvestmentAsset;
     /**
+     * 在途基金买入金额。
+     */
+    private BigDecimal pendingConfirmAmount;
+    /**
      * 总成本。
      */
     private BigDecimal totalCost;

@@ -238,6 +238,7 @@ XXL_JOB_EXECUTOR_PORT=10099
 - 投资交易、资金账户和持仓联动在同一事务中完成，避免交易记录与账户余额、持仓数量、成本不一致。
 - 投资交易支持撤销，不物理删除；撤销状态写入 `status = REVOKED`，账户余额和持仓通过原交易 `cost_amount` 反向恢复。
 - 投资数量和基金确认份额统一保留 10 位小数，手续费、持仓成本、市值、盈亏和收益率统一按 4 位小数归一化后计算，避免不同调用入口产生精度口径差异。
+- 投资总览会单独返回 `pendingConfirmAmount`，表示基金金额买入待确认的在途金额；`totalInvestmentAsset` 口径为已确认持仓市值 + 在途基金金额。
 - 持仓接口返回最新价、昨价、前日价、今日收益、昨日收益、浮动盈亏、收益率、回本涨幅和报价时间；所有资产只有当前价格日期等于今天时才计算今日收益，其中基金和股票还必须当天为交易日，非交易日返回 `todayPriceAvailable=false`、`priceStatus=MARKET_CLOSED`，交易日未更新或虚拟货币当前价过期返回 `priceStatus=TODAY_PRICE_NOT_AVAILABLE`；收益基准价格或基准持仓数量缺失时返回 `null`，前端展示 `--`；投资总览和模块卡通过 `todayProfitStatusLabel` / `primaryProfitStatusLabel` 暴露“今日休市”等不可用原因。
 - 今日收益同时返回当前 / 今日有效份额口径和上一交易日日终份额归因口径，Web 默认展示当前份额口径；每日收益日历、昨日收益、趋势图每日收益和收益贡献统一从 `xo_investment_holding_daily_profit` 聚合，缺少持仓每日收益行时返回 `null` 并显示 `--`；投资总今日 / 本月收益按 `当前市值 - 基准市值 - 净入金` 计算，避免期间买卖带来的资金流入 / 流出影响收益判断。
 - 行情当前价和日级价格使用 `DECIMAL(28,8)`，第三方行情和手动报价入库前统一保留 8 位；`xo_asset_price_current` / `xo_asset_price_daily` 记录 `previous_close`、`change_amount`、`change_percent` 等行情字段，持仓返回 `priceScale`，CRYPTO 当前价至少展示 6 位，FUND / STOCK 展示 4 位。
@@ -261,7 +262,7 @@ XXL_JOB_EXECUTOR_PORT=10099
 - 投资日快照补跑按 `trade_date` 使用已回填的 `xo_asset_price_daily` 日级价格，不用价格行 `created_at` 判断是否晚于快照日，确保周末后和净值延迟时历史市值可被修正。
 - 资产快照中现金资产按账户初始余额 + 普通流水 / 投资交易 / 余额修正重建快照日历史余额，正余额计入现金资产、负余额按绝对值计入负债；投资资产按快照日通过交易流水重建历史头寸，再使用同币种日级价 / 当前价估值，补跑历史快照不能用当前账户余额或当前持仓数量倒推。
 - 本地对账可手动重建当前用户指定日期：`POST /api/investments/snapshots/generate?snapshotDate=yyyy-MM-dd` 会先重建持仓每日收益，再 upsert 投资日快照；`POST /api/quotes/manual`、`POST /api/quotes/refresh`、`POST /api/quotes/refresh-batch` 会在行情成功后即时重建受影响资产的持仓每日收益；`POST /api/snapshots/generate?snapshotDate=yyyy-MM-dd` 重建用户资产快照；不允许生成未来日期快照。
-- 首页总资产 = 快照现金资产 + 投资持仓市值；净资产 = 总资产 - 负债。
+- 首页总资产优先读取 `/api/snapshots/latest`；快照口径下总资产 = 现金资产 + 投资资产，净资产 = 总资产 - 负债。
 - 用户资产快照由 XXL-JOB handler `generateDailySnapshots` 默认每天 20:00-23:45 每 15 分钟触发，为所有启用用户生成资产快照，单个用户失败只记录日志。
 - 统计接口全部按当前 `user_id` 隔离，支出统计排除转账，退款抵扣支出。
 - 资产目标表 `xo_goal` 按当前用户隔离；当前金额可手动填写，也可按当前净资产口径写入。

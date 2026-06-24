@@ -368,6 +368,8 @@ export interface InvestmentModuleAsset {
 export interface InvestmentOverview {
   /** 投资资产总额。 */
   totalInvestmentAsset: number;
+  /** 在途基金买入金额。 */
+  pendingConfirmAmount?: number | null;
   /** 总成本。 */
   totalCost: number;
   /** 持有收益。 */

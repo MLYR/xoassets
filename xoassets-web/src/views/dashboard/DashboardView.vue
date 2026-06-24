@@ -107,6 +107,7 @@ const range = ref('30天');
 const assetTrendMode = ref<'totalAsset' | 'cashAsset' | 'investmentAsset'>('totalAsset');
 const loading = ref(false);
 const snapshotGenerating = ref(false);
+const snapshotLatest = ref<AssetSnapshotItem | null>(null);
 const overview = reactive<DashboardOverview>({
   totalAssets: 0,
   netAssets: 0,
@@ -154,7 +155,10 @@ watch(range, () => {
 });
 
 const accountAsset = computed(() => {
-  // 首页四块资产必须来自同一实时口径：总资产 = 账户资产 + 投资资产。
+  // 首页四块资产必须来自同一快照口径：优先用快照总资产反推账户资产。
+  if (snapshotLatest.value?.totalAsset !== null && snapshotLatest.value?.totalAsset !== undefined) {
+    return Number(snapshotLatest.value.totalAsset || 0) - Number(snapshotLatest.value.investmentAsset || 0);
+  }
   return Number(overview.totalAssets || 0) - Number(overview.investmentMarketValue || 0);
 });
 
@@ -166,11 +170,11 @@ const dashboardSignalItems = computed(() => [
   { title: '投资浮盈', value: overview.investmentFloatingProfit, description: '当前持仓盈亏', kind: 'amount', withSign: true, tone: overview.investmentFloatingProfit >= 0 ? 'success' : 'danger' }
 ]);
 const assetMetrics = computed(() => [
-  { title: '总资产', value: overview.totalAssets, description: '账户 + 投资', tone: 'primary', meta: '资产合计', percentLabel: '100%' },
+  { title: '总资产', value: snapshotLatest.value?.totalAsset ?? overview.totalAssets, description: '账户 + 投资', tone: 'primary', meta: '资产合计', percentLabel: '100%' },
   // 净资产不复用其他趋势率，避免把收支变化冒充资产变化。
-  { title: '净资产', value: overview.netAssets, description: '总资产 - 负债', tone: 'success', meta: '净值占比', percentLabel: formatPercentValue(percentOfTotal(overview.netAssets, overview.totalAssets)) },
-  { title: '账户资产', value: accountAsset.value, description: '现金类账户余额', tone: 'cyan', meta: '资产占比', percentLabel: formatPercentValue(percentOfTotal(accountAsset.value, overview.totalAssets)) },
-  { title: '投资资产', value: overview.investmentMarketValue, description: '当前持仓市值', tone: 'purple', meta: '资产占比', percentLabel: formatPercentValue(percentOfTotal(overview.investmentMarketValue, overview.totalAssets)) }
+  { title: '净资产', value: snapshotLatest.value?.netAsset ?? overview.netAssets, description: '总资产 - 负债', tone: 'success', meta: '净值占比', percentLabel: formatPercentValue(percentOfTotal(snapshotLatest.value?.netAsset ?? overview.netAssets, snapshotLatest.value?.totalAsset ?? overview.totalAssets)) },
+  { title: '账户资产', value: accountAsset.value, description: '现金类账户余额', tone: 'cyan', meta: '资产占比', percentLabel: formatPercentValue(percentOfTotal(accountAsset.value, snapshotLatest.value?.totalAsset ?? overview.totalAssets)) },
+  { title: '投资资产', value: snapshotLatest.value?.investmentAsset ?? overview.investmentMarketValue, description: '当前持仓市值', tone: 'purple', meta: '资产占比', percentLabel: formatPercentValue(percentOfTotal(snapshotLatest.value?.investmentAsset ?? overview.investmentMarketValue, snapshotLatest.value?.totalAsset ?? overview.totalAssets)) }
 ]);
 
 const financeSummaryItems = computed(() => [
@@ -187,9 +191,9 @@ const financeSummaryItems = computed(() => [
 ]);
 
 const assetMixItems = computed(() => [
-  { title: '账户资产', percentLabel: formatPercentValue(percentOfTotal(accountAsset.value, overview.totalAssets)), barWidth: `${Math.min(100, Math.max(6, percentOfTotal(accountAsset.value, overview.totalAssets)))}%` },
-  { title: '投资资产', percentLabel: formatPercentValue(percentOfTotal(overview.investmentMarketValue, overview.totalAssets)), barWidth: `${Math.min(100, Math.max(6, percentOfTotal(overview.investmentMarketValue, overview.totalAssets)))}%` },
-  { title: '净资产', percentLabel: formatPercentValue(percentOfTotal(overview.netAssets, overview.totalAssets)), barWidth: `${Math.min(100, Math.max(6, percentOfTotal(overview.netAssets, overview.totalAssets)))}%` }
+  { title: '账户资产', percentLabel: formatPercentValue(percentOfTotal(accountAsset.value, snapshotLatest.value?.totalAsset ?? overview.totalAssets)), barWidth: `${Math.min(100, Math.max(6, percentOfTotal(accountAsset.value, snapshotLatest.value?.totalAsset ?? overview.totalAssets)))}%` },
+  { title: '投资资产', percentLabel: formatPercentValue(percentOfTotal(snapshotLatest.value?.investmentAsset ?? overview.investmentMarketValue, snapshotLatest.value?.totalAsset ?? overview.totalAssets)), barWidth: `${Math.min(100, Math.max(6, percentOfTotal(snapshotLatest.value?.investmentAsset ?? overview.investmentMarketValue, snapshotLatest.value?.totalAsset ?? overview.totalAssets)))}%` },
+  { title: '净资产', percentLabel: formatPercentValue(percentOfTotal(snapshotLatest.value?.netAsset ?? overview.netAssets, snapshotLatest.value?.totalAsset ?? overview.totalAssets)), barWidth: `${Math.min(100, Math.max(6, percentOfTotal(snapshotLatest.value?.netAsset ?? overview.netAssets, snapshotLatest.value?.totalAsset ?? overview.totalAssets)))}%` }
 ]);
 
 const assetOption = computed<EChartsOption>(() => {
@@ -211,11 +215,13 @@ const assetOption = computed<EChartsOption>(() => {
 async function loadDashboard() {
   loading.value = true;
   try {
-    const [overviewData, investmentOverview] = await Promise.all([
+    const [overviewData, latestSnapshot, investmentOverview] = await Promise.all([
       dashboardApi.overview(),
+      snapshotApi.latest().catch(() => null).then((response) => response?.latest ?? null),
       investmentApi.overviewInvestments().catch(() => null)
     ]);
     Object.assign(overview, overviewData);
+    snapshotLatest.value = latestSnapshot;
     // 首页投资收益必须和投资总览同源；Dashboard 字段缺失时也不能退回普通流水或快照差值。
     overview.investmentYesterdayProfit = overviewData.investmentYesterdayProfit ?? investmentOverview?.yesterdayProfit ?? null;
     overview.investmentTodayProfit = overviewData.investmentTodayProfit ?? investmentOverview?.todayProfit ?? null;

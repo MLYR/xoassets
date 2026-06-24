@@ -24,6 +24,10 @@
               <span>昨日收益</span>
               <AmountText :value="convertNullableAmount(overview?.yesterdayProfit, 'CNY')" with-sign :precision="4" :currency-symbol="currencySymbol" />
             </div>
+            <div v-if="overview?.pendingConfirmAmount !== null && overview?.pendingConfirmAmount !== undefined" class="metric-extra-row">
+              <span>在途基金</span>
+              <AmountText :value="convertNullableAmount(overview.pendingConfirmAmount, 'CNY')" with-sign :precision="4" :currency-symbol="currencySymbol" />
+            </div>
           </template>
         </MetricCard>
       </section>

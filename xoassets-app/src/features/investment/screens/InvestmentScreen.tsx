@@ -1314,10 +1314,12 @@ function buildSummary(module: InvestmentModule, overview: InvestmentOverview | u
   const count = activeHoldingCount(holdings, module === 'ALL' ? overviewHoldingCount(overview) : moduleAsset?.holdingCount);
   if (module === 'ALL') {
     const todayProfit = overview?.todayProfitAvailable === false ? null : overview?.todayProfit;
+    const pendingConfirmAmount = safeNumber(overview?.pendingConfirmAmount);
     return {
       title: '总投资资产（元）',
       amount: overview?.totalInvestmentAsset,
       stats: [
+        { label: '在途基金', value: formatSignedMoney(overview?.pendingConfirmAmount), secondaryValue: null, positive: pendingConfirmAmount >= 0, secondaryPositive: null },
         { label: '总收益/率', value: formatSignedMoney(overview?.holdingProfit), secondaryValue: formatPercent2(overview?.holdingProfitRate), positive: safeNumber(overview?.holdingProfit) >= 0, secondaryPositive: safeNumber(overview?.holdingProfitRate) >= 0 },
         { label: '今/昨收益', value: formatSignedMoney(todayProfit), secondaryValue: formatSignedMoney(overview?.yesterdayProfit), positive: safeNumber(todayProfit) >= 0, secondaryPositive: safeNumber(overview?.yesterdayProfit) >= 0 },
         { label: holdingCountLabel(module), value: String(count), positive: null }

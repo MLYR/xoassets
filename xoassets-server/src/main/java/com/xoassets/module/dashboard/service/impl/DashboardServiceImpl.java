@@ -8,6 +8,7 @@ import com.xoassets.module.dashboard.service.DashboardService;
 import com.xoassets.module.dashboard.vo.DashboardOverviewVO;
 import com.xoassets.module.investment.service.HoldingService;
 import com.xoassets.module.investment.vo.InvestmentOverviewVO;
+import com.xoassets.module.snapshot.service.SnapshotService;
 import com.xoassets.persistence.entity.Account;
 import com.xoassets.persistence.entity.InvestmentTransaction;
 import com.xoassets.persistence.entity.TransactionRecord;
@@ -46,6 +47,10 @@ public class DashboardServiceImpl implements DashboardService {
      */
     private final HoldingService holdingService;
     /**
+     * 资产快照服务。
+     */
+    private final SnapshotService snapshotService;
+    /**
      * 预算服务。
      */
     private final BudgetService budgetService;
@@ -58,11 +63,13 @@ public class DashboardServiceImpl implements DashboardService {
             TransactionRecordMapper transactionRecordMapper,
             InvestmentTransactionMapper investmentTransactionMapper,
             HoldingService holdingService,
+            SnapshotService snapshotService,
             BudgetService budgetService) {
         this.accountMapper = accountMapper;
         this.transactionRecordMapper = transactionRecordMapper;
         this.investmentTransactionMapper = investmentTransactionMapper;
         this.holdingService = holdingService;
+        this.snapshotService = snapshotService;
         this.budgetService = budgetService;
     }
 
@@ -77,14 +84,17 @@ public class DashboardServiceImpl implements DashboardService {
 
         AccountAssetSummary accountSummary = accountAssetSummary(userId);
         InvestmentOverviewVO investmentOverview = holdingService.overview();
-        // 首页投资指标直接复用投资模块总览，确保“今日盈亏”和投资页今日收益同源同口径。
+        // 首页总资产优先复用资产快照，确保基金待确认期间 Web 和 App 的总资产都同口径。
+        var latestSnapshotVO = snapshotService.latest();
+        var latestSnapshot = latestSnapshotVO == null ? null : latestSnapshotVO.getLatest();
+        BigDecimal snapshotTotalAssets = latestSnapshot == null ? null : latestSnapshot.getTotalAsset();
         BigDecimal investmentMarketValue = nullToZero(investmentOverview.getTotalInvestmentAsset());
         BigDecimal investmentFloatingProfit = nullToZero(investmentOverview.getHoldingProfit());
         // 首页“投资盈亏(总)”展示投资总收益：已实现卖出收益 + 当前持仓浮动收益。
         BigDecimal investmentTotalProfit = investmentFloatingProfit.add(realizedInvestmentProfit(userId, LocalDate.now()));
         BigDecimal investmentYesterdayProfit = investmentOverview.getYesterdayProfit();
         BigDecimal investmentTodayProfit = investmentOverview.getTodayProfit();
-        BigDecimal totalAssets = accountSummary.cashAsset().add(investmentMarketValue);
+        BigDecimal totalAssets = snapshotTotalAssets == null ? accountSummary.cashAsset().add(investmentMarketValue) : snapshotTotalAssets;
         BigDecimal netAssets = totalAssets.subtract(accountSummary.liability());
         BigDecimal budgetUsageRate = safeBudgetUsageRate(targetMonth);
 
