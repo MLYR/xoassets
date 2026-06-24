@@ -612,10 +612,15 @@ function accountTypeLabel(type?: string | null) {
 function accountGroupLabel(group?: string | null) {
   const labels: Record<string, string> = {
     bankCard: '银行卡',
+    BANK_CARD: '银行卡',
     thirdParty: '电子钱包',
+    THIRD_PARTY: '电子钱包',
     cash: '现金',
+    CASH: '现金',
     credit: '信用账户',
-    other: '其他账户'
+    CREDIT_CARD: '信用账户',
+    other: '其他账户',
+    OTHER: '其他账户'
   };
   return group ? labels[group] || group : null;
 }

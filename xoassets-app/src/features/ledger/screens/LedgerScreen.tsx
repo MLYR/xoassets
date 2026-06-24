@@ -528,7 +528,7 @@ function StatsPanel({
           <StatsCardTitle icon={PieChart} title={`${directionLabel(statsDirection)}分类排行`} />
           {directionShares.slice(0, 5).map((share) => (
             <Pressable key={share.key} style={styles.rankingRow} onPress={() => setSelectedCategoryShare(share)}>
-              <View style={[styles.rankingIcon, { backgroundColor: share.color }]}>
+              <View style={styles.rankingIcon}>
                 <Text style={styles.categoryIconText}>{share.name.slice(0, 1)}</Text>
               </View>
               <View style={styles.rankingInfo}>
@@ -559,7 +559,7 @@ function StatsPanel({
           {directionTransactions.slice(0, 5).map((item, index) => (
             <View key={String(item.id)}>
               <Pressable style={styles.detailRow} onPress={() => setSelectedDetailTransaction(item)}>
-                <View style={[styles.categoryIcon, { backgroundColor: pickCategoryColor(item) }]}>
+                <View style={styles.categoryIcon}>
                   <Text style={styles.categoryIconText}>{categoryInitial(item)}</Text>
                 </View>
                 <View style={styles.detailInfo}>
@@ -788,7 +788,7 @@ function CategoryTransactionsModal({
                     onClose();
                   }}
                 >
-                  <View style={[styles.categoryIcon, { backgroundColor: pickCategoryColor(item) }]}>
+                  <View style={styles.categoryIcon}>
                     <Text style={styles.categoryIconText}>{categoryInitial(item)}</Text>
                   </View>
                   <View style={styles.detailInfo}>
@@ -857,7 +857,7 @@ function DirectionTransactionsModal({
                     onClose();
                   }}
                 >
-                  <View style={[styles.categoryIcon, { backgroundColor: pickCategoryColor(item) }]}>
+                  <View style={styles.categoryIcon}>
                     <Text style={styles.categoryIconText}>{categoryInitial(item)}</Text>
                   </View>
                   <View style={styles.detailInfo}>
@@ -2412,15 +2412,16 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
     },
     categoryIcon: {
       alignItems: 'center',
-      borderRadius: 20,
-      height: 40,
+      backgroundColor: theme.secondary,
+      borderRadius: 17,
+      height: 34,
       justifyContent: 'center',
-      width: 40
+      width: 34
     },
     categoryIconText: {
-      color: '#ffffff',
+      color: theme.foreground,
       fontSize: 15,
-      fontWeight: '800'
+      fontWeight: '900'
     },
     transactionInfo: {
       flex: 1,
@@ -2576,10 +2577,11 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
     },
     rankingIcon: {
       alignItems: 'center',
-      borderRadius: 18,
-      height: 36,
+      backgroundColor: theme.secondary,
+      borderRadius: 17,
+      height: 34,
       justifyContent: 'center',
-      width: 36
+      width: 34
     },
     rankingInfo: {
       flex: 1,

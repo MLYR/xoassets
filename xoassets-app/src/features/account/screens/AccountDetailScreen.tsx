@@ -202,7 +202,6 @@ export function AccountDetailScreen({ accountId }: { accountId: string }) {
           <CardContent style={styles.ledgerCard}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>账户明细</Text>
-              <Text variant="muted">按天归纳</Text>
             </View>
             {groupedLedger.length > 0 ? (
               groupedLedger.map((group) => (
@@ -212,7 +211,7 @@ export function AccountDetailScreen({ accountId }: { accountId: string }) {
                     <Text variant="caption">{group.items.length} 笔</Text>
                   </View>
                   {group.items.map((item, index) => (
-                    <View key={`${item.sourceType}-${item.id}`}>
+                <View key={`${item.sourceType}-${item.id}`}>
                       <SwipeableLedgerRow
                         item={item}
                         deleting={deleteLedgerItemMutation.isPending}
@@ -302,9 +301,10 @@ function SwipeableLedgerRow({
           </View>
           <View style={styles.ledgerInfo}>
             <Text style={styles.ledgerTitle} numberOfLines={1}>{item.title || item.categoryName || item.assetName || ledgerTypeLabel(item.bizType)}</Text>
-            <Text variant="caption">{ledgerTypeLabel(item.bizType)} · {sourceTypeLabel(item.sourceType)} · {formatShortTime(item.transactionTime)}</Text>
+            <Text variant="caption" numberOfLines={1}>{ledgerRowPrimaryLine(item)}</Text>
+            <Text variant="caption" numberOfLines={1}>{ledgerRowSecondaryLine(item)}</Text>
           </View>
-          <Text style={styles.ledgerAmount} numberOfLines={1}>{formatLedgerAmount(item)}</Text>
+          <Text style={[styles.ledgerAmount, ledgerAmountColor(item, theme)]} numberOfLines={1}>{formatLedgerAmount(item)}</Text>
         </Pressable>
       </Animated.View>
     </View>
@@ -382,19 +382,31 @@ function LedgerDetailModal({ item, onClose }: { item: AccountLedgerItem | null; 
               </Pressable>
             </View>
             {item ? (
-              <>
-                <DetailMetric label="标题" value={item.title || item.categoryName || item.assetName || ledgerTypeLabel(item.bizType)} />
-                <DetailMetric label="金额" value={formatLedgerAmount(item)} />
-                <DetailMetric label="类型" value={ledgerTypeLabel(item.bizType)} />
-                <DetailMetric label="来源" value={sourceTypeLabel(item.sourceType)} />
-                <DetailMetric label="账户" value={item.accountName || '--'} />
-                {item.relatedAccountName ? <DetailMetric label="关联账户" value={item.relatedAccountName} /> : null}
-                {item.categoryName ? <DetailMetric label="分类" value={item.categoryName} /> : null}
-                {item.assetName || item.symbol ? <DetailMetric label="资产" value={[item.assetName, item.symbol].filter(Boolean).join(' · ')} /> : null}
-                <DetailMetric label="状态" value={ledgerStatusLabel(item.status)} />
-                <DetailMetric label="时间" value={formatFullDateTime(item.transactionTime)} />
-                <DetailMetric label="备注" value={item.note || '--'} />
-              </>
+              <View style={styles.detailMetricGrid}>
+                {chunkDetailMetrics([
+                  { label: '标题', value: item.title || item.categoryName || item.assetName || ledgerTypeLabel(item.bizType) },
+                  { label: '金额', value: formatLedgerAmount(item) },
+                  { label: '类型', value: ledgerTypeLabel(item.bizType) },
+                  { label: '来源', value: sourceTypeLabel(item.sourceType) },
+                  { label: '账户', value: item.accountName || '--' },
+                  item.relatedAccountName ? { label: '关联账户', value: item.relatedAccountName } : null,
+                  item.categoryName ? { label: '分类', value: item.categoryName } : null,
+                  item.assetName || item.symbol ? { label: '资产', value: [item.assetName, item.symbol].filter(Boolean).join(' · ') } : null,
+                  { label: '状态', value: ledgerStatusLabel(item.status) },
+                  { label: '时间', value: formatFullDateTime(item.transactionTime) },
+                  { label: '备注', value: item.note || '--' }
+                ]).map((row, rowIndex) => (
+                  <View key={`detail-row-${rowIndex}`} style={styles.detailMetricRow}>
+                    {row.map((metric, cellIndex) => (
+                      metric ? (
+                        <DetailMetric key={`${metric.label}-${cellIndex}`} label={metric.label} value={metric.value} />
+                      ) : (
+                        <View key={`empty-${cellIndex}`} style={[styles.detailMetric, styles.detailMetricEmpty]} />
+                      )
+                    ))}
+                  </View>
+                ))}
+              </View>
             ) : null}
           </ScrollView>
         </View>
@@ -532,6 +544,14 @@ function ledgerTypeLabel(type?: string | null) {
   return type ? labels[type] || type : '资金明细';
 }
 
+function ledgerRowPrimaryLine(item: AccountLedgerItem) {
+  return [ledgerTypeLabel(item.bizType), item.note].filter(Boolean).join(' · ');
+}
+
+function ledgerRowSecondaryLine(item: AccountLedgerItem) {
+  return [sourceTypeLabel(item.sourceType), formatShortTime(item.transactionTime)].filter(Boolean).join(' · ');
+}
+
 function sourceTypeLabel(type?: string | null) {
   const labels: Record<string, string> = {
     TRANSACTION: '记账流水',
@@ -539,6 +559,15 @@ function sourceTypeLabel(type?: string | null) {
     ADJUSTMENT: '余额修正'
   };
   return type ? labels[type] || type : '账户明细';
+}
+
+function chunkDetailMetrics(items: Array<{ label: string; value: string } | null>) {
+  const filtered = items.filter(Boolean) as Array<{ label: string; value: string }>;
+  const rows: Array<Array<{ label: string; value: string } | null>> = [];
+  for (let index = 0; index < filtered.length; index += 2) {
+    rows.push([filtered[index], filtered[index + 1] ?? null]);
+  }
+  return rows;
 }
 
 function ledgerStatusLabel(status?: string | null) {
@@ -559,6 +588,17 @@ function formatLedgerAmount(item: AccountLedgerItem) {
     return '--';
   }
   return formatSignedMoney(item.amount);
+}
+
+function ledgerAmountColor(item: AccountLedgerItem, theme: ReturnType<typeof useTheme>) {
+  const type = String(item.bizType || '').toUpperCase();
+  if (type === 'INCOME' || type === 'REFUND' || type === 'TRANSFER_IN' || type === 'SELL' || type === 'INVEST_SELL') {
+    return { color: theme.success };
+  }
+  if (type === 'EXPENSE' || type === 'BUY' || type === 'TRANSFER_OUT' || type === 'INVEST_BUY' || type === 'BALANCE_ADJUSTMENT') {
+    return { color: theme.destructive };
+  }
+  return { color: theme.foreground };
 }
 
 function formatShortTime(value?: string | null) {
@@ -931,12 +971,24 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
     choiceTextSelected: {
       color: theme.primaryForeground
     },
+    detailMetricGrid: {
+      gap: 10
+    },
+    detailMetricRow: {
+      flexDirection: 'row',
+      gap: 10
+    },
     detailMetric: {
+      flex: 1,
       borderColor: theme.border,
       borderRadius: 12,
       borderWidth: 1,
       gap: 6,
+      minHeight: 72,
       padding: 12
+    },
+    detailMetricEmpty: {
+      opacity: 0
     },
     detailLabel: {
       fontSize: 13,
