@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -17,12 +18,18 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.util.StringUtils;
+
+import java.util.ArrayList;
 
 /**
  * Spring Security 配置：JWT 无状态认证，登录注册和接口文档放行。
  */
 @Configuration
 public class SecurityConfig {
+
+    @Value("${XOASSETS_CORS_ALLOWED_ORIGINS:}")
+    private String corsAllowedOrigins;
 
     /**
      * 构建安全过滤链：关闭 Session，放行登录注册和接口文档，其余接口要求 JWT。
@@ -66,7 +73,8 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of(
+        // 生产环境可通过环境变量追加域名/IP；最终版也支持直接写 *，避免每次换服务器都改代码。
+        List<String> allowedOriginPatterns = new ArrayList<>(List.of(
                 "http://localhost:[*]",
                 "http://127.0.0.1:[*]",
                 "http://0.0.0.0:[*]",
@@ -75,6 +83,15 @@ public class SecurityConfig {
                 "http://172.*.*.*:[*]",
                 "http://192.168.*.*:[*]"
         ));
+        if (StringUtils.hasText(corsAllowedOrigins)) {
+            for (String origin : corsAllowedOrigins.split(",")) {
+                String trimmed = origin.trim();
+                if (StringUtils.hasText(trimmed)) {
+                    allowedOriginPatterns.add(trimmed);
+                }
+            }
+        }
+        configuration.setAllowedOriginPatterns(allowedOriginPatterns);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With"));
         configuration.setExposedHeaders(List.of("Authorization"));
