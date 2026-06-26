@@ -192,13 +192,13 @@ public class QuoteServiceImpl implements QuoteService {
     private AssetPriceVO refreshQuoteInternal(Long assetId, boolean force) {
         Asset asset = assetService.findAsset(assetId);
         AssetPriceCurrent latestPrice = latestPrice(assetId);
-        if (!force && isOutsideStockRefreshWindow(asset)) {
+//        if (!force && isOutsideStockRefreshWindow(asset)) {
             // 股票行情只在 09:30-15:00 之间主动刷新；非交易时段直接复用最近快照，避免无意义写入。
-            if (latestPrice != null) {
-                return toVO(latestPrice);
-            }
-            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "股票行情仅在交易时段刷新");
-        }
+//            if (latestPrice != null) {
+//                return toVO(latestPrice);
+//            }
+//            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "股票行情仅在交易时段刷新");
+//        }
         if (!force && isFresh(asset, latestPrice)) {
             return toVO(latestPrice);
         }
