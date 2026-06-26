@@ -1,6 +1,6 @@
 services:
   xoassets-mysql:
-    image: mysql:8.4
+    image: mysql:8.0.46
     container_name: xoassets-mysql
     environment:
       MYSQL_ROOT_PASSWORD: root
@@ -20,6 +20,17 @@ services:
       timeout: 3s
       retries: 20
 
+  xoassets-redis:
+    image: redis:7.4.2
+    container_name: xoassets-redis
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:-root}"]
+    environment:
+      TZ: Asia/Shanghai
+    ports:
+      - "6379:6379"
+    volumes:
+      - xoassets-redis-data:/data
+
   xxl-job-admin:
     image: xuxueli/xxl-job-admin:3.4.0
     platform: linux/amd64
@@ -34,6 +45,8 @@ services:
     depends_on:
       xoassets-mysql:
         condition: service_healthy
+      xoassets-redis:
+        condition: service_started
     ports:
       - "8081:8080"
 
@@ -41,10 +54,16 @@ services:
     build:
       context: ./xoassets-server
     container_name: xoassets-server
+    volumes:
+      - ./logs/xoassets-server:/app/logs
     environment:
       XOASSETS_DATASOURCE_URL: jdbc:mysql://xoassets-mysql:3306/xoassets?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
       XOASSETS_DB_USERNAME: root
       XOASSETS_DB_PASSWORD: root
+      XOASSETS_REDIS_HOST: xoassets-redis
+      XOASSETS_REDIS_PORT: 6379
+      XOASSETS_REDIS_PASSWORD: ${REDIS_PASSWORD:-root}
+      XOASSETS_REDIS_DATABASE: 0
       XOASSETS_JWT_SECRET: xoassets-docker-local-secret-key-change-before-production
       XOASSETS_JWT_EXPIRE_MINUTES: 10080
       XXL_JOB_EXECUTOR_ENABLED: true
@@ -57,6 +76,8 @@ services:
     depends_on:
       xoassets-mysql:
         condition: service_healthy
+      xoassets-redis:
+        condition: service_started
       xxl-job-admin:
         condition: service_started
     ports:
@@ -73,3 +94,4 @@ services:
 
 volumes:
   xoassets-mysql-data:
+  xoassets-redis-data:
