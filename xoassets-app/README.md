@@ -98,6 +98,52 @@ npm run android
 - `npm run android` 固定使用本机 OpenJDK 17、Android SDK 和 Metro `8088` 端口。
 - Android 构建前会执行 `scripts/patch-react-native-gradle-repos.js`，用于给 React Native / Expo 的 Gradle 插件和 RN 模块临时补国内 Maven 镜像，避免 Maven Central 403。
 
+### 打包 APK（可直接安装到手机）
+
+当前项目已在 `eas.json` 里增加 `apk` 构建 profile，直接执行：
+
+```bash
+cd xoassets-app
+npm install --global eas-cli
+eas login
+eas build --platform android --profile apk
+```
+
+说明：
+
+- 如果终端提示 `zsh: command not found: eas`，先安装 `eas-cli`，然后重新打开终端再执行。
+- 也可以临时使用 `npx eas-cli@latest ...`，不用全局安装。
+- 这个命令会生成可安装的 `.apk` 文件，适合真机测试、发给同事安装。
+- 如果只是上架 Google Play，一般用 `production` profile 生成 `.aab`，不是 APK。
+- 如需本地构建，也可以用：
+
+```bash
+eas build --platform android --profile apk --local
+```
+
+- `EXPO_PUBLIC_API_BASE_URL` 这类 `EXPO_PUBLIC_*` 环境变量会在构建时注入到 App 里；你现在 `.env` 里的 `http://43.142.119.229:8080` 会被打进 APK。
+- 如果要改后端地址，改完 `.env` 后需要重新打包，旧 APK 不会自动更新。
+- `--local` 表示在本机执行同一套构建流程，依然会读取当前项目的 `.env` / 本机环境变量。
+
+### 缩小 EAS 上传包体
+
+项目根目录下已新增 `.easignore`。
+
+规则：
+
+- `.easignore` 会优先于 `.gitignore`，所以要先把 `.gitignore` 里的内容完整复制进去。
+- 然后再额外排除 EAS 构建不需要的大目录，例如：
+
+```text
+/android
+/ios
+/docs
+/coverage
+```
+
+- 这样可以明显缩小上传包，减少 `Compressed project files` 和 `Uploaded to EAS` 的时间。
+- 如果后续发现某些本地原生修改需要随包上传，再把对应目录从 `.easignore` 里移除。
+
 ### iOS 模拟器
 
 ```bash
